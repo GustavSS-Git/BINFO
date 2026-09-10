@@ -44,7 +44,7 @@ function Index() {
       <section className="py-16 md:py-28">
         <Badge tone="teal">Oberoende beslutsstöd</Badge>
         <h1 className="mt-6 max-w-4xl font-display text-5xl leading-[1.05] tracking-tight text-foreground md:text-7xl">
-          Andra betygsätter huset. Binfo hjälper dig avgöra affären.
+          Andra betygsätter föreningen. Binfo hjälper dig avgöra affären.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
           En oberoende risk- och priskontroll för bostaden du är på väg att buda på.

@@ -152,7 +152,47 @@ export const kalkylDefaults = {
   kontantinsats: 990_000,
   ranta: 3.6,
   bruttoinkomst: 900_000,
+  antalLantagare: 2,
 };
+
+/**
+ * Gällande svenska regler från 1 april 2026.
+ * Amorteringskravet baseras ENBART på belåningsgrad.
+ * Det skärpta kravet (skuldkvot > 4,5×) är slopat.
+ */
+export const amorteringsregler = {
+  bolanetak: 0.9, // minsta kontantinsats 10 %
+  minKontantinsatsAndel: 0.1,
+  bankernasInternaTak: 5.0, // skuldkvot där bankerna brukar dra gränsen
+};
+
+/** Ränteavdrag: 30 % upp till taket per person och år, 21 % däröver. */
+export const ranteavdrag = {
+  takPerPerson: 100_000,
+  lagreSats: 0.3,
+  hogreSats: 0.21,
+};
+
+/** Uppgifter om föreningen — speglar formuläret på Analysera-sidan. */
+export const foreningsUppgifter = {
+  organisationsnummer: "769612-3456",
+  adress: property.adress,
+  postnummer: "116 25",
+  ort: property.ort,
+  antalRum: "3",
+  byggar: String(property.byggar),
+  hiss: true,
+  balkong: true,
+  ingarIAvgiften: ["varme", "vatten", "bredband"],
+};
+
+export const avgiftIngarOptions = [
+  { value: "varme", label: "Värme" },
+  { value: "vatten", label: "Vatten" },
+  { value: "bredband", label: "Bredband" },
+  { value: "tv", label: "TV" },
+  { value: "el", label: "El" },
+];
 
 /** Din andel av föreningens skuld: 8 500 kr/m² × 58 m². */
 export const andelAvSkuld = property.skuldPerKvm * property.boarea; // 493 000 kr
