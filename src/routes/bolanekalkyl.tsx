@@ -44,6 +44,9 @@ function Bolanekalkyl() {
     String(kalkylDefaults.antalLantagare) as "1" | "2",
   );
   const [delta, setDelta] = useState(0);
+  const uppgifter = useUppgifter();
+  // Egna värden som ersätter schablonerna när användaren redigerar en rad.
+  const [egna, setEgna] = useState<Partial<Record<SchablonId, number>>>({});
 
   const r = useMemo(() => {
     const lan = num(lanebelopp);
