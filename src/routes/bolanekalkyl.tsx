@@ -331,3 +331,96 @@ function Bolanekalkyl() {
     </div>
   );
 }
+
+function Rad({
+  label,
+  value,
+  note,
+  negativ,
+}: {
+  label: string;
+  value: number;
+  note?: string;
+  negativ?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <span className="text-sm text-muted-foreground">
+        {label}
+        {note ? <span className="ml-2 text-xs text-muted-foreground/80">({note})</span> : null}
+      </span>
+      <span className={`text-sm font-medium ${negativ ? "text-success" : "text-foreground"}`}>
+        {negativ ? "− " : ""}
+        {kr(value)}
+      </span>
+    </div>
+  );
+}
+
+/** Schablonrad — visuellt tydligt åtskild från kända belopp, och redigerbar. */
+function SchablonRad({
+  label,
+  value,
+  egen,
+  osaker,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  egen: boolean;
+  osaker: boolean;
+  onChange: (v: number) => void;
+}) {
+  const [redigerar, setRedigerar] = useState(false);
+  const [utkast, setUtkast] = useState(String(Math.round(value)));
+
+  const spara = () => {
+    const n = Number(utkast.replace(/\s/g, ""));
+    if (!Number.isNaN(n) && n >= 0) onChange(n);
+    setRedigerar(false);
+  };
+
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-3 py-3 pl-3 ${
+        egen ? "border-l-2 border-border" : "border-l-2 border-dashed border-muted-foreground/40"
+      }`}
+    >
+      <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        {label}
+        <Tag>{egen ? "ditt värde" : "schablon"}</Tag>
+        {osaker ? (
+          <span className="text-xs text-muted-foreground/80">okänt om det ingår i avgiften</span>
+        ) : null}
+      </span>
+      {redigerar ? (
+        <span className="flex items-center gap-2">
+          <input
+            autoFocus
+            value={utkast}
+            onChange={(e) => setUtkast(e.target.value)}
+            onBlur={spara}
+            onKeyDown={(e) => e.key === "Enter" && spara()}
+            className="w-24 rounded-lg border border-input bg-background px-2 py-1 text-right text-sm text-foreground outline-none focus:border-primary"
+          />
+          <span className="text-sm text-muted-foreground">kr</span>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setUtkast(String(Math.round(value)));
+            setRedigerar(true);
+          }}
+          className={`text-sm ${
+            egen
+              ? "font-medium text-foreground"
+              : "font-normal text-muted-foreground underline decoration-dashed underline-offset-4"
+          }`}
+        >
+          {kr(value)}
+        </button>
+      )}
+    </div>
+  );
+}
