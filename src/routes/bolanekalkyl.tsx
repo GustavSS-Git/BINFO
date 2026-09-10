@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Card, Field, PageHeader, Badge, Toggle } from "@/components/ui/binfo";
+import { Card, Field, PageHeader, Badge, Toggle, Tag } from "@/components/ui/binfo";
 import {
   property,
   kalkylDefaults,
@@ -9,6 +9,10 @@ import {
   avgiftPerProcentenhet,
   kr,
 } from "@/data/mockData";
+import type { AvgiftPostId } from "@/data/mockData";
+import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
+import { schabloner } from "@/data/schabloner";
+import type { SchablonId } from "@/data/schabloner";
 
 export const Route = createFileRoute("/bolanekalkyl")({
   head: () => ({
@@ -40,6 +44,9 @@ function Bolanekalkyl() {
     String(kalkylDefaults.antalLantagare) as "1" | "2",
   );
   const [delta, setDelta] = useState(0);
+  const uppgifter = useUppgifter();
+  // Egna värden som ersätter schablonerna när användaren redigerar en rad.
+  const [egna, setEgna] = useState<Partial<Record<SchablonId, number>>>({});
 
   const r = useMemo(() => {
     const lan = num(lanebelopp);
@@ -75,7 +82,37 @@ function Bolanekalkyl() {
       Math.min(arsranta, tak) * ranteavdrag.lagreSats +
       Math.max(0, arsranta - tak) * ranteavdrag.hogreSats;
     const avdrag = avdragAr / 12;
-    const brutto_total = rantekostnad + amortering + avgift;
+    // Schabloner. TODO(backend): ersätts av riktig data från analyspipelinen.
+    const s = schabloner(uppgifter.boarea, uppgifter.antalPersoner);
+    const belopp = (id: SchablonId) => egna[id] ?? s[id];
+
+    const poster: {
+      id: SchablonId;
+      label: string;
+      post: AvgiftPostId | null;
+      belopp: number;
+    }[] = [
+      { id: "el", label: "Hushållsel", post: "el", belopp: belopp("el") },
+      { id: "varme", label: "Värme", post: "varme", belopp: belopp("varme") },
+      { id: "vatten", label: "Vatten", post: "vatten", belopp: belopp("vatten") },
+      { id: "bredband", label: "Bredband", post: "bredband", belopp: belopp("bredband") },
+      {
+        id: "forsakring",
+        label: "Hemförsäkring inkl. bostadsrättstillägg",
+        post: null,
+        belopp: belopp("forsakring"),
+      },
+    ];
+
+    // Ingår posten i avgiften läggs den inte till. Är den okänd ger den
+    // spannets övre gräns, aldrig ett tyst "nej".
+    const boende = poster.filter((p) => (p.post ? uppgifter.ingar[p.post] !== "ja" : true));
+    const sakra = boende.filter((p) => !p.post || uppgifter.ingar[p.post] === "nej");
+    const osakraPoster = boende.filter((p) => p.post && uppgifter.ingar[p.post] === "okant");
+
+    const basis = rantekostnad + amortering + avgift + sakra.reduce((a, p) => a + p.belopp, 0);
+    const bruttoMin = basis;
+    const bruttoMax = basis + osakraPoster.reduce((a, p) => a + p.belopp, 0);
 
     return {
       lan,
@@ -89,10 +126,19 @@ function Bolanekalkyl() {
       amortering,
       avgift,
       avdrag,
-      total: brutto_total,
-      netto: brutto_total - avdrag,
+      boende: boende.map((p) => ({
+        ...p,
+        osaker: p.post ? uppgifter.ingar[p.post] === "okant" : false,
+      })),
+      spann: osakraPoster.length > 0,
+      bruttoMin,
+      bruttoMax,
+      nettoMin: bruttoMin - avdrag,
+      nettoMax: bruttoMax - avdrag,
     };
-  }, [lanebelopp, ranta, kontantinsats, inkomst, lantagare, delta]);
+  }, [lanebelopp, ranta, kontantinsats, inkomst, lantagare, delta, uppgifter, egna]);
+
+  const boende = r.boende;
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-14">
@@ -115,6 +161,12 @@ function Bolanekalkyl() {
               hint="Bolånetaket är 90 % — minst 10 % kontantinsats krävs."
             />
             <Field label="Ränta" suffix="%" value={ranta} onChange={setRanta} />
+            <Field
+              label="Antal personer i hushållet"
+              value={String(uppgifter.antalPersoner)}
+              onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
+              hint="Styr schablonen för vattenkostnad."
+            />
             <Field
               label="Hushållets bruttoinkomst per år"
               suffix="kr"
@@ -166,30 +218,65 @@ function Bolanekalkyl() {
 
         <div className="space-y-6">
           <Card>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Total månadskostnad efter ränteavdrag
-            </p>
-            <p className="mt-2 font-display text-5xl text-foreground">{kr(r.netto)}</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Total månadskostnad (brutto): {kr(r.total)}
-            </p>
-            <div className="mt-6 divide-y divide-border">
-              {[
-                ["Räntekostnad (före ränteavdrag)", r.rantekostnad, false],
-                ["Amortering", r.amortering, false],
-                ["Månadsavgift", r.avgift, false],
-                ["Ränteavdrag", r.avdrag, true],
-              ].map(([label, value, negativ]) => (
-                <div key={label as string} className="flex items-center justify-between py-3">
-                  <span className="text-sm text-muted-foreground">{label as string}</span>
-                  <span
-                    className={`text-sm font-medium ${negativ ? "text-success" : "text-foreground"}`}
-                  >
-                    {negativ ? "− " : ""}
-                    {kr(value as number)}
-                  </span>
-                </div>
-              ))}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Lånekostnad
+              </p>
+              <div className="mt-3 divide-y divide-border">
+                <Rad label="Räntekostnad" value={r.rantekostnad} />
+                <Rad label="Amortering" value={r.amortering} />
+                <Rad label="Ränteavdrag" value={r.avdrag} negativ />
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Boendekostnad
+              </p>
+              <div className="mt-3 divide-y divide-border">
+                <Rad
+                  label="Månadsavgift"
+                  note="från årsredovisningen"
+                  value={r.avgift}
+                />
+                {boende.map((b) => (
+                  <SchablonRad
+                    key={b.id}
+                    label={b.label}
+                    value={b.belopp}
+                    egen={egna[b.id] !== undefined}
+                    osaker={b.osaker}
+                    onChange={(v) => setEgna((e) => ({ ...e, [b.id]: v }))}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-border pt-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Total månadskostnad
+              </p>
+              {r.spann ? (
+                <>
+                  <p className="mt-2 font-display text-4xl text-foreground">
+                    {Math.round(r.nettoMin).toLocaleString("sv-SE")} –{" "}
+                    {kr(r.nettoMax)}/mån
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Beroende på vad som ingår i avgiften.
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 font-display text-5xl text-foreground">
+                  {kr(r.nettoMin)}
+                </p>
+              )}
+              <p className="mt-2 text-sm text-muted-foreground">
+                Efter ränteavdrag. Brutto:{" "}
+                {r.spann
+                  ? `${Math.round(r.bruttoMin).toLocaleString("sv-SE")} – ${kr(r.bruttoMax)}`
+                  : kr(r.bruttoMin)}
+              </p>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
               Ränteavdraget betalas ut via deklarationen, inte månadsvis. Din faktiska likviditet
@@ -247,6 +334,99 @@ function Bolanekalkyl() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Rad({
+  label,
+  value,
+  note,
+  negativ,
+}: {
+  label: string;
+  value: number;
+  note?: string;
+  negativ?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <span className="text-sm text-muted-foreground">
+        {label}
+        {note ? <span className="ml-2 text-xs text-muted-foreground/80">({note})</span> : null}
+      </span>
+      <span className={`text-sm font-medium ${negativ ? "text-success" : "text-foreground"}`}>
+        {negativ ? "− " : ""}
+        {kr(value)}
+      </span>
+    </div>
+  );
+}
+
+/** Schablonrad — visuellt tydligt åtskild från kända belopp, och redigerbar. */
+function SchablonRad({
+  label,
+  value,
+  egen,
+  osaker,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  egen: boolean;
+  osaker: boolean;
+  onChange: (v: number) => void;
+}) {
+  const [redigerar, setRedigerar] = useState(false);
+  const [utkast, setUtkast] = useState(String(Math.round(value)));
+
+  const spara = () => {
+    const n = Number(utkast.replace(/\s/g, ""));
+    if (!Number.isNaN(n) && n >= 0) onChange(n);
+    setRedigerar(false);
+  };
+
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-3 py-3 pl-3 ${
+        egen ? "border-l-2 border-border" : "border-l-2 border-dashed border-muted-foreground/40"
+      }`}
+    >
+      <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        {label}
+        <Tag>{egen ? "ditt värde" : "schablon"}</Tag>
+        {osaker ? (
+          <span className="text-xs text-muted-foreground/80">okänt om det ingår i avgiften</span>
+        ) : null}
+      </span>
+      {redigerar ? (
+        <span className="flex items-center gap-2">
+          <input
+            autoFocus
+            value={utkast}
+            onChange={(e) => setUtkast(e.target.value)}
+            onBlur={spara}
+            onKeyDown={(e) => e.key === "Enter" && spara()}
+            className="w-24 rounded-lg border border-input bg-background px-2 py-1 text-right text-sm text-foreground outline-none focus:border-primary"
+          />
+          <span className="text-sm text-muted-foreground">kr</span>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setUtkast(String(Math.round(value)));
+            setRedigerar(true);
+          }}
+          className={`text-sm ${
+            egen
+              ? "font-medium text-foreground"
+              : "font-normal text-muted-foreground underline decoration-dashed underline-offset-4"
+          }`}
+        >
+          {kr(value)}
+        </button>
+      )}
     </div>
   );
 }

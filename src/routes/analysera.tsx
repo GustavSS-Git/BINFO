@@ -1,8 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Card, Button, Field, Toggle, ChipGroup, PageHeader } from "@/components/ui/binfo";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  Button,
+  Field,
+  Toggle,
+  TristateChoice,
+  PageHeader,
+} from "@/components/ui/binfo";
 import { usePropertyType } from "@/lib/propertyType";
-import { property, foreningsUppgifter, avgiftIngarOptions } from "@/data/mockData";
+import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
+import { property, foreningsUppgifter, avgiftPoster } from "@/data/mockData";
 
 export const Route = createFileRoute("/analysera")({
   head: () => ({
@@ -46,15 +54,16 @@ function Analysera() {
     antalRum: foreningsUppgifter.antalRum,
     byggar: foreningsUppgifter.byggar,
   });
-  const [hiss, setHiss] = useState<"ja" | "nej">(foreningsUppgifter.hiss ? "ja" : "nej");
-  const [balkong, setBalkong] = useState<"ja" | "nej">(
-    foreningsUppgifter.balkong ? "ja" : "nej",
-  );
-  const [ingar, setIngar] = useState<string[]>(foreningsUppgifter.ingarIAvgiften);
+  const uppgifter = useUppgifter();
+
+  // Klick på säkerhetsmätaren i rapporten länkar hit med #vet-ej.
+  useEffect(() => {
+    if (window.location.hash === "#vet-ej") {
+      document.getElementById("vet-ej")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const toggleIngar = (v: string) =>
-    setIngar((c) => (c.includes(v) ? c.filter((x) => x !== v) : [...c, v]));
 
   const fel = {
     organisationsnummer: !orgnrRegex.test(form.organisationsnummer.trim())
@@ -133,7 +142,15 @@ function Analysera() {
         <h2 className="font-display text-2xl text-foreground">Objektets uppgifter</h2>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field label="Utgångspris" suffix="kr" value={form.utgangspris} onChange={set("utgangspris")} />
-          <Field label="Boarea" suffix="m²" value={form.boarea} onChange={set("boarea")} />
+          <Field
+            label="Boarea"
+            suffix="m²"
+            value={form.boarea}
+            onChange={(v) => {
+              set("boarea")(v);
+              setUppgifter({ boarea: Number(v) || 0 });
+            }}
+          />
           <Field label="Våning" value={form.vaning} onChange={set("vaning")} />
           <Field label="Månadsavgift" suffix="kr/mån" value={form.manadsavgift} onChange={set("manadsavgift")} />
           <Field label="Andelstal" suffix="%" value={form.andelstal} onChange={set("andelstal")} />
@@ -142,6 +159,12 @@ function Analysera() {
             value={form.antalRum}
             onChange={set("antalRum")}
             error={visaFel ? fel.antalRum : null}
+          />
+          <Field
+            label="Antal personer i hushållet"
+            value={String(uppgifter.antalPersoner)}
+            onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
+            hint="Används för schablonen för vattenkostnad."
           />
         </div>
       </Card>
@@ -185,41 +208,51 @@ function Analysera() {
           <Field label="Byggår" optional value={form.byggar} onChange={set("byggar")} />
         </div>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <div id="vet-ej" className="mt-8 scroll-mt-24 grid gap-6 md:grid-cols-2">
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
               Hiss <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
             </span>
-            <Toggle
-              value={hiss}
-              onChange={setHiss}
-              options={[
-                { value: "ja", label: "Ja" },
-                { value: "nej", label: "Nej" },
-              ]}
+            <TristateChoice
+              value={uppgifter.hiss}
+              onChange={(v) => setUppgifter({ hiss: v })}
             />
           </div>
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
-              Balkong <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+              Balkong{" "}
+              <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
             </span>
-            <Toggle
-              value={balkong}
-              onChange={setBalkong}
-              options={[
-                { value: "ja", label: "Ja" },
-                { value: "nej", label: "Nej" },
-              ]}
+            <TristateChoice
+              value={uppgifter.balkong}
+              onChange={(v) => setUppgifter({ balkong: v })}
             />
           </div>
         </div>
 
-        <div className="mt-6">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Vad ingår i avgiften?{" "}
-            <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+        <div className="mt-8">
+          <span className="block text-sm font-medium text-foreground">
+            Vad ingår i avgiften?
           </span>
-          <ChipGroup options={avgiftIngarOptions} values={ingar} onToggle={toggleIngar} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann i stället
+            för att gissa.
+          </p>
+          <div className="mt-4 space-y-3">
+            {avgiftPoster.map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+              >
+                <span className="text-sm text-foreground">{p.label}</span>
+                <TristateChoice
+                  value={uppgifter.ingar[p.id]}
+                  onChange={(v) => setIngar(p.id, v)}
+                  labels={{ ja: "Ingår", nej: "Ingår ej" }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-4">

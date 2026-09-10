@@ -182,6 +182,53 @@ export const ranteavdrag = {
   hogreSats: 0.21,
 };
 
+/**
+ * Tre lägen för alla osäkra uppgifter. "okant" är alltid förvalt —
+ * ett okänt värde får aldrig se ut som ett "nej".
+ */
+export type Tristate = "ja" | "nej" | "okant";
+
+export type AvgiftPostId = "varme" | "vatten" | "el" | "bredband" | "tv";
+
+export const avgiftPoster: { id: AvgiftPostId; label: string }[] = [
+  { id: "varme", label: "Värme" },
+  { id: "vatten", label: "Vatten" },
+  { id: "el", label: "El" },
+  { id: "bredband", label: "Bredband" },
+  { id: "tv", label: "TV" },
+];
+
+/** Bakåtkompatibelt alias för äldre anrop. */
+export const avgiftIngarOptions = avgiftPoster.map((p) => ({
+  value: p.id,
+  label: p.label,
+}));
+
+/**
+ * Varje osäkert attribut modelleras som värde + säkerhet, aldrig som ett
+ * platt värde.
+ * TODO(backend): säkerheten ska styra analysens konfidensintervall.
+ */
+export type Osaker<T> = { varde: T; sakerhet: "kand" | "okand" };
+
+const okand = <T,>(varde: T): Osaker<T> => ({ varde, sakerhet: "okand" });
+
+export const osakraUppgifter: {
+  hiss: Osaker<Tristate>;
+  balkong: Osaker<Tristate>;
+  ingarIAvgiften: Record<AvgiftPostId, Osaker<Tristate>>;
+} = {
+  hiss: okand<Tristate>("okant"),
+  balkong: okand<Tristate>("okant"),
+  ingarIAvgiften: {
+    varme: okand<Tristate>("okant"),
+    vatten: okand<Tristate>("okant"),
+    el: okand<Tristate>("okant"),
+    bredband: okand<Tristate>("okant"),
+    tv: okand<Tristate>("okant"),
+  },
+};
+
 /** Uppgifter om föreningen — speglar formuläret på Analysera-sidan. */
 export const foreningsUppgifter = {
   organisationsnummer: "769612-3456",
@@ -190,18 +237,7 @@ export const foreningsUppgifter = {
   ort: property.ort,
   antalRum: "3",
   byggar: String(property.byggar),
-  hiss: true,
-  balkong: true,
-  ingarIAvgiften: ["varme", "vatten", "bredband"],
 };
-
-export const avgiftIngarOptions = [
-  { value: "varme", label: "Värme" },
-  { value: "vatten", label: "Vatten" },
-  { value: "bredband", label: "Bredband" },
-  { value: "tv", label: "TV" },
-  { value: "el", label: "El" },
-];
 
 /** Din andel av föreningens skuld: 8 500 kr/m² × 58 m². */
 export const andelAvSkuld = property.skuldPerKvm * property.boarea; // 493 000 kr
