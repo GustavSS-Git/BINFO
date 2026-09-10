@@ -30,3 +30,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Real annual reports used for testing. These are third-party documents and may
+# name individuals — keep them out of the repo entirely.
+/samples/
+/fixtures/pdf/
+/annual reports examples/
+
+# Pipeline scratch output
+/tmp/
+*.extraction.json
