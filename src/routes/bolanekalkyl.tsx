@@ -162,6 +162,12 @@ function Bolanekalkyl() {
             />
             <Field label="Ränta" suffix="%" value={ranta} onChange={setRanta} />
             <Field
+              label="Antal personer i hushållet"
+              value={String(uppgifter.antalPersoner)}
+              onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
+              hint="Styr schablonen för vattenkostnad."
+            />
+            <Field
               label="Hushållets bruttoinkomst per år"
               suffix="kr"
               value={inkomst}
