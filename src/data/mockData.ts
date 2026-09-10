@@ -4,7 +4,16 @@
  *
  * TODO(pipeline): this object is the shape the real analysis pipeline
  * (PDF-parsning av årsredovisning + värderingsdata) should return.
+ * TODO(payment): betalintegrationen (Stripe/Swish) kopplas in i
+ * src/routes/forhandsvisning.tsx och låser upp /analys.
  */
+
+/**
+ * Så länge denna är true körs appen helt på mockdata,
+ * även om en backend finns kopplad. Sätt false när
+ * analyspipelinen är på plats.
+ */
+export const USE_MOCK_DATA = true;
 
 export type Status = "green" | "amber" | "red";
 export type PropertyType = "brf" | "hus";
