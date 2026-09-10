@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Card, Button, Badge, StatusDot, SectionTitle, PageHeader, LinkButton } from "@/components/ui/binfo";
+import { Card, Button, Badge, StatusDot, SectionTitle, PageHeader, LinkButton, Tag } from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
+import { useUppgifter, sakerhet } from "@/lib/uppgifter";
 import {
   nyckeltal,
   prisjamforelse,
