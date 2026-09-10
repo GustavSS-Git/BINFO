@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode, ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import type { Status } from "@/data/mockData";
+import type { Status, Tristate } from "@/data/mockData";
 
 /* Delade byggstenar för hela Binfo. Håll all styling här — inte i skärmarna. */
 

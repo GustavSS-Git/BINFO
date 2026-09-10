@@ -1,8 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Card, Button, Field, Toggle, ChipGroup, PageHeader } from "@/components/ui/binfo";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  Button,
+  Field,
+  Toggle,
+  TristateChoice,
+  PageHeader,
+} from "@/components/ui/binfo";
 import { usePropertyType } from "@/lib/propertyType";
-import { property, foreningsUppgifter, avgiftIngarOptions } from "@/data/mockData";
+import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
+import { property, foreningsUppgifter, avgiftPoster } from "@/data/mockData";
 
 export const Route = createFileRoute("/analysera")({
   head: () => ({
