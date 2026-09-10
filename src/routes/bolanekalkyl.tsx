@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Card, Field, PageHeader, Badge, Toggle } from "@/components/ui/binfo";
+import { Card, Field, PageHeader, Badge, Toggle, Tag } from "@/components/ui/binfo";
 import {
   property,
   kalkylDefaults,
@@ -9,6 +9,10 @@ import {
   avgiftPerProcentenhet,
   kr,
 } from "@/data/mockData";
+import type { AvgiftPostId } from "@/data/mockData";
+import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
+import { schabloner } from "@/data/schabloner";
+import type { SchablonId } from "@/data/schabloner";
 
 export const Route = createFileRoute("/bolanekalkyl")({
   head: () => ({
