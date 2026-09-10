@@ -20,7 +20,7 @@ export const Route = createFileRoute("/guide")({
       },
     ],
   }),
-  component: Guide;
+  component: Guide,
 });
 
 type Steg = {
