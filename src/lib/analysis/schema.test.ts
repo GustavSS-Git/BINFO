@@ -1,0 +1,231 @@
+import { describe, expect, it } from "vitest";
+import {
+  AnalysisResultSchema,
+  ExtractionResultSchema,
+  FigureSchema,
+  KeyFigureIdSchema,
+  TristateSchema,
+} from "./schema";
+import type { AnalysisResult, ExtractionResult, Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
+
+const ALLA_NYCKELTAL_ID: KeyFigureId[] = [
+  "arsavgift_per_m2_brf_yta",
+  "arsavgift_andel_av_rorelseintakter",
+  "skuldsattning_per_m2_totalyta",
+  "skuldsattning_per_m2_brf_yta",
+  "sparande_per_m2_totalyta",
+  "rantekanslighet",
+  "energikostnad_per_m2_totalyta",
+];
+
+function nyckeltal(): KeyFigure[] {
+  return ALLA_NYCKELTAL_ID.map((id) => ({
+    id,
+    label: id,
+    figure: { value: 100, unit: "kr/m2", source: "arsredovisning", ref: { page: 4 } },
+    status: "god",
+    forklaring: "Testförklaring.",
+  }));
+}
+
+const validExtractionResult: ExtractionResult = {
+  schemaVersion: "1.0.0",
+  forening: {
+    namn: "Brf Testgården",
+    orgnr: "769612-3456",
+    akta: "ja",
+    rakenskapsar: 2025,
+    keyFigures: nyckeltal(),
+  },
+  datakvalitet: {
+    pdfSaknarTextlager: false,
+    extraktionKonfidens: { niva: "hog" },
+    saknadeFalt: [],
+  },
+};
+
+const validAnalysisResult: AnalysisResult = {
+  schemaVersion: "1.0.0",
+  analysisId: "test-1",
+  skapad: "2026-09-10T00:00:00.000Z",
+  input: {
+    kind: "bostadsratt",
+    utgangspris: 4_950_000,
+    boarea: 58,
+    antalRum: 3,
+    manadsavgift: 3_240,
+    andelstal: 2.1,
+    orgnr: "769612-3456",
+    adress: "Kapellgränd 12",
+    postnummer: "116 25",
+    ort: "Stockholm",
+    hiss: "okant",
+    balkong: "okant",
+    avgiftInkluderar: { varme: "nej", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" },
+    antalPersoner: 2,
+    antalLantagare: 2,
+  },
+  forening: validExtractionResult.forening,
+  betyg: "B",
+  betygMotivering: "Stabil förening.",
+  rodaFlaggor: [],
+  prisanalys: {
+    utgangspris: { value: 4_950_000, unit: "kr", source: "anvandare" },
+    prisPerM2: { value: 85_345, unit: "kr/m2", source: "berakning" },
+    slutsats: "Rimligt utgångspris.",
+    konfidens: { niva: "hog" },
+  },
+  rantestress: {
+    rantekanslighetProcent: 12.7,
+    nuvarandeManadsavgift: {
+      value: 3_240,
+      unit: "kr/man",
+      source: "arsredovisning",
+      ref: { page: 5 },
+    },
+    scenarier: [
+      {
+        okningPe: 0,
+        nyManadsavgift: { value: 3_240, unit: "kr/man", source: "berakning" },
+        avgiftsokningKrPerManad: { value: 0, unit: "kr/man", source: "berakning" },
+      },
+    ],
+    kommentar: "Avgiften är känslig för ränteuppgångar.",
+  },
+  manadskostnad: {
+    poster: [],
+    totalBrutto: { value: 5_000, unit: "kr/man", source: "berakning" },
+    totalNetto: { value: 4_500, unit: "kr/man", source: "berakning" },
+    amortering: {
+      belaningsgrad: 80,
+      skuldkvot: 4.5,
+      tillampadAmorteringstakt: 2,
+      overBankernasTypiskaTak: false,
+    },
+    ranteavdragPerAr: { value: 30_000, unit: "kr", source: "berakning" },
+  },
+  fragor: [],
+  datakvalitet: {
+    ...validExtractionResult.datakvalitet,
+    uppgifterKanda: 5,
+    uppgifterTotalt: 7,
+  },
+  gratisSektioner: ["betyg", "datakvalitet"],
+};
+
+describe("TristateSchema", () => {
+  it("accepterar ja/nej/okant", () => {
+    expect(TristateSchema.safeParse("ja").success).toBe(true);
+    expect(TristateSchema.safeParse("nej").success).toBe(true);
+    expect(TristateSchema.safeParse("okant").success).toBe(true);
+  });
+
+  it("avvisar boolean och null — okänt får aldrig se ut som falskt", () => {
+    expect(TristateSchema.safeParse(true).success).toBe(false);
+    expect(TristateSchema.safeParse(false).success).toBe(false);
+    expect(TristateSchema.safeParse(null).success).toBe(false);
+    expect(TristateSchema.safeParse("yes").success).toBe(false);
+  });
+});
+
+describe("FigureSchema", () => {
+  const beraknad: Figure = { value: 100, unit: "kr", source: "berakning" };
+
+  it("accepterar en beräknad figur utan ref eller schablonBasis", () => {
+    expect(FigureSchema.safeParse(beraknad).success).toBe(true);
+  });
+
+  it("kräver PageRef när source är 'arsredovisning' — en siffra utan citat kan inte visas", () => {
+    const utanRef: Figure = { value: 100, unit: "kr", source: "arsredovisning" };
+    const r = FigureSchema.safeParse(utanRef);
+    expect(r.success).toBe(false);
+
+    const medRef: Figure = { ...utanRef, ref: { page: 4 } };
+    expect(FigureSchema.safeParse(medRef).success).toBe(true);
+  });
+
+  it("kräver schablonBasis när source är 'schablon' — en gissning får aldrig se ut som ett faktum", () => {
+    const utanBasis: Figure = { value: 250, unit: "kr/man", source: "schablon" };
+    expect(FigureSchema.safeParse(utanBasis).success).toBe(false);
+
+    const medBasis: Figure = { ...utanBasis, schablonBasis: "250 kr + 8 kr/m²" };
+    expect(FigureSchema.safeParse(medBasis).success).toBe(true);
+  });
+
+  it("avvisar en enhet utanför den tillåtna listan", () => {
+    const felaktig = { ...beraknad, unit: "sek" };
+    expect(FigureSchema.safeParse(felaktig).success).toBe(false);
+  });
+
+  it("avvisar okända extra fält (modellen har hallucinerat en nyckel)", () => {
+    const extraFalt = { ...beraknad, konfidensprocent: 99 };
+    expect(FigureSchema.safeParse(extraFalt).success).toBe(false);
+  });
+});
+
+describe("KeyFigureIdSchema", () => {
+  it("accepterar alla sju lagstadgade nyckeltal", () => {
+    for (const id of ALLA_NYCKELTAL_ID) {
+      expect(KeyFigureIdSchema.safeParse(id).success).toBe(true);
+    }
+  });
+
+  it("avvisar ett id som inte finns i BFNAR 2023:1-listan", () => {
+    expect(KeyFigureIdSchema.safeParse("nagot_pahittat_nyckeltal").success).toBe(false);
+  });
+});
+
+describe("ExtractionResultSchema", () => {
+  it("accepterar en fullständig, giltig extraktion", () => {
+    const r = ExtractionResultSchema.safeParse(validExtractionResult);
+    expect(r.success).toBe(true);
+  });
+
+  it("kräver samtliga sju nyckeltal — extraktionen får inte tyst utelämna ett", () => {
+    const ofullstandig = structuredClone(validExtractionResult);
+    ofullstandig.forening.keyFigures = ofullstandig.forening.keyFigures.filter(
+      (k) => k.id !== "rantekanslighet",
+    );
+    expect(ExtractionResultSchema.safeParse(ofullstandig).success).toBe(false);
+  });
+
+  it("avvisar ett dubblerat nyckeltal-id", () => {
+    const dubblett = structuredClone(validExtractionResult);
+    dubblett.forening.keyFigures[6] = { ...dubblett.forening.keyFigures[0]! };
+    expect(ExtractionResultSchema.safeParse(dubblett).success).toBe(false);
+  });
+
+  it("accepterar ett nyckeltal med value: null — figuren finns kvar även om talet saknas i rapporten", () => {
+    const saknatVarde = structuredClone(validExtractionResult);
+    saknatVarde.forening.keyFigures[0]!.figure.value = null;
+    saknatVarde.forening.keyFigures[0]!.figure.source = "berakning"; // null → inget citat att kräva
+    saknatVarde.forening.keyFigures[0]!.status = "okant";
+    expect(ExtractionResultSchema.safeParse(saknatVarde).success).toBe(true);
+  });
+});
+
+describe("AnalysisResultSchema", () => {
+  it("accepterar ett fullständigt, giltigt analysresultat", () => {
+    const r = AnalysisResultSchema.safeParse(validAnalysisResult);
+    expect(r.success).toBe(true);
+  });
+
+  it("avvisar när ett obligatoriskt fält saknas (malformad modell-JSON)", () => {
+    const trasig = structuredClone(validAnalysisResult) as unknown as Record<string, unknown>;
+    delete trasig["betyg"];
+    expect(AnalysisResultSchema.safeParse(trasig).success).toBe(false);
+  });
+
+  it("avvisar tillampadAmorteringstakt: 3 — det skärpta kravet är slopat, får aldrig förekomma", () => {
+    const trasig = structuredClone(validAnalysisResult);
+    // @ts-expect-error — testar just att schemat fångar ett otillåtet värde
+    trasig.manadskostnad.amortering.tillampadAmorteringstakt = 3;
+    expect(AnalysisResultSchema.safeParse(trasig).success).toBe(false);
+  });
+
+  it("avvisar en okänd sektion i gratisSektioner", () => {
+    const trasig = structuredClone(validAnalysisResult) as unknown as Record<string, unknown>;
+    (trasig["gratisSektioner"] as string[]).push("hela_rapporten");
+    expect(AnalysisResultSchema.safeParse(trasig).success).toBe(false);
+  });
+});
