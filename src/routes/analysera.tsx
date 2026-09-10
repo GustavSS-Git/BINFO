@@ -142,7 +142,15 @@ function Analysera() {
         <h2 className="font-display text-2xl text-foreground">Objektets uppgifter</h2>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field label="Utgångspris" suffix="kr" value={form.utgangspris} onChange={set("utgangspris")} />
-          <Field label="Boarea" suffix="m²" value={form.boarea} onChange={set("boarea")} />
+          <Field
+            label="Boarea"
+            suffix="m²"
+            value={form.boarea}
+            onChange={(v) => {
+              set("boarea")(v);
+              setUppgifter({ boarea: Number(v) || 0 });
+            }}
+          />
           <Field label="Våning" value={form.vaning} onChange={set("vaning")} />
           <Field label="Månadsavgift" suffix="kr/mån" value={form.manadsavgift} onChange={set("manadsavgift")} />
           <Field label="Andelstal" suffix="%" value={form.andelstal} onChange={set("andelstal")} />
@@ -151,6 +159,12 @@ function Analysera() {
             value={form.antalRum}
             onChange={set("antalRum")}
             error={visaFel ? fel.antalRum : null}
+          />
+          <Field
+            label="Antal personer i hushållet"
+            value={String(uppgifter.antalPersoner)}
+            onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
+            hint="Används för schablonen för vattenkostnad."
           />
         </div>
       </Card>
