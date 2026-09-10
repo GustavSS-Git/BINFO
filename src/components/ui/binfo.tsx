@@ -15,7 +15,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card p-6 shadow-[0_1px_2px_rgba(22,32,46,0.04)] md:p-8",
+        "rounded-lg border border-border bg-card p-6 shadow-[0_1px_2px_color-mix(in_oklab,var(--foreground)_4%,transparent)] md:p-8",
         className,
       )}
     >
@@ -154,7 +154,7 @@ export function Callout({
       : "border-primary/25 bg-primary/[0.05]";
   const titleColor = variant === "flag" ? "text-danger" : "text-primary";
   return (
-    <div className={cn("rounded-xl border p-4", styles)}>
+    <div className={cn("rounded-lg border p-4", styles)}>
       <p className={cn("text-xs font-semibold uppercase tracking-wide", titleColor)}>
         {title}
       </p>
@@ -181,13 +181,13 @@ export function Field({
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-foreground">{label}</span>
-      <div className="flex items-center rounded-xl border border-input bg-background focus-within:border-primary">
+      <div className="flex items-center rounded-lg border border-input bg-background focus-within:border-primary">
         <input
           type={type}
           value={value}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-xl bg-transparent px-4 py-2.5 text-sm text-foreground outline-none"
+          className="w-full rounded-lg bg-transparent px-4 py-2.5 text-sm text-foreground outline-none"
         />
         {suffix ? (
           <span className="pr-4 text-sm text-muted-foreground">{suffix}</span>
@@ -207,14 +207,14 @@ export function Toggle<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="inline-flex rounded-full border border-border bg-secondary p-1">
+    <div className="inline-flex rounded-lg border border-border bg-secondary p-1">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            "rounded-full px-5 py-2 text-sm font-medium transition-colors",
+            "rounded-md px-5 py-2 text-sm font-medium transition-colors",
             value === o.value
               ? "bg-card text-foreground shadow-[0_1px_2px_rgba(22,32,46,0.08)]"
               : "text-muted-foreground hover:text-foreground",
