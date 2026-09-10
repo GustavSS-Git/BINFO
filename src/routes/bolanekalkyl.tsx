@@ -173,30 +173,65 @@ function Bolanekalkyl() {
 
         <div className="space-y-6">
           <Card>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Total månadskostnad efter ränteavdrag
-            </p>
-            <p className="mt-2 font-display text-5xl text-foreground">{kr(r.netto)}</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Total månadskostnad (brutto): {kr(r.total)}
-            </p>
-            <div className="mt-6 divide-y divide-border">
-              {[
-                ["Räntekostnad (före ränteavdrag)", r.rantekostnad, false],
-                ["Amortering", r.amortering, false],
-                ["Månadsavgift", r.avgift, false],
-                ["Ränteavdrag", r.avdrag, true],
-              ].map(([label, value, negativ]) => (
-                <div key={label as string} className="flex items-center justify-between py-3">
-                  <span className="text-sm text-muted-foreground">{label as string}</span>
-                  <span
-                    className={`text-sm font-medium ${negativ ? "text-success" : "text-foreground"}`}
-                  >
-                    {negativ ? "− " : ""}
-                    {kr(value as number)}
-                  </span>
-                </div>
-              ))}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Lånekostnad
+              </p>
+              <div className="mt-3 divide-y divide-border">
+                <Rad label="Räntekostnad" value={r.rantekostnad} />
+                <Rad label="Amortering" value={r.amortering} />
+                <Rad label="Ränteavdrag" value={r.avdrag} negativ />
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Boendekostnad
+              </p>
+              <div className="mt-3 divide-y divide-border">
+                <Rad
+                  label="Månadsavgift"
+                  note="från årsredovisningen"
+                  value={r.avgift}
+                />
+                {boende.map((b) => (
+                  <SchablonRad
+                    key={b.id}
+                    label={b.label}
+                    value={b.belopp}
+                    egen={egna[b.id] !== undefined}
+                    osaker={b.osaker}
+                    onChange={(v) => setEgna((e) => ({ ...e, [b.id]: v }))}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-border pt-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Total månadskostnad
+              </p>
+              {r.spann ? (
+                <>
+                  <p className="mt-2 font-display text-4xl text-foreground">
+                    {Math.round(r.nettoMin).toLocaleString("sv-SE")} –{" "}
+                    {kr(r.nettoMax)}/mån
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Beroende på vad som ingår i avgiften.
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 font-display text-5xl text-foreground">
+                  {kr(r.nettoMin)}
+                </p>
+              )}
+              <p className="mt-2 text-sm text-muted-foreground">
+                Efter ränteavdrag. Brutto:{" "}
+                {r.spann
+                  ? `${Math.round(r.bruttoMin).toLocaleString("sv-SE")} – ${kr(r.bruttoMax)}`
+                  : kr(r.bruttoMin)}
+              </p>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
               Ränteavdraget betalas ut via deklarationen, inte månadsvis. Din faktiska likviditet
