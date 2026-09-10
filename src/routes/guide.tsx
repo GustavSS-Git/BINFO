@@ -263,7 +263,7 @@ function Guide() {
                     type="button"
                     onClick={() => setOpen(isOpen ? null : s.id)}
                     aria-expanded={isOpen}
-                    className="flex-1 text-left"
+                    className="min-w-0 flex-1 text-left"
                   >
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Steg {i + 1}
