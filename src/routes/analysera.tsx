@@ -54,15 +54,16 @@ function Analysera() {
     antalRum: foreningsUppgifter.antalRum,
     byggar: foreningsUppgifter.byggar,
   });
-  const [hiss, setHiss] = useState<"ja" | "nej">(foreningsUppgifter.hiss ? "ja" : "nej");
-  const [balkong, setBalkong] = useState<"ja" | "nej">(
-    foreningsUppgifter.balkong ? "ja" : "nej",
-  );
-  const [ingar, setIngar] = useState<string[]>(foreningsUppgifter.ingarIAvgiften);
+  const uppgifter = useUppgifter();
+
+  // Klick på säkerhetsmätaren i rapporten länkar hit med #vet-ej.
+  useEffect(() => {
+    if (window.location.hash === "#vet-ej") {
+      document.getElementById("vet-ej")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const toggleIngar = (v: string) =>
-    setIngar((c) => (c.includes(v) ? c.filter((x) => x !== v) : [...c, v]));
 
   const fel = {
     organisationsnummer: !orgnrRegex.test(form.organisationsnummer.trim())
