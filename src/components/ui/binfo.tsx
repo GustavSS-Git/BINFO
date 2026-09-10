@@ -253,6 +253,68 @@ export function ChipGroup({
   );
 }
 
+/**
+ * Tre lägen för osäkra uppgifter. "Vet ej" är förvalt och hålls visuellt
+ * neutralt och nedtonat — det ska inte kännas som ett fel att välja det.
+ */
+export function TristateChoice({
+  value,
+  onChange,
+  labels = { ja: "Ja", nej: "Nej" },
+  id,
+}: {
+  value: Tristate;
+  onChange: (v: Tristate) => void;
+  labels?: { ja: string; nej: string };
+  id?: string;
+}) {
+  const options: { value: Tristate; label: string }[] = [
+    { value: "ja", label: labels.ja },
+    { value: "nej", label: labels.nej },
+    { value: "okant", label: "Vet ej" },
+  ];
+  return (
+    <div id={id} className="inline-flex rounded-lg border border-border bg-secondary p-1">
+      {options.map((o) => {
+        const active = value === o.value;
+        const okant = o.value === "okant";
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "rounded-md px-4 py-2 text-sm transition-colors",
+              active
+                ? okant
+                  ? "border border-dashed border-border bg-card/70 font-normal text-muted-foreground"
+                  : "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(22,32,46,0.08)]"
+                : "font-medium text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Liten grå tagg, t.ex. "schablon" eller "ditt värde". */
+export function Tag({ children, muted = true }: { children: ReactNode; muted?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+        muted ? "bg-secondary text-muted-foreground" : "bg-primary/10 text-primary",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function Toggle<T extends string>({
   options,
   value,
