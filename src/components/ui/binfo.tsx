@@ -170,6 +170,9 @@ export function Field({
   onChange,
   type = "number",
   placeholder,
+  optional,
+  hint,
+  error,
 }: {
   label: string;
   suffix?: string;
@@ -177,11 +180,24 @@ export function Field({
   onChange: (v: string) => void;
   type?: string;
   placeholder?: string;
+  optional?: boolean;
+  hint?: string;
+  error?: string | null;
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-foreground">{label}</span>
-      <div className="flex items-center rounded-lg border border-input bg-background focus-within:border-primary">
+      <span className="mb-1.5 block text-sm font-medium text-foreground">
+        {label}
+        {optional ? (
+          <span className="ml-2 text-xs font-normal text-muted-foreground">(valfritt)</span>
+        ) : null}
+      </span>
+      <div
+        className={cn(
+          "flex items-center rounded-lg border bg-background focus-within:border-primary",
+          error ? "border-danger" : "border-input",
+        )}
+      >
         <input
           type={type}
           value={value}
@@ -193,7 +209,47 @@ export function Field({
           <span className="pr-4 text-sm text-muted-foreground">{suffix}</span>
         ) : null}
       </div>
+      {error ? (
+        <span className="mt-1.5 block text-xs text-danger">{error}</span>
+      ) : hint ? (
+        <span className="mt-1.5 block text-xs text-muted-foreground">{hint}</span>
+      ) : null}
     </label>
+  );
+}
+
+/** Flervalsknappar (t.ex. vad som ingår i avgiften). */
+export function ChipGroup({
+  options,
+  values,
+  onToggle,
+}: {
+  options: { value: string; label: string }[];
+  values: string[];
+  onToggle: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const active = values.includes(o.value);
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggle(o.value)}
+            className={cn(
+              "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+              active
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-background text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
