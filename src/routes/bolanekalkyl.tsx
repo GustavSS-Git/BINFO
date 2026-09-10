@@ -82,7 +82,37 @@ function Bolanekalkyl() {
       Math.min(arsranta, tak) * ranteavdrag.lagreSats +
       Math.max(0, arsranta - tak) * ranteavdrag.hogreSats;
     const avdrag = avdragAr / 12;
-    const brutto_total = rantekostnad + amortering + avgift;
+    // Schabloner. TODO(backend): ersätts av riktig data från analyspipelinen.
+    const s = schabloner(uppgifter.boarea, uppgifter.antalPersoner);
+    const belopp = (id: SchablonId) => egna[id] ?? s[id];
+
+    const poster: {
+      id: SchablonId;
+      label: string;
+      post: AvgiftPostId | null;
+      belopp: number;
+    }[] = [
+      { id: "el", label: "Hushållsel", post: "el", belopp: belopp("el") },
+      { id: "varme", label: "Värme", post: "varme", belopp: belopp("varme") },
+      { id: "vatten", label: "Vatten", post: "vatten", belopp: belopp("vatten") },
+      { id: "bredband", label: "Bredband", post: "bredband", belopp: belopp("bredband") },
+      {
+        id: "forsakring",
+        label: "Hemförsäkring inkl. bostadsrättstillägg",
+        post: null,
+        belopp: belopp("forsakring"),
+      },
+    ];
+
+    // Ingår posten i avgiften läggs den inte till. Är den okänd ger den
+    // spannets övre gräns, aldrig ett tyst "nej".
+    const boende = poster.filter((p) => (p.post ? uppgifter.ingar[p.post] !== "ja" : true));
+    const sakra = boende.filter((p) => !p.post || uppgifter.ingar[p.post] === "nej");
+    const osakraPoster = boende.filter((p) => p.post && uppgifter.ingar[p.post] === "okant");
+
+    const basis = rantekostnad + amortering + avgift + sakra.reduce((a, p) => a + p.belopp, 0);
+    const bruttoMin = basis;
+    const bruttoMax = basis + osakraPoster.reduce((a, p) => a + p.belopp, 0);
 
     return {
       lan,
@@ -96,10 +126,19 @@ function Bolanekalkyl() {
       amortering,
       avgift,
       avdrag,
-      total: brutto_total,
-      netto: brutto_total - avdrag,
+      boende: boende.map((p) => ({
+        ...p,
+        osaker: p.post ? uppgifter.ingar[p.post] === "okant" : false,
+      })),
+      spann: osakraPoster.length > 0,
+      bruttoMin,
+      bruttoMax,
+      nettoMin: bruttoMin - avdrag,
+      nettoMax: bruttoMax - avdrag,
     };
-  }, [lanebelopp, ranta, kontantinsats, inkomst, lantagare, delta]);
+  }, [lanebelopp, ranta, kontantinsats, inkomst, lantagare, delta, uppgifter, egna]);
+
+  const boende = r.boende;
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-14">
