@@ -41,7 +41,7 @@ export const rodaFlaggor = [
   },
   {
     titel: "58 % av lånen omsätts inom 12 månader",
-    text: "Snitträntan är i dag 1,94 %. Vid omsättning till 4 % ökar föreningens räntekostnad med ca 890 000 kr per år — motsvarande cirka 1 560 kr/mån för den här lägenheten.",
+    text: "Snitträntan är i dag 1,94 %. Vid omsättning till 4 % ökar föreningens räntekostnad med cirka 516 000 kr per år — motsvarande ungefär 490 kr/mån för den här lägenheten.",
   },
 ];
 
@@ -89,10 +89,10 @@ export const nyckeltal: {
   },
   {
     namn: "Räntekänslighet",
-    varde: "9,8 %",
+    varde: "12,7 %",
     status: "red",
     forklaring:
-      "Så mycket avgiften behöver höjas om räntan stiger med en procentenhet. Över 8 % betyder tydlig känslighet.",
+      "Så mycket avgiften behöver höjas om räntan stiger en procentenhet och slår igenom på hela lånestocken. Över 8 % räknas som tydligt känsligt.",
   },
   {
     namn: "Energikostnad per kvadratmeter",
@@ -153,6 +153,15 @@ export const kalkylDefaults = {
   ranta: 3.6,
   bruttoinkomst: 900_000,
 };
+
+/** Din andel av föreningens skuld: 8 500 kr/m² × 58 m². */
+export const andelAvSkuld = property.skuldPerKvm * property.boarea; // 493 000 kr
+
+/** Andel av lånen som omsätts inom 12 månader. */
+export const omsattsInom12Man = 0.58;
+
+/** Avgiftspåslag per procentenhet högre ränta, full genomslagseffekt. */
+export const avgiftPerProcentenhet = (andelAvSkuld * 0.01) / 12; // ca 411 kr/mån
 
 export function kr(n: number): string {
   return Math.round(n).toLocaleString("sv-SE") + " kr";

@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalyseraRouteImport } from './routes/analysera'
+import { Route as ForhandsvisningRouteImport } from './routes/forhandsvisning'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalyseraRoute = AnalyseraRouteImport.update({
+  id: '/analysera',
+  path: '/analysera',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForhandsvisningRoute = ForhandsvisningRouteImport.update({
+  id: '/forhandsvisning',
+  path: '/forhandsvisning',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analysera': typeof AnalyseraRoute
+  '/forhandsvisning': typeof ForhandsvisningRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analysera': typeof AnalyseraRoute
+  '/forhandsvisning': typeof ForhandsvisningRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analysera': typeof AnalyseraRoute
+  '/forhandsvisning': typeof ForhandsvisningRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/analysera' | '/forhandsvisning'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/analysera' | '/forhandsvisning'
+  id: '__root__' | '/' | '/analysera' | '/forhandsvisning'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalyseraRoute: typeof AnalyseraRoute
+  ForhandsvisningRoute: typeof ForhandsvisningRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analysera': {
+      id: '/analysera'
+      path: '/analysera'
+      fullPath: '/analysera'
+      preLoaderRoute: typeof AnalyseraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forhandsvisning': {
+      id: '/forhandsvisning'
+      path: '/forhandsvisning'
+      fullPath: '/forhandsvisning'
+      preLoaderRoute: typeof ForhandsvisningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalyseraRoute: AnalyseraRoute,
+  ForhandsvisningRoute: ForhandsvisningRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
