@@ -36,6 +36,7 @@ function FullAnalys() {
   return (
     <div className="mx-auto max-w-4xl px-5 py-14">
       <PageHeader eyebrow="Steg 3 av 3 · Upplåst" title="Fullständig analys" />
+      <Sakerhetsmatare />
       <PropertySummary />
 
       <Card className="mb-6 flex flex-wrap items-center gap-6">
@@ -196,10 +197,65 @@ function Rantestress() {
   );
 }
 
+/** Analysens säkerhet — hur många av de osäkra uppgifterna som är kända. */
+function Sakerhetsmatare() {
+  const s = sakerhet(useUppgifter());
+  const andel = s.totalt > 0 ? s.kanda / s.totalt : 1;
+
+  return (
+    <Link
+      to="/analysera"
+      hash="vet-ej"
+      className="mb-6 block rounded-lg border border-border bg-card/60 px-5 py-4 transition-colors hover:bg-secondary"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-sm text-muted-foreground">
+          Analysens säkerhet: {s.kanda} av {s.totalt} uppgifter kända
+        </span>
+        <span className="text-xs text-muted-foreground/80">
+          {s.okanda.length > 0 ? "Klicka för att fylla i det som saknas" : "Alla uppgifter ifyllda"}
+        </span>
+      </div>
+      <div className="mt-3 h-1 w-full rounded-full bg-secondary">
+        <div
+          className="h-1 rounded-full bg-primary transition-[width]"
+          style={{ width: `${Math.round(andel * 100)}%` }}
+        />
+      </div>
+    </Link>
+  );
+}
+
 function Fragor() {
-  const [checked, setChecked] = useState<number[]>([]);
-  const toggle = (i: number) =>
-    setChecked((c) => (c.includes(i) ? c.filter((x) => x !== i) : [...c, i]));
+  const [checked, setChecked] = useState<string[]>([]);
+  const toggle = (k: string) =>
+    setChecked((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
+  // Varje fält som står på "Vet ej" genererar automatiskt en fråga.
+  const okanda = sakerhet(useUppgifter()).okanda;
+
+  const rad = (f: string, auto = false) => (
+    <li key={f}>
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl p-3 hover:bg-secondary">
+        <input
+          type="checkbox"
+          checked={checked.includes(f)}
+          onChange={() => toggle(f)}
+          className="mt-0.5 size-4 accent-[var(--primary)]"
+        />
+        <span
+          className={`text-sm ${
+            checked.includes(f)
+              ? "text-muted-foreground line-through"
+              : auto
+                ? "text-muted-foreground"
+                : "text-foreground"
+          }`}
+        >
+          {f}
+        </span>
+      </label>
+    </li>
+  );
 
   return (
     <section>
@@ -207,25 +263,20 @@ function Fragor() {
         Frågor att ställa
       </SectionTitle>
       <Card>
-        <ul className="space-y-3">
-          {fragorAttStalla.map((f, i) => (
-            <li key={f}>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl p-3 hover:bg-secondary">
-                <input
-                  type="checkbox"
-                  checked={checked.includes(i)}
-                  onChange={() => toggle(i)}
-                  className="mt-0.5 size-4 accent-[var(--primary)]"
-                />
-                <span
-                  className={`text-sm ${checked.includes(i) ? "text-muted-foreground line-through" : "text-foreground"}`}
-                >
-                  {f}
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
+        <ul className="space-y-3">{fragorAttStalla.map((f) => rad(f))}</ul>
+
+        {okanda.length > 0 ? (
+          <div className="mt-8 rounded-lg border border-dashed border-border p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-sm font-semibold text-foreground">Uppgifter som saknas</h3>
+              <Tag>auto</Tag>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Genererade av fält som står på ”Vet ej”. Svaren gör analysen säkrare.
+            </p>
+            <ul className="mt-3 space-y-2">{okanda.map((o) => rad(o.fraga, true))}</ul>
+          </div>
+        ) : null}
       </Card>
     </section>
   );
