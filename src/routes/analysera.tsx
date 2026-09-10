@@ -208,41 +208,51 @@ function Analysera() {
           <Field label="Byggår" optional value={form.byggar} onChange={set("byggar")} />
         </div>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <div id="vet-ej" className="mt-8 scroll-mt-24 grid gap-6 md:grid-cols-2">
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
               Hiss <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
             </span>
-            <Toggle
-              value={hiss}
-              onChange={setHiss}
-              options={[
-                { value: "ja", label: "Ja" },
-                { value: "nej", label: "Nej" },
-              ]}
+            <TristateChoice
+              value={uppgifter.hiss}
+              onChange={(v) => setUppgifter({ hiss: v })}
             />
           </div>
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
-              Balkong <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+              Balkong{" "}
+              <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
             </span>
-            <Toggle
-              value={balkong}
-              onChange={setBalkong}
-              options={[
-                { value: "ja", label: "Ja" },
-                { value: "nej", label: "Nej" },
-              ]}
+            <TristateChoice
+              value={uppgifter.balkong}
+              onChange={(v) => setUppgifter({ balkong: v })}
             />
           </div>
         </div>
 
-        <div className="mt-6">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Vad ingår i avgiften?{" "}
-            <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+        <div className="mt-8">
+          <span className="block text-sm font-medium text-foreground">
+            Vad ingår i avgiften?
           </span>
-          <ChipGroup options={avgiftIngarOptions} values={ingar} onToggle={toggleIngar} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann i stället
+            för att gissa.
+          </p>
+          <div className="mt-4 space-y-3">
+            {avgiftPoster.map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+              >
+                <span className="text-sm text-foreground">{p.label}</span>
+                <TristateChoice
+                  value={uppgifter.ingar[p.id]}
+                  onChange={(v) => setIngar(p.id, v)}
+                  labels={{ ja: "Ingår", nej: "Ingår ej" }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-4">
