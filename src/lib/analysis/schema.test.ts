@@ -23,7 +23,12 @@ function nyckeltal(): KeyFigure[] {
   return ALLA_NYCKELTAL_ID.map((id) => ({
     id,
     label: id,
-    figure: { value: 100, unit: "kr/m2", source: "arsredovisning", ref: { page: 4 } },
+    figure: {
+      value: 100,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt: "Testcitat från rapporten" },
+    },
     status: "god",
     forklaring: "Testförklaring.",
   }));
@@ -82,7 +87,7 @@ const validAnalysisResult: AnalysisResult = {
       value: 3_240,
       unit: "kr/man",
       source: "arsredovisning",
-      ref: { page: 5 },
+      ref: { page: 5, excerpt: "Månadsavgiften uppgår till 3 240 kr" },
     },
     scenarier: [
       {
@@ -141,8 +146,44 @@ describe("FigureSchema", () => {
     const r = FigureSchema.safeParse(utanRef);
     expect(r.success).toBe(false);
 
-    const medRef: Figure = { ...utanRef, ref: { page: 4 } };
+    const medRef: Figure = { ...utanRef, ref: { page: 4, excerpt: "Beloppet uppgår till 100 kr" } };
     expect(FigureSchema.safeParse(medRef).success).toBe(true);
+  });
+
+  it("kräver excerpt på ref:en när source är 'arsredovisning' — en sidhänvisning utan citat bevisar ingenting", () => {
+    const utanExcerpt: Figure = {
+      value: 100,
+      unit: "kr",
+      source: "arsredovisning",
+      ref: { page: 4 },
+    };
+    expect(FigureSchema.safeParse(utanExcerpt).success).toBe(false);
+
+    const tomExcerpt: Figure = {
+      value: 100,
+      unit: "kr",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt: "" },
+    };
+    expect(FigureSchema.safeParse(tomExcerpt).success).toBe(false);
+
+    const medExcerpt: Figure = {
+      value: 100,
+      unit: "kr",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt: "Beloppet uppgår till 100 kr" },
+    };
+    expect(FigureSchema.safeParse(medExcerpt).success).toBe(true);
+  });
+
+  it("kräver INTE excerpt för andra källor — endast arsredovisning kräver ett citat", () => {
+    const berak: Figure = {
+      value: 100,
+      unit: "kr",
+      source: "berakning",
+      ref: { page: 4 },
+    };
+    expect(FigureSchema.safeParse(berak).success).toBe(true);
   });
 
   it("kräver schablonBasis när source är 'schablon' — en gissning får aldrig se ut som ett faktum", () => {

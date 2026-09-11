@@ -16,7 +16,12 @@ function nyckeltal(): KeyFigure[] {
   return ALLA_NYCKELTAL_ID.map((id) => ({
     id,
     label: id,
-    figure: { value: 100, unit: "kr/m2", source: "arsredovisning", ref: { page: 4 } },
+    figure: {
+      value: 100,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt: "Testcitat från rapporten" },
+    },
     status: "god",
     forklaring: "Testförklaring.",
   }));

@@ -61,13 +61,22 @@ export const FigureSchema = z
   })
   .strict()
   .superRefine((figure, ctx) => {
-    if (figure.source === "arsredovisning" && !figure.ref) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["ref"],
-        message:
-          "En figur med source 'arsredovisning' måste ha en PageRef — en siffra utan citat kan inte visas.",
-      });
+    if (figure.source === "arsredovisning") {
+      if (!figure.ref) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ref"],
+          message:
+            "En figur med source 'arsredovisning' måste ha en PageRef — en siffra utan citat kan inte visas.",
+        });
+      } else if (!figure.ref.excerpt) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ref", "excerpt"],
+          message:
+            "En figur med source 'arsredovisning' måste ha ett excerpt — en sidhänvisning utan citat bevisar ingenting för köparen.",
+        });
+      }
     }
     if (figure.source === "schablon" && !figure.schablonBasis) {
       ctx.addIssue({
