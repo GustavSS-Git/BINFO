@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { rantestressScenario } from "./rantestress";
+import { SaknarRantekanslighetError, beraknaRantestress, rantestressScenario } from "./rantestress";
+import type { Forening, KeyFigure, PropertyInput } from "@/types/analysis";
 
 describe("rantestressScenario", () => {
   // Rantekänslighet är redan den statutory nyckeltalet "hur många procent
