@@ -3,6 +3,7 @@ import {
   AnalysisResultSchema,
   ExtractionResultSchema,
   FigureSchema,
+  ForeningSchema,
   KeyFigureIdSchema,
   TristateSchema,
 } from "./schema";
@@ -172,6 +173,67 @@ describe("KeyFigureIdSchema", () => {
 
   it("avvisar ett id som inte finns i BFNAR 2023:1-listan", () => {
     expect(KeyFigureIdSchema.safeParse("nagot_pahittat_nyckeltal").success).toBe(false);
+  });
+});
+
+describe("ForeningSchema", () => {
+  const bas = structuredClone(validExtractionResult.forening);
+
+  it("accepterar avgiftInkluderarEnligtForening — vad rapporten själv anger ingår i avgiften", () => {
+    const med = {
+      ...bas,
+      avgiftInkluderarEnligtForening: {
+        varme: "ja",
+        vatten: "ja",
+        el: "nej",
+        bredband: "ja",
+        tv: "okant",
+      },
+    };
+    expect(ForeningSchema.safeParse(med).success).toBe(true);
+  });
+
+  it("avgiftInkluderarEnligtForening är valfritt — rapporten säger ofta inget om detta alls", () => {
+    expect(ForeningSchema.safeParse(bas).success).toBe(true);
+  });
+
+  it("kommandeAtgarder accepterar ref per post — inte längre en platt sträng-array", () => {
+    const med = {
+      ...bas,
+      underhallsplan: {
+        finns: "ja",
+        kommandeAtgarder: [
+          { text: "Stambyte planerat 2029", ref: { page: 6 } },
+          { text: "Fasadrenovering 2031" }, // ingen exakt sida hittad — ska ändå godkännas
+        ],
+      },
+    };
+    const r = ForeningSchema.safeParse(med);
+    expect(r.success).toBe(true);
+  });
+
+  it("avvisar kommandeAtgarder som en platt sträng-array (gamla formen)", () => {
+    const gammalForm = {
+      ...bas,
+      underhallsplan: { finns: "ja", kommandeAtgarder: ["Stambyte planerat 2029"] },
+    };
+    expect(ForeningSchema.safeParse(gammalForm).success).toBe(false);
+  });
+
+  it("vasentligaHandelser accepterar en post utan ref — flaggas genom frånvaron av ref, döljs aldrig", () => {
+    const med = {
+      ...bas,
+      vasentligaHandelser: [{ text: "Styrelsen har beslutat om en avgiftshöjning." }],
+    };
+    expect(ForeningSchema.safeParse(med).success).toBe(true);
+  });
+
+  it("vasentligaHandelser accepterar fortfarande en post med ref", () => {
+    const med = {
+      ...bas,
+      vasentligaHandelser: [{ text: "Avgiftshöjning beslutad.", ref: { page: 7 } }],
+    };
+    expect(ForeningSchema.safeParse(med).success).toBe(true);
   });
 });
 

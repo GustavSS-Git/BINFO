@@ -145,6 +145,16 @@ export interface Forening {
   rakenskapsar: number;           // which financial year the report covers
   keyFigures: KeyFigure[];        // all seven, even when value is null
 
+  /** What the annual report itself states is covered by the fee, per item.
+   *  `okant` when the report doesn't address that item. This is the
+   *  report-stated default — PropertyInput.avgiftInkluderar is the
+   *  effective value used by calculations, pre-filled from this at
+   *  orchestration time and user-overridable from there. Keeping both
+   *  means the frontend can always show "enligt rapporten" next to the
+   *  user's (possibly overridden) answer, never silently replacing one
+   *  with the other. */
+  avgiftInkluderarEnligtForening?: FeeInclusion;
+
   lanebok?: {
     totalSkuld: Figure;
     /** Maturity ladder — how much reprices when. Drives stress realism. */
@@ -155,13 +165,27 @@ export interface Forening {
   underhallsplan?: {
     finns: Tristate;
     senastUppdaterad?: number;
-    kommandeAtgarder?: string[];
+    /** Each planned action cited on its own — a single shared ref on the
+     *  whole underhållsplan can't correctly cite items that come from
+     *  different pages (e.g. the plan's update date vs. a specific
+     *  planned stambyte mentioned elsewhere in the report). `ref` is
+     *  optional per item: when the model can't pin an exact page for a
+     *  specific action, the item still ships rather than being dropped —
+     *  the frontend renders an unreffed item distinctly, the same way it
+     *  already must for a `schablon` figure. Absence of ref IS the flag;
+     *  no separate "unverified" field. */
+    kommandeAtgarder?: Array<{ text: string; ref?: PageRef }>;
+    /** Cites the general underhållsplan statement (e.g. "uppdaterad 2024") —
+     *  separate from each action's own ref above. */
     ref?: PageRef;
   };
 
   /** "Väsentliga händelser" and anything after the balance sheet date. Often
-   *  where the real risk is disclosed in prose rather than in the figures. */
-  vasentligaHandelser?: Array<{ text: string; ref: PageRef }>;
+   *  where the real risk is disclosed in prose rather than in the figures.
+   *  ref is optional for the same reason as kommandeAtgarder above — an
+   *  event the model can't precisely cite still ships, flagged by the
+   *  missing ref, rather than being silently dropped. */
+  vasentligaHandelser?: Array<{ text: string; ref?: PageRef }>;
 }
 
 // ---------------------------------------------------------------------------

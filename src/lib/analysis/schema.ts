@@ -184,6 +184,7 @@ export const ForeningSchema = z
     totalyta: FigureSchema.optional(),
     rakenskapsar: z.number().int(),
     keyFigures: KeyFiguresArraySchema,
+    avgiftInkluderarEnligtForening: FeeInclusionSchema.optional(),
     lanebok: z
       .object({
         totalSkuld: FigureSchema,
@@ -202,13 +203,15 @@ export const ForeningSchema = z
       .object({
         finns: TristateSchema,
         senastUppdaterad: z.number().optional(),
-        kommandeAtgarder: z.array(z.string()).optional(),
+        kommandeAtgarder: z
+          .array(z.object({ text: z.string(), ref: PageRefSchema.optional() }).strict())
+          .optional(),
         ref: PageRefSchema.optional(),
       })
       .strict()
       .optional(),
     vasentligaHandelser: z
-      .array(z.object({ text: z.string(), ref: PageRefSchema }).strict())
+      .array(z.object({ text: z.string(), ref: PageRefSchema.optional() }).strict())
       .optional(),
   })
   .strict();
