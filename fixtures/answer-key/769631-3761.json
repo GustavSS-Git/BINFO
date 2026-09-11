@@ -1,0 +1,18 @@
+{
+  "orgnr": "769631-3761",
+  "namn": "Riksbyggen Brf Näcken 2 i Umeå",
+  "kalla": {
+    "fil": "Riksbyggen 2 årsredovisning.pdf",
+    "forvaltare": "Riksbyggen",
+    "verifieradMot": "sida 7 (Flerårsöversikt)"
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 1275,
+    "arsavgift_andel_av_rorelseintakter": 93,
+    "skuldsattning_per_m2_totalyta": 11100,
+    "skuldsattning_per_m2_brf_yta": 11100,
+    "sparande_per_m2_totalyta": 337,
+    "rantekanslighet": 8.7,
+    "energikostnad_per_m2_totalyta": 194
+  }
+}

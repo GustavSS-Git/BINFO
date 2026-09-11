@@ -1,0 +1,22 @@
+{
+  "orgnr": "743000-3215",
+  "namn": "Riksbyggen Brf Helsingborgshus nr 17",
+  "kalla": {
+    "fil": "Årsredovisning_2025_Riksbyggen.pdf",
+    "forvaltare": "Riksbyggen",
+    "verifieradMot": "sida 8 (Flerårsöversikt), sida 23 (lånebok)"
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 984,
+    "arsavgift_andel_av_rorelseintakter": 90,
+    "skuldsattning_per_m2_totalyta": 2941,
+    "skuldsattning_per_m2_brf_yta": 3263,
+    "sparande_per_m2_totalyta": 296,
+    "rantekanslighet": 3.2,
+    "energikostnad_per_m2_totalyta": 238
+  },
+  "lanebok": {
+    "totalSkuld": 49211830,
+    "snittranta": 2.6757
+  }
+}

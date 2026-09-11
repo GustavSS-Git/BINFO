@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "extract": "tsx src/lib/analysis/cli.ts"
+    "extract": "tsx src/lib/analysis/cli.ts",
+    "verify-extraction": "tsx src/lib/analysis/verifyAnswerKey.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

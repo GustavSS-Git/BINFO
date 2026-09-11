@@ -1,0 +1,18 @@
+{
+  "orgnr": "769616-3273",
+  "namn": "Brf Hökensgata 1",
+  "kalla": {
+    "fil": "Nabo 2 årsredovisning.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "sida 8 (Flerårsöversikt, PDF-sida — tryckt \"Sida 6 av 18\")"
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 357,
+    "arsavgift_andel_av_rorelseintakter": 28.9,
+    "skuldsattning_per_m2_totalyta": 4465,
+    "skuldsattning_per_m2_brf_yta": 6011,
+    "sparande_per_m2_totalyta": 266,
+    "rantekanslighet": 16.85,
+    "energikostnad_per_m2_totalyta": 219
+  }
+}

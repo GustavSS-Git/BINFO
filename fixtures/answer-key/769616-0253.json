@@ -1,0 +1,18 @@
+{
+  "orgnr": "769616-0253",
+  "namn": "Brf Granen 10-11",
+  "kalla": {
+    "fil": "Nabo årsredovisning.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "sida 9 (Flerårsöversikt, PDF-sida — tryckt \"Sida 7 av 19\")"
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 1006,
+    "arsavgift_andel_av_rorelseintakter": 80.1,
+    "skuldsattning_per_m2_totalyta": 7955,
+    "skuldsattning_per_m2_brf_yta": 8990,
+    "sparande_per_m2_totalyta": 145,
+    "rantekanslighet": 9.09,
+    "energikostnad_per_m2_totalyta": 301
+  }
+}

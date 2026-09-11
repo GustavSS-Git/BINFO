@@ -1,0 +1,18 @@
+{
+  "orgnr": "746000-1865",
+  "namn": "Brf Albohem",
+  "kalla": {
+    "fil": "SBC årsredovisning.pdf",
+    "forvaltare": "SBC",
+    "verifieradMot": "sida 7 (Flerårsöversikt, PDF-sida — tryckt \"Sida 5 av 17\")"
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 834,
+    "arsavgift_andel_av_rorelseintakter": 98.7,
+    "skuldsattning_per_m2_totalyta": 3188,
+    "skuldsattning_per_m2_brf_yta": 3186,
+    "sparande_per_m2_totalyta": 141,
+    "rantekanslighet": 3.82,
+    "energikostnad_per_m2_totalyta": 250
+  }
+}

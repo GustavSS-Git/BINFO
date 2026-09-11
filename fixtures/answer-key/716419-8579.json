@@ -1,0 +1,18 @@
+{
+  "orgnr": "716419-8579",
+  "namn": "Bostadsrättsföreningen Torsborgen 3",
+  "kalla": {
+    "fil": "Årsredovisning 2025.pdf",
+    "forvaltare": "HSB",
+    "verifieradMot": "sida 5 (Flerårsöversikt)"
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 784,
+    "arsavgift_andel_av_rorelseintakter": 94,
+    "skuldsattning_per_m2_totalyta": 2039,
+    "skuldsattning_per_m2_brf_yta": 2118,
+    "sparande_per_m2_totalyta": 64,
+    "rantekanslighet": 3,
+    "energikostnad_per_m2_totalyta": 295
+  }
+}
