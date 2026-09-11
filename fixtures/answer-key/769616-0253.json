@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "Nabo årsredovisning.pdf",
     "forvaltare": "Nabo",
-    "verifieradMot": "sida 9 (Flerårsöversikt, PDF-sida — tryckt \"Sida 7 av 19\")"
+    "verifieradMot": "sida 9 (Flerårsöversikt, PDF-sida — tryckt \"Sida 7 av 19\"), sida 15 (avgiftsinkludering)"
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 1006,
@@ -14,5 +14,12 @@
     "sparande_per_m2_totalyta": 145,
     "rantekanslighet": 9.09,
     "energikostnad_per_m2_totalyta": 301
+  },
+  "avgiftInkluderar": {
+    "varme": "ja",
+    "vatten": "ja",
+    "el": "ja",
+    "bredband": "ja",
+    "tv": "ja"
   }
 }

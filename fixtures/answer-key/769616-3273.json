@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "Nabo 2 årsredovisning.pdf",
     "forvaltare": "Nabo",
-    "verifieradMot": "sida 8 (Flerårsöversikt, PDF-sida — tryckt \"Sida 6 av 18\")"
+    "verifieradMot": "sida 8 (Flerårsöversikt, PDF-sida — tryckt \"Sida 6 av 18\"; samma sida nämner även att el inte ingår), sida 14 (avgiftsinkludering för övriga poster)"
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 357,
@@ -14,5 +14,12 @@
     "sparande_per_m2_totalyta": 266,
     "rantekanslighet": 16.85,
     "energikostnad_per_m2_totalyta": 219
+  },
+  "avgiftInkluderar": {
+    "varme": "ja",
+    "vatten": "ja",
+    "el": "nej",
+    "bredband": "ja",
+    "tv": "ja"
   }
 }
