@@ -48,12 +48,23 @@ function findTextBlock(content: Array<{ type: string; text?: string }>): string 
   return block?.text;
 }
 
-/** Strips a ```json ... ``` (or bare ```) fence if the model wrapped its
- *  answer in one despite being told not to — common enough to normalize
- *  rather than just fail on. */
-function stripMarkdownFence(text: string): string {
-  const match = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/.exec(text.trim());
-  return match?.[1] ?? text;
+/**
+ * Strips a ```json ... ``` (or bare ```) fence if the model wrapped its
+ * answer in one despite being told not to — common enough to normalize
+ * rather than just fail on. Strips a leading fence marker even without a
+ * matching trailing one: a response truncated by max_tokens before the
+ * closing ``` appears would otherwise never match, leaving the fence in
+ * place and guaranteeing a JSON.parse failure on top of the truncation.
+ */
+export function stripMarkdownFence(text: string): string {
+  const trimmed = text.trim();
+  const withClosing = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/.exec(trimmed);
+  if (withClosing?.[1]) return withClosing[1];
+
+  const openingOnly = /^```(?:json)?\s*\n([\s\S]*)$/.exec(trimmed);
+  if (openingOnly?.[1]) return openingOnly[1];
+
+  return text;
 }
 
 /**
@@ -106,7 +117,7 @@ export async function runExtraction(
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
     maxOutputTokensGrounding = 8000,
-    maxOutputTokensExtraction = 8000,
+    maxOutputTokensExtraction = 12000,
   } = options;
 
   // Step 0 — cheap local check, no API spend. A scanned PDF must fail
