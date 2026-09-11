@@ -1,7 +1,8 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { jamforVarde } from "./answerKey";
+import { jamforTristate, jamforVarde } from "./answerKey";
 import { runExtraction } from "./runExtraction";
+import type { FeeInclusion } from "@/types/analysis";
 
 /**
  * PIPELINE.md step 5's harness: runs pass 1 against every fixture in
@@ -19,6 +20,7 @@ interface AnswerKeyFixture {
   kalla: { fil: string; forvaltare: string; verifieradMot: string };
   nyckeltal: Record<string, number>;
   lanebok?: { totalSkuld?: number; snittranta?: number };
+  avgiftInkluderar?: Partial<FeeInclusion>;
 }
 
 try {
@@ -107,6 +109,22 @@ async function main() {
       console.log(
         `  ${r.godkand ? "✓" : "✗"} lanebok.snittranta: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}${avvikelse}`,
       );
+    }
+
+    if (fixture.avgiftInkluderar) {
+      const faktisktInkluderar = extraction.forening.avgiftInkluderarEnligtForening;
+      for (const [post, forvantat] of Object.entries(fixture.avgiftInkluderar)) {
+        const r = jamforTristate(
+          `avgiftInkluderar.${post}`,
+          faktisktInkluderar?.[post as keyof FeeInclusion],
+          forvantat,
+        );
+        totalFalt++;
+        if (r.godkand) godkanda++;
+        console.log(
+          `  ${r.godkand ? "✓" : "✗"} avgiftInkluderar.${post}: förväntat "${r.forvantat}", fick "${r.faktiskt ?? "saknas"}"`,
+        );
+      }
     }
 
     console.log(`  (${spentSek.toFixed(2)} kr)`);

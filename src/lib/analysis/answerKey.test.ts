@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jamforVarde } from "./answerKey";
+import { jamforTristate, jamforVarde } from "./answerKey";
 
 describe("jamforVarde", () => {
   it("godkänner exakt likhet vid tolerans 'exakt'", () => {
@@ -48,5 +48,33 @@ describe("jamforVarde", () => {
     const under = jamforVarde("x", 90, 100, "ungefar");
     expect(over.avvikelseProcent).toBeCloseTo(10);
     expect(under.avvikelseProcent).toBeCloseTo(10);
+  });
+});
+
+describe("jamforTristate", () => {
+  it("godkänner exakt likhet", () => {
+    // Riksbyggen, verifierat mot sida 15: "I årsavgiften ingår kostnader
+    // för bredband, kabel-tv, vatten och värme."
+    const r = jamforTristate("varme", "ja", "ja");
+    expect(r.godkand).toBe(true);
+  });
+
+  it("underkänner en felaktig gissning — t.ex. 'nej' när rapporten inte alls tar ställning", () => {
+    // SBC, verifierat mot sida 7: "Kostnader för medlemmarnas
+    // elförbrukning ingår inte i årsavgiften."
+    const r = jamforTristate("el", "okant", "nej");
+    expect(r.godkand).toBe(false);
+  });
+
+  it("underkänner alltid ett saknat värde (undefined)", () => {
+    const r = jamforTristate("el", undefined, "nej");
+    expect(r.godkand).toBe(false);
+  });
+
+  it("skiljer 'okant' från 'nej' — okänt är inte samma sak som falskt", () => {
+    const okantMotNej = jamforTristate("el", "okant", "nej");
+    const nejMotNej = jamforTristate("el", "nej", "nej");
+    expect(okantMotNej.godkand).toBe(false);
+    expect(nejMotNej.godkand).toBe(true);
   });
 });

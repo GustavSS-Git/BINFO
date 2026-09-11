@@ -5,6 +5,8 @@
  * can't pass, regardless of tolerance.
  */
 
+import type { Tristate } from "@/types/analysis";
+
 export type Tolerans = "exakt" | "ungefar";
 
 export interface FieldComparisonResult {
@@ -32,4 +34,25 @@ export function jamforVarde(
 
   const avvikelseProcent = Math.abs(((faktiskt - forvantat) / forvantat) * 100);
   return { falt, forvantat, faktiskt, godkand: avvikelseProcent <= 1, avvikelseProcent };
+}
+
+export interface TristateComparisonResult {
+  falt: string;
+  forvantat: Tristate;
+  faktiskt: Tristate | undefined;
+  godkand: boolean;
+}
+
+/**
+ * Always exact — a tolerance concept doesn't apply to a categorical
+ * ja/nej/okant answer. 'okant' is never treated as equal to 'nej': the
+ * whole point of Tristate is that unknown and false are different facts,
+ * so the comparison must honor that distinction rather than flatten it.
+ */
+export function jamforTristate(
+  falt: string,
+  faktiskt: Tristate | undefined,
+  forvantat: Tristate,
+): TristateComparisonResult {
+  return { falt, forvantat, faktiskt, godkand: faktiskt === forvantat };
 }

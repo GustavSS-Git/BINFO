@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "SBC årsredovisning.pdf",
     "forvaltare": "SBC",
-    "verifieradMot": "sida 7 (Flerårsöversikt, PDF-sida — tryckt \"Sida 5 av 17\")"
+    "verifieradMot": "sida 7 (Flerårsöversikt, PDF-sida — tryckt \"Sida 5 av 17\"), avgiftsinkludering nämnd i löptext"
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 834,
@@ -14,5 +14,12 @@
     "sparande_per_m2_totalyta": 141,
     "rantekanslighet": 3.82,
     "energikostnad_per_m2_totalyta": 250
+  },
+  "avgiftInkluderar": {
+    "varme": "ja",
+    "vatten": "ja",
+    "tv": "ja",
+    "el": "nej",
+    "bredband": "okant"
   }
 }

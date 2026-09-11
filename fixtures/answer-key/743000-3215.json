@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "Årsredovisning_2025_Riksbyggen.pdf",
     "forvaltare": "Riksbyggen",
-    "verifieradMot": "sida 8 (Flerårsöversikt), sida 23 (lånebok)"
+    "verifieradMot": "sida 8 (Flerårsöversikt), sida 15 (avgiftsinkludering), sida 23 (lånebok)"
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 984,
@@ -18,5 +18,12 @@
   "lanebok": {
     "totalSkuld": 49211830,
     "snittranta": 2.6757
+  },
+  "avgiftInkluderar": {
+    "varme": "ja",
+    "vatten": "ja",
+    "bredband": "ja",
+    "tv": "ja",
+    "el": "okant"
   }
 }
