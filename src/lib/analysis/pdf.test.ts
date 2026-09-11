@@ -40,4 +40,13 @@ describe("extractPdfText", () => {
     expect(result.totalPages).toBe(1);
     expect(result.pdfSaknarTextlager).toBe(true);
   });
+
+  it("detacherar sin input-buffer (unpdf/pdf.js transfererar den) — en anropare som behöver bytesen efteråt (t.ex. för att skicka PDF:en vidare till API:et) måste skicka in en kopia", async () => {
+    const data = new Uint8Array(await fixture("med-text.pdf"));
+    expect(data.byteLength).toBeGreaterThan(0);
+
+    await extractPdfText(data);
+
+    expect(data.byteLength).toBe(0);
+  });
 });

@@ -43,12 +43,40 @@ export interface RunExtractionResult {
   spentSek: number;
 }
 
-function findTextBlock(content: Array<{ type: string; text?: string }>): string {
+function findTextBlock(content: Array<{ type: string; text?: string }>): string | undefined {
   const block = content.find((b) => b.type === "text" && typeof b.text === "string");
-  if (!block?.text) {
-    throw new Error("Modellsvaret innehöll inget textblock att tolka som JSON.");
+  return block?.text;
+}
+
+/** Strips a ```json ... ``` (or bare ```) fence if the model wrapped its
+ *  answer in one despite being told not to — common enough to normalize
+ *  rather than just fail on. */
+function stripMarkdownFence(text: string): string {
+  const match = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/.exec(text.trim());
+  return match?.[1] ?? text;
+}
+
+/**
+ * Parses the model's JSON reply, but never throws — an unterminated string
+ * from a truncated response is just as much "malformed JSON" as a
+ * wrong-shaped object, and both must go through extractWithRetry's one
+ * retry rather than crash the run outright.
+ *
+ * On failure, returns the raw text itself rather than null: Zod still
+ * rejects it (a string isn't the expected object) so the retry path is
+ * unchanged, but ExtractionValidationError.raw then holds the actual text
+ * instead of nothing — the difference between "Expected object, received
+ * null" and being able to see the response actually started with a
+ * Markdown fence or got cut off mid-string.
+ */
+function parseModelJson(content: Array<{ type: string; text?: string }>): unknown {
+  const text = findTextBlock(content);
+  if (!text) return "(inget textblock i svaret)";
+  try {
+    return JSON.parse(stripMarkdownFence(text));
+  } catch {
+    return text;
   }
-  return block.text;
 }
 
 /**
@@ -78,12 +106,17 @@ export async function runExtraction(
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
     maxOutputTokensGrounding = 8000,
-    maxOutputTokensExtraction = 4000,
+    maxOutputTokensExtraction = 8000,
   } = options;
 
   // Step 0 — cheap local check, no API spend. A scanned PDF must fail
   // loudly before we spend anything trying to read it.
-  const { pdfSaknarTextlager } = await extractPdfText(pdfBytes);
+  //
+  // extractPdfText hands the bytes to pdf.js (via unpdf's getDocumentProxy),
+  // which detaches/transfers the underlying ArrayBuffer as a performance
+  // optimization — pdfBytes would read back as zero-length afterward. Give
+  // it a copy so the original stays intact for the base64 document block below.
+  const { pdfSaknarTextlager } = await extractPdfText(pdfBytes.slice());
   if (pdfSaknarTextlager) {
     throw new ScannedPdfError();
   }
@@ -159,7 +192,7 @@ export async function runExtraction(
     });
     spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
 
-    const raw: unknown = JSON.parse(findTextBlock(response.content));
+    const raw = parseModelJson(response.content);
     // pdfSaknarTextlager is already known deterministically from step 0 —
     // never trust the model's own claim about it, override unconditionally.
     if (raw !== null && typeof raw === "object" && "datakvalitet" in raw) {

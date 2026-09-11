@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   ALLA_NYCKELTAL,
+  buildExtractionSystemPrompt,
   buildGroundingSystemPrompt,
   extractGroundingFindings,
   formatGroundingForExtraction,
 } from "./prompts";
-import { KeyFigureIdSchema } from "./schema";
+import { KeyFigureIdSchema, StatusSchema } from "./schema";
 
 describe("ALLA_NYCKELTAL", () => {
   it("innehåller exakt de sju id:n som KeyFigureIdSchema tillåter", () => {
@@ -26,6 +27,22 @@ describe("buildGroundingSystemPrompt", () => {
     const prompt = buildGroundingSystemPrompt();
     for (const n of ALLA_NYCKELTAL) {
       expect(prompt).toContain(n.label);
+    }
+  });
+});
+
+describe("buildExtractionSystemPrompt", () => {
+  it("listar alla sju id-strängar ordagrant — modellen har annars gissat egna förkortningar i praktiken", () => {
+    const prompt = buildExtractionSystemPrompt();
+    for (const n of ALLA_NYCKELTAL) {
+      expect(prompt).toContain(`"${n.id}"`);
+    }
+  });
+
+  it("listar alla giltiga status-värden ordagrant — modellen har annars skrivit 'ok'/'varning' i praktiken", () => {
+    const prompt = buildExtractionSystemPrompt();
+    for (const status of StatusSchema.options) {
+      expect(prompt).toContain(`"${status}"`);
     }
   });
 });

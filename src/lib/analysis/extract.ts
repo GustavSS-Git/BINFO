@@ -5,16 +5,20 @@ import type { ExtractionResult } from "@/types/analysis";
 /** Calls the model and returns its parsed JSON response (already parsed, not a raw string). */
 export type ModelCaller = (systemPrompt: string, userPrompt: string) => Promise<unknown>;
 
+const RAW_PREVIEW_LENGTH = 300;
+
 export class ExtractionValidationError extends Error {
   constructor(
     public readonly zodError: z.ZodError,
     public readonly raw: unknown,
     attempts: number,
   ) {
-    super(
-      `Extraktionen misslyckades validering efter ${attempts} försök: ` +
-        zodError.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
-    );
+    const issues = zodError.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    const preview =
+      typeof raw === "string"
+        ? ` | Svar: ${raw.slice(0, RAW_PREVIEW_LENGTH)}${raw.length > RAW_PREVIEW_LENGTH ? "…" : ""}`
+        : "";
+    super(`Extraktionen misslyckades validering efter ${attempts} försök: ${issues}${preview}`);
     this.name = "ExtractionValidationError";
   }
 }

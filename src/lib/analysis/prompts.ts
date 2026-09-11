@@ -100,25 +100,78 @@ export function formatGroundingForExtraction(findings: Grundfynd[]): string {
 // ---------------------------------------------------------------------------
 
 export function buildExtractionSystemPrompt(): string {
-  return `Du sammanställer resultatet av en genomläsning av en svensk bostadsrättsförenings årsredovisning till JSON som motsvarar typen ExtractionResult:
+  return `Du sammanställer resultatet av en genomläsning av en svensk bostadsrättsförenings årsredovisning till JSON som motsvarar typen ExtractionResult.
+
+Du får en numrerad lista med fynd — varje fynd har en sidhänvisning och ett exakt citat ur rapporten. Använd ENDAST dessa sidnummer för "page" i en ref. Hitta aldrig på ett sidnummer som inte finns i listan.
+
+keyFigures får ENDAST innehålla exakt dessa sju id-strängar, copy-pasteade tecken för tecken — aldrig en förkortning, aldrig ett annat nyckeltal (t.ex. "soliditet" eller "likviditet" finns INTE i listan och ska aldrig användas som id även om rapporten nämner dem):
+${ALLA_NYCKELTAL.map((n) => `- "${n.id}"`).join("\n")}
+
+status på varje nyckeltal måste vara EXAKT en av dessa fem strängar — aldrig "ok", "varning" eller någon annan svensk beskrivning:
+- "god", "acceptabel", "svag", "kritisk", "okant"
+
+Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga extra fält, inga fält bortglömda. Detta är inte ett exempel på stil utan den bokstavliga formen; byt bara ut värdena:
 
 {
   "schemaVersion": "1.0.0",
-  "forening": { namn, orgnr, akta, byggar?, antalLagenheter?, totalyta?, rakenskapsar, keyFigures, lanebok?, underhallsplan?, vasentligaHandelser? },
-  "datakvalitet": { "pdfSaknarTextlager": false, "extraktionKonfidens": { "niva": "hog"|"medel"|"lag", "skal"?: string[] }, "saknadeFalt": string[] }
+  "forening": {
+    "namn": "Brf Exempel",
+    "orgnr": "769600-1234",
+    "akta": "ja",
+    "byggar": { "value": 1965, "unit": "ar", "source": "arsredovisning", "ref": { "page": 3 } },
+    "antalLagenheter": { "value": 42, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3 } },
+    "totalyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3 } },
+    "rakenskapsar": 2025,
+    "keyFigures": [
+      {
+        "id": "arsavgift_per_m2_brf_yta",
+        "label": "Årsavgift per m² upplåten med bostadsrätt",
+        "figure": { "value": 670, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 8 } },
+        "status": "god",
+        "forklaring": "Vad du betalar per kvadratmeter och år i avgift."
+      }
+    ],
+    "lanebok": {
+      "totalSkuld": { "value": 43200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12 } },
+      "forfalloprofil": [
+        {
+          "ar": 2027,
+          "belopp": { "value": 25000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12 } },
+          "ranta": { "value": 3.2, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12 } }
+        }
+      ],
+      "snittranta": { "value": 1.94, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12 } }
+    },
+    "underhallsplan": {
+      "finns": "ja",
+      "senastUppdaterad": 2024,
+      "kommandeAtgarder": ["Stambyte planerat 2029"],
+      "ref": { "page": 15 }
+    },
+    "vasentligaHandelser": [
+      { "text": "Föreningen har beslutat om en avgiftshöjning på 8 % från 2026.", "ref": { "page": 4 } }
+    ]
+  },
+  "datakvalitet": {
+    "pdfSaknarTextlager": false,
+    "extraktionKonfidens": { "niva": "hog", "skal": [] },
+    "saknadeFalt": []
+  }
 }
 
-Du får en numrerad lista med fynd — varje fynd har en sidhänvisning och ett exakt citat ur rapporten. Använd ENDAST dessa sidnummer för "ref.page" på extraherade figurer (varje figur med source "arsredovisning" måste ha en ref). Hitta aldrig på ett sidnummer som inte finns i listan.
-
-Regler:
-- Om ett nyckeltal eller värde inte finns bland fynden: sätt figure.value till null och källa "berakning" (inget citat att kräva för ett null-värde), och lägg fältnamnet i datakvalitet.saknadeFalt.
-- Tristate-fält (t.ex. akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.
-- keyFigures måste innehålla alla sju nyckeltalen, även de med value: null.
-- Skriv "forklaring" på enkelt, rakt språk utan facktermer — en mening om vad talet betyder för köparen.
-- datakvalitet.pdfSaknarTextlager: sätt alltid till false (den styrs separat av anroparen, inte av dig).
+Skarpa regler mot exakt de misstag som brukar uppstå:
+- keyFigures är en ARRAY med exakt sju objekt — aldrig ett objekt nycklat på id. Alla sju id:n måste finnas, även när figure.value är null.
+- Varje tal (byggar, antalLagenheter, totalyta, figure inuti keyFigures, totalSkuld, belopp, ranta, snittranta) är ALLTID ett objekt med "value", "unit", "source" — ALDRIG ett bart nummer.
+- En ref-objekt har ENDAST fältet "page" (och valfritt "excerpt") — aldrig "quote", "citat" eller andra namn.
+- Ett väsentlig-händelse-objekt har ENDAST fälten "text" och "ref" — aldrig "beskrivning" eller "source" på den nivån.
+- rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
+- Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt.
+- Tristate-fält (akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.
+- forklaring: enkelt, rakt språk utan facktermer — en mening om vad talet betyder för köparen.
+- datakvalitet.pdfSaknarTextlager: sätt alltid till false (styrs separat av anroparen).
 - datakvalitet.extraktionKonfidens.niva: sänk till "medel" eller "lag" om många fynd saknas eller är tvetydiga, med skäl i "skal".
 
-Svara ENDAST med ett enda JSON-objekt av denna form — ingen inledande text, ingen förklaring, inga Markdown-kodstaket. Bara JSON.`;
+Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklaring, inga Markdown-kodstaket. Bara JSON.`;
 }
 
 export function buildExtractionUserPrompt(groundingText: string): string {
