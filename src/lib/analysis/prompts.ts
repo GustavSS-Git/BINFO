@@ -165,7 +165,7 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - En ref-objekt har ENDAST fältet "page" (och valfritt "excerpt") — aldrig "quote", "citat" eller andra namn.
 - Ett väsentlig-händelse-objekt har ENDAST fälten "text" och "ref" — aldrig "beskrivning" eller "source" på den nivån.
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
-- Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt.
+- Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta i sig själva, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
 - Tristate-fält (akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.
 - forklaring: enkelt, rakt språk utan facktermer — en mening om vad talet betyder för köparen.
 - datakvalitet.pdfSaknarTextlager: sätt alltid till false (styrs separat av anroparen).
