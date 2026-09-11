@@ -109,8 +109,7 @@ Du får en numrerad lista med fynd — varje fynd har en sidhänvisning och ett 
 keyFigures får ENDAST innehålla exakt dessa sju id-strängar, copy-pasteade tecken för tecken — aldrig en förkortning, aldrig ett annat nyckeltal (t.ex. "soliditet" eller "likviditet" finns INTE i listan och ska aldrig användas som id även om rapporten nämner dem):
 ${ALLA_NYCKELTAL.map((n) => `- "${n.id}"`).join("\n")}
 
-status på varje nyckeltal måste vara EXAKT en av dessa fem strängar — aldrig "ok", "varning" eller någon annan svensk beskrivning:
-- "god", "acceptabel", "svag", "kritisk", "okant"
+status på varje nyckeltal ska ALLTID sättas till exakt "okant", oavsett vad du tycker om värdet. Bedöm inte om talet är bra eller dåligt — det görs i ett senare, deterministiskt steg mot ett riktvärde du inte har tillgång till. Din uppgift här är bara att hitta och citera talet, inte att döma det.
 
 Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga extra fält, inga fält bortglömda. Detta är inte ett exempel på stil utan den bokstavliga formen; byt bara ut värdena:
 
@@ -130,7 +129,7 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
         "id": "arsavgift_per_m2_brf_yta",
         "label": "Årsavgift per m² upplåten med bostadsrätt",
         "figure": { "value": 670, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 8, "excerpt": "Årsavgift kr/kvm upplåten med bostadsrätt 670" } },
-        "status": "god",
+        "status": "okant",
         "forklaring": "Vad du betalar per kvadratmeter och år i avgift."
       }
     ],

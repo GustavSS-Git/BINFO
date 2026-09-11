@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractionResult } from "@/types/analysis";
+import { berikaNyckeltal } from "./benchmarks";
 import { extractPdfText } from "./pdf";
 import { extractWithRetry, type ModelCaller } from "./extract";
 import {
@@ -217,5 +218,16 @@ export async function runExtraction(
 
   const extraction = await extractWithRetry(extractionSystem, extractionUser, callModel);
 
-  return { extraction, spentSek };
+  // Pass 1's prompt now always emits status: "okant" (see buildExtractionSystemPrompt) —
+  // the model isn't asked to judge, only to find and cite. This is where the judgement
+  // actually happens: deterministic, benchmark-backed, and consistent across reports.
+  const enrichedExtraction: ExtractionResult = {
+    ...extraction,
+    forening: {
+      ...extraction.forening,
+      keyFigures: berikaNyckeltal(extraction.forening.keyFigures),
+    },
+  };
+
+  return { extraction: enrichedExtraction, spentSek };
 }

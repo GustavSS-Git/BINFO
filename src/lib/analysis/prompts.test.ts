@@ -39,10 +39,12 @@ describe("buildExtractionSystemPrompt", () => {
     }
   });
 
-  it("listar alla giltiga status-värden ordagrant — modellen har annars skrivit 'ok'/'varning' i praktiken", () => {
+  it("instruerar modellen att alltid sätta status till 'okant' — bedömningen görs deterministiskt i ett senare steg, inte av modellen", () => {
     const prompt = buildExtractionSystemPrompt();
-    for (const status of StatusSchema.options) {
-      expect(prompt).toContain(`"${status}"`);
+    expect(prompt).toMatch(/status.*"okant"/s);
+    // Ska inte längre be modellen välja mellan de andra fyra värdena.
+    for (const status of StatusSchema.options.filter((s) => s !== "okant")) {
+      expect(prompt).not.toContain(`"${status}"`);
     }
   });
 

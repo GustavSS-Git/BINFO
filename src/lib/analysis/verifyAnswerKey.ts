@@ -1,8 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { jamforTristate, jamforVarde } from "./answerKey";
+import { bedomStatus } from "./benchmarks";
 import { runExtraction } from "./runExtraction";
-import type { FeeInclusion } from "@/types/analysis";
+import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
 
 /**
  * PIPELINE.md step 5's harness: runs pass 1 against every fixture in
@@ -79,6 +80,21 @@ async function main() {
       if (r.godkand) godkanda++;
       console.log(
         `  ${r.godkand ? "✓" : "✗"} ${id}: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
+      );
+
+      // Status är nu deterministisk (benchmarks.ts) — det finns inget för
+      // modellen att "träffa fel" på, så det förväntade värdet härleds här
+      // från samma funktion produktionskoden använder, istället för att
+      // dupliceras för hand i varje fixture (vilket skulle bli inaktuellt
+      // så fort en tröskel ändras). Det som faktiskt testas är att
+      // berikning verkligen körs igenom den riktiga pipelinen — en
+      // sammankopplingsbugg, inte ett gissningsfel.
+      const forvantadStatus = bedomStatus(id as KeyFigureId, forvantat).status;
+      const statusGodkand = kf?.status === forvantadStatus;
+      totalFalt++;
+      if (statusGodkand) godkanda++;
+      console.log(
+        `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
       );
     }
 
