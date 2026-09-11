@@ -45,6 +45,27 @@ describe("buildExtractionSystemPrompt", () => {
       expect(prompt).toContain(`"${status}"`);
     }
   });
+
+  it("instruerar att excerpt alltid ska sättas för citerade figurer — annars bevisar en sidhänvisning ingenting", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("excerpt");
+  });
+
+  it("instruerar att kommandeAtgarder är en array av {text, ref?} — inte en platt sträng-array", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("kommandeAtgarder");
+    expect(prompt).toMatch(/kommandeAtgarder.*array/i);
+  });
+
+  it("instruerar att ref är valfritt (utelämnas, inte null) när ingen exakt sida hittas", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toMatch(/ref.*valfritt/i);
+  });
+
+  it("instruerar om avgiftInkluderarEnligtForening", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("avgiftInkluderarEnligtForening");
+  });
 });
 
 describe("extractGroundingFindings", () => {

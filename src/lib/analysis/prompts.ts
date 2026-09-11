@@ -34,9 +34,11 @@ ${ALLA_NYCKELTAL.map((n) => `- ${n.label}`).join("\n")}
 
 Lånebok: total räntebärande skuld, eventuell förfalloprofil (när lån omsätts och till vilken ränta), genomsnittlig ränta.
 
-Underhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade.
+Underhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade (citera varje planerad åtgärd för sig — de kan nämnas på olika sidor).
 
 Väsentliga händelser: händelser efter räkenskapsårets slut eller annan väsentlig information i förvaltningsberättelsen som en köpare bör känna till.
+
+Vad som ingår i månadsavgiften: söker rapporten uttryckligen nämna om t.ex. värme, vatten, el, bredband eller tv ingår i avgiften eller bekostas separat av medlemmarna (ofta under "I årsavgiften ingår..." eller liknande formulering).
 
 För varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.`;
 }
@@ -118,38 +120,42 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     "namn": "Brf Exempel",
     "orgnr": "769600-1234",
     "akta": "ja",
-    "byggar": { "value": 1965, "unit": "ar", "source": "arsredovisning", "ref": { "page": 3 } },
-    "antalLagenheter": { "value": 42, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3 } },
-    "totalyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3 } },
+    "byggar": { "value": 1965, "unit": "ar", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Byggnaden uppfördes 1965" } },
+    "antalLagenheter": { "value": 42, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "föreningen omfattar 42 lägenheter" } },
+    "totalyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "total bostadsarea om 3 200 kvm" } },
     "rakenskapsar": 2025,
+    "avgiftInkluderarEnligtForening": { "varme": "ja", "vatten": "ja", "el": "okant", "bredband": "okant", "tv": "okant" },
     "keyFigures": [
       {
         "id": "arsavgift_per_m2_brf_yta",
         "label": "Årsavgift per m² upplåten med bostadsrätt",
-        "figure": { "value": 670, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 8 } },
+        "figure": { "value": 670, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 8, "excerpt": "Årsavgift kr/kvm upplåten med bostadsrätt 670" } },
         "status": "god",
         "forklaring": "Vad du betalar per kvadratmeter och år i avgift."
       }
     ],
     "lanebok": {
-      "totalSkuld": { "value": 43200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12 } },
+      "totalSkuld": { "value": 43200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "Summa 43 200 000,00" } },
       "forfalloprofil": [
         {
           "ar": 2027,
-          "belopp": { "value": 25000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12 } },
-          "ranta": { "value": 3.2, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12 } }
+          "belopp": { "value": 25000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 ... 25 000 000,00" } },
+          "ranta": { "value": 3.2, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 ... 25 000 000,00" } }
         }
       ],
-      "snittranta": { "value": 1.94, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12 } }
+      "snittranta": { "value": 1.94, "unit": "procent", "source": "berakning" }
     },
     "underhallsplan": {
       "finns": "ja",
       "senastUppdaterad": 2024,
-      "kommandeAtgarder": ["Stambyte planerat 2029"],
-      "ref": { "page": 15 }
+      "kommandeAtgarder": [
+        { "text": "Stambyte planerat 2029", "ref": { "page": 6, "excerpt": "Stambyte ca 2027–2029" } },
+        { "text": "Fasadrenovering under utredning" }
+      ],
+      "ref": { "page": 15, "excerpt": "Underhållsplanen uppdaterades 2024" }
     },
     "vasentligaHandelser": [
-      { "text": "Föreningen har beslutat om en avgiftshöjning på 8 % från 2026.", "ref": { "page": 4 } }
+      { "text": "Föreningen har beslutat om en avgiftshöjning på 8 % från 2026.", "ref": { "page": 4, "excerpt": "styrelsen beslutat om höja årsavgiften med 8 %" } }
     ]
   },
   "datakvalitet": {
@@ -162,8 +168,11 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
 Skarpa regler mot exakt de misstag som brukar uppstå:
 - keyFigures är en ARRAY med exakt sju objekt — aldrig ett objekt nycklat på id. Alla sju id:n måste finnas, även när figure.value är null.
 - Varje tal (byggar, antalLagenheter, totalyta, figure inuti keyFigures, totalSkuld, belopp, ranta, snittranta) är ALLTID ett objekt med "value", "unit", "source" — ALDRIG ett bart nummer.
-- En ref-objekt har ENDAST fältet "page" (och valfritt "excerpt") — aldrig "quote", "citat" eller andra namn.
-- Ett väsentlig-händelse-objekt har ENDAST fälten "text" och "ref" — aldrig "beskrivning" eller "source" på den nivån.
+- En ref-objekt har ENDAST fälten "page" och "excerpt" — aldrig "quote", "citat" eller andra namn. Sätt ALLTID "excerpt" när source är "arsredovisning": kopiera citatet ordagrant från fyndlistan (korta ner det till den relevanta delen, max ~15 ord). En sidhänvisning utan excerpt bevisar ingenting för köparen — citatet är beviset.
+- kommandeAtgarder är en ARRAY av objekt { "text", "ref"? } — aldrig en platt sträng-array. Varje planerad åtgärd citeras för sig, eftersom olika åtgärder ofta nämns på olika sidor. Om du inte kan hitta en exakt sida för en specifik åtgärd: utelämna "ref" för just den posten (skriv inte in "page": null) — åtgärden tas ändå med, bara utan citat.
+- Samma sak gäller vasentligaHandelser: "ref" är valfritt per händelse. Utelämna det om ingen exakt sida kan anges — händelsen ska ändå finnas med, aldrig hittas på en sida eller strykas för att den saknar exakt citat.
+- Ett kommandeAtgarder- eller väsentlig-händelse-objekt har ENDAST fälten "text" och (valfritt) "ref" — aldrig "beskrivning" eller "source" på den nivån.
+- avgiftInkluderarEnligtForening: sätt "ja"/"nej" per post (varme/vatten/el/bredband/tv) ENDAST när rapporten uttryckligen säger det (t.ex. "i årsavgiften ingår värme och vatten" eller "elkostnader ingår inte i avgiften"). Dra ALDRIG slutsatsen "nej" bara för att en post inte nämns, och gissa aldrig utifrån vad som är vanligt i svenska bostadsrättsföreningar i allmänhet — det räknas som att gissa, inte att läsa. Sätt "okant" för varje post rapporten inte uttryckligen tar ställning till. Utelämna hela fältet om rapporten inte säger något alls om vad som ingår i avgiften.
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
 - Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta i sig själva, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
 - Tristate-fält (akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.
