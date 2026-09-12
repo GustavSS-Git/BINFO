@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assembleraAnalys, byggPrisanalys } from "./assemble";
 import { extraktion } from "./__fixtures__/extraktion";
-import { DemoPrisdatakalla, TomPrisdatakalla } from "./prisdata";
+import { DemoPrisdatakalla, SchablonPrisdatakalla, TomPrisdatakalla } from "./prisdata";
 import { konfidensUtanPrisdata } from "./prisdata";
 import { SaknarRantekanslighetError } from "./calc/rantestress";
 import { AnalysisResultSchema } from "./schema";
@@ -165,6 +165,64 @@ describe("assembleraAnalys", () => {
     expect("avvikelseMotForeningen" in resultat.prisanalys).toBe(false);
     expect(resultat.prisanalys.konfidens).toEqual(konfidensUtanPrisdata());
     expect(resultat.prisanalys.slutsats).toMatch(/ingen oberoende/i);
+  });
+
+  describe("SchablonPrisdatakalla — en schablon får aldrig höja konfidensen", () => {
+    // En platt schablon på 80 000 kr/m² är ingen oberoende prisreferens: den
+    // vet ingenting om just den här lägenheten, om läget eller om skicket.
+    // Att låta den lyfta konfidensen från 'lag' till 'medel' — och kalla sig
+    // "oberoende prisreferens" i skälet — vore precis det som CLAUDE.md
+    // förbjuder: en gissning som ser ut som ett faktum.
+    const schablonkalla = () => new SchablonPrisdatakalla({ boarea: inputKomplett.boarea });
+
+    it("håller konfidensen kvar på 'lag' trots att värderingen har ett värde", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+
+      expect(prisanalys.externVardering?.value).not.toBeNull();
+      expect(prisanalys.konfidens.niva).toBe("lag");
+    });
+
+    it("beskriver aldrig schablonen som en oberoende prisreferens", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+
+      const skal = (prisanalys.konfidens.skal ?? []).join(" ");
+      expect(skal).not.toMatch(/oberoende prisreferens kunde hämtas/i);
+      expect(`${skal} ${prisanalys.slutsats}`).toMatch(/schablon/i);
+    });
+
+    it("säger i slutsatsen att jämförelsen görs mot en schablon, inte mot en värdering", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+
+      expect(prisanalys.slutsats).toMatch(/schablon/i);
+      // Får inte påstå att priset stämts av mot en riktig värdering.
+      expect(prisanalys.slutsats).not.toMatch(/extern värdering/i);
+    });
+
+    it("räknar ändå fram avvikelsen mot schablonen — det är det talet som ska visas", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+
+      // utgangspris 4 950 000 mot schablon 62 m² × 80 000 = 4 960 000
+      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-0.2, 1);
+    });
+
+    it("en riktig extern källa höjer däremot konfidensen", async () => {
+      // Samma form som schablonen, men source 'extern' — bevisar att det är
+      // källans proveniens som styr konfidensen, inte att ett värde finns.
+      const riktigKalla = {
+        hamtaVardering: async () => ({
+          value: 5_000_000,
+          unit: "kr" as const,
+          source: "extern" as const,
+          leverantor: "Testleverantör",
+        }),
+        hamtaForsaljningarIForeningen: async () => [],
+        hamtaOmradeMedian: async () => null,
+      };
+
+      const prisanalys = await byggPrisanalys(inputKomplett, riktigKalla);
+
+      expect(prisanalys.konfidens.niva).toBe("medel");
+    });
   });
 
   it("DemoPrisdatakallans null-värden ger utelämnade avvikelsefält, aldrig en påhittad procentsats", async () => {

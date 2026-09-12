@@ -145,16 +145,36 @@ function berakUppgiftsstatus(input: PropertyInput): Uppgiftsstatus {
   };
 }
 
+/** Svensk procentform — decimalkomma, aldrig punkt. */
+function procent(varde: number): string {
+  return Math.abs(varde).toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+}
+
 /** Ett eller två svenska meningar. Säger rent ut när ingen avstämning kunde göras. */
 function byggSlutsats(underlag: {
-  harAnvandbarExternData: boolean;
+  harOberoendeData: boolean;
+  /** Värderingen finns, men är en schablon — inte en bedömning av just det här objektet. */
+  varderingArSchablon: boolean;
   // Uttryckligen "| undefined" snarare än optional: anroparen skickar alltid
   // med nyckeln (värdet kan vara undefined), och exactOptionalPropertyTypes
   // skiljer på de två.
   avvikelseMotVardering: number | undefined;
   avvikelseMotForeningen: number | undefined;
 }): string {
-  if (!underlag.harAnvandbarExternData) {
+  if (!underlag.harOberoendeData) {
+    // Schablonen ger ett tal att visa, men den känner varken objektet, läget
+    // eller skicket. Slutsatsen måste säga att jämförelsen görs mot en
+    // schablon — att kalla den "den externa värderingen" vore att påstå en
+    // avstämning som aldrig gjorts.
+    if (underlag.varderingArSchablon && underlag.avvikelseMotVardering !== undefined) {
+      const riktning = underlag.avvikelseMotVardering >= 0 ? "över" : "under";
+      return (
+        `Utgångspriset ligger ${procent(underlag.avvikelseMotVardering)} % ${riktning} en ` +
+        `schablonvärdering. Schablonen är ett platt kvadratmeterpris, inte en bedömning av ` +
+        `just den här lägenheten — ingen oberoende priskälla är ansluten, så priset är ännu ` +
+        `inte avstämt mot vare sig en riktig värdering eller jämförbara försäljningar.`
+      );
+    }
     return (
       "Ingen oberoende prisuppgift kunde hämtas, så utgångspriset har inte kunnat stämmas av " +
       "mot vare sig en värdering eller jämförbara försäljningar. Prisbedömningen bygger enbart " +
@@ -166,14 +186,14 @@ function byggSlutsats(underlag: {
   if (underlag.avvikelseMotVardering !== undefined) {
     const riktning = underlag.avvikelseMotVardering >= 0 ? "över" : "under";
     delar.push(
-      `Utgångspriset ligger ${Math.abs(underlag.avvikelseMotVardering)} % ${riktning} den ` +
+      `Utgångspriset ligger ${procent(underlag.avvikelseMotVardering)} % ${riktning} den ` +
         `externa värderingen.`,
     );
   }
   if (underlag.avvikelseMotForeningen !== undefined) {
     const riktning = underlag.avvikelseMotForeningen >= 0 ? "över" : "under";
     delar.push(
-      `Kvadratmeterpriset ligger ${Math.abs(underlag.avvikelseMotForeningen)} % ${riktning} ` +
+      `Kvadratmeterpriset ligger ${procent(underlag.avvikelseMotForeningen)} % ${riktning} ` +
         `snittet för de senaste försäljningarna i föreningen.`,
     );
   }
@@ -245,30 +265,50 @@ export async function byggPrisanalys(
     }
   }
 
-  const harAnvandbarExternData =
-    (vardering !== null && vardering.value !== null) ||
-    kandaForsaljningspriser.length > 0 ||
-    (omradeMedian !== null && omradeMedian.value !== null);
+  // En schablon är INTE en oberoende prisreferens. Den känner varken objektet,
+  // läget eller skicket — den är ett platt antagande som råkar ha ett värde.
+  // Att räkna den som underlag skulle höja konfidensen på ren gissning, vilket
+  // är precis det CLAUDE.md förbjuder: en gissning får aldrig se ut som ett
+  // faktum. Bara källor med annan proveniens än 'schablon' räknas här.
+  // Kräver ett faktiskt värde: DemoPrisdatakalla är också 'schablon' men
+  // lämnar value: null, och då har ingen jämförelse gjorts alls — då gäller
+  // det vanliga "ingen prisdata"-svaret, inte schablonformuleringen.
+  const varderingArSchablon =
+    vardering !== null && vardering.value !== null && vardering.source === "schablon";
+  const oberoendeVardering =
+    vardering !== null && vardering.value !== null && vardering.source !== "schablon";
+  const oberoendeMedian =
+    omradeMedian !== null && omradeMedian.value !== null && omradeMedian.source !== "schablon";
 
   // Konfidensnivån är en bedömning av HUR MYCKET oberoende underlag som
   // faktiskt kom tillbaka — inte ett citerat riktvärde, utan en läsbar
-  // regel: 0 användbara källor ger samma låga konfidens som utan ansluten
-  // priskälla alls (konfidensUtanPrisdata), 1 källa ger medel, 2–3 källor
+  // regel: 0 oberoende källor ger låg konfidens, 1 ger medel, 2–3 källor
   // (flera oberoende bekräftelser av samma prisnivå) ger hög.
-  const antalKallorMedData = [
-    vardering !== null && vardering.value !== null,
+  const antalOberoendeKallor = [
+    oberoendeVardering,
     kandaForsaljningspriser.length > 0,
-    omradeMedian !== null && omradeMedian.value !== null,
+    oberoendeMedian,
   ].filter(Boolean).length;
 
-  const konfidens: Konfidens = !harAnvandbarExternData
-    ? konfidensUtanPrisdata()
-    : antalKallorMedData >= 2
+  const harOberoendeData = antalOberoendeKallor > 0;
+
+  const konfidens: Konfidens = !harOberoendeData
+    ? varderingArSchablon
+      ? {
+          niva: "lag",
+          skal: [
+            "Utgångspriset är endast jämfört med en schablon — ett platt kvadratmeterpris som " +
+              "inte tar hänsyn till läge, skick eller våning. Ingen oberoende priskälla är ansluten.",
+          ],
+        }
+      : konfidensUtanPrisdata()
+    : antalOberoendeKallor >= 2
       ? { niva: "hog" }
       : { niva: "medel", skal: ["Endast en oberoende prisreferens kunde hämtas."] };
 
   const slutsats = byggSlutsats({
-    harAnvandbarExternData,
+    harOberoendeData,
+    varderingArSchablon,
     avvikelseMotVardering,
     avvikelseMotForeningen,
   });
