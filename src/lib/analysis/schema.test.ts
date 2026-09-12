@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  AnalysJudgementSchema,
   AnalysisResultSchema,
   ExtractionResultSchema,
+  FigureMedLeverantorSchema,
   FigureSchema,
   ForeningSchema,
   KeyFigureIdSchema,
+  PrisanalysSchema,
   TristateSchema,
 } from "./schema";
-import type { AnalysisResult, ExtractionResult, Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
+import type {
+  AnalysisResult,
+  ExtractionResult,
+  Figure,
+  KeyFigure,
+  KeyFigureId,
+} from "@/types/analysis";
 
 const ALLA_NYCKELTAL_ID: KeyFigureId[] = [
   "arsavgift_per_m2_brf_yta",
@@ -205,6 +214,66 @@ describe("FigureSchema", () => {
   });
 });
 
+describe("FigureMedLeverantorSchema", () => {
+  // Regression: tidigare byggdes externVardering som
+  // FigureSchema.and(z.object({ leverantor: z.string() })). FigureSchema är
+  // .strict(), och Zod validerar båda sidor av en intersection mot HELA det
+  // sammanslagna objektet — den strikta sidan avvisade då 'leverantor' som
+  // ett okänt fält. Resultatet: EVERY Prisanalys med en populerad
+  // externVardering (vilket varje riktig eller demo-priskälla producerar)
+  // kunde aldrig validera. Fixat genom att bygga en egen bas-shape
+  // (FigureObjectSchema) och lägga leverantor på med .extend() istället.
+  it("accepterar en figur plus leverantor — den kombination FigureSchema.and() tidigare avvisade", () => {
+    const vardering = {
+      value: 5_100_000,
+      unit: "kr",
+      source: "extern",
+      leverantor: "Booli",
+    };
+    expect(FigureMedLeverantorSchema.safeParse(vardering).success).toBe(true);
+  });
+
+  it("bär samma invarianter som FigureSchema — kräver schablonBasis för source 'schablon'", () => {
+    const utanBasis = { value: 100, unit: "kr", source: "schablon", leverantor: "X" };
+    expect(FigureMedLeverantorSchema.safeParse(utanBasis).success).toBe(false);
+
+    const medBasis = { ...utanBasis, schablonBasis: "Platshållare" };
+    expect(FigureMedLeverantorSchema.safeParse(medBasis).success).toBe(true);
+  });
+
+  it("kräver leverantor — till skillnad från vanlig FigureSchema", () => {
+    const utanLeverantor = { value: 100, unit: "kr", source: "berakning" };
+    expect(FigureMedLeverantorSchema.safeParse(utanLeverantor).success).toBe(false);
+  });
+});
+
+describe("PrisanalysSchema", () => {
+  const bas = {
+    utgangspris: { value: 4_950_000, unit: "kr", source: "anvandare" },
+    prisPerM2: { value: 79_839, unit: "kr", source: "berakning" },
+    slutsats: "Ingen oberoende priskälla är ansluten.",
+    konfidens: { niva: "lag", skal: ["ingen priskälla"] },
+  };
+
+  it("accepterar en Prisanalys utan externVardering", () => {
+    expect(PrisanalysSchema.safeParse(bas).success).toBe(true);
+  });
+
+  it("accepterar en Prisanalys med en populerad externVardering (regression för buggen ovan)", () => {
+    const medVardering = {
+      ...bas,
+      externVardering: {
+        value: null,
+        unit: "kr",
+        source: "schablon",
+        schablonBasis: "Platshållare",
+        leverantor: "PLATSHÅLLARE — ingen värderingsleverantör ansluten",
+      },
+    };
+    expect(PrisanalysSchema.safeParse(medVardering).success).toBe(true);
+  });
+});
+
 describe("KeyFigureIdSchema", () => {
   it("accepterar alla sju lagstadgade nyckeltal", () => {
     for (const id of ALLA_NYCKELTAL_ID) {
@@ -330,5 +399,51 @@ describe("AnalysisResultSchema", () => {
     const trasig = structuredClone(validAnalysisResult) as unknown as Record<string, unknown>;
     (trasig["gratisSektioner"] as string[]).push("hela_rapporten");
     expect(AnalysisResultSchema.safeParse(trasig).success).toBe(false);
+  });
+});
+
+describe("AnalysJudgementSchema", () => {
+  const giltigt = {
+    betyg: "C",
+    betygMotivering: "Svagt sparande i kombination med ett planerat stambyte.",
+    rodaFlaggor: [
+      {
+        id: "lagt-sparande",
+        titel: "Lågt sparande",
+        beskrivning: "Föreningen sparar 180 kr/m² inför ett stambyte.",
+        severity: "medel",
+        harledsFran: ["sparande_per_m2_totalyta"],
+      },
+    ],
+    fragor: [
+      {
+        id: "fraga-1",
+        fraga: "Hur ska stambytet finansieras?",
+        ursprung: "analys",
+        riktadTill: "styrelsen",
+        varfor: "Sparandet räcker inte enligt årsredovisningen.",
+      },
+    ],
+  };
+
+  it("accepterar ett giltigt omdöme", () => {
+    expect(AnalysJudgementSchema.safeParse(giltigt).success).toBe(true);
+  });
+
+  it("avvisar harledsFran med ett id som inte är ett av de sju nyckeltalen", () => {
+    const trasigt = structuredClone(giltigt);
+    trasigt.rodaFlaggor[0]!.harledsFran = ["soliditet"];
+    expect(AnalysJudgementSchema.safeParse(trasigt).success).toBe(false);
+  });
+
+  it("avvisar ursprung 'saknad_uppgift' — pass 2 producerar bara analysfrågor", () => {
+    const trasigt = structuredClone(giltigt);
+    trasigt.fragor[0]!.ursprung = "saknad_uppgift";
+    expect(AnalysJudgementSchema.safeParse(trasigt).success).toBe(false);
+  });
+
+  it("avvisar okända fält — ett extra fält betyder att modellen hittat på något", () => {
+    const trasigt = { ...giltigt, prisanalys: {} };
+    expect(AnalysJudgementSchema.safeParse(trasigt).success).toBe(false);
   });
 });

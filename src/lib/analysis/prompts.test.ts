@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   ALLA_NYCKELTAL,
+  buildAnalysSystemPrompt,
+  buildAnalysUserPrompt,
   buildExtractionSystemPrompt,
   buildGroundingSystemPrompt,
   extractGroundingFindings,
   formatGroundingForExtraction,
 } from "./prompts";
 import { KeyFigureIdSchema, StatusSchema } from "./schema";
+import { extraktion } from "./__fixtures__/extraktion";
+import { tillatnaSidor } from "./analyze";
+import { BENCHMARKS } from "./benchmarks";
+import type { KeyFigureId } from "@/types/analysis";
 
 describe("ALLA_NYCKELTAL", () => {
   it("innehåller exakt de sju id:n som KeyFigureIdSchema tillåter", () => {
@@ -143,5 +149,84 @@ describe("formatGroundingForExtraction", () => {
   it("hanterar en tom lista utan att krascha", () => {
     expect(() => formatGroundingForExtraction([])).not.toThrow();
     expect(formatGroundingForExtraction([]).length).toBeGreaterThan(0);
+  });
+});
+
+describe("buildAnalysSystemPrompt", () => {
+  it("förbjuder uttryckligen modellen att omvärdera de sju nyckeltalen — bedömningen är redan gjord deterministiskt", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toMatch(/omvärdera|inte om|aldrig.*status/i);
+    expect(prompt).toContain("status");
+    expect(prompt).toMatch(/deterministisk/i);
+  });
+
+  it("säger att modellen ska resonera om kombinationen av nyckeltal, lån och underhåll", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toMatch(/kombination/i);
+    expect(prompt).toContain("forfalloprofil");
+    expect(prompt).toContain("underhallsplan");
+  });
+
+  it("förbjuder påhittade sidnummer — endast sidor som finns i underlaget får användas", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toMatch(/sidnummer/i);
+    expect(prompt).toMatch(/hitta aldrig på|aldrig hitta på/i);
+  });
+
+  it("förbjuder påhittade riktvärden, snitt och lagkrav", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toMatch(/riksgenomsnitt|snitt|riktvärde/i);
+    expect(prompt).toMatch(/lagkrav|lagstadgad|lag/i);
+  });
+
+  it("upprätthåller okant-disciplinen — ett okänt tal får inte argumenteras som ett dåligt tal", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toContain("okant");
+    expect(prompt).toMatch(/okänt är inte|inte detsamma som/i);
+  });
+
+  it("säger att de två medvetet ograderade nyckeltalen alltid har status 'okant' — annars läses de som saknade uppgifter", () => {
+    const prompt = buildAnalysSystemPrompt();
+    const ejGraderade = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter(
+      (id) => BENCHMARKS[id].riktning === "informativ",
+    );
+    expect(ejGraderade.length).toBeGreaterThan(0);
+    for (const id of ejGraderade) {
+      expect(prompt).toContain(`"${id}"`);
+    }
+    expect(prompt).toMatch(/graderas medvetet inte|graderas inte/i);
+    expect(prompt).toMatch(/figure\.value/);
+  });
+
+  it("listar alla sju id-strängar ordagrant — harledsFran får bara innehålla dessa", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toContain("harledsFran");
+    for (const n of ALLA_NYCKELTAL) {
+      expect(prompt).toContain(`"${n.id}"`);
+    }
+  });
+
+  it("kräver ursprung 'analys' på varje fråga — saknad_uppgift genereras på annat håll", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toContain('"analys"');
+    expect(prompt).toContain("saknad_uppgift");
+  });
+
+  it("är skriven på svenska — allt en köpare läser ska vara svenskt", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toMatch(/[åäöÅÄÖ]/);
+  });
+});
+
+describe("buildAnalysUserPrompt", () => {
+  it("bäddar in extraktionen som JSON", () => {
+    const prompt = buildAnalysUserPrompt(extraktion, tillatnaSidor(extraktion));
+    expect(prompt).toContain("Brf Kastanjen");
+    expect(prompt).toContain("rantekanslighet");
+  });
+
+  it("räknar upp exakt de sidnummer som får användas i en ref", () => {
+    const prompt = buildAnalysUserPrompt(extraktion, tillatnaSidor(extraktion));
+    expect(prompt).toMatch(/3, 4, 6, 8, 12/);
   });
 });

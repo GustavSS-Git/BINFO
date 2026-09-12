@@ -50,7 +50,18 @@ const FigureUnitSchema = z.enum([
   "gånger",
 ]);
 
-export const FigureSchema = z
+/**
+ * Split into a plain object shape plus a standalone refinement, rather than
+ * one `.strict().superRefine()` chain, so a variant with extra fields (see
+ * `FigureMedLeverantorSchema` below) can be built with `.extend()` and still
+ * carry the same invariants. `FigureSchema.and(z.object({ leverantor }))`
+ * looked equivalent but silently wasn't: intersecting two `.strict()` sides
+ * validates each side against the *merged* object, so the strict Figure side
+ * rejects `leverantor` as unrecognized — which meant every Prisanalys with a
+ * populated `externVardering` failed validation, blocking price
+ * reconciliation entirely. `.extend()` on the shared base avoids that.
+ */
+const FigureObjectSchema = z
   .object({
     value: z.number().nullable(),
     unit: FigureUnitSchema,
@@ -59,34 +70,45 @@ export const FigureSchema = z
     schablonBasis: z.string().optional(),
     range: z.object({ low: z.number(), high: z.number() }).strict().optional(),
   })
-  .strict()
-  .superRefine((figure, ctx) => {
-    if (figure.source === "arsredovisning") {
-      if (!figure.ref) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["ref"],
-          message:
-            "En figur med source 'arsredovisning' måste ha en PageRef — en siffra utan citat kan inte visas.",
-        });
-      } else if (!figure.ref.excerpt) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["ref", "excerpt"],
-          message:
-            "En figur med source 'arsredovisning' måste ha ett excerpt — en sidhänvisning utan citat bevisar ingenting för köparen.",
-        });
-      }
-    }
-    if (figure.source === "schablon" && !figure.schablonBasis) {
+  .strict();
+
+function refineFigure(figure: z.infer<typeof FigureObjectSchema>, ctx: z.RefinementCtx): void {
+  if (figure.source === "arsredovisning") {
+    if (!figure.ref) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["schablonBasis"],
+        path: ["ref"],
         message:
-          "En figur med source 'schablon' måste ha schablonBasis — en gissning får aldrig se ut som ett faktum.",
+          "En figur med source 'arsredovisning' måste ha en PageRef — en siffra utan citat kan inte visas.",
+      });
+    } else if (!figure.ref.excerpt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["ref", "excerpt"],
+        message:
+          "En figur med source 'arsredovisning' måste ha ett excerpt — en sidhänvisning utan citat bevisar ingenting för köparen.",
       });
     }
-  });
+  }
+  if (figure.source === "schablon" && !figure.schablonBasis) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["schablonBasis"],
+      message:
+        "En figur med source 'schablon' måste ha schablonBasis — en gissning får aldrig se ut som ett faktum.",
+    });
+  }
+}
+
+export const FigureSchema = FigureObjectSchema.superRefine(refineFigure);
+
+/** Figure plus `leverantor` — Prisanalys.externVardering's exact shape. Carries
+ *  the same arsredovisning/schablon invariants as FigureSchema. */
+export const FigureMedLeverantorSchema = FigureObjectSchema.extend({
+  leverantor: z.string(),
+})
+  .strict()
+  .superRefine(refineFigure);
 
 export const StatusSchema = z.enum(["god", "acceptabel", "svag", "kritisk", "okant"]);
 export const GradeSchema = z.enum(["A", "B", "C", "D", "E"]);
@@ -246,7 +268,7 @@ export const PrisanalysSchema = z
   .object({
     utgangspris: FigureSchema,
     prisPerM2: FigureSchema,
-    externVardering: FigureSchema.and(z.object({ leverantor: z.string() })).optional(),
+    externVardering: FigureMedLeverantorSchema.optional(),
     senasteForsaljningarIForeningen: z
       .array(
         z
@@ -398,3 +420,93 @@ export const ExtractionResultSchema = z
       .strict(),
   })
   .strict();
+
+// ---------------------------------------------------------------------------
+// Pass 2 — the judgement layer
+//
+// A strict subset of AnalysisResult: betyg + betygMotivering, rodaFlaggor and
+// the 'analys' half of fragor. Not a contract change — every field below is
+// already in src/types/analysis.ts, this only tightens what the model is
+// allowed to return for them:
+//   - harledsFran must be non-empty and may only name real KeyFigureIds, so
+//     the UI can always link a flag back to its evidence.
+//   - fragor produced here are always ursprung 'analys'; the
+//     'saknad_uppgift' kind is generated deterministically elsewhere.
+//   - ids unique, prose fields non-empty — an untitled flag or an
+//     unmotivated grade is not reviewable, and empty strings are exactly
+//     what a model emits when it has nothing to say.
+// ---------------------------------------------------------------------------
+
+const ickeTomText = (falt: string) => z.string().min(1, `${falt} får inte vara en tom sträng.`);
+
+export const AnalysRedFlagSchema = RedFlagSchema.extend({
+  id: ickeTomText("id"),
+  titel: ickeTomText("titel"),
+  beskrivning: ickeTomText("beskrivning"),
+  harledsFran: z
+    .array(KeyFigureIdSchema)
+    .min(
+      1,
+      "harledsFran måste peka ut minst ett nyckeltal — en flagga utan spårbart underlag kan inte visas.",
+    ),
+});
+
+export const AnalysFragaSchema = FragaSchema.extend({
+  id: ickeTomText("id"),
+  fraga: ickeTomText("fraga"),
+  ursprung: z.literal("analys"),
+  varfor: ickeTomText("varfor"),
+});
+
+function kravUnikaIdn(poster: Array<{ id: string }>, ctx: z.RefinementCtx, vad: string): void {
+  const sedda = new Set<string>();
+  poster.forEach((post, i) => {
+    if (sedda.has(post.id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [i, "id"],
+        message: `${vad} '${post.id}' förekommer mer än en gång.`,
+      });
+    }
+    sedda.add(post.id);
+  });
+}
+
+export const AnalysJudgementSchema = z
+  .object({
+    betyg: GradeSchema,
+    betygMotivering: ickeTomText("betygMotivering"),
+    rodaFlaggor: z
+      .array(AnalysRedFlagSchema)
+      .superRefine((flaggor, ctx) => kravUnikaIdn(flaggor, ctx, "Flagg-id")),
+    fragor: z
+      .array(AnalysFragaSchema)
+      .superRefine((fragor, ctx) => kravUnikaIdn(fragor, ctx, "Fråge-id")),
+  })
+  .strict();
+
+/**
+ * The judgement schema bound to the page numbers that actually occur in the
+ * extraction it was produced from. A `ref` is the buyer's "show me where" —
+ * a page number the model made up is worse than none at all, so an unknown
+ * page fails validation (and therefore gets the one retry) rather than being
+ * silently dropped.
+ *
+ * An extraction with no refs at all yields an empty set, which correctly
+ * means "no ref may be cited" rather than "any ref is fine".
+ */
+export function buildAnalysJudgementSchema(tillatnaSidor: ReadonlySet<number>) {
+  return AnalysJudgementSchema.superRefine((omdome, ctx) => {
+    const kontrollera = (ref: { page: number } | undefined, path: Array<string | number>) => {
+      if (ref && !tillatnaSidor.has(ref.page)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [...path, "ref", "page"],
+          message: `Sidan ${ref.page} finns inte i underlaget — endast sidnummer som förekommer i extraktionen får användas.`,
+        });
+      }
+    };
+    omdome.rodaFlaggor.forEach((flagga, i) => kontrollera(flagga.ref, ["rodaFlaggor", i]));
+    omdome.fragor.forEach((fraga, i) => kontrollera(fraga.ref, ["fragor", i]));
+  });
+}

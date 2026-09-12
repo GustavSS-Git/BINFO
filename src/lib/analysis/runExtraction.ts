@@ -81,7 +81,7 @@ export function stripMarkdownFence(text: string): string {
  * null" and being able to see the response actually started with a
  * Markdown fence or got cut off mid-string.
  */
-function parseModelJson(content: Array<{ type: string; text?: string }>): unknown {
+export function parseModelJson(content: Array<{ type: string; text?: string }>): unknown {
   const text = findTextBlock(content);
   if (!text) return "(inget textblock i svaret)";
   try {

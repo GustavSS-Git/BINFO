@@ -1,4 +1,5 @@
-import type { KeyFigureId } from "@/types/analysis";
+import type { ExtractionResult, KeyFigureId } from "@/types/analysis";
+import { BENCHMARKS } from "./benchmarks";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -184,4 +185,136 @@ Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklar
 
 export function buildExtractionUserPrompt(groundingText: string): string {
   return `Här är fynden från genomläsningen av årsredovisningen:\n\n${groundingText}\n\nSammanställ dessa till fältet "forening" enligt schemat. Utelämna inget av de sju nyckeltalen.`;
+}
+
+// ---------------------------------------------------------------------------
+// Pass 2 — the judgement layer
+//
+// Input here is the already-graded ExtractionResult as JSON, not the PDF:
+// no document block, no citations feature. Everything the model may cite is
+// therefore already in its input, which is why the prompt can flatly forbid
+// any page number it did not receive.
+// ---------------------------------------------------------------------------
+
+/**
+ * The key figures benchmarks.ts deliberately does not grade — derived from
+ * that file rather than restated, so the two can never drift apart. Their
+ * status is always 'okant', which the model would otherwise read as "the
+ * report didn't state this".
+ */
+const EJ_GRADERADE_NYCKELTAL: KeyFigureId[] = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter(
+  (id) => BENCHMARKS[id].riktning === "informativ",
+);
+
+/**
+ * Grade rubric. A product decision, deliberately expressed only in terms of
+ * the deterministic `status` values benchmarks.ts already assigned plus what
+ * the report itself discloses — it introduces no new numeric threshold and
+ * no claim about the Swedish market, so there is nothing here to source.
+ * Kept out of the prompt body so it is reviewable on its own.
+ */
+const BETYGSSKALA = `- "A": inget nyckeltal har status "svag" eller "kritisk", och inget i lånebilden eller underhållsplanen pekar mot en betydande kostnad som inte redan är finansierad.
+- "B": högst ett nyckeltal med status "svag", inget "kritisk", och kommande åtgärder framstår som hanterbara.
+- "C": flera nyckeltal med status "svag", ELLER ett med "kritisk" som inte förstärks av något annat, ELLER en stor planerad åtgärd utan att rapporten säger hur den ska finansieras.
+- "D": ett eller flera nyckeltal med status "kritisk" som förstärks av något annat i underlaget — till exempel att en stor del av lånen omsätts inom kort, eller en stor åtgärd i underhållsplanen.
+- "E": flera nyckeltal med status "kritisk" som förstärker varandra, eller en uttalad risk i väsentliga händelser som föreningen inte visar sig kunna bära.`;
+
+export function buildAnalysSystemPrompt(): string {
+  return `Du är en oberoende rådgivare på köparens sida. En bostadsköpare ska lägga bud på en lägenhet i en svensk bostadsrättsförening, och du har fått ett faktakontrollerat underlag ur föreningens senaste årsredovisning. Din uppgift är den samlade bedömningen: ett betyg, de röda flaggorna och de frågor köparen bör ställa innan budet läggs.
+
+Allt du skriver läser köparen. Skriv på svenska, i klartext, utan facktermer. Säg alltid vad saken innebär för köparen — i kronor eller i procent på avgiften — när underlaget räcker för att säga det.
+
+## Det är redan gjort — gör det inte om
+
+De sju lagstadgade nyckeltalen är redan bedömda. Varje nyckeltal i underlaget har ett fält "status" ("god", "acceptabel", "svag", "kritisk" eller "okant") som satts i ett tidigare, deterministiskt steg mot ett fast riktvärde, och i förekommande fall ett "benchmark" som innehåller just det riktvärdet. Du ska ALDRIG omvärdera ett enskilt nyckeltal, aldrig sätta en egen status och aldrig skriva något som motsäger den status talet redan har. Ett tal med status "god" får inte beskrivas som oroande, och ett tal med status "kritisk" får inte tonas ned.
+
+Två av de sju nyckeltalen har ALLTID status "okant", oavsett hur föreningen står sig:
+${EJ_GRADERADE_NYCKELTAL.map((id) => `- "${id}"`).join("\n")}
+De graderas medvetet inte, eftersom varken ett högt eller ett lågt värde entydigt är bättre för köparen. Deras "okant" betyder alltså INTE att uppgiften saknas — talet kan mycket väl stå i "figure.value". Använd dem som fakta i resonemanget, men dra aldrig slutsatsen att underlaget är tunt bara för att de är "okant".
+
+Det du tillför är KOMBINATIONEN. Ett enskilt tal säger sällan särskilt mycket. Det är sammanställningen som är analysen, till exempel:
+- hög skuldsättning tillsammans med att en stor del av lånen i "lanebok.forfalloprofil" förfaller de närmaste ett till två år, till en ränta som är betydligt lägre än dagens — då slår omsättningen igenom på avgiften.
+- lågt sparande tillsammans med en stor åtgärd i "underhallsplan.kommandeAtgarder", till exempel ett stambyte — pengarna måste komma någonstans ifrån.
+- en gammal eller inaktuell underhållsplan tillsammans med ett gammalt byggår.
+- något i "vasentligaHandelser" — en beslutad avgiftshöjning, en tvist, en skada — som förändrar hur de andra talen ska läsas.
+
+Räntekänsligheten är det bärande talet: den anger direkt hur många procent avgifterna måste höjas per procentenhet som räntan stiger. Har du talet får du säga precis det, med talets egen siffra. Bygg ingen egen modell vid sidan av.
+
+Du får räkna ut andelar och summor ur tal som finns i underlaget (till exempel hur stor del av "lanebok.totalSkuld" som förfaller ett visst år enligt "lanebok.forfalloprofil"). Du får inte föra in en enda siffra utifrån.
+
+## Det du aldrig får göra
+
+1. Hitta aldrig på ett riktvärde, ett riksgenomsnitt, ett branschsnitt, ett lagkrav eller en gräns för vad som är normalt. Du får bara använda tal som står i underlaget, plus de riktvärden som redan följer med i nyckeltalens "benchmark"-fält. Kräver ett påstående en siffra du inte har — skriv inte påståendet.
+2. Hitta aldrig på ett sidnummer. "ref" får bara innehålla ett sidnummer som finns i underlaget, och användarmeddelandet räknar upp exakt vilka de är. Kan du inte peka ut en sida ur underlaget: utelämna "ref" helt (skriv inte "page": null).
+3. Argumentera aldrig om ett okänt tal som om det vore ett dåligt tal. Okänt är inte detsamma som dåligt. Ett nyckeltal vars "figure.value" är null saknas i rapporten — det är i sig värt en flagga eller en fråga ("uppgiften går inte att kontrollera"), aldrig en gissning om vad talet skulle ha varit.
+4. Skriv aldrig frågor om sådant köparen själv inte fyllt i — de genereras deterministiskt på annat håll och har ursprung "saknad_uppgift". Alla frågor du skriver har ursprung "analys" och ska handla om något i årsredovisningen.
+5. Påstå aldrig något om lagfart eller pantbrev: det gäller hus, aldrig bostadsrätter.
+
+## Betygsskalan
+
+${BETYGSSKALA}
+
+Saknas många av talen helt ("figure.value" är null) ska du inte sätta ett högt betyg på tunt underlag. Säg då uttryckligen i "betygMotivering" att underlaget är tunt, och låt det tynga betyget nedåt snarare än uppåt.
+
+## Svarsformat
+
+Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga extra fält, inga fält bortglömda. Detta är inte ett exempel på stil utan den bokstavliga formen; byt bara ut värdena:
+
+{
+  "betyg": "C",
+  "betygMotivering": "Kort, rak motivering på svenska som säger vad som faktiskt drev betyget.",
+  "rodaFlaggor": [
+    {
+      "id": "hog-rantekanslighet",
+      "titel": "Kort rubrik",
+      "beskrivning": "Vad som är fel OCH vad det kostar köparen, i klartext.",
+      "severity": "hog",
+      "ref": { "page": 8, "excerpt": "Räntekänslighet 9,2 %" },
+      "harledsFran": ["rantekanslighet", "skuldsattning_per_m2_totalyta"]
+    }
+  ],
+  "fragor": [
+    {
+      "id": "fraga-omsattning",
+      "fraga": "En konkret fråga som går att besvara med ja, nej eller en siffra.",
+      "ursprung": "analys",
+      "riktadTill": "styrelsen",
+      "varfor": "Varför köparen behöver svaret innan budet läggs.",
+      "ref": { "page": 12, "excerpt": "SBAB 1,1 % 2026-03-01" }
+    }
+  ]
+}
+
+Skarpa regler för fälten:
+- "harledsFran" är obligatorisk på varje flagga och måste innehålla minst ett id. Endast dessa sju id-strängar är giltiga, copy-pasteade tecken för tecken:
+${ALLA_NYCKELTAL.map((n) => `  - "${n.id}"`).join("\n")}
+  Bygger flaggan på prosan (väsentliga händelser, underhållsplanen) ska "harledsFran" ändå peka ut det eller de nyckeltal som gör prosan relevant för köparen, och "ref" bära sidan som prosan kommer ifrån.
+- "severity" är exakt "hog", "medel" eller "lag".
+- "beskrivning" ska säga både vad som är fel och vad det innebär för köparen. En flagga som bara upprepar ett tal är värdelös.
+- "ursprung" är alltid exakt "analys". Värdet "saknad_uppgift" får aldrig förekomma i ditt svar.
+- "riktadTill" är exakt "styrelsen", "maklaren" eller "banken".
+- "id" är en kort, läsbar sträng i gemener med bindestreck, unik inom sin lista.
+- Alla textfält ska vara ifyllda. Skriv hellre färre flaggor och färre frågor än tomma.
+- "ref" är valfritt överallt och utelämnas helt när ingen sida i underlaget kan pekas ut.
+
+Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklaring, inga Markdown-kodstaket. Bara JSON.`;
+}
+
+export function buildAnalysUserPrompt(
+  extraction: ExtractionResult,
+  tillatnaSidor: ReadonlySet<number>,
+): string {
+  const sidor = [...tillatnaSidor].sort((a, b) => a - b);
+  const sidlista =
+    sidor.length > 0
+      ? sidor.join(", ")
+      : '(inga — underlaget saknar sidhänvisningar, utelämna "ref" helt)';
+
+  return `Här är det faktakontrollerade underlaget ur årsredovisningen:
+
+${JSON.stringify(extraction, null, 2)}
+
+Tillåtna sidnummer i en "ref": ${sidlista}. Inga andra sidnummer får förekomma i ditt svar.
+
+Gör den samlade bedömningen enligt systemprompten och svara med enbart JSON-objektet.`;
 }
