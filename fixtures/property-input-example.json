@@ -1,0 +1,31 @@
+{
+  "input": {
+    "kind": "bostadsratt",
+    "utgangspris": 3200000,
+    "boarea": 54,
+    "antalRum": 2,
+    "manadsavgift": 3800,
+    "andelstal": 1.8,
+    "orgnr": "769616-0253",
+    "adress": "Granstigen 10",
+    "postnummer": "123 45",
+    "ort": "Stockholm",
+    "hiss": "okant",
+    "balkong": "ja",
+    "avgiftInkluderar": {
+      "varme": "okant",
+      "vatten": "okant",
+      "el": "okant",
+      "bredband": "okant",
+      "tv": "okant"
+    },
+    "antalPersoner": 2,
+    "antalLantagare": 2
+  },
+  "lan": {
+    "lanebelopp": 2560000,
+    "kontantinsats": 640000,
+    "ranta": 3.6,
+    "bruttoinkomst": 900000
+  }
+}
