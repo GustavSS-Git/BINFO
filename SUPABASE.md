@@ -4,42 +4,69 @@ Scope for step 3 of `GOLIVE.md`: the persistence layer Phase 1 needs before a
 buyer's own upload can produce their own analysis. Read `GOLIVE.md` first for
 why the job has to be asynchronous and what the caching is worth.
 
-Decided already: **storage is Supabase**, **payment is deferred**, the app runs
-on **Cloudflare Workers**.
+**Settled:** storage is the project's **own Supabase** (verified live, service
+key works, buckets empty). Payment deferred. Hosting is **Lovable's**, on the
+custom domain `binfo.slanesens.com`. PDFs retained **30 days**. A hard spend
+limit is set in the Anthropic console.
 
 ---
 
-## What the measurements force
+## What the constraints force
 
-Two numbers from the spikes drive every decision below.
+### Cloudflare Queues is off the table
 
-**A cold run takes 195,9 s** (122,5 s pass 1 + 73,4 s pass 2). Nothing may hold
-an HTTP request open for that. The upload returns immediately; the work happens
-out of band; the client polls.
+Lovable owns the deployment. Its build presets (`cloudflare-module` or
+`lovable-fetch-bundle`) target a Workers-style runtime, but it is **Lovable's**
+Cloudflare account — so we cannot add Queue, D1 or R2 bindings to it, and we
+cannot set or raise its CPU limit. Paying for a Workers plan we don't control
+buys nothing. The earlier recommendation to use Cloudflare Queues is therefore
+withdrawn.
 
-**PDF parsing costs 378 ms CPU** on the largest report. That is fine against
-the Workers *paid* CPU budget (30 s) and far outside the free plan's per-request
-allowance (10 ms at last check — verify, but 378 ms will not fit). **Budget for
-Workers Paid.** It also means the pipeline cannot run on a free-tier Worker even
-before the API latency is considered.
+Relevant: Cloudflare's free plan allows **10 ms CPU per request and cannot be
+raised**; paid defaults to 30 s. Our PDF parse measures 378 ms. We do not know
+which plan Lovable runs, and we cannot change it — which is the second reason
+the long job must not live in the web request at all.
 
-### Split pass 1 and pass 2 into separate jobs
+Lovable Cloud is itself built on Supabase and offers Edge Functions, scheduled
+Jobs and a Secrets manager. Since the project has its **own** Supabase, use that
+directly rather than Lovable Cloud's managed one: full control, standard
+Supabase pricing, own region, proper migrations.
 
-Not one 196-second job — two jobs of ~122 s and ~73 s. This falls out of the
-measurements and pays for itself three times over:
+### Supabase Edge Function limits force the job into small steps
 
-1. **It fits any runtime's limits.** A single 196 s invocation is at or past the
-   ceiling of several serverless platforms (Supabase Edge Functions in
-   particular — check the current wall-clock limit before assuming one
-   invocation can do the whole run). Two shorter steps fit comfortably.
-2. **It isolates the expensive half.** Pass 1 is 3,47 kr of the 4,25 kr. If
-   pass 2 fails validation and retries, the current code would re-run pass 1
-   too. Separate steps mean a pass-2 failure costs 0,79 kr to retry, not 4,25.
-3. **It matches the cache boundary.** Both passes are cached independently
-   anyway (below), so the job boundary and the cache boundary are the same
-   line.
+| Limit | Free | Paid |
+|---|---|---|
+| Wall clock per invocation | **150 s** | 400 s |
+| CPU per invocation | **2 s** | 2 s |
 
-**Where the job runs** is the one piece still genuinely open — see the end.
+Against measurements:
+
+| Step | Measured wall | Fits 150 s? |
+|---|---|---|
+| Full cold run | 195,9 s | **No** |
+| Pass 1 (extraction, 2 API calls) | 122,5 s | Barely — 18 % headroom |
+| Pass 2 (judgement, 1 API call) | 73,4 s | Yes |
+
+A single job is impossible on the free plan and tight even on paid. And pass 1's
+122,5 s was measured on the **1,2 MB** Nabo report — the 11,4 MB report has more
+pages and more tokens to reason over, so assume it is slower. 18 % headroom is
+not enough.
+
+**So: one Anthropic call per invocation — three steps, not two.** Pass 1 is
+internally two calls (the citation-grounding call, then the structured-JSON
+call), so the natural split is:
+
+| Step | What it does | Cached as |
+|---|---|---|
+| 1 | PDF parse + grounding call (citations) | — |
+| 2 | Structured-JSON call → `ExtractionResult` | `extraktion_cache` |
+| 3 | Judgement call → `AnalysJudgement` | `analys_cache` |
+
+Assembly is 0,01 s and can happen on read. This also isolates cost precisely: a
+step-3 failure costs 0,79 kr to retry, not the full 4,25 kr.
+
+CPU fits with room to spare — the heaviest work (378 ms parse + 240 ms base64)
+all lands in step 1, around 30 % of the 2 s budget.
 
 ---
 
@@ -195,9 +222,18 @@ Three consequences for this layer:
 
 1. **Pick an EU region** for the Supabase project (Stockholm/Frankfurt). Doing
    this at project creation is free; moving later is not.
-2. **Set a retention period** for uploaded PDFs and delete on schedule. The
-   cached `ExtractionResult` is derived, structured data and can reasonably
-   outlive the source file — the PDF itself does not need keeping forever.
+2. **Retention: uploaded PDFs are deleted after 30 days** (decided). The
+   derived `ExtractionResult` and `AnalysJudgement` are structured data and are
+   kept — they are what the cache is worth, and they do not contain the
+   document itself. A `pg_cron` job deletes storage objects older than 30 days
+   and nulls `analys.pdf_path`; the analysis a buyer paid attention to survives,
+   the liability does not.
+
+   Consequence worth noting: after 30 days the PDF is gone, so a *re-run* of a
+   cached förening is impossible — only the cached output remains. That is
+   fine, and it is the right trade, but it means a cache entry that fails
+   schema validation after a contract change cannot be regenerated without a
+   fresh upload.
 3. **Have a deletion path** for a buyer who asks. With content-addressed
    storage shared across buyers, deleting one buyer's `analys` row must not
    necessarily delete the shared PDF — decide the rule now and write it down.
@@ -272,16 +308,23 @@ though nothing reads it yet.
 
 | # | Task | Notes |
 |---|---|---|
-| 1 | Create the Supabase project, **EU region** | Blocking; region is permanent |
+| 0 | ~~Create the Supabase project~~ | **Done** — live, key verified. Region still to confirm |
+| 1 | **Deno spike**: `unpdf` + Anthropic SDK in an Edge Function | Blocking. workerd ≠ Deno; Phase 0 does not transfer |
 | 2 | `001_init.sql` — tables, enums, indexes, RLS, bucket | As above; commit the migration |
 | 3 | `PROMPT_VERSION` in `prompts.ts` | Needed for the cache key |
 | 4 | `src/server/env.ts` + `.env.example` | Zod-validated, fails loudly |
 | 5 | `src/server/supabase.ts` | Service-role client, server-only |
 | 6 | `src/server/cache.ts` | **Must re-apply `berikaNyckeltal` on read** |
 | 7 | `src/server/spend.ts` | Daily cap + kill switch |
-| 8 | `src/server/jobb.ts` | Pass 1 and pass 2 as separate steps |
-| 9 | `src/server/analys.ts` | The three server functions |
-| 10 | ESLint `no-restricted-imports` guard | Server modules out of client code |
+| 8 | Code-sharing build step for the Edge Function | One source of truth; no forked pipeline |
+| 9 | Edge Function: one pipeline step per invocation | Three steps; `attempts` counter |
+| 10 | `pg_cron` schedule + retention job | Queue tick; 30-day PDF deletion |
+| 11 | `src/server/analys.ts` | The three server functions |
+| 12 | ESLint `no-restricted-imports` guard | Server modules out of client code |
+
+Task 1 comes first because a failed Deno spike changes tasks 8–10 entirely (the
+fallback being a small Node service we control, where the pipeline runs
+unmodified — it already does, via `npm run extract`).
 
 Tests: the cache round-trip, the re-enrichment on read, the spend cap
 refusing a run at the limit, and the dedupe path all have verifiable right
@@ -290,25 +333,67 @@ to Supabase gets the client injected so tests never need a live database.
 
 ---
 
+## The job runner: Postgres as the queue
+
+Since Lovable's runtime is not ours to configure and Cloudflare bindings are
+unavailable, the job lives entirely in Supabase — which the project owns:
+
+```
+analys row ('queued')
+   → pg_cron tick (every minute)
+   → invokes the Edge Function for ONE step
+   → step writes its result + advances `stage`, or records an error
+   → next tick picks up the next step
+```
+
+Postgres is the queue, `pg_cron` is the scheduler, an Edge Function is the
+worker. No extra vendor, nothing that needs Lovable's cooperation, and it is
+durable in the way `waitUntil` is not: if a step dies, the row stays in its
+previous stage and the next tick retries it. Add an `attempts` counter so a
+genuinely broken report fails permanently instead of retrying forever and
+billing every time.
+
+The web app (on Lovable) then only ever does fast things: write the upload,
+read status, read the result. Nothing long-running in the request path.
+
+### This invalidates part of the Phase 0 spike — honestly
+
+`GOLIVE.md`'s Phase 0 verified the pipeline inside **Cloudflare workerd**, which
+is what the *site* runs on. Supabase Edge Functions run **Deno**. That is a
+different runtime, so the verification does not transfer. Before building on
+this, re-run the equivalent spike under Deno: does `unpdf` parse a real PDF,
+does `@anthropic-ai/sdk` work via `npm:` specifiers, does `toBase64` behave.
+Both libraries claim edge/Deno support and the removal of `Buffer` and
+`node:crypto` helps, but claiming it works without running it would be exactly
+what `CLAUDE.md` forbids.
+
+### And it raises a real code-sharing problem
+
+The pipeline is TypeScript in `src/lib/analysis/`, imported with the `@/` alias
+and bundled by Vite. A Supabase Edge Function is a separate Deno deployment with
+its own module resolution. The same code has to run in both places without being
+forked — a forked copy of the extraction logic is how the answer key silently
+stops matching production.
+
+Options, to decide after the Deno spike: a small build step that bundles
+`src/lib/analysis/` into the function directory; an import map plus
+relative imports; or publishing the pipeline as an internal package. Least-bad
+is probably the bundle step, since it keeps one source of truth and the tests
+keep running against that source.
+
+---
+
 ## Still open
 
-**1. Where does the job actually run?** The schema above is identical either
-way, so this does not block starting — but it decides task 8.
+**1. Which Supabase region is the project in?** Cannot be read from the URL —
+check Settings → General. These PDFs name board members, so an EU region
+(Stockholm/Frankfurt) matters, and region cannot be changed after creation. If
+it landed outside the EU, recreating now is far cheaper than later.
 
-- *Cloudflare Queues* (needs Workers Paid, which the CPU measurement says you
-  need regardless): one platform, one set of secrets, consumers get generous
-  wall time. Simplest fit given we already deploy there.
-- *Cloudflare Workflows*: same platform, plus durable per-step retries — close
-  to purpose-built for "two expensive steps that each might fail". Slightly
-  more to learn.
-- *Supabase Edge Functions*: keeps the job next to the data, but it is a second
-  runtime (Deno), a second place the Anthropic key lives, and the wall-clock
-  limit needs checking against our 122 s pass 1.
+**2. Supabase plan.** Free gives 150 s wall clock, which the three-step split
+fits. But free projects pause after inactivity, which is not viable for a live
+site — expect the paid plan once real users arrive, which also lifts wall clock
+to 400 s and gives more headroom on the largest reports.
 
-My lean: **Cloudflare Queues**, with the pass-1/pass-2 split making Workflows
-unnecessary for now.
-
-**2. Retention period for uploaded PDFs.** See the personal-data section.
-
-**3. Do you already have a Supabase project?** If one exists and is not in an
-EU region, that is worth fixing before anything is built on it.
+**3. Rotate the service key.** It was pasted into a chat transcript. Settings →
+API → roll it, then update `.env.local` and the Edge Function secrets.
