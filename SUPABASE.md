@@ -178,7 +178,7 @@ alter table extraktion_cache enable row level security;
 alter table analys_cache     enable row level security;
 alter table spend_day        enable row level security;
 -- Deliberately no policies. RLS on + zero policies = deny everything to anon
--- and authenticated. The Worker uses the service-role key, which bypasses RLS.
+-- and authenticated. The server uses the secret key, which bypasses RLS.
 ```
 
 **The browser never gets a Supabase key of any kind in Phase 1.** All access
@@ -249,7 +249,7 @@ Add to `.env.example` (and the Worker's secret store in production):
 
 ```
 SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=          # server only — never VITE_-prefixed, never in the browser
+SUPABASE_SECRET_KEY=                # sb_secret_... — server only, never VITE_-prefixed, never in the browser
 MAX_DAILY_SPEND_SEK=200             # global cap; the per-run cap already exists
 ANALYSIS_KILL_SWITCH=off            # 'on' refuses new jobs without a deploy
 ```
@@ -282,7 +282,7 @@ A missing key should fail the deploy, not the first buyer's upload.
 ```
 src/server/
   env.ts        -- Zod-validated env, throws loudly when a secret is missing
-  supabase.ts   -- service-role client factory, server-only
+  supabase.ts   -- secret-key client factory, server-only
   cache.ts      -- extraction/judgement cache read + write (re-enriches on read)
   spend.ts      -- daily cap + kill switch
   jobb.ts       -- the two pipeline steps, called by whatever runs the job
@@ -395,5 +395,16 @@ fits. But free projects pause after inactivity, which is not viable for a live
 site — expect the paid plan once real users arrive, which also lifts wall clock
 to 400 s and gives more headroom on the largest reports.
 
-**3. Rotate the service key.** It was pasted into a chat transcript. Settings →
-API → roll it, then update `.env.local` and the Edge Function secrets.
+**3. Disable the legacy JWT API keys.** A new-style `sb_secret_...` key has been
+issued and is in use (`SUPABASE_SECRET_KEY`), but **creating it does not revoke
+the legacy keys** — Supabase keeps both systems live. Verified: the superseded
+`service_role` JWT still authenticates against `/rest/v1/`. Settings → API Keys
+→ Legacy API Keys → disable, which is the separate action that actually kills
+the old `anon` and `service_role` JWTs. Cheapest to do now, while the database
+is empty.
+
+Note for the code: the new secret key is used exactly like the old one — as the
+`apikey` header and as a Bearer token — and is the documented replacement for
+`service_role`, so it bypasses RLS. Confirm that empirically against a real
+table with RLS enabled once `001_init.sql` is applied, rather than taking it on
+trust, since the deny-all RLS backstop depends on it.
