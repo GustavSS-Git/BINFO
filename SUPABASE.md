@@ -74,8 +74,15 @@ all lands in step 1, around 30 % of the 2 s budget.
 
 Three concerns, kept separate: the job, the caches, the spend guard.
 
+Create the migration with the CLI rather than hand-naming a file —
+`supabase migration new init` writes
+`supabase/migrations/<timestamp>_init.sql`. Supabase tracks applied migrations
+by that timestamped filename, so a hand-rolled `001_init.sql` sits outside what
+the CLI expects. Apply with `supabase db push` (remote) or `supabase db reset`
+(local).
+
 ```sql
--- 001_init.sql
+-- supabase/migrations/<timestamp>_init.sql
 
 create type analys_status as enum ('queued', 'running', 'done', 'failed');
 create type analys_stage  as enum ('uploaded', 'extracting', 'judging', 'assembling');
@@ -310,7 +317,7 @@ though nothing reads it yet.
 |---|---|---|
 | 0 | ~~Create the Supabase project~~ | **Done** — live, EU (Ireland), key verified |
 | 1 | ~~Deno spike~~ | **Done** — real edge-runtime, all four report sizes, incl. the scan |
-| 2 | `001_init.sql` — tables, enums, indexes, RLS, bucket | As above; commit the migration |
+| 2 | `supabase migration new init` — tables, enums, indexes, RLS, bucket | As above; commit the migration |
 | 3 | `PROMPT_VERSION` in `prompts.ts` | Needed for the cache key |
 | 4 | `src/server/env.ts` + `.env.example` | Zod-validated, fails loudly |
 | 5 | `src/server/supabase.ts` | Service-role client, server-only |
@@ -415,4 +422,4 @@ to 400 s and gives more headroom on the largest reports.
 **2. Confirm the secret key bypasses RLS empirically, not on trust.** It is
 documented as the replacement for `service_role`, but the deny-all RLS backstop
 in this design depends on that being true — check it against a real
-RLS-enabled table once `001_init.sql` is applied.
+RLS-enabled table once the init migration is applied.
