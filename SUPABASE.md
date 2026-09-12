@@ -308,8 +308,8 @@ though nothing reads it yet.
 
 | # | Task | Notes |
 |---|---|---|
-| 0 | ~~Create the Supabase project~~ | **Done** — live, key verified. Region still to confirm |
-| 1 | **Deno spike**: `unpdf` + Anthropic SDK in an Edge Function | Blocking. workerd ≠ Deno; Phase 0 does not transfer |
+| 0 | ~~Create the Supabase project~~ | **Done** — live, EU (Ireland), key verified |
+| 1 | ~~Deno spike~~ | **Done** — real edge-runtime, all four report sizes, incl. the scan |
 | 2 | `001_init.sql` — tables, enums, indexes, RLS, bucket | As above; commit the migration |
 | 3 | `PROMPT_VERSION` in `prompts.ts` | Needed for the cache key |
 | 4 | `src/server/env.ts` + `.env.example` | Zod-validated, fails loudly |
@@ -356,16 +356,30 @@ billing every time.
 The web app (on Lovable) then only ever does fast things: write the upload,
 read status, read the result. Nothing long-running in the request path.
 
-### This invalidates part of the Phase 0 spike — honestly
+### Phase 0b — the Deno spike. DONE, and it holds up
 
-`GOLIVE.md`'s Phase 0 verified the pipeline inside **Cloudflare workerd**, which
-is what the *site* runs on. Supabase Edge Functions run **Deno**. That is a
-different runtime, so the verification does not transfer. Before building on
-this, re-run the equivalent spike under Deno: does `unpdf` parse a real PDF,
-does `@anthropic-ai/sdk` work via `npm:` specifiers, does `toBase64` behave.
-Both libraries claim edge/Deno support and the removal of `Buffer` and
-`node:crypto` helps, but claiming it works without running it would be exactly
-what `CLAUDE.md` forbids.
+`GOLIVE.md`'s Phase 0 verified the pipeline inside Cloudflare workerd, which is
+what the *site* runs on. Supabase Edge Functions run **Deno**, a different
+runtime, so that verification did not transfer on its own — it needed its own
+proof, not an assumption.
+
+Verified against the **real** `supabase-edge-runtime` (Deno 2.1.4, via
+`supabase functions serve` — the actual container Supabase deploys, not
+vanilla Deno), replicating `pdf.ts` and `toBase64` exactly and importing both
+libraries via `npm:` specifiers:
+
+| Report | Size | `extractPdfText` | base64 | Text layer |
+|---|---|---|---|---|
+| HSB (largest) | 11,4 MB | 418 ms | 433 ms | ok |
+| Riksbyggen 2 | 7,3 MB | 492 ms | 259 ms | ok |
+| SBC 2 | 5,3 MB | 50 ms | 189 ms | **SAKNAS — scan, correctly detected** |
+| Nabo (typical) | 1,2 MB | 319 ms | 46 ms | ok |
+
+Worst case ≈ 850 ms against the 2 s CPU budget — comparable to the workerd
+numbers, comfortable margin, no `nodejs_compat`-equivalent flag needed.
+`unpdf`, `@anthropic-ai/sdk` (client construction), `crypto.randomUUID()`, and
+the scanned-PDF detection all work unmodified. Task 1 is closed; the schema and
+server work are unblocked.
 
 ### And it raises a real code-sharing problem
 
@@ -383,28 +397,22 @@ keep running against that source.
 
 ---
 
+## Resolved
+
+- ~~Which Supabase region~~ — **Ireland (EU-West)**, confirmed.
+- ~~Disable the legacy JWT API keys~~ — **done and verified**: the leaked
+  `service_role` JWT that had been pasted into a chat now returns 401; the
+  active `SUPABASE_SECRET_KEY` (`sb_secret_...`) returns 200 on both REST and
+  storage.
+
 ## Still open
 
-**1. Which Supabase region is the project in?** Cannot be read from the URL —
-check Settings → General. These PDFs name board members, so an EU region
-(Stockholm/Frankfurt) matters, and region cannot be changed after creation. If
-it landed outside the EU, recreating now is far cheaper than later.
-
-**2. Supabase plan.** Free gives 150 s wall clock, which the three-step split
+**1. Supabase plan.** Free gives 150 s wall clock, which the three-step split
 fits. But free projects pause after inactivity, which is not viable for a live
 site — expect the paid plan once real users arrive, which also lifts wall clock
 to 400 s and gives more headroom on the largest reports.
 
-**3. Disable the legacy JWT API keys.** A new-style `sb_secret_...` key has been
-issued and is in use (`SUPABASE_SECRET_KEY`), but **creating it does not revoke
-the legacy keys** — Supabase keeps both systems live. Verified: the superseded
-`service_role` JWT still authenticates against `/rest/v1/`. Settings → API Keys
-→ Legacy API Keys → disable, which is the separate action that actually kills
-the old `anon` and `service_role` JWTs. Cheapest to do now, while the database
-is empty.
-
-Note for the code: the new secret key is used exactly like the old one — as the
-`apikey` header and as a Bearer token — and is the documented replacement for
-`service_role`, so it bypasses RLS. Confirm that empirically against a real
-table with RLS enabled once `001_init.sql` is applied, rather than taking it on
-trust, since the deny-all RLS backstop depends on it.
+**2. Confirm the secret key bypasses RLS empirically, not on trust.** It is
+documented as the replacement for `service_role`, but the deny-all RLS backstop
+in this design depends on that being true — check it against a real
+RLS-enabled table once `001_init.sql` is applied.
