@@ -1,8 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import { APIConnectionError } from "@anthropic-ai/sdk";
 import { jamforTristate, jamforVarde } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
-import { runExtraction } from "./runExtraction";
+import { runExtraction, type RunExtractionOptions } from "./runExtraction";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
 
 /**
@@ -32,6 +33,34 @@ try {
 
 const ANSWER_KEY_DIR = "fixtures/answer-key";
 
+function felText(error: unknown): string {
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}
+
+/**
+ * Anslutningsfel (t.ex. "write EPIPE" mitt i uppladdningen av en 12 MB
+ * PDF) är övergående och drabbar de stora rapporterna. Allt annat —
+ * kostnadstak, skannad PDF, schemavalidering — är ett riktigt resultat och
+ * ska inte försökas om.
+ */
+function arAnslutningsfel(error: unknown): boolean {
+  return (
+    error instanceof APIConnectionError ||
+    (error instanceof Error && /EPIPE|ECONNRESET|ETIMEDOUT|socket hang up/i.test(error.message))
+  );
+}
+
+/** Ett (1) omförsök vid anslutningsfel — medvetet ingen backoff-strategi. */
+async function korMedEttOmforsok(pdfBytes: Uint8Array, options: RunExtractionOptions) {
+  try {
+    return await runExtraction(pdfBytes, options);
+  } catch (error) {
+    if (!arAnslutningsfel(error)) throw error;
+    console.log(`  Anslutningsfel (${felText(error)}) — gör ett omförsök...`);
+    return await runExtraction(pdfBytes, options);
+  }
+}
+
 async function loadFixtures(): Promise<AnswerKeyFixture[]> {
   const files = (await readdir(ANSWER_KEY_DIR)).filter((f) => f.endsWith(".json"));
   return Promise.all(
@@ -57,6 +86,7 @@ async function main() {
   let totalFalt = 0;
   let godkanda = 0;
   let hoppadeOver = 0;
+  let misslyckade = 0;
 
   for (const fixture of fixtures) {
     const pdfPath = path.join(pdfDir, fixture.kalla.fil);
@@ -71,7 +101,17 @@ async function main() {
       continue;
     }
 
-    const { extraction, spentSek } = await runExtraction(pdfBytes, { model, maxCostSek });
+    // En rapport som kraschar får inte sänka hela körningen — de övriga
+    // fixturerna ska fortfarande köras och rapporteras.
+    let extraction: Awaited<ReturnType<typeof runExtraction>>["extraction"];
+    let spentSek: number;
+    try {
+      ({ extraction, spentSek } = await korMedEttOmforsok(pdfBytes, { model, maxCostSek }));
+    } catch (error) {
+      console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
+      misslyckade++;
+      continue;
+    }
 
     for (const [id, forvantat] of Object.entries(fixture.nyckeltal)) {
       const kf = extraction.forening.keyFigures.find((k) => k.id === id);
@@ -147,8 +187,14 @@ async function main() {
   }
 
   console.log(`\n${"=".repeat(70)}`);
-  console.log(`${godkanda}/${totalFalt} fält godkända.${hoppadeOver > 0 ? ` ${hoppadeOver} rapport(er) överhoppade (PDF saknas).` : ""}`);
-  process.exitCode = godkanda === totalFalt && hoppadeOver === 0 ? 0 : 1;
+  console.log(
+    `${godkanda}/${totalFalt} fält godkända.` +
+      (hoppadeOver > 0 ? ` ${hoppadeOver} rapport(er) överhoppade (PDF saknas).` : "") +
+      (misslyckade > 0
+        ? ` ${misslyckade} rapport(er) misslyckades (körningen gick inte att slutföra).`
+        : ""),
+  );
+  process.exitCode = godkanda === totalFalt && hoppadeOver === 0 && misslyckade === 0 ? 0 : 1;
 }
 
 main().catch((error: unknown) => {
