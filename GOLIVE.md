@@ -322,6 +322,7 @@ to live. This one does block going live.
 2. ~~Time a full cold run end to end~~ — **done.** 195,9 s / 4,25 kr on a
    1,2 MB report. Confirms the job must be async — see above.
 3. Stand up Supabase: schema, storage bucket, keys wired into the Worker.
+   **Scoped in detail in `SUPABASE.md`.**
 4. Phase 1 as one vertical slice: upload → job → poll → real report on screen,
    with PDF-hash caching from day one (cheap now, awkward to retrofit).
 5. Phase 3 hardening — above all the global spend cap and kill switch.
