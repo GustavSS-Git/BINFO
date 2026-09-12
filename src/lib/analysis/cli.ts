@@ -77,7 +77,10 @@ async function main() {
   const inputPath = process.argv[3];
   if (!pdfPath) {
     console.error(
-      "Användning: npm run extract -- <sökväg-till-årsredovisning.pdf> [sökväg-till-objekt.json]\n\n" +
+      "Användning: npm run -s extract -- <sökväg-till-årsredovisning.pdf> [sökväg-till-objekt.json]\n\n" +
+        "Notera -s (--silent): utan den skriver npm sin egen banner till stdout, " +
+        "vilket gör utdatan ogiltig som JSON när den skickas vidare till en fil " +
+        "eller till jq. Resultatet går till stdout, all loggning till stderr.\n\n" +
         "Utan objektsfil skrivs enbart pass 1:s ExtractionResult ut.\n" +
         'Med en objektsfil ({ "input": PropertyInput, "lan": LaneUnderlag }) körs hela pipelinen ' +
         "(extraktion → analys → sammanställning) och ett fullständigt AnalysisResult skrivs ut.\n\n" +

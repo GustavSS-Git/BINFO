@@ -10,7 +10,7 @@ works.
 ## Where we actually are
 
 **Working and verified:** the whole analysis pipeline, end to end, from the
-terminal. `npm run extract -- <pdf> <input.json>` takes a real annual report
+terminal. `npm run -s extract -- <pdf> <input.json>` takes a real annual report
 and prints a complete, schema-valid `AnalysisResult`.
 
 **Also working:** every report screen renders that exact contract shape —
