@@ -50,6 +50,27 @@ function findTextBlock(content: Array<{ type: string; text?: string }>): string 
 }
 
 /**
+ * Uint8Array -> base64, using only web-standard APIs.
+ *
+ * Node's `Buffer` does not exist in Cloudflare Workers, which is what this
+ * app builds for (nitro's cloudflare-module preset). `btoa` exists in both,
+ * so the encoding stays identical across runtimes rather than depending on
+ * a compatibility shim being switched on.
+ *
+ * Chunked deliberately: `String.fromCharCode(...bytes)` spreads every byte
+ * as an argument and blows the call stack well below the 11,4 MB annual
+ * report already in the test corpus.
+ */
+export function toBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+/**
  * Strips a ```json ... ``` (or bare ```) fence if the model wrapped its
  * answer in one despite being told not to — common enough to normalize
  * rather than just fail on. Strips a leading fence marker even without a
@@ -141,7 +162,7 @@ export async function runExtraction(
     source: {
       type: "base64" as const,
       media_type: "application/pdf" as const,
-      data: Buffer.from(pdfBytes).toString("base64"),
+      data: toBase64(pdfBytes),
     },
     citations: { enabled: true },
   };
@@ -151,10 +172,7 @@ export async function runExtraction(
   const groundingMessages = [
     {
       role: "user" as const,
-      content: [
-        documentBlock,
-        { type: "text" as const, text: buildGroundingUserPrompt() },
-      ],
+      content: [documentBlock, { type: "text" as const, text: buildGroundingUserPrompt() }],
     },
   ];
 

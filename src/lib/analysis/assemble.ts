@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 import type {
   AnalysisResult,
@@ -377,7 +376,10 @@ export async function assembleraAnalys({
 
   const resultat: AnalysisResult = {
     schemaVersion: "1.0.0",
-    analysisId: randomUUID(),
+    // Globala crypto.randomUUID(), inte node:crypto — samma API finns i
+    // Cloudflare Workers (dit appen byggs), i Node 19+ och i webbläsaren,
+    // så sammanställningen kan köras var som helst utan kompatibilitetsflagga.
+    analysisId: crypto.randomUUID(),
     skapad: new Date().toISOString(),
 
     input,
