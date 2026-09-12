@@ -99,9 +99,7 @@ bostadsrätter. Board approval of membership applies to bostadsrätter only.
 
 ## Working agreement
 
-**Scope.** Do the task asked, not the adjacent tasks you notice. If you spot
-something else worth fixing, say so and wait. Small reviewable diffs over large
-ones.
+**Scope.** Do the task asked, not the adjacent tasks you notice. If you spot something worth fixing, feel free to do so as long as it is not a new page or major feature. Keep me updated and ask for my input when necessary or ambigous. Small reviewable diffs over large ones.
 
 **Tests before implementation, for anything with a correct answer.**
 Extraction, the amortisation calculator, the interest deduction, the cost
