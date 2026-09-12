@@ -1,26 +1,43 @@
 import { Card, Badge } from "@/components/ui/binfo";
-import { property, kr } from "@/data/mockData";
+import { kr } from "@/data/mockData";
+import { sampleAnalysis } from "@/data/sampleAnalysis";
+import { formatSkapadDatum } from "@/lib/analysisView";
+import type { PropertyInput } from "@/types/analysis";
 
-/** Liten sammanfattning av objektet — visas överst på rapport- och kalkylskärmar. */
-export function PropertySummary() {
+/**
+ * Liten sammanfattning av objektet — visas överst på rapport- och
+ * kalkylskärmar. Prop-lös som standard (läser sampleAnalysis) så att
+ * befintliga call-sites (analys.tsx, bolanekalkyl.tsx) fortsätter fungera
+ * oförändrade; ett annat objekt kan skickas in via props när det behövs.
+ */
+export function PropertySummary({
+  input = sampleAnalysis.input,
+  foreningNamn = sampleAnalysis.forening.namn,
+  skapad = sampleAnalysis.skapad,
+}: {
+  input?: PropertyInput;
+  foreningNamn?: string;
+  skapad?: string;
+} = {}) {
   const rows = [
-    ["Utgångspris", kr(property.utgangspris)],
-    ["Boarea", `${property.boarea} m²`],
-    ["Månadsavgift", `${kr(property.manadsavgift)}/mån`],
-    ["Våning", `${property.vaning} av ${property.vaningarTotalt}`],
-    ["Andelstal", `${property.andelstal.toString().replace(".", ",")} %`],
-    ["Byggår", String(property.byggar)],
+    ["Utgångspris", kr(input.utgangspris)],
+    ["Boarea", `${input.boarea.toFixed(1).replace(".", ",")} m²`],
+    ["Månadsavgift", `${kr(input.manadsavgift)}/mån`],
+    // Kontraktet har ingen "våning X av N" — bara en enskild våning, om känd.
+    ["Våning", input.vaning !== undefined ? String(input.vaning) : "Okänt"],
+    ["Andelstal", `${input.andelstal.toString().replace(".", ",")} %`],
+    ["Byggår", input.byggar !== undefined ? String(input.byggar) : "Okänt"],
   ];
   return (
     <Card className="mb-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl text-foreground">{property.namn}</h2>
+          <h2 className="font-display text-2xl text-foreground">{foreningNamn}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {property.adress}, {property.ort} · {property.rum}
+            {input.adress}, {input.ort} · {input.antalRum} rum
           </p>
         </div>
-        <Badge tone="teal">Analyserad 10 sep 2026</Badge>
+        <Badge tone="teal">Analyserad {formatSkapadDatum(skapad)}</Badge>
       </div>
       <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-6 md:grid-cols-6">
         {rows.map(([label, value]) => (
