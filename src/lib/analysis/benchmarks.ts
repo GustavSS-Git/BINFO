@@ -10,124 +10,224 @@ import type { KeyFigure, KeyFigureId, Status } from "@/types/analysis";
  * replaces that guess with a fixed, testable table: same input, same
  * output, always.
  *
- * Two of the seven figures (the fee level and the fee's share of revenue)
- * are deliberately NOT graded — neither is reliably "lower is better" (a
- * low fee can mean underfunded maintenance; a low revenue share pushes
- * toward oäkta förening status) and grading them without a defensible basis
- * would be exactly the kind of guess this file exists to replace.
+ * The thresholds are the ones the product owner set in BENCHMARKS.md at the
+ * repo root. That document — not this file, and not any statistical source —
+ * is where the decision lives; this table only mirrors it. Where BENCHMARKS.md
+ * also cites a population reference point (a national or Stockholm average),
+ * that figure is carried as `value`/`label` and shown to the buyer next to the
+ * cooperative's own number. Where it cites none, no reference point is
+ * invented: the figure is graded and shown without one.
+ *
+ * BENCHMARKS.md's bands overlap at their endpoints ("God < 500" followed by
+ * "Acceptabel 500 – 1000"; "Svag 1000 – 1500" followed by "Kritisk > 1500").
+ * Bands are therefore evaluated best-to-worst with FIRST MATCH WINS, which
+ * resolves every endpoint deterministically and faithfully to the literal
+ * comparison written in the document.
+ *
+ * One of the seven figures (the fee's share of revenue) is deliberately NOT
+ * graded: BENCHMARKS.md supplies no thresholds for it, and it is not reliably
+ * better in either direction — a low share can mean healthy commercial income
+ * or fragile reliance on unstable non-fee income.
  */
 
 export type Riktning = "lagre_battre" | "hogre_battre" | "informativ";
 
-export interface Granser {
-  /** Value at or better than this -> 'god'. */
-  god: number;
-  /** Value at or better than this (but worse than god) -> 'acceptabel'. */
-  acceptabel: number;
-  /** Value at or better than this (but worse than acceptabel) -> 'svag'. Worse than this -> 'kritisk'. */
-  svag: number;
-}
+/** The statuses a band can assign. 'okant' is not one of them — it means "no
+ *  value" or "not graded", never "graded and landed here". */
+export type GraderadStatus = Exclude<Status, "okant">;
+
+export type Jamforelse = "<" | "<=" | ">" | ">=";
+
+/**
+ * One band of the grading scale. Bands are listed best-to-worst and the first
+ * whose comparison holds wins; the last band carries no comparison and catches
+ * everything left over.
+ *
+ * This replaces the earlier `{ god, acceptabel, svag }` triple, which always
+ * produced exactly four bands and so could not express sparande, which
+ * BENCHMARKS.md gives only two (God / Svag). It also lets each band state its
+ * own operator, so "< 500" and "<= 1000" can sit next to each other exactly as
+ * the document writes them.
+ */
+export type Band =
+  { status: GraderadStatus; jamforelse: Jamforelse; grans: number } | { status: GraderadStatus };
 
 export interface Benchmark {
   riktning: Riktning;
-  /** Always set — every entry must say what it is and, if a placeholder, say so. */
+  /** Always set — every entry must say where its thresholds come from. */
   source: string;
-  /** Population reference figure. Present only when riktning isn't 'informativ'. */
+  /**
+   * Whether the figure appears as a headline card in the main "Föreningens
+   * ekonomi" view. Presentation policy, owned by BENCHMARKS.md — deliberately
+   * NOT part of src/types/analysis.ts, since hiding a card says nothing about
+   * the analysis itself. All seven figures are extracted regardless.
+   *
+   * Independent of `riktning`: showing is about display, grading is about
+   * judgement. They happen to coincide for one figure today.
+   */
+  visasIHuvudanalys: boolean;
+  /** Grading scale, best-to-worst. Absent only when riktning is 'informativ'. */
+  band?: readonly Band[];
+  /** Population reference point. Present only where BENCHMARKS.md cites one. */
   value?: number;
   label?: string;
-  granser?: Granser;
+  /**
+   * Qualitative caveat from BENCHMARKS.md, carried as data for the pass-2
+   * prompt and the UI. Commentary only — it never changes grading.
+   */
+  kommentar?: string;
 }
 
-const PLATSHALLARE = "Overifierad platshållare — ej sourcad mot extern statistik.";
+const TROSKELKALLA = "Tröskelvärden fastställda i BENCHMARKS.md (produktbeslut).";
 
 export const BENCHMARKS: Record<KeyFigureId, Benchmark> = {
-  // TODO: unverified placeholder — reused from src/data/mockData.ts's existing
-  // stated assumption ("riksgenomsnitt kring 5 500 kr/m²", "över 8 000 räknas
-  // som högt"), not independently sourced. Replace with SCB/Allabrf data.
-  skuldsattning_per_m2_totalyta: {
-    riktning: "lagre_battre",
-    value: 5500,
-    label: "Riktvärde skuldsättning per m² totalyta",
-    source: `${PLATSHALLARE} Baserat på tidigare produktantagande (riksgenomsnitt ~5 500 kr/m²). TODO: ersätt med SCB/Allabrf-data.`,
-    granser: { god: 5500, acceptabel: 8000, svag: 10500 },
-  },
-
-  // TODO: unverified placeholder — inget källbelagt riktvärde finns för
-  // brf-yta-varianten specifikt (till skillnad från totalyta-varianten ovan).
-  skuldsattning_per_m2_brf_yta: {
-    riktning: "lagre_battre",
-    value: 6500,
-    label: "Riktvärde skuldsättning per m² bostadsrättsyta",
-    source: `${PLATSHALLARE} TODO: ersätt med SCB/Allabrf-data.`,
-    granser: { god: 6500, acceptabel: 9500, svag: 12000 },
-  },
-
-  // TODO: unverified placeholder — reused from mockData.ts's "under 250 kr/m²
-  // brukar vara i underkant". Replace with SCB/Energimyndigheten data.
-  sparande_per_m2_totalyta: {
-    riktning: "hogre_battre",
-    value: 300,
-    label: "Riktvärde sparande per m² totalyta",
-    source: `${PLATSHALLARE} Baserat på tidigare produktantagande (under 250 kr/m² i underkant). TODO: ersätt med sourcad data.`,
-    granser: { god: 300, acceptabel: 250, svag: 150 },
-  },
-
-  // TODO: unverified placeholder — reused from mockData.ts's "över 8 % räknas
-  // som tydligt känsligt". Replace with a sourced figure.
-  rantekanslighet: {
-    riktning: "lagre_battre",
-    value: 4,
-    label: "Riktvärde räntekänslighet",
-    source: `${PLATSHALLARE} Baserat på tidigare produktantagande (över 8 % tydligt känsligt). TODO: ersätt med sourcad data.`,
-    granser: { god: 4, acceptabel: 6, svag: 10 },
-  },
-
-  // TODO: unverified placeholder — no existing basis anywhere in the repo
-  // beyond an unquantified "ligger under snittet" in mockData.ts.
-  energikostnad_per_m2_totalyta: {
-    riktning: "lagre_battre",
-    value: 200,
-    label: "Riktvärde energikostnad per m² totalyta",
-    source: `${PLATSHALLARE} TODO: ersätt med SCB/Energimyndigheten-data.`,
-    granser: { god: 200, acceptabel: 260, svag: 320 },
-  },
-
-  // Deliberately not graded — see file-level comment.
   arsavgift_per_m2_brf_yta: {
-    riktning: "informativ",
-    source:
-      "Graderas inte: en låg avgift kan bero på eftersatt underhåll snarare än god ekonomi, och en hög avgift kan bero på sund fondering. Visas som fakta utan färgsättning.",
+    riktning: "lagre_battre",
+    visasIHuvudanalys: true,
+    value: 833,
+    label: "Snitt Stockholm, årsavgift per m² bostadsrättsyta",
+    source: `${TROSKELKALLA} Referenspunkt: Stockholmssnitt ~833 kr/m²/år (HSB Bostadsrättsbarometer 2025, 762 föreningar, räkenskapsår 2024).`,
+    band: [
+      { status: "god", jamforelse: "<", grans: 500 },
+      { status: "acceptabel", jamforelse: "<=", grans: 1000 },
+      { status: "svag", jamforelse: "<=", grans: 1500 },
+      { status: "kritisk" },
+    ],
   },
+
+  // Deliberately not graded: BENCHMARKS.md gives no thresholds for this one.
+  // Hidden from the main view as well, but for a separate reason — see
+  // `visasIHuvudanalys` on the Benchmark interface.
   arsavgift_andel_av_rorelseintakter: {
     riktning: "informativ",
+    visasIHuvudanalys: false,
     source:
-      "Graderas inte: en låg andel kan betyda betydande hyresintäkter, vilket för mot oäkta bostadsrättsförening — inte nödvändigtvis sämre ekonomi. Visas som fakta utan färgsättning.",
+      "Graderas inte: BENCHMARKS.md anger inga tröskelvärden, och riktningen är tvetydig — en låg andel kan betyda betydande hyresintäkter snarare än sämre ekonomi. Visas inte som eget nyckeltal i huvudanalysen.",
+  },
+
+  skuldsattning_per_m2_totalyta: {
+    riktning: "lagre_battre",
+    visasIHuvudanalys: true,
+    // No reference point: BENCHMARKS.md cites no population figure for the
+    // total-area variant, so none is shown.
+    source: `${TROSKELKALLA} Ingen referenspunkt angiven för totalytevarianten.`,
+    band: [
+      { status: "god", jamforelse: "<", grans: 2000 },
+      { status: "acceptabel", jamforelse: "<=", grans: 5000 },
+      { status: "svag", jamforelse: "<=", grans: 10000 },
+      { status: "kritisk" },
+    ],
+  },
+
+  // Same thresholds as the total-area variant above. Written as given in
+  // BENCHMARKS.md; the product owner has been told the two are identical.
+  skuldsattning_per_m2_brf_yta: {
+    riktning: "lagre_battre",
+    visasIHuvudanalys: true,
+    value: 7117,
+    label: "Riksgenomsnitt, skuldsättning per m² bostadsrättsyta",
+    source: `${TROSKELKALLA} Referenspunkt: riksgenomsnitt ~7 117 kr/m² (2023, Nabo/SCB-härlett).`,
+    band: [
+      { status: "god", jamforelse: "<", grans: 2000 },
+      { status: "acceptabel", jamforelse: "<=", grans: 5000 },
+      { status: "svag", jamforelse: "<=", grans: 10000 },
+      { status: "kritisk" },
+    ],
+  },
+
+  sparande_per_m2_totalyta: {
+    riktning: "hogre_battre",
+    visasIHuvudanalys: true,
+    // Two bands only — BENCHMARKS.md gives this figure no acceptabel and no
+    // kritisk. Exactly 0 is left unspecified by the document ("God > 0",
+    // "Svag < 0"); the decided reading is that no saving is not good saving,
+    // so 0 falls through to 'svag'.
+    source: `${TROSKELKALLA} Endast två band (god/svag); ingen referenspunkt angiven.`,
+    band: [{ status: "god", jamforelse: ">", grans: 0 }, { status: "svag" }],
+    kommentar:
+      "Ett negativt sparande är vanligt och inte automatiskt kritiskt om det är ett planerat och redovisat uttag ur kassan för renovering. Stäm av mot väsentliga händelser (vasentligaHandelser) och underhållsplanen innan det flaggas rött — tröskeln ensam räcker inte som grund.",
+  },
+
+  rantekanslighet: {
+    riktning: "lagre_battre",
+    visasIHuvudanalys: true,
+    value: 10.3,
+    label: "Riksgenomsnitt, räntekänslighet",
+    source: `${TROSKELKALLA} Referenspunkt: riksgenomsnitt ~10,3 % (2023, Nabo).`,
+    band: [
+      { status: "god", jamforelse: "<", grans: 2 },
+      { status: "acceptabel", jamforelse: "<=", grans: 5 },
+      { status: "svag", jamforelse: "<=", grans: 15 },
+      { status: "kritisk" },
+    ],
+  },
+
+  energikostnad_per_m2_totalyta: {
+    riktning: "lagre_battre",
+    visasIHuvudanalys: true,
+    value: 203,
+    label: "Riksgenomsnitt, energikostnad per m² totalyta",
+    source: `${TROSKELKALLA} Referenspunkt: riksgenomsnitt ~203 kr/m²/år (2023, SCB/Nabo).`,
+    band: [
+      { status: "god", jamforelse: "<", grans: 100 },
+      { status: "acceptabel", jamforelse: "<=", grans: 250 },
+      { status: "svag", jamforelse: "<=", grans: 500 },
+      { status: "kritisk" },
+    ],
+    kommentar:
+      "Äldre hus, särskilt byggda före 1960-talet, har normalt en materiellt högre energikostnad per m². Väg in byggåret innan en hög siffra beskrivs som ett problem.",
   },
 };
+
+/**
+ * Whether a key figure is surfaced as a headline card in the main
+ * "Föreningens ekonomi" view. Presentation policy for the UI layer; every
+ * figure is extracted and graded regardless of what this returns.
+ */
+export function visasIHuvudanalys(id: KeyFigureId): boolean {
+  return BENCHMARKS[id].visasIHuvudanalys;
+}
 
 export interface StatusResultat {
   status: Status;
   benchmark?: { value: number; label: string; source: string };
 }
 
+function uppfyller(band: Band, varde: number): boolean {
+  if (!("jamforelse" in band)) return true; // final catch-all band
+  switch (band.jamforelse) {
+    case "<":
+      return varde < band.grans;
+    case "<=":
+      return varde <= band.grans;
+    case ">":
+      return varde > band.grans;
+    case ">=":
+      return varde >= band.grans;
+  }
+}
+
 export function bedomStatus(id: KeyFigureId, varde: number | null): StatusResultat {
   const benchmark = BENCHMARKS[id];
 
-  if (varde === null || benchmark.riktning === "informativ") {
+  if (varde === null || benchmark.riktning === "informativ" || !benchmark.band) {
     return { status: "okant" };
   }
 
-  const { god, acceptabel, svag } = benchmark.granser!;
-  let status: Status;
-  if (benchmark.riktning === "lagre_battre") {
-    status = varde <= god ? "god" : varde <= acceptabel ? "acceptabel" : varde <= svag ? "svag" : "kritisk";
-  } else {
-    status = varde >= god ? "god" : varde >= acceptabel ? "acceptabel" : varde >= svag ? "svag" : "kritisk";
+  // Best-to-worst, first match wins — see the file-level comment on why the
+  // overlapping endpoints in BENCHMARKS.md make the order load-bearing.
+  const traff = benchmark.band.find((band) => uppfyller(band, varde));
+  const status: Status = traff ? traff.status : "okant";
+
+  // A reference point is shown only where BENCHMARKS.md cites one. No value,
+  // no benchmark object — a guessed population figure would look like a fact.
+  if (benchmark.value === undefined || benchmark.label === undefined) {
+    return { status };
   }
 
   return {
     status,
-    benchmark: { value: benchmark.value!, label: benchmark.label!, source: benchmark.source },
+    benchmark: { value: benchmark.value, label: benchmark.label, source: benchmark.source },
   };
 }
 
