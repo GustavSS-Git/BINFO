@@ -2,16 +2,11 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode, ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 import type { Status, Tristate } from "@/data/mockData";
+import type { Status as AnalysStatus } from "@/types/analysis";
 
 /* Delade byggstenar för hela Binfo. Håll all styling här — inte i skärmarna. */
 
-export function Card({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
@@ -24,13 +19,7 @@ export function Card({
   );
 }
 
-export function SectionTitle({
-  children,
-  hint,
-}: {
-  children: ReactNode;
-  hint?: string;
-}) {
+export function SectionTitle({ children, hint }: { children: ReactNode; hint?: string }) {
   return (
     <div className="mb-6">
       <h2 className="font-display text-2xl tracking-tight text-foreground md:text-3xl">
@@ -51,8 +40,7 @@ const buttonBase =
 
 const buttonVariants: Record<string, string> = {
   primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-  secondary:
-    "border border-border bg-card text-foreground hover:bg-secondary",
+  secondary: "border border-border bg-card text-foreground hover:bg-secondary",
   ghost: "text-primary hover:bg-secondary",
 };
 
@@ -61,12 +49,7 @@ const buttonSizes: Record<string, string> = {
   lg: "px-7 py-3.5 text-base",
 };
 
-export function Button({
-  variant = "primary",
-  size = "md",
-  className,
-  ...props
-}: ButtonProps) {
+export function Button({ variant = "primary", size = "md", className, ...props }: ButtonProps) {
   return (
     <button
       className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}
@@ -89,27 +72,64 @@ export function LinkButton({
   className?: string;
 }) {
   return (
-    <Link
-      to={to}
-      className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}
-    >
+    <Link to={to} className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}>
       {children}
     </Link>
   );
 }
 
-const statusColors: Record<Status, string> = {
+/**
+ * Två skalor lever sida vid sida: mockdatans green/amber/red och kontraktets
+ * femgradiga Status (god/acceptabel/svag/kritisk/okant). StatusDot tar emot
+ * båda så att skärmar kan flyttas över till kontraktet en i taget.
+ *
+ * "okant" har medvetet en egen, neutral grå ton — ett okänt värde får aldrig
+ * se ut som ett omdöme, varken bra eller dåligt.
+ */
+const statusColors: Record<Status | AnalysStatus, string> = {
   green: "bg-success",
   amber: "bg-warning",
   red: "bg-danger",
+
+  god: "bg-success",
+  acceptabel: "bg-success/60",
+  svag: "bg-warning",
+  kritisk: "bg-danger",
+  okant: "bg-muted-foreground/40",
 };
 
-export function StatusDot({ status, className }: { status: Status; className?: string }) {
+/** Svensk etikett för skärmläsare — färgen ensam bär annars hela innebörden. */
+const statusLabels: Record<Status | AnalysStatus, string> = {
+  green: "God",
+  amber: "Varning",
+  red: "Kritisk",
+
+  god: "God",
+  acceptabel: "Acceptabel",
+  svag: "Svag",
+  kritisk: "Kritisk",
+  okant: "Okänt",
+};
+
+export function StatusDot({
+  status,
+  className,
+}: {
+  status: Status | AnalysStatus;
+  className?: string;
+}) {
   return (
-    <span
-      className={cn("inline-block size-2.5 shrink-0 rounded-full", statusColors[status], className)}
-      aria-hidden
-    />
+    <>
+      <span
+        className={cn(
+          "inline-block size-2.5 shrink-0 rounded-full",
+          statusColors[status],
+          className,
+        )}
+        aria-hidden
+      />
+      <span className="sr-only">{statusLabels[status]}</span>
+    </>
   );
 }
 
@@ -155,9 +175,7 @@ export function Callout({
   const titleColor = variant === "flag" ? "text-danger" : "text-primary";
   return (
     <div className={cn("rounded-lg border p-4", styles)}>
-      <p className={cn("text-xs font-semibold uppercase tracking-wide", titleColor)}>
-        {title}
-      </p>
+      <p className={cn("text-xs font-semibold uppercase tracking-wide", titleColor)}>{title}</p>
       <div className="mt-2 space-y-2 text-sm text-foreground/85">{children}</div>
     </div>
   );
@@ -205,9 +223,7 @@ export function Field({
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-lg bg-transparent px-4 py-2.5 text-sm text-foreground outline-none"
         />
-        {suffix ? (
-          <span className="pr-4 text-sm text-muted-foreground">{suffix}</span>
-        ) : null}
+        {suffix ? <span className="pr-4 text-sm text-muted-foreground">{suffix}</span> : null}
       </div>
       {error ? (
         <span className="mt-1.5 block text-xs text-danger">{error}</span>
@@ -361,9 +377,7 @@ export function PageHeader({
           {eyebrow}
         </p>
       ) : null}
-      <h1 className="font-display text-4xl tracking-tight text-foreground md:text-5xl">
-        {title}
-      </h1>
+      <h1 className="font-display text-4xl tracking-tight text-foreground md:text-5xl">{title}</h1>
       {lead ? (
         <p className="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">{lead}</p>
       ) : null}
