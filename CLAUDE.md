@@ -18,7 +18,6 @@ the product.
 
 - Vite + React + TypeScript, Tailwind. **Not Next.js** — do not add Next.js
   patterns (app router, `getServerSideProps`, `/pages`).
-- Frontend currently runs entirely on mock data.
 - Node 22+ required (`.nvmrc` pins it). `npm run dev` serves on `localhost:8080`.
 - Backend analysis pipeline is being built now, in TypeScript, calling the
   Anthropic API.
