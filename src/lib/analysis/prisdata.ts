@@ -51,9 +51,7 @@ export interface Prisdatakalla {
   /** Tredjepartsvärdering av objektet, eller null om ingen finns. */
   hamtaVardering(forfragan: Prisdataforfragan): Promise<Vardering | null>;
   /** Senaste försäljningarna i samma förening. Tom lista när inga är kända. */
-  hamtaForsaljningarIForeningen(
-    forfragan: Prisdataforfragan,
-  ): Promise<ForsaljningIForeningen[]>;
+  hamtaForsaljningarIForeningen(forfragan: Prisdataforfragan): Promise<ForsaljningIForeningen[]>;
   /** Områdets medianpris i kr/m², eller null om det inte är känt. */
   hamtaOmradeMedian(forfragan: Prisdataforfragan): Promise<OmradeMedian | null>;
 }
@@ -125,18 +123,13 @@ const PLATSHALLARE_PREFIX =
  * spannbalken, leverantörsraden, listan med föreningsförsäljningar — utan att
  * någonsin få ett tal som kan misstas för en värdering.
  */
-function platshallarfigur(
-  mittpunkt: number,
-  unit: Figure["unit"],
-  vad: string,
-): Figure {
+function platshallarfigur(mittpunkt: number, unit: Figure["unit"], vad: string): Figure {
   const halvtSpann = Math.abs(mittpunkt) * DEMO_SPANN_ANDEL;
   return {
     value: null,
     unit,
     source: "schablon",
-    schablonBasis:
-      `${PLATSHALLARE_PREFIX} ${vad}: utgångspriset ±${Math.round(DEMO_SPANN_ANDEL * 100)} %.`,
+    schablonBasis: `${PLATSHALLARE_PREFIX} ${vad}: utgångspriset ±${Math.round(DEMO_SPANN_ANDEL * 100)} %.`,
     range: {
       low: Math.round(mittpunkt - halvtSpann),
       high: Math.round(mittpunkt + halvtSpann),
@@ -194,17 +187,94 @@ export class DemoPrisdatakalla implements Prisdatakalla {
         // Samma boarea som objektet självt — en påhittad försäljning ska se
         // syntetisk ut även i de fält som inte är Figure.
         boarea: this.boarea,
-        prisPerM2: platshallarfigur(
-          this.prisPerM2,
-          "kr/m2",
-          "Kvadratmeterpris i föreningen",
-        ),
+        prisPerM2: platshallarfigur(this.prisPerM2, "kr/m2", "Kvadratmeterpris i föreningen"),
       };
     });
   }
 
   async hamtaOmradeMedian(_forfragan: Prisdataforfragan): Promise<OmradeMedian | null> {
     return platshallarfigur(this.prisPerM2, "kr/m2", "Områdesmedian");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Schablonkälla — interimistisk platt värdering
+// ---------------------------------------------------------------------------
+
+/**
+ * Platt schablonvärdering i kr/m². Ett interimistiskt produktbeslut i väntan
+ * på en riktig värderingskälla — inte ett hämtat marknadstal, inte ortsvis,
+ * inte justerat för läge, skick, våning eller byggår.
+ */
+// TODO: unverified placeholder
+const SCHABLON_KR_PER_M2 = 80_000;
+
+/**
+ * Samma tal i visningsform. Härleds ur konstanten så att de två aldrig kan
+ * glida isär, men svensk lokal ger ett hårt mellanslag (U+00A0) och de
+ * fastställda texterna nedan använder vanligt mellanslag — därför bytet.
+ */
+const SCHABLON_KR_PER_M2_TEXT = SCHABLON_KR_PER_M2.toLocaleString("sv-SE").replace(/\u00a0/g, " ");
+
+/**
+ * Leverantörssträngen namnger sig själv som schablon, ordagrant som
+ * produktbeslutet kräver. Den visas för användaren tillsammans med talet, så
+ * ingen kan läsa värderingen som en tredjepartsvärdering.
+ */
+const SCHABLON_LEVERANTOR = `Schablon — platt ${SCHABLON_KR_PER_M2_TEXT} kr/m², ej verklig värderingskälla`;
+
+export interface SchablonPrisdataInput {
+  boarea: number;
+}
+
+/**
+ * Interimistisk värderingskälla: boarea × en platt kvadratmeterschablon.
+ *
+ * Till skillnad från DemoPrisdatakalla lämnar den ett numeriskt `value`, vilket
+ * betyder att byggPrisanalys räknar fram avvikelseMotVardering ur den och att
+ * prislagret faktiskt renderas. Det är avsiktligt, och det är försvarbart bara
+ * därför att talet är högljutt märkt: `source: 'schablon'`, en schablonBasis
+ * som säger rent ut att det inte är en riktig värdering, och en leverantör som
+ * heter "Schablon". Den får aldrig märkas `'extern'` — den märkningen är
+ * reserverad för en verklig integration som ännu inte finns.
+ *
+ * Ingen justeringslogik och ingen viktning: en literal konstant, inget mer.
+ * Därför omfattar den bara värderingen — försäljningar i föreningen och
+ * områdesmedian förblir tomma i stället för att hittas på ur samma konstant.
+ */
+export class SchablonPrisdatakalla implements Prisdatakalla {
+  private readonly boarea: number;
+
+  constructor(input: SchablonPrisdataInput) {
+    this.boarea = input.boarea;
+  }
+
+  async hamtaVardering(_forfragan: Prisdataforfragan): Promise<Vardering | null> {
+    return {
+      // Hela kronor — valuta bär inga decimaler i det här kontraktet.
+      value: Math.round(this.boarea * SCHABLON_KR_PER_M2),
+      unit: "kr",
+      source: "schablon",
+      schablonBasis:
+        `Schablon: boarean multiplicerad med en platt ${SCHABLON_KR_PER_M2_TEXT} kr/m². ` +
+        "Det är inte en riktig värdering — ingen oberoende värderingskälla är ansluten, och talet är " +
+        "inte justerat för läge, skick, våning eller byggår.",
+      leverantor: SCHABLON_LEVERANTOR,
+    };
+  }
+
+  async hamtaForsaljningarIForeningen(
+    _forfragan: Prisdataforfragan,
+  ): Promise<ForsaljningIForeningen[]> {
+    // Schablonen säger ingenting om enskilda försäljningar. Att härleda dem ur
+    // samma konstant vore påhittade jämförelseobjekt, inte data.
+    return [];
+  }
+
+  async hamtaOmradeMedian(_forfragan: Prisdataforfragan): Promise<OmradeMedian | null> {
+    // Samma skäl: en "områdesmedian" lika med schablonen vore ett påstående om
+    // marknaden som ingen har mätt.
+    return null;
   }
 }
 

@@ -6,7 +6,12 @@ import { ScannedPdfError, runExtraction } from "./runExtraction";
 import { AnalysValidationError, runAnalys } from "./analyze";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
 import { PropertyInputSchema } from "./schema";
-import { DemoPrisdatakalla, TomPrisdatakalla, type Prisdatakalla } from "./prisdata";
+import {
+  DemoPrisdatakalla,
+  SchablonPrisdatakalla,
+  TomPrisdatakalla,
+  type Prisdatakalla,
+} from "./prisdata";
 import { SaknarRantekanslighetError } from "./calc/rantestress";
 import type { LaneUnderlag } from "./calc/manadskostnad";
 import type { PropertyInput } from "@/types/analysis";
@@ -49,17 +54,22 @@ class OgiltigInputfilError extends Error {
 
 /**
  * Which price source the CLI wires in. There is no real one yet (see
- * PIPELINE.md / prisdata.ts) — TomPrisdatakalla is the honest production
- * default, DemoPrisdatakalla is a clearly-labelled placeholder useful for
- * seeing the full report shape while developing. Chosen via PRISKALLA so
- * nobody has to edit code to switch, and defaults to the honest one.
+ * PIPELINE.md / prisdata.ts). The default is SchablonPrisdatakalla — the
+ * interim flat kr/m² valuation, loudly labelled `source: 'schablon'` with a
+ * leverantor string that names itself a schablon — so the price layer renders.
+ * TomPrisdatakalla (no price data at all) and DemoPrisdatakalla (valueless
+ * placeholder figures) stay selectable. Chosen via PRISKALLA so nobody has to
+ * edit code to switch.
  */
 function valjPrisdatakalla(input: { utgangspris: number; boarea: number }): Prisdatakalla {
-  const val = (process.env["PRISKALLA"] ?? "tom").toLowerCase();
+  const val = (process.env["PRISKALLA"] ?? "schablon").toLowerCase();
+  if (val === "tom") {
+    return new TomPrisdatakalla();
+  }
   if (val === "demo") {
     return new DemoPrisdatakalla(input);
   }
-  return new TomPrisdatakalla();
+  return new SchablonPrisdatakalla({ boarea: input.boarea });
 }
 
 async function main() {
@@ -71,8 +81,9 @@ async function main() {
         "Utan objektsfil skrivs enbart pass 1:s ExtractionResult ut.\n" +
         'Med en objektsfil ({ "input": PropertyInput, "lan": LaneUnderlag }) körs hela pipelinen ' +
         "(extraktion → analys → sammanställning) och ett fullständigt AnalysisResult skrivs ut.\n\n" +
-        "Miljövariabeln PRISKALLA styr prisdatakällan: 'tom' (förval, ingen extern prisdata) eller " +
-        "'demo' (tydligt märkta platshållarfigurer, se prisdata.ts).",
+        "Miljövariabeln PRISKALLA styr prisdatakällan: 'schablon' (förval, platt värdering " +
+        "80 000 kr/m², tydligt märkt som schablon), 'tom' (ingen extern prisdata alls) eller " +
+        "'demo' (platshållarfigurer utan värde, se prisdata.ts).",
     );
     process.exitCode = 1;
     return;

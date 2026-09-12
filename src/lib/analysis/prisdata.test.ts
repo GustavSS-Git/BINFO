@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DemoPrisdatakalla,
+  SchablonPrisdatakalla,
   TomPrisdatakalla,
   konfidensUtanPrisdata,
   type Prisdataforfragan,
@@ -129,11 +130,65 @@ describe("DemoPrisdatakalla", () => {
   });
 });
 
+describe("SchablonPrisdatakalla", () => {
+  const SCHABLON_LEVERANTOR = "Schablon — platt 80 000 kr/m², ej verklig värderingskälla";
+  const schablon = (boarea: number) => new SchablonPrisdatakalla({ boarea });
+
+  it("värderar till boarea × 80 000 kr", async () => {
+    expect((await schablon(62).hamtaVardering(forfragan))?.value).toBe(62 * 80_000);
+    expect((await schablon(40).hamtaVardering(forfragan))?.value).toBe(40 * 80_000);
+  });
+
+  it("anger värderingen i kronor", async () => {
+    expect((await schablon(62).hamtaVardering(forfragan))?.unit).toBe("kr");
+  });
+
+  it("märker värderingen som schablon — aldrig 'extern'", async () => {
+    const figurer = await allaFigurer(schablon(62));
+    expect(figurer.length).toBeGreaterThan(0);
+    for (const figur of figurer) {
+      expect(figur.source).toBe("schablon");
+      expect(figur.source).not.toBe("extern");
+    }
+  });
+
+  it("anger leverantören exakt som produktbeslutet kräver, så att den namnger sig själv som schablon", async () => {
+    const vardering = await schablon(62).hamtaVardering(forfragan);
+    expect(vardering?.leverantor).toBe(SCHABLON_LEVERANTOR);
+  });
+
+  it("ger värderingen en icke-tom schablonBasis som säger att det inte är en riktig värdering", async () => {
+    const vardering = await schablon(62).hamtaVardering(forfragan);
+    expect(vardering?.schablonBasis).toBeTruthy();
+    expect(vardering?.schablonBasis).toMatch(/80 000 kr\/m²/);
+    expect(vardering?.schablonBasis).toMatch(/inte en (riktig|verklig) värdering/i);
+  });
+
+  it("avrundar värderingen till hela kronor — valuta har inga decimaler", async () => {
+    const vardering = await schablon(54.5).hamtaVardering(forfragan);
+    expect(Number.isInteger(vardering?.value)).toBe(true);
+    expect(vardering?.value).toBe(4_360_000);
+
+    const skev = await schablon(61.123456789).hamtaVardering(forfragan);
+    expect(Number.isInteger(skev?.value)).toBe(true);
+    expect(skev?.value).toBe(Math.round(61.123456789 * 80_000));
+  });
+
+  it("returnerar inga försäljningar i föreningen — schablonen omfattar bara värderingen", async () => {
+    expect(await schablon(62).hamtaForsaljningarIForeningen(forfragan)).toEqual([]);
+  });
+
+  it("returnerar ingen områdesmedian — schablonen omfattar bara värderingen", async () => {
+    expect(await schablon(62).hamtaOmradeMedian(forfragan)).toBeNull();
+  });
+});
+
 describe("Prisdatakalla-gränssnittet", () => {
-  it("uppfylls av båda implementationerna, så de är utbytbara för anroparen", async () => {
+  it("uppfylls av samtliga implementationer, så de är utbytbara för anroparen", async () => {
     const kallor: Prisdatakalla[] = [
       new TomPrisdatakalla(),
       new DemoPrisdatakalla({ utgangspris: UTGANGSPRIS, boarea: forfragan.boarea }),
+      new SchablonPrisdatakalla({ boarea: forfragan.boarea }),
     ];
     for (const kalla of kallor) {
       await expect(kalla.hamtaVardering(forfragan)).resolves.not.toThrow();
