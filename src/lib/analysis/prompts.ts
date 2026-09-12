@@ -82,7 +82,11 @@ export function extractGroundingFindings(blocks: GroundingTextBlock[]): Grundfyn
         citation.cited_text &&
         typeof citation.start_page_number === "number"
       ) {
-        findings.push({ text: block.text, citat: citation.cited_text, sida: citation.start_page_number });
+        findings.push({
+          text: block.text,
+          citat: citation.cited_text,
+          sida: citation.start_page_number,
+        });
       }
     }
   }
@@ -207,6 +211,83 @@ const EJ_GRADERADE_NYCKELTAL: KeyFigureId[] = (Object.keys(BENCHMARKS) as KeyFig
 );
 
 /**
+ * Qualitative caveats from BENCHMARKS.md, carried as data on the benchmark
+ * entries. Read from benchmarks.ts rather than retyped, so a caveat added to
+ * BENCHMARKS.md reaches the model without a second edit here.
+ */
+const FORBEHALL: { id: KeyFigureId; kommentar: string }[] = (
+  Object.keys(BENCHMARKS) as KeyFigureId[]
+).flatMap((id) => {
+  const kommentar = BENCHMARKS[id].kommentar;
+  return kommentar ? [{ id, kommentar }] : [];
+});
+
+/** Swedish numerals, enough to count the seven statutory key figures — the
+ *  only thing these prompts ever count. Outside the range it falls back to
+ *  digits rather than producing broken Swedish. */
+const RAKNEORD: Record<number, string> = {
+  0: "noll",
+  1: "ett",
+  2: "två",
+  3: "tre",
+  4: "fyra",
+  5: "fem",
+  6: "sex",
+  7: "sju",
+};
+
+function rakneord(antal: number): string {
+  return RAKNEORD[antal] ?? String(antal);
+}
+
+function versal(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * The "these are always okant" passage. Both the count and the singular/plural
+ * agreement are derived from EJ_GRADERADE_NYCKELTAL — the prompt previously
+ * hardcoded "Två", which went stale the moment BENCHMARKS.md supplied
+ * thresholds for the fee per m². Empty when every figure is graded, so no
+ * dangling paragraph is left behind.
+ */
+function buildEjGraderadeAvsnitt(): string {
+  const ids = EJ_GRADERADE_NYCKELTAL;
+  if (ids.length === 0) return "";
+
+  const flertal = ids.length > 1;
+  const antal = versal(rakneord(ids.length));
+  const totalt = rakneord(ALLA_NYCKELTAL.length);
+
+  return `${antal} av de ${totalt} nyckeltalen har ALLTID status "okant", oavsett hur föreningen står sig:
+${ids.map((id) => `- "${id}"`).join("\n")}
+${flertal ? "De graderas" : "Det graderas"} medvetet inte, eftersom varken ett högt eller ett lågt värde entydigt är bättre för köparen. ${flertal ? "Deras" : "Dess"} "okant" betyder alltså INTE att uppgiften saknas — ${flertal ? "talen" : "talet"} kan mycket väl stå i "figure.value". Använd ${flertal ? "dem" : "det"} som fakta i resonemanget, men dra aldrig slutsatsen att underlaget är tunt bara för att ${flertal ? "de är" : "det är"} "okant".`;
+}
+
+/**
+ * The caveat section. Rendered generically from every benchmark that carries a
+ * `kommentar`, so a new caveat in BENCHMARKS.md flows through on its own — plus
+ * fixed, figure-specific guidance for the two caveats that exist today, because
+ * the generic rendering states the rule but not how to act on it: which fields
+ * to cross-check, and how the caveat is allowed to move `severity` and `betyg`
+ * without the model ever re-grading a figure.
+ */
+function buildForbehallAvsnitt(): string {
+  if (FORBEHALL.length === 0) return "";
+
+  return `## Förbehåll som gäller enskilda nyckeltal
+
+Till vissa nyckeltal hör ett förbehåll ur samma beslutsunderlag som riktvärdena. Det ändrar ALDRIG talets status — det styr hur du förklarar den:
+${FORBEHALL.map((f) => `- "${f.id}": ${f.kommentar}`).join("\n")}
+
+Ett förbehåll upphäver alltså inte regeln ovan: du får fortfarande inte sätta en egen status, inte skriva att den status talet har är fel och inte hävda att talet borde ha bedömts annorlunda. Du får däremot — och ska — förklara sammanhanget i löptext. Det är skillnaden: siffran och statusen står kvar, men köparen får veta varför de ser ut som de gör.
+
+Så gör du i praktiken:
+- Sparande: är sparandet negativt och framgår det av "vasentligaHandelser" eller "underhallsplan" att det rör sig om ett planerat och redovisat uttag ur kassan för en beslutad åtgärd — skriv ut det i klartext, och låt det dämpa både allvarlighetsgraden ("severity") på den röda flaggan och hur tungt punkten väger i betyget. Statusen står kvar som den är; det är förklaringen och allvarlighetsgraden du anpassar, aldrig bedömningen av talet. Finns inget sådant stöd i underlaget ska du inte läsa in det — ett negativt sparande utan förklaring i rapporten är allvarligare, inte lindrigare, och då är frågan om vad pengarna gick till värd att ställa till styrelsen.
+- Energikostnad: ligger energikostnaden högt samtidigt som "forening.byggar" visar ett gammalt hus — särskilt ett byggt före 1960-talet — ska du säga att byggåret sannolikt är en del av förklaringen, i stället för att beskriva kostnaden som enbart ett tecken på dålig förvaltning. Det gör inte kostnaden mindre: köparen betalar den ändå via avgiften, så säg vad den innebär.`;
+}
+
+/**
  * Grade rubric. A product decision, deliberately expressed only in terms of
  * the deterministic `status` values benchmarks.ts already assigned plus what
  * the report itself discloses — it introduces no new numeric threshold and
@@ -228,9 +309,7 @@ Allt du skriver läser köparen. Skriv på svenska, i klartext, utan facktermer.
 
 De sju lagstadgade nyckeltalen är redan bedömda. Varje nyckeltal i underlaget har ett fält "status" ("god", "acceptabel", "svag", "kritisk" eller "okant") som satts i ett tidigare, deterministiskt steg mot ett fast riktvärde, och i förekommande fall ett "benchmark" som innehåller just det riktvärdet. Du ska ALDRIG omvärdera ett enskilt nyckeltal, aldrig sätta en egen status och aldrig skriva något som motsäger den status talet redan har. Ett tal med status "god" får inte beskrivas som oroande, och ett tal med status "kritisk" får inte tonas ned.
 
-Två av de sju nyckeltalen har ALLTID status "okant", oavsett hur föreningen står sig:
-${EJ_GRADERADE_NYCKELTAL.map((id) => `- "${id}"`).join("\n")}
-De graderas medvetet inte, eftersom varken ett högt eller ett lågt värde entydigt är bättre för köparen. Deras "okant" betyder alltså INTE att uppgiften saknas — talet kan mycket väl stå i "figure.value". Använd dem som fakta i resonemanget, men dra aldrig slutsatsen att underlaget är tunt bara för att de är "okant".
+${buildEjGraderadeAvsnitt()}
 
 Det du tillför är KOMBINATIONEN. Ett enskilt tal säger sällan särskilt mycket. Det är sammanställningen som är analysen, till exempel:
 - hög skuldsättning tillsammans med att en stor del av lånen i "lanebok.forfalloprofil" förfaller de närmaste ett till två år, till en ränta som är betydligt lägre än dagens — då slår omsättningen igenom på avgiften.
@@ -241,6 +320,8 @@ Det du tillför är KOMBINATIONEN. Ett enskilt tal säger sällan särskilt myck
 Räntekänsligheten är det bärande talet: den anger direkt hur många procent avgifterna måste höjas per procentenhet som räntan stiger. Har du talet får du säga precis det, med talets egen siffra. Bygg ingen egen modell vid sidan av.
 
 Du får räkna ut andelar och summor ur tal som finns i underlaget (till exempel hur stor del av "lanebok.totalSkuld" som förfaller ett visst år enligt "lanebok.forfalloprofil"). Du får inte föra in en enda siffra utifrån.
+
+${buildForbehallAvsnitt()}
 
 ## Det du aldrig får göra
 

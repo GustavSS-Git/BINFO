@@ -96,7 +96,11 @@ describe("extractGroundingFindings", () => {
     const findings = extractGroundingFindings(blocks);
 
     expect(findings).toEqual([
-      { text: "Skulden uppgår till 43,2 Mkr.", citat: "Föreningens lån uppgår till 43 200 000 kr.", sida: 7 },
+      {
+        text: "Skulden uppgår till 43,2 Mkr.",
+        citat: "Föreningens lån uppgår till 43 200 000 kr.",
+        sida: 7,
+      },
     ]);
   });
 
@@ -185,7 +189,7 @@ describe("buildAnalysSystemPrompt", () => {
     expect(prompt).toMatch(/okänt är inte|inte detsamma som/i);
   });
 
-  it("säger att de två medvetet ograderade nyckeltalen alltid har status 'okant' — annars läses de som saknade uppgifter", () => {
+  it("säger att de medvetet ograderade nyckeltalen alltid har status 'okant' — annars läses de som saknade uppgifter", () => {
     const prompt = buildAnalysSystemPrompt();
     const ejGraderade = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter(
       (id) => BENCHMARKS[id].riktning === "informativ",
@@ -215,6 +219,90 @@ describe("buildAnalysSystemPrompt", () => {
   it("är skriven på svenska — allt en köpare läser ska vara svenskt", () => {
     const prompt = buildAnalysSystemPrompt();
     expect(prompt).toMatch(/[åäöÅÄÖ]/);
+  });
+
+  // Swedish numerals, written out independently of the implementation on
+  // purpose: the point of this test is to catch the prompt claiming a count
+  // that no longer matches BENCHMARKS.
+  const RAKNEORD: Record<number, string> = {
+    0: "noll",
+    1: "Ett",
+    2: "Två",
+    3: "Tre",
+    4: "Fyra",
+    5: "Fem",
+    6: "Sex",
+    7: "Sju",
+  };
+
+  const ejGraderade = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter(
+    (id) => BENCHMARKS[id].riktning === "informativ",
+  );
+
+  it("anger antalet ograderade nyckeltal med det räkneord som faktiskt stämmer med BENCHMARKS", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(ejGraderade.length).toBeGreaterThan(0);
+    expect(prompt).toContain(
+      `${RAKNEORD[ejGraderade.length]} av de sju nyckeltalen har ALLTID status "okant"`,
+    );
+  });
+
+  it("innehåller inget annat räkneord i samma mening — en hårdkodad siffra ska inte kunna bli inaktuell", () => {
+    const prompt = buildAnalysSystemPrompt();
+    for (const [antal, ord] of Object.entries(RAKNEORD)) {
+      if (Number(antal) === ejGraderade.length) continue;
+      expect(prompt).not.toContain(`${ord} av de sju nyckeltalen`);
+    }
+  });
+
+  it("är grammatiskt konsekvent i singular/plural kring de ograderade nyckeltalen", () => {
+    const prompt = buildAnalysSystemPrompt();
+    if (ejGraderade.length === 1) {
+      expect(prompt).toContain("Det graderas medvetet inte");
+      expect(prompt).not.toContain("De graderas medvetet inte");
+    } else {
+      expect(prompt).toContain("De graderas medvetet inte");
+      expect(prompt).not.toContain("Det graderas medvetet inte");
+    }
+  });
+
+  it("återger varje kommentar i BENCHMARKS ordagrant — förbehållen skrivs inte om för hand", () => {
+    const prompt = buildAnalysSystemPrompt();
+    const medKommentar = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter(
+      (id) => BENCHMARKS[id].kommentar !== undefined,
+    );
+    expect(medKommentar.length).toBeGreaterThan(0);
+    for (const id of medKommentar) {
+      expect(prompt).toContain(BENCHMARKS[id].kommentar);
+      expect(prompt).toContain(`"${id}"`);
+    }
+  });
+
+  it("låter modellen förklara ett planerat uttag ur kassan i löptext utan att omvärdera statusen", () => {
+    const prompt = buildAnalysSystemPrompt();
+    // Prosakontexten är tillåten ...
+    expect(prompt).toContain("vasentligaHandelser");
+    expect(prompt).toContain("underhallsplan");
+    expect(prompt).toMatch(/planerat och redovisat uttag/i);
+    expect(prompt).toMatch(/severity/);
+    expect(prompt).toMatch(/betyg/i);
+    // ... men omvärderingen är det fortfarande inte.
+    expect(prompt).toMatch(/inte sätta en egen status/i);
+    expect(prompt).toMatch(/Statusen står kvar/i);
+  });
+
+  it("väger in byggåret innan en hög energikostnad beskrivs som misskötsel", () => {
+    const prompt = buildAnalysSystemPrompt();
+    expect(prompt).toContain("forening.byggar");
+    expect(prompt).toMatch(/1960/);
+  });
+
+  it("lämnar inga oersatta platshållare eller tomma värden i prompten", () => {
+    const prompt = buildAnalysSystemPrompt();
+    for (const skrap of ["undefined", "NaN", "[object Object]", "${", "TODO"]) {
+      expect(prompt).not.toContain(skrap);
+    }
+    expect(prompt).not.toMatch(/\n\n\n/);
   });
 });
 
