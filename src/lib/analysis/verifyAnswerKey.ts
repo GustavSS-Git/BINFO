@@ -90,7 +90,9 @@ async function main() {
 
   for (const fixture of fixtures) {
     const pdfPath = path.join(pdfDir, fixture.kalla.fil);
-    console.log(`\n${"=".repeat(70)}\n${fixture.namn} (${fixture.kalla.forvaltare})\n${"=".repeat(70)}`);
+    console.log(
+      `\n${"=".repeat(70)}\n${fixture.namn} (${fixture.kalla.forvaltare})\n${"=".repeat(70)}`,
+    );
 
     let pdfBytes: Uint8Array;
     try {
@@ -161,7 +163,8 @@ async function main() {
       );
       totalFalt++;
       if (r.godkand) godkanda++;
-      const avvikelse = r.avvikelseProcent !== undefined ? ` (${r.avvikelseProcent.toFixed(2)}% avvikelse)` : "";
+      const avvikelse =
+        r.avvikelseProcent !== undefined ? ` (${r.avvikelseProcent.toFixed(2)}% avvikelse)` : "";
       console.log(
         `  ${r.godkand ? "✓" : "✗"} lanebok.snittranta: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}${avvikelse}`,
       );
