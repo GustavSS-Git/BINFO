@@ -276,14 +276,33 @@ wrong debt figure is the failure this product cannot afford.
 
 ## Still open
 
-**1. How does a job actually run?** A cold analysis is two sequential LLM calls
-and will take tens of seconds of *wall* time (CPU is a non-issue, per the
-spike — almost all of it is waiting on Anthropic). A Worker can wait on I/O
-for a long time, but the client request shouldn't. Options, cheapest first:
-`waitUntil` on the upload request; a Supabase Edge Function doing the work; or
-Cloudflare Queues/Workflows. This needs a measured number first — nobody has
-yet timed a full cold run end to end, and the answer changes which of these is
-warranted.
+**1. How does a job actually run? — MEASURED, and it settles the question.**
+
+Timed a real cold run end to end (Nabo report, 1,2 MB — one of the *smaller*
+reports in the corpus, not the 11,4 MB worst case):
+
+| Stage | Wall time | Cost |
+|---|---|---|
+| Pass 1 — extraction (2 API calls) | **122,5 s** | 3,47 kr |
+| Pass 2 — judgement (1 API call) | **73,4 s** | 0,79 kr |
+| Assembly (pure function) | 0,01 s | — |
+| **Total** | **195,9 s** (~3¼ min) | 4,25 kr |
+
+CPU is a non-issue, exactly as the Phase 0 spike found — this is almost
+entirely wall time spent waiting on Anthropic, not compute. But **3¼ minutes
+rules out a blocking request outright**. No browser fetch, load balancer, or
+mobile network should be trusted to hold a connection open that long, and this
+was the *smaller* report — the 11,4 MB HSB-scale report, with more pages and
+more tokens to reason over, should be assumed slower, not faster.
+
+**Decided: a real async job, not `waitUntil` on the upload request.** The
+upload request creates the job row and returns immediately; the actual pipeline
+run happens out-of-band (Supabase Edge Function, or a Cloudflare Queue
+consumer) and writes its result to the row when done; the client polls
+`GET /status`. Budget the UI for **3–5 minutes**, not "a few seconds" — this
+changes the copy on the waiting screen as much as it changes the backend
+(*"Detta tar några minuter — du kan stänga fliken, vi mejlar dig när den är
+klar"* is a real option worth considering once email capture exists).
 
 **2. Does an analysis expire?** A report bought today concerns an
 årsredovisning that is superseded annually. Does the buyer keep access
@@ -300,8 +319,8 @@ to live. This one does block going live.
 
 1. ~~Phase 0 spike~~ — **done.** Workers runtime confirmed; the two Node-API
    dependencies removed; no `nodejs_compat` needed.
-2. Time a full cold run end to end, so the job model in "Still open" #1 is
-   chosen against a real number rather than a guess.
+2. ~~Time a full cold run end to end~~ — **done.** 195,9 s / 4,25 kr on a
+   1,2 MB report. Confirms the job must be async — see above.
 3. Stand up Supabase: schema, storage bucket, keys wired into the Worker.
 4. Phase 1 as one vertical slice: upload → job → poll → real report on screen,
    with PDF-hash caching from day one (cheap now, awkward to retrofit).
