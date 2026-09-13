@@ -1,16 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-  Card,
-  Button,
-  Field,
-  Toggle,
-  TristateChoice,
-  PageHeader,
-} from "@/components/ui/binfo";
+import { useEffect, useRef, useState } from "react";
+import { Card, Button, Field, Toggle, TristateChoice, PageHeader } from "@/components/ui/binfo";
 import { usePropertyType } from "@/lib/propertyType";
 import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
-import { property, foreningsUppgifter, avgiftPoster } from "@/data/mockData";
+import { avgiftPoster } from "@/data/mockData";
+import {
+  buildPropertyInput,
+  formateraFilstorlek,
+  harValideringsfel,
+  kontrolleraPdfFil,
+  validateraAnalyseraForm,
+  type AnalyseraFormFields,
+} from "@/lib/analyseraForm";
+import { skapaAnalysFn } from "@/server/analysFn";
+import { FELKOD_INNEHALL, type AnalysErrorCode } from "@/lib/analysStatusCopy";
 
 export const Route = createFileRoute("/analysera")({
   head: () => ({
@@ -31,29 +34,38 @@ export const Route = createFileRoute("/analysera")({
   component: Analysera,
 });
 
-const orgnrRegex = /^\d{6}-\d{4}$/;
+const TOM_FORM: AnalyseraFormFields = {
+  utgangspris: "",
+  boarea: "",
+  vaning: "",
+  manadsavgift: "",
+  andelstal: "",
+  organisationsnummer: "",
+  adress: "",
+  postnummer: "",
+  ort: "",
+  antalRum: "",
+  byggar: "",
+};
+
+/** Ett skickat-fel som INTE navigerar bort — antingen ett synkront `ok: false`
+ *  från skapaAnalysFn (t.ex. scanned_pdf, innan något jobb skapats), eller ett
+ *  kastat nätverks-/serverfel. Skiljs åt bara för att visa rätt hjälptext. */
+type SkickaFel =
+  { typ: "kand"; errorCode: AnalysErrorCode; errorMessage: string } | { typ: "okand" };
 
 function Analysera() {
   const navigate = useNavigate();
   const [typ, setTyp] = usePropertyType();
   const [dragging, setDragging] = useState(false);
-  const [fil, setFil] = useState<string | null>("Årsredovisning_Brf_Lindgården_2025.pdf");
+  const [fil, setFil] = useState<File | null>(null);
+  const [filFel, setFilFel] = useState<string | null>(null);
   const [visaFel, setVisaFel] = useState(false);
+  const [skickar, setSkickar] = useState(false);
+  const [skickaFel, setSkickaFel] = useState<SkickaFel | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({
-    utgangspris: String(property.utgangspris),
-    boarea: String(property.boarea),
-    vaning: String(property.vaning),
-    manadsavgift: String(property.manadsavgift),
-    andelstal: String(property.andelstal),
-    // Om föreningen — speglar foreningsUppgifter i mockData.
-    organisationsnummer: foreningsUppgifter.organisationsnummer,
-    adress: foreningsUppgifter.adress,
-    postnummer: foreningsUppgifter.postnummer,
-    ort: foreningsUppgifter.ort,
-    antalRum: foreningsUppgifter.antalRum,
-    byggar: foreningsUppgifter.byggar,
-  });
+  const [form, setForm] = useState<AnalyseraFormFields>(TOM_FORM);
   const uppgifter = useUppgifter();
 
   // Klick på säkerhetsmätaren i rapporten länkar hit med #vet-ej.
@@ -65,24 +77,68 @@ function Analysera() {
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const fel = {
-    organisationsnummer: !orgnrRegex.test(form.organisationsnummer.trim())
-      ? "Ange organisationsnummer i formatet XXXXXX-XXXX."
-      : null,
-    adress: form.adress.trim() === "" ? "Ange adress." : null,
-    postnummer: form.postnummer.trim() === "" ? "Ange postnummer." : null,
-    ort: form.ort.trim() === "" ? "Ange ort." : null,
-    antalRum: form.antalRum.trim() === "" ? "Ange antal rum." : null,
-  };
-  const harFel = Object.values(fel).some(Boolean);
+  const fel = validateraAnalyseraForm(form);
+  const harFel = harValideringsfel(fel);
 
-  const analysera = () => {
-    if (harFel) {
+  const valjFil = (candidate: File | undefined | null) => {
+    if (!candidate) return;
+    setSkickaFel(null);
+    const fel = kontrolleraPdfFil(candidate);
+    setFilFel(fel);
+    setFil(fel ? null : candidate);
+  };
+
+  const taBortFil = () => {
+    setFil(null);
+    setFilFel(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const analysera = async () => {
+    if (skickar) return; // förhindra dubbelskick
+
+    const filfelNu = kontrolleraPdfFil(fil);
+    setFilFel(filfelNu);
+
+    if (harFel || filfelNu) {
       setVisaFel(true);
       return;
     }
-    // TODO(pipeline): skicka formuläret till PDF-parsern/analyspipelinen.
-    navigate({ to: "/forhandsvisning" });
+
+    // fil är garanterat non-null här: kontrolleraPdfFil(null) returnerar alltid ett fel.
+    const propertyInput = buildPropertyInput(typ, form, {
+      hiss: uppgifter.hiss,
+      balkong: uppgifter.balkong,
+      avgiftInkluderar: uppgifter.ingar,
+      antalPersoner: uppgifter.antalPersoner,
+    });
+
+    const formData = new FormData();
+    formData.set("pdf", fil as File);
+    formData.set("propertyInput", JSON.stringify(propertyInput));
+
+    setSkickar(true);
+    setSkickaFel(null);
+    try {
+      const resultat = await skapaAnalysFn({ data: formData });
+      if (resultat.ok) {
+        navigate({ to: "/analys/$analysisId", params: { analysisId: resultat.analysisId } });
+        return;
+      }
+      setSkickaFel({
+        typ: "kand",
+        errorCode: resultat.errorCode,
+        errorMessage: resultat.errorMessage,
+      });
+    } catch (fel) {
+      // Köparen får en generisk text, men orsaken ska aldrig försvinna tyst —
+      // ett nätverksfel eller en 500:a här är exakt det man vill kunna se i
+      // konsolen när någon rapporterar "det gick inte att skicka in".
+      console.error("[analysera] skapaAnalysFn kastade:", fel);
+      setSkickaFel({ typ: "okand" });
+    } finally {
+      setSkickar(false);
+    }
   };
 
   return (
@@ -110,8 +166,23 @@ function Analysera() {
       </div>
 
       <Card className="mb-6">
-        {/* Visuell uppladdningsyta. TODO(pipeline): koppla mot PDF-parsern. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={(e) => valjFil(e.target.files?.[0])}
+        />
         <div
+          role="button"
+          tabIndex={0}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
           onDragOver={(e) => {
             e.preventDefault();
             setDragging(true);
@@ -120,42 +191,89 @@ function Analysera() {
           onDrop={(e) => {
             e.preventDefault();
             setDragging(false);
-            setFil(e.dataTransfer.files?.[0]?.name ?? "Årsredovisning.pdf");
+            valjFil(e.dataTransfer.files?.[0]);
           }}
-          className={`rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+          className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
             dragging ? "border-primary bg-primary/5" : "border-border bg-secondary/40"
           }`}
         >
           <p className="font-medium text-foreground">
-            Dra och släpp årsredovisningen här
+            Dra och släpp årsredovisningen här, eller klicka för att välja fil
           </p>
           <p className="mt-1 text-sm text-muted-foreground">PDF, max 25 MB</p>
           {fil ? (
-            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-card px-4 py-2 text-sm text-foreground">
-              <span className="size-2 rounded-full bg-success" /> {fil}
+            <p className="mt-4 inline-flex items-center gap-3 rounded-full bg-card px-4 py-2 text-sm text-foreground">
+              <span className="size-2 rounded-full bg-success" />
+              {fil.name} ({formateraFilstorlek(fil.size)})
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  taBortFil();
+                }}
+                className="text-muted-foreground underline hover:text-foreground"
+              >
+                Ta bort
+              </button>
             </p>
           ) : null}
         </div>
+        {visaFel && filFel ? <p className="mt-3 text-sm text-danger">{filFel}</p> : null}
       </Card>
 
       <Card className="mb-6">
         <h2 className="font-display text-2xl text-foreground">Objektets uppgifter</h2>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
-          <Field label="Utgångspris" suffix="kr" value={form.utgangspris} onChange={set("utgangspris")} />
+          <Field
+            label="Utgångspris"
+            type="text"
+            suffix="kr"
+            placeholder="4 950 000"
+            value={form.utgangspris}
+            onChange={set("utgangspris")}
+            error={visaFel ? fel.utgangspris : null}
+          />
           <Field
             label="Boarea"
+            type="text"
             suffix="m²"
+            placeholder="58"
             value={form.boarea}
             onChange={(v) => {
               set("boarea")(v);
-              setUppgifter({ boarea: Number(v) || 0 });
+              setUppgifter({ boarea: Number(v.replace(",", ".")) || 0 });
             }}
+            error={visaFel ? fel.boarea : null}
           />
-          <Field label="Våning" value={form.vaning} onChange={set("vaning")} />
-          <Field label="Månadsavgift" suffix="kr/mån" value={form.manadsavgift} onChange={set("manadsavgift")} />
-          <Field label="Andelstal" suffix="%" value={form.andelstal} onChange={set("andelstal")} />
+          <Field
+            label="Våning"
+            optional
+            placeholder="4"
+            value={form.vaning}
+            onChange={set("vaning")}
+          />
+          <Field
+            label="Månadsavgift"
+            type="text"
+            suffix="kr/mån"
+            placeholder="3 240"
+            value={form.manadsavgift}
+            onChange={set("manadsavgift")}
+            error={visaFel ? fel.manadsavgift : null}
+          />
+          <Field
+            label="Andelstal"
+            type="text"
+            suffix="%"
+            placeholder="2,1"
+            value={form.andelstal}
+            onChange={set("andelstal")}
+            error={visaFel ? fel.andelstal : null}
+          />
           <Field
             label="Antal rum"
+            type="text"
+            placeholder="3"
             value={form.antalRum}
             onChange={set("antalRum")}
             error={visaFel ? fel.antalRum : null}
@@ -187,6 +305,7 @@ function Analysera() {
           <Field
             label="Adress"
             type="text"
+            placeholder="Kapellgränd 12"
             value={form.adress}
             onChange={set("adress")}
             error={visaFel ? fel.adress : null}
@@ -194,6 +313,7 @@ function Analysera() {
           <Field
             label="Postnummer"
             type="text"
+            placeholder="116 25"
             value={form.postnummer}
             onChange={set("postnummer")}
             error={visaFel ? fel.postnummer : null}
@@ -201,22 +321,27 @@ function Analysera() {
           <Field
             label="Ort"
             type="text"
+            placeholder="Stockholm"
             value={form.ort}
             onChange={set("ort")}
             error={visaFel ? fel.ort : null}
           />
-          <Field label="Byggår" optional value={form.byggar} onChange={set("byggar")} />
+          <Field
+            label="Byggår"
+            optional
+            placeholder="1931"
+            value={form.byggar}
+            onChange={set("byggar")}
+          />
         </div>
 
         <div id="vet-ej" className="mt-8 scroll-mt-24 grid gap-6 md:grid-cols-2">
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
-              Hiss <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+              Hiss{" "}
+              <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
             </span>
-            <TristateChoice
-              value={uppgifter.hiss}
-              onChange={(v) => setUppgifter({ hiss: v })}
-            />
+            <TristateChoice value={uppgifter.hiss} onChange={(v) => setUppgifter({ hiss: v })} />
           </div>
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
@@ -231,12 +356,10 @@ function Analysera() {
         </div>
 
         <div className="mt-8">
-          <span className="block text-sm font-medium text-foreground">
-            Vad ingår i avgiften?
-          </span>
+          <span className="block text-sm font-medium text-foreground">Vad ingår i avgiften?</span>
           <p className="mt-1 text-xs text-muted-foreground">
-            Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann i stället
-            för att gissa.
+            Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann i stället för att
+            gissa.
           </p>
           <div className="mt-4 space-y-3">
             {avgiftPoster.map((p) => (
@@ -255,12 +378,40 @@ function Analysera() {
           </div>
         </div>
 
+        {skickaFel ? (
+          <div className="mt-8 rounded-lg border border-danger/30 bg-danger/5 p-4">
+            {skickaFel.typ === "kand" ? (
+              <>
+                <p className="font-medium text-foreground">
+                  {FELKOD_INNEHALL[skickaFel.errorCode].rubrik}
+                </p>
+                <p className="mt-2 text-sm text-foreground">{skickaFel.errorMessage}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {FELKOD_INNEHALL[skickaFel.errorCode].atgard}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-foreground">Kunde inte skicka in analysen</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Något gick fel vid uppladdningen — kontrollera din internetuppkoppling och försök
+                  igen.
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
+
         <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Button size="lg" onClick={analysera}>
-            Analysera
+          <Button size="lg" onClick={analysera} disabled={skickar}>
+            {skickar ? "Skickar in…" : "Analysera"}
           </Button>
           <span className="text-sm text-muted-foreground">
-            {visaFel && harFel ? "Fyll i de obligatoriska fälten." : "Tar ungefär en minut."}
+            {visaFel && (harFel || filFel)
+              ? "Fyll i de obligatoriska fälten."
+              : skickar
+                ? "Laddar upp och startar analysen…"
+                : "Analysen tar några minuter — du följer den på nästa sida."}
           </span>
         </div>
       </Card>

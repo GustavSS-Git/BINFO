@@ -1,0 +1,179 @@
+import type { FeeInclusion, PropertyInput, PropertyKind, Tristate } from "@/types/analysis";
+import type { PropertyType } from "@/data/mockData";
+
+/**
+ * Ren logik för /analysera: formulär → PropertyInput, plus filkontrollen som
+ * körs innan uppladdning. Ingen React-import, testbar direkt (se
+ * analyseraForm.test.ts) — samma mönster som src/lib/bolanekalkyl.ts.
+ */
+
+// ---------------------------------------------------------------------------
+// Filkontroll — klientsidans motsvarighet till serverns validering. Ren
+// bekvämlighet: servern (skapaAnalys) är den faktiska auktoriteten.
+// ---------------------------------------------------------------------------
+
+export const MAX_PDF_STORLEK_BYTES = 25 * 1024 * 1024;
+
+/**
+ * `null` betyder "godkänd". Enträff på ANTINGEN MIME-typen ELLER
+ * filändelsen räcker — vissa webbläsare/OS rapporterar tom `type` för PDF-
+ * filer, så ändelsen måste kunna bära hela avgörandet ensam.
+ */
+export function kontrolleraPdfFil(file: File | null): string | null {
+  if (!file) {
+    return "Välj en fil att ladda upp.";
+  }
+  const ärPdfTyp = file.type === "application/pdf";
+  const ärPdfNamn = file.name.toLowerCase().endsWith(".pdf");
+  if (!ärPdfTyp && !ärPdfNamn) {
+    return "Filen måste vara en PDF.";
+  }
+  if (file.size > MAX_PDF_STORLEK_BYTES) {
+    return "Filen är för stor. Max 25 MB.";
+  }
+  return null;
+}
+
+export function formateraFilstorlek(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(1).replace(".", ",")} MB`;
+}
+
+// ---------------------------------------------------------------------------
+// Talparsning — användare skriver "4 950 000" eller "2,1", inte JSON-tal.
+// ---------------------------------------------------------------------------
+
+/** Tar bort vanliga, icke-brytande och smala icke-brytande mellanslag
+ *  (tusentalsavgränsare) och tolkar komma som decimaltecken. */
+function normaliseraTalsträng(rått: string): string {
+  return rått.replace(/[\s\u00A0\u202F]/g, "").replace(",", ".");
+}
+
+/** Ett obligatoriskt, positivt tal. `null` för tomt, icke-numeriskt, noll
+ *  eller negativt — alla dessa ska visas som samma valideringsfel. */
+export function parsePositivtTal(rått: string): number | null {
+  const normaliserat = normaliseraTalsträng(rått);
+  if (normaliserat === "") return null;
+  const tal = Number(normaliserat);
+  return Number.isFinite(tal) && tal > 0 ? tal : null;
+}
+
+/** Ett VALFRITT heltal (våning, byggår). Tomt fält -> `undefined` (utelämnas
+ *  helt ur PropertyInput, se buildPropertyInput). Ogiltig text i ett valfritt
+ *  fält blockerar aldrig formuläret — den tolkas också som "inget angivet"
+ *  snarare än ett fel, eftersom fältet redan är valfritt. */
+export function parseValfrittHeltal(rått: string): number | undefined {
+  if (rått.trim() === "") return undefined;
+  const tal = parsePositivtTal(rått);
+  if (tal === null) return undefined;
+  return Math.trunc(tal);
+}
+
+// ---------------------------------------------------------------------------
+// Formulärvalidering
+// ---------------------------------------------------------------------------
+
+const orgnrRegex = /^\d{6}-\d{4}$/;
+
+export interface AnalyseraFormFields {
+  utgangspris: string;
+  boarea: string;
+  vaning: string;
+  manadsavgift: string;
+  andelstal: string;
+  organisationsnummer: string;
+  adress: string;
+  postnummer: string;
+  ort: string;
+  antalRum: string;
+  byggar: string;
+}
+
+/** Ett fel per obligatoriskt fält. `vaning`/`byggar` är valfria i
+ *  PropertyInput och ingår därför inte här. */
+export interface AnalyseraFormFel {
+  utgangspris: string | null;
+  boarea: string | null;
+  manadsavgift: string | null;
+  andelstal: string | null;
+  antalRum: string | null;
+  organisationsnummer: string | null;
+  adress: string | null;
+  postnummer: string | null;
+  ort: string | null;
+}
+
+export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFel {
+  return {
+    utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
+    boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
+    manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
+    andelstal: parsePositivtTal(f.andelstal) === null ? "Ange ett giltigt andelstal." : null,
+    antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
+    organisationsnummer: !orgnrRegex.test(f.organisationsnummer.trim())
+      ? "Ange organisationsnummer i formatet XXXXXX-XXXX."
+      : null,
+    adress: f.adress.trim() === "" ? "Ange adress." : null,
+    postnummer: f.postnummer.trim() === "" ? "Ange postnummer." : null,
+    ort: f.ort.trim() === "" ? "Ange ort." : null,
+  };
+}
+
+export function harValideringsfel(fel: AnalyseraFormFel): boolean {
+  return Object.values(fel).some(Boolean);
+}
+
+// ---------------------------------------------------------------------------
+// PropertyInput-mappning
+// ---------------------------------------------------------------------------
+
+export function mapPropertyKind(typ: PropertyType): PropertyKind {
+  return typ === "brf" ? "bostadsratt" : "hus";
+}
+
+/** De fält som INTE kommer från AnalyseraFormFields — de lever i den delade
+ *  useUppgifter-storen (src/lib/uppgifter.ts) och skickas in separat. */
+export interface AnalyseraFormUppgifter {
+  hiss: Tristate;
+  balkong: Tristate;
+  avgiftInkluderar: FeeInclusion;
+  antalPersoner: number;
+}
+
+/**
+ * Bygger en PropertyInput från formuläret. Förutsätter att formuläret redan
+ * validerats (validateraAnalyseraForm gav inga fel) — anropsstället spärrar
+ * submit på fel innan detta anropas, så de obligatoriska `?? 0`-reserverna
+ * nedan är en säkerhetsnätslösning, inte den normala vägen.
+ *
+ * `vaning`/`byggar` utelämnas HELT (inte satta till `undefined`) när
+ * användaren inte fyllt i dem — exactOptionalPropertyTypes kräver det, och
+ * ett utelämnat fält är dessutom den semantik kontraktet vill ha.
+ */
+export function buildPropertyInput(
+  typ: PropertyType,
+  form: AnalyseraFormFields,
+  uppgifter: AnalyseraFormUppgifter,
+): PropertyInput {
+  const vaning = parseValfrittHeltal(form.vaning);
+  const byggar = parseValfrittHeltal(form.byggar);
+
+  return {
+    kind: mapPropertyKind(typ),
+    utgangspris: Math.round(parsePositivtTal(form.utgangspris) ?? 0),
+    boarea: parsePositivtTal(form.boarea) ?? 0,
+    antalRum: parsePositivtTal(form.antalRum) ?? 0,
+    manadsavgift: Math.round(parsePositivtTal(form.manadsavgift) ?? 0),
+    andelstal: parsePositivtTal(form.andelstal) ?? 0,
+    orgnr: form.organisationsnummer.trim(),
+    adress: form.adress.trim(),
+    postnummer: form.postnummer.trim(),
+    ort: form.ort.trim(),
+    ...(vaning !== undefined ? { vaning } : {}),
+    ...(byggar !== undefined ? { byggar } : {}),
+    hiss: uppgifter.hiss,
+    balkong: uppgifter.balkong,
+    avgiftInkluderar: uppgifter.avgiftInkluderar,
+    antalPersoner: uppgifter.antalPersoner,
+  };
+}
