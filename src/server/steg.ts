@@ -45,6 +45,7 @@ import {
   sparaExtraktionICache,
   type CacheNyckel,
 } from "./cache";
+import { lasPropertyInputFranRad } from "./lagratInput";
 import type { Env } from "./env";
 import { tolkaFel } from "./fel";
 import type { AnalysRad, AnalysStage, Lager } from "./portar";
@@ -325,10 +326,14 @@ async function korBedomningssteg(
 
     // Torr sammanställning — resultatet kastas, det enda syftet är att låta
     // AssemblyValidationError/SaknarRantekanslighetError propagera hit.
-    const prisdatakalla = new SchablonPrisdatakalla({ boarea: rad.propertyInput.boarea });
+    // Samma normalisering som läsvägen (hamtaResultat/hamtaForhandsvisning):
+    // en rad köad före en kontraktsändring får inte fastna här bara för att
+    // dess lagrade input bär en numera borttagen nyckel.
+    const input = lasPropertyInputFranRad(rad);
+    const prisdatakalla = new SchablonPrisdatakalla({ boarea: input.boarea });
     await assembleraAnalys({
       extraction,
-      input: rad.propertyInput,
+      input,
       prisdatakalla,
       analys: judgement,
       analysisId: rad.id,

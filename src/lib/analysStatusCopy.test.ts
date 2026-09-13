@@ -1,0 +1,102 @@
+import { describe, expect, it } from "vitest";
+import {
+  arAnalysHittadesInteFel,
+  FELKOD_INNEHALL,
+  STEG_ORDNING,
+  STEG_TEXT,
+  stegAndel,
+  type AnalysErrorCode,
+  type AnalysStage,
+} from "./analysStatusCopy";
+
+const ALLA_STEG: AnalysStage[] = ["uploaded", "extracting", "judging", "complete"];
+const ALLA_FELKODER: AnalysErrorCode[] = [
+  "scanned_pdf",
+  "cost_cap",
+  "daily_cap",
+  "validation",
+  "saknar_rantekanslighet",
+  "unknown",
+];
+
+describe("STEG_TEXT", () => {
+  it("har text för varje steg, ingen tom sträng", () => {
+    for (const steg of ALLA_STEG) {
+      expect(STEG_TEXT[steg].length).toBeGreaterThan(0);
+    }
+  });
+
+  it("lovar aldrig att det går snabbt", () => {
+    for (const text of Object.values(STEG_TEXT)) {
+      expect(text.toLowerCase()).not.toMatch(/snart|några sekunder|en liten stund|en minut\b/);
+    }
+  });
+
+  it("STEG_ORDNING täcker exakt samma steg som STEG_TEXT, en gång var", () => {
+    expect([...STEG_ORDNING].sort()).toEqual([...ALLA_STEG].sort());
+  });
+});
+
+describe("stegAndel", () => {
+  it("ökar strikt monotont genom stegordningen", () => {
+    const andelar = STEG_ORDNING.map(stegAndel);
+    for (let i = 1; i < andelar.length; i++) {
+      expect(andelar[i]).toBeGreaterThan(andelar[i - 1]!);
+    }
+  });
+
+  it("når 100% vid sista steget", () => {
+    expect(stegAndel(STEG_ORDNING.at(-1)!)).toBe(1);
+  });
+
+  it("är aldrig 0 (ens första steget har gjorts något)", () => {
+    expect(stegAndel(STEG_ORDNING.at(0)!)).toBeGreaterThan(0);
+  });
+});
+
+describe("FELKOD_INNEHALL", () => {
+  it("har innehåll för exakt varje AnalysErrorCode, ingen fallthrough", () => {
+    expect(Object.keys(FELKOD_INNEHALL).sort()).toEqual([...ALLA_FELKODER].sort());
+  });
+
+  it("varje felkod har en ifylld rubrik, förklaring och åtgärd", () => {
+    for (const kod of ALLA_FELKODER) {
+      const innehall = FELKOD_INNEHALL[kod];
+      expect(innehall.rubrik.length).toBeGreaterThan(0);
+      expect(innehall.forklaring.length).toBeGreaterThan(0);
+      expect(innehall.atgard.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("scanned_pdf pekar mot att skaffa originalfilen, inte bara 'försök igen'", () => {
+    const text = `${FELKOD_INNEHALL.scanned_pdf.forklaring} ${FELKOD_INNEHALL.scanned_pdf.atgard}`;
+    expect(text).toMatch(/mäklaren|styrelsen|förvaltare/i);
+  });
+
+  it("daily_cap och cost_cap läses som 'det är vi, inte du'", () => {
+    expect(FELKOD_INNEHALL.daily_cap.forklaring).toMatch(/inte.*din|beror inte på dig/i);
+    expect(FELKOD_INNEHALL.cost_cap.forklaring).toMatch(/inte.*din|vår sida|beror inte på dig/i);
+  });
+
+  it("validation pekar tillbaka mot formuläret", () => {
+    expect(FELKOD_INNEHALL.validation.atgard).toMatch(/formulär/i);
+  });
+});
+
+describe("arAnalysHittadesInteFel", () => {
+  it("känner igen ett fel med name AnalysHittadesInteError", () => {
+    const fel = new Error("Ingen analys hittades med id x.");
+    fel.name = "AnalysHittadesInteError";
+    expect(arAnalysHittadesInteFel(fel)).toBe(true);
+  });
+
+  it("returnerar false för andra fel", () => {
+    expect(arAnalysHittadesInteFel(new Error("nätverksfel"))).toBe(false);
+  });
+
+  it("returnerar false för icke-Error-värden", () => {
+    expect(arAnalysHittadesInteFel("sträng")).toBe(false);
+    expect(arAnalysHittadesInteFel(null)).toBe(false);
+    expect(arAnalysHittadesInteFel(undefined)).toBe(false);
+  });
+});

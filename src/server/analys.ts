@@ -30,6 +30,7 @@ import { assembleraAnalys } from "@/lib/analysis/assemble";
 import { SchablonPrisdatakalla } from "@/lib/analysis/prisdata";
 import type { Env } from "./env";
 import type { AnalysErrorCode, AnalysStage, AnalysStatus, Lager } from "./portar";
+import { lasPropertyInputFranRad } from "./lagratInput";
 import { hamtaAnalysFranCache, hamtaExtraktionFranCache } from "./cache";
 import { tolkaFel, tolkaSpendSkal } from "./fel";
 
@@ -235,11 +236,12 @@ export async function hamtaResultat(lager: Lager, analysisId: string): Promise<A
     );
   }
 
-  const prisdatakalla = new SchablonPrisdatakalla({ boarea: rad.propertyInput.boarea });
+  const input = lasPropertyInputFranRad(rad);
+  const prisdatakalla = new SchablonPrisdatakalla({ boarea: input.boarea });
 
   return assembleraAnalys({
     extraction,
-    input: rad.propertyInput,
+    input,
     prisdatakalla,
     analys: judgement,
     analysisId: rad.id,
@@ -326,11 +328,12 @@ export async function hamtaForhandsvisning(
     );
   }
 
-  const prisdatakalla = new SchablonPrisdatakalla({ boarea: rad.propertyInput.boarea });
+  const input = lasPropertyInputFranRad(rad);
+  const prisdatakalla = new SchablonPrisdatakalla({ boarea: input.boarea });
 
   const fullResultat = await assembleraAnalys({
     extraction,
-    input: rad.propertyInput,
+    input,
     prisdatakalla,
     analys: judgement,
     analysisId: rad.id,

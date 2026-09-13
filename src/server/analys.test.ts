@@ -456,6 +456,46 @@ describe("hamtaForhandsvisning", () => {
     expect(forhandsvisning.rodaFlaggor.map((f) => f.id)).toEqual(["flagga-hog-1", "flagga-hog-2"]);
   });
 
+  // Regressionsskydd för en riktig produktionsbugg. Rader skapade FÖRE Fas 1
+  // Steg 0 har ett property_input-JSON med `antalLantagare`, ett fält som
+  // steget tog bort ur kontraktet. PropertyInputSchema är .strict(), så
+  // assembleraAnalys avvisade varje sådan rad med "Unrecognized key(s)" —
+  // alla tre färdiga analyser i det live projektet blev olästbara, och
+  // routens loader svalde felet tyst till en evig väntskärm. Steg 0:s tester
+  // missade det eftersom samtliga använde färska fixtures; ingen läste en rad
+  // som en äldre version av koden hade skrivit. Lagrat JSON från en tidigare
+  // kodversion är också opålitlig indata: en okänd nyckel från ett BORTTAGET
+  // fält ska strippas vid läsning, inte vara dödlig. .strict() behåller sitt
+  // värde vid SKRIVNING (skapaAnalys fångar stavfel i formuläret).
+  it("läser en rad vars lagrade property_input bär ett numera borttaget fält", async () => {
+    const lager = skapaFakeLager();
+    const model = "claude-sonnet-5";
+    const pdfHash = "rad-fran-fore-steg-0";
+    const nyckel = { pdfHash, model, promptVersion: PROMPT_VERSION };
+    await sparaExtraktionICache(lager.db, nyckel, extraktion, 1.0);
+    await sparaAnalysICache(lager.db, nyckel, minimalJudgement(), 0.5);
+    const { id } = await lager.db.skapaAnalys({
+      pdfHash,
+      pdfPath: `${pdfHash}.pdf`,
+      // Exakt formen en rad från före Steg 0 har: giltig i övrigt, plus det
+      // borttagna fältet. `as never` eftersom typen — korrekt — inte längre
+      // tillåter nyckeln; det är ju hela poängen.
+      propertyInput: { ...(propertyInput as object), antalLantagare: 2 } as never,
+      model,
+      promptVersion: PROMPT_VERSION,
+      status: "done",
+      stage: "complete",
+    });
+
+    const resultat = await hamtaResultat(lager, id);
+    const forhandsvisning = await hamtaForhandsvisning(lager, id);
+
+    expect(resultat.betyg).toBe("C");
+    expect(forhandsvisning.betyg).toBe("C");
+    // Och det strippade fältet får inte läcka igenom till resultatet.
+    expect(Object.keys(resultat.input)).not.toContain("antalLantagare");
+  });
+
   // Regressionsskydd för en medveten kodduplicering. `toppRodaFlaggorForServer`
   // i analys.ts är en kopia av `toppRodaFlaggor` i src/lib/analysisView.ts
   // (som inte får importeras hit — den drar in @/data/mockData). Kopian löser
