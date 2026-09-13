@@ -32,7 +32,7 @@ Four zones. Do not cross them without being explicitly asked.
 |---|---|---|
 | `src/components/`, `src/pages/` | UI, built in Lovable | Backend work must not touch these |
 | `src/lib/analysis/` | Extraction + analysis pipeline | UI work must not touch this |
-| `src/server/` | Supabase-backed job orchestration, caches, spend guard, the three server functions (`skapaAnalys`/`hamtaStatus`/`hamtaResultat`), the Edge Function bundle step | May import `src/lib/analysis/` and the contract. **Nothing may import it back.** UI reaches it only through `src/server/analysFn.ts`'s `createServerFn` wrappers — enforced by the Lovable build wrapper's `importProtection` (client-forbidden by directory) and an ESLint `no-restricted-imports` rule. See `SUPABASE.md`. |
+| `src/server/` | Supabase-backed job orchestration, caches, spend guard, the three server functions (`skapaAnalys`/`hamtaStatus`/`hamtaResultat`), the Edge Function bundle step | May import `src/lib/analysis/` and the contract. **Nothing may import it back.** UI reaches it only through `src/server/analysFn.ts`'s `createServerFn` wrappers — enforced by the Lovable build wrapper's `importProtection` (client-forbidden by directory) and an ESLint `no-restricted-imports` rule. **Both guards carve out `analysFn.ts` and nothing else**: it is the RPC boundary the client is meant to import, so `vite.config.ts` lists it in `importProtection.client.excludeFiles` and the ESLint pattern group negates it. Never widen either carve-out to a directory. See `SUPABASE.md`. |
 | `src/types/analysis.ts` | **The contract** | Changing it is a deliberate act, never a side effect |
 
 `src/types/analysis.ts` is the single source of truth for the shape of an

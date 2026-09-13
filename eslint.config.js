@@ -47,11 +47,25 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "@/server",
+              message:
+                "Client code may only reach src/server/ through @/server/analysFn's createServerFn wrappers, not a barrel import of the server root.",
+            },
+          ],
           patterns: [
             {
+              // "@/server/**" (not the bare "@/server") is required for the
+              // "!@/server/analysFn" negation below to take effect: the `ignore`
+              // package underlying this option follows gitignore semantics,
+              // where a matched directory-like pattern (e.g. bare "@/server")
+              // blocks recursion into it entirely, so no later negation pattern
+              // for a path "inside" it — including "@/server/analysFn" — can
+              // ever re-include it. Verified empirically; see task notes.
               group: [
-                "@/server",
-                "@/server/*",
+                "@/server/**",
+                "!@/server/analysFn",
                 "@/lib/analysis/runExtraction",
                 "@/lib/analysis/analyze",
                 "@/lib/analysis/pdf",
@@ -66,7 +80,7 @@ export default tseslint.config(
                 "@/lib/analysis/verifyAnswerKey",
               ],
               message:
-                "Client code may only import the pure src/lib/analysis/calc/* modules and benchmarks.ts. Everything else in the analysis pipeline (and all of src/server/) does server-side work or holds secrets and must never reach the browser bundle.",
+                "Client code may only reach src/server/ through @/server/analysFn's createServerFn wrappers — everything else in src/server/ does server-side work or holds secrets. Client code may also only import the pure src/lib/analysis/calc/* modules and benchmarks.ts; the rest of the analysis pipeline listed here must never reach the browser bundle.",
             },
           ],
         },
