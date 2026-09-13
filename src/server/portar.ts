@@ -16,7 +16,6 @@
  */
 
 import type { ExtractionResult, PropertyInput } from "@/types/analysis";
-import type { LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
 
 // ---------------------------------------------------------------------------
@@ -41,7 +40,6 @@ export interface AnalysRad {
   pdfPath: string | null;
 
   propertyInput: PropertyInput;
-  lanUnderlag: LaneUnderlag;
 
   /** Which model/prompt this job's cache entries are keyed by. */
   model: string;
@@ -73,7 +71,6 @@ export interface NyAnalysRad {
   pdfHash: string;
   pdfPath: string | null;
   propertyInput: PropertyInput;
-  lanUnderlag: LaneUnderlag;
   model: string;
   promptVersion: string;
   status: AnalysStatus;

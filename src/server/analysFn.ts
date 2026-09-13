@@ -25,16 +25,15 @@ import { envFromProcess } from "./env";
 import { skapaLager } from "./supabase";
 
 /**
- * Plockar ut och validerar de tre fälten `skapaAnalysFn` förväntar sig i
- * FormData: en PDF-fil under `"pdf"`, samt två JSON-strängar under
- * `"propertyInput"` och `"lanUnderlag"`. Kastar ett tydligt fel om något
- * fält saknas eller har fel typ — själva JSON-innehållet (schemaformen)
- * valideras inte här, det gör `skapaAnalysImpl` mot de riktiga Zod-scheman.
+ * Plockar ut och validerar de två fälten `skapaAnalysFn` förväntar sig i
+ * FormData: en PDF-fil under `"pdf"`, samt en JSON-sträng under
+ * `"propertyInput"`. Kastar ett tydligt fel om något fält saknas eller har
+ * fel typ — själva JSON-innehållet (schemaformen) valideras inte här, det
+ * gör `skapaAnalysImpl` mot det riktiga Zod-schemat.
  */
 function extraheraSkapaAnalysArgs(formData: FormData): {
   pdf: File;
   propertyInputRaw: string;
-  lanUnderlagRaw: string;
 } {
   const pdf = formData.get("pdf");
   if (!(pdf instanceof File)) {
@@ -46,12 +45,7 @@ function extraheraSkapaAnalysArgs(formData: FormData): {
     throw new Error('FormData saknar fältet "propertyInput" som en JSON-sträng.');
   }
 
-  const lanUnderlagRaw = formData.get("lanUnderlag");
-  if (typeof lanUnderlagRaw !== "string") {
-    throw new Error('FormData saknar fältet "lanUnderlag" som en JSON-sträng.');
-  }
-
-  return { pdf, propertyInputRaw, lanUnderlagRaw };
+  return { pdf, propertyInputRaw };
 }
 
 /** JSON.parse med ett tydligare felmeddelande — schemaformen kontrolleras
@@ -68,13 +62,12 @@ function tolkaJson(falt: string, rå: string): unknown {
 export const skapaAnalysFn = createServerFn({ method: "POST" })
   .inputValidator((data: FormData) => data)
   .handler(async ({ data }) => {
-    const { pdf, propertyInputRaw, lanUnderlagRaw } = extraheraSkapaAnalysArgs(data);
+    const { pdf, propertyInputRaw } = extraheraSkapaAnalysArgs(data);
 
     const pdfBytes = new Uint8Array(await pdf.arrayBuffer());
     const propertyInput = tolkaJson("propertyInput", propertyInputRaw);
-    const lanUnderlag = tolkaJson("lanUnderlag", lanUnderlagRaw);
 
-    const args: SkapaAnalysArgs = { pdfBytes, propertyInput, lanUnderlag };
+    const args: SkapaAnalysArgs = { pdfBytes, propertyInput };
     const env = envFromProcess();
     return skapaAnalysImpl(skapaLager(env), env, args);
   });

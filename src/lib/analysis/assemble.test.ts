@@ -5,16 +5,8 @@ import { DemoPrisdatakalla, SchablonPrisdatakalla, TomPrisdatakalla } from "./pr
 import { konfidensUtanPrisdata } from "./prisdata";
 import { SaknarRantekanslighetError } from "./calc/rantestress";
 import { AnalysisResultSchema } from "./schema";
-import type { LaneUnderlag } from "./calc/manadskostnad";
 import type { AnalysJudgement } from "./analyze";
 import type { ExtractionResult, Forening, PropertyInput } from "@/types/analysis";
-
-const lan: LaneUnderlag = {
-  lanebelopp: 3_000_000,
-  kontantinsats: 1_950_000,
-  ranta: 3.6,
-  bruttoinkomst: 800_000,
-};
 
 const analysJudgement: AnalysJudgement = {
   betyg: "C",
@@ -57,7 +49,6 @@ const inputKomplett: PropertyInput = {
   balkong: "nej",
   avgiftInkluderar: { varme: "ja", vatten: "ja", el: "nej", bredband: "ja", tv: "nej" },
   antalPersoner: 2,
-  antalLantagare: 2,
 };
 
 /** Allt Tristate-fält på 'okant'; vaning/byggar kända, isolerar frågeräkningen. */
@@ -91,7 +82,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -107,7 +97,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputAllaOkanda,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -139,7 +128,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: { ...extraktion, forening: foreningMedSvar },
       input: inputAllaOkanda,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -156,7 +144,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -258,7 +245,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new DemoPrisdatakalla({
         utgangspris: inputKomplett.utgangspris,
         boarea: inputKomplett.boarea,
@@ -273,7 +259,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -289,7 +274,6 @@ describe("assembleraAnalys", () => {
       assembleraAnalys({
         extraction: extraktionUtanRantekanslighet(),
         input: inputKomplett,
-        lan,
         prisdatakalla: new TomPrisdatakalla(),
         analys: analysJudgement,
       }),
@@ -302,7 +286,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -311,11 +294,21 @@ describe("assembleraAnalys", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("innehåller aldrig manadskostnad — lånedata är inte längre del av det persisterade kontraktet", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktion,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat).not.toHaveProperty("manadskostnad");
+  });
+
   it("sätter gratisSektioner till den fasta uppsättningen från kontraktet", async () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -327,7 +320,6 @@ describe("assembleraAnalys", () => {
     const resultat = await assembleraAnalys({
       extraction: extraktion,
       input: inputKomplett,
-      lan,
       prisdatakalla: new TomPrisdatakalla(),
       analys: analysJudgement,
     });
@@ -348,7 +340,6 @@ describe("assembleraAnalys", () => {
       const resultat = await assembleraAnalys({
         extraction: extraktion,
         input: inputKomplett,
-        lan,
         prisdatakalla: new TomPrisdatakalla(),
         analys: analysJudgement,
         analysisId: injiceradId,
@@ -363,7 +354,6 @@ describe("assembleraAnalys", () => {
       const resultat = await assembleraAnalys({
         extraction: extraktion,
         input: inputKomplett,
-        lan,
         prisdatakalla: new TomPrisdatakalla(),
         analys: analysJudgement,
       });
@@ -378,7 +368,6 @@ describe("assembleraAnalys", () => {
       const grundinput = {
         extraction: extraktion,
         input: inputKomplett,
-        lan,
         prisdatakalla: new TomPrisdatakalla(),
         analys: analysJudgement,
         analysisId: injiceradId,

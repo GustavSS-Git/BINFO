@@ -56,10 +56,10 @@ function buildEnv(overrides: Partial<Env> = {}): Env {
 // undviker en statisk JSON-import av en fil utanför tsconfig-projektets
 // `include` (fixtures/ ligger utanför src/).
 const fixturesDir = path.join(here, "..", "..", "fixtures");
-const propertyInputFixture: { input: unknown; lan: unknown } = JSON.parse(
+const propertyInputFixture: { input: unknown } = JSON.parse(
   await readFile(path.join(fixturesDir, "property-input-example.json"), "utf-8"),
 );
-const { input: propertyInput, lan: lanUnderlag } = propertyInputFixture;
+const { input: propertyInput } = propertyInputFixture;
 
 function minimalJudgement(): AnalysJudgement {
   return {
@@ -80,7 +80,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(true);
@@ -110,7 +109,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(true);
@@ -135,7 +133,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(true);
@@ -155,7 +152,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat).toEqual({
@@ -177,7 +173,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(false);
@@ -204,7 +199,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(false);
@@ -220,7 +214,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(false);
@@ -231,7 +224,7 @@ describe("skapaAnalys", () => {
     expect(status).toBeNull();
   });
 
-  it("avvisar ogiltig propertyInput/lanUnderlag innan hashning/uppladdning", async () => {
+  it("avvisar ogiltig propertyInput innan hashning/uppladdning", async () => {
     const lager = skapaFakeLager();
     const env = buildEnv();
     const pdfBytes = await medTextPdf();
@@ -242,7 +235,6 @@ describe("skapaAnalys", () => {
     const resultat = await skapaAnalys(lager, env, {
       pdfBytes,
       propertyInput: ofullstandigInput,
-      lanUnderlag,
     });
 
     expect(resultat.ok).toBe(false);
@@ -265,7 +257,6 @@ describe("hamtaStatus", () => {
       pdfHash: "abc123",
       pdfPath: "abc123.pdf",
       propertyInput: propertyInput as never,
-      lanUnderlag: lanUnderlag as never,
       model: "claude-sonnet-5",
       promptVersion: PROMPT_VERSION,
       status: "failed",
@@ -291,7 +282,6 @@ describe("hamtaStatus", () => {
       pdfHash: "abc123",
       pdfPath: "abc123.pdf",
       propertyInput: propertyInput as never,
-      lanUnderlag: lanUnderlag as never,
       model: "claude-sonnet-5",
       promptVersion: PROMPT_VERSION,
       status: "queued",
@@ -316,7 +306,6 @@ describe("hamtaResultat", () => {
       pdfHash: "done-hash",
       pdfPath: "done-hash.pdf",
       propertyInput: propertyInput as never,
-      lanUnderlag: lanUnderlag as never,
       model,
       promptVersion: PROMPT_VERSION,
       status: "done",
@@ -353,7 +342,6 @@ describe("hamtaResultat", () => {
       pdfHash: "pending-hash",
       pdfPath: "pending-hash.pdf",
       propertyInput: propertyInput as never,
-      lanUnderlag: lanUnderlag as never,
       model: "claude-sonnet-5",
       promptVersion: PROMPT_VERSION,
       status: "queued",

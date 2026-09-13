@@ -138,8 +138,20 @@ SQL above:**
   see the migration's own comment on why; nulled once consumed), and
   `lease_until`/`attempts` for the claim/lease/retry mechanism the job runner
   needs (`claim_next_steg`, `slapp_steg`, `binfo_reaper` — all in the
-  migration). `lan_underlag` is `not null`, not nullable as drafted here —
-  assembly needs it on every read.
+  migration). `lan_underlag` was originally `not null`, not nullable as
+  drafted here — assembly needed it on every read. It is nullable now; see
+  "`lan_underlag` is dead" below.
+
+**`lan_underlag` is dead.** `/bolanekalkyl` became a purely client-side
+calculator and no loan data is persisted anywhere anymore, so the server no
+longer writes `lan_underlag` on insert. A later migration
+(`supabase/migrations/20260913140646_lan_underlag_nullable.sql`) drops the
+`not null` constraint the init migration put on the column, and adds a
+`comment on column` marking it dead in the database itself. The column is
+kept rather than dropped: dropping it would mean either rewriting the
+already-applied init migration or shipping a separate destructive migration
+against a table that is live in production, for a column that costs nothing
+to leave in place. Nothing should read or write it going forward.
 
 ### The caches — where the money is saved
 

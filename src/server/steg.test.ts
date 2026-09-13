@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import type { AnthropicClientLike } from "@/lib/analysis/runExtraction";
-import type { LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import type { ExtractionResult, PropertyInput } from "@/types/analysis";
 import { extraktion } from "@/lib/analysis/__fixtures__/extraktion";
 import { skapaFakeLager } from "./__fakes__/lager";
@@ -24,12 +23,12 @@ async function medTextPdf(): Promise<Uint8Array> {
   return new Uint8Array(buf);
 }
 
-async function propertyInputExample(): Promise<{ input: PropertyInput; lan: LaneUnderlag }> {
+async function propertyInputExample(): Promise<{ input: PropertyInput }> {
   const raw = await readFile(
     path.join(here, "..", "..", "fixtures", "property-input-example.json"),
     "utf-8",
   );
-  return JSON.parse(raw) as { input: PropertyInput; lan: LaneUnderlag };
+  return JSON.parse(raw) as { input: PropertyInput };
 }
 
 const MODEL = "claude-sonnet-5";
@@ -41,14 +40,14 @@ interface SkapaRadOptions {
   status?: AnalysStatus;
 }
 
-/** Inserts a realistic job row (real PropertyInput/LaneUnderlag from the
- *  fixture, a real PDF uploaded to the fake Filarkiv) and returns the id
- *  plus the cache key every step keys its reads/writes on. */
+/** Inserts a realistic job row (real PropertyInput from the fixture, a real
+ *  PDF uploaded to the fake Filarkiv) and returns the id plus the cache key
+ *  every step keys its reads/writes on. */
 async function skapaRad(
   lager: Lager,
   options: SkapaRadOptions = {},
 ): Promise<{ id: string; pdfPath: string; nyckel: CacheNyckel }> {
-  const { input, lan } = await propertyInputExample();
+  const { input } = await propertyInputExample();
   const pdfHash = `hash-${nastaHash++}`;
   const pdfPath = `arsredovisningar/${pdfHash}.pdf`;
   await lager.filer.laggUpp(pdfPath, await medTextPdf());
@@ -57,7 +56,6 @@ async function skapaRad(
     pdfHash,
     pdfPath,
     propertyInput: input,
-    lanUnderlag: lan,
     model: MODEL,
     promptVersion: PROMPT_VERSION,
     status: options.status ?? "queued",

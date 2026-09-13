@@ -12,17 +12,19 @@ import type {
 } from "@/types/analysis";
 import { AnalysisResultSchema } from "./schema";
 import type { AnalysJudgement } from "./analyze";
-import { beraknaManadskostnad, type LaneUnderlag } from "./calc/manadskostnad";
 import { beraknaRantestress } from "./calc/rantestress";
 import { konfidensUtanPrisdata, type Prisdatakalla, type Prisdataforfragan } from "./prisdata";
 
 /**
  * Slutmonteringen: kombinerar pass 1:s extraktion, pass 2:s bedömning och de
- * rena, deterministiska delarna av AnalysisResult (månadskostnad,
- * räntestress, prisanalys, datakvalitet och 'saknad_uppgift'-frågorna) som
- * PIPELINE.md och analyze.ts:s filkommentar är tydliga med att INTE ska
- * komma från modellen. Ingen modellanrop görs här — allt är ren funktion av
- * det som skickas in.
+ * rena, deterministiska delarna av AnalysisResult (räntestress, prisanalys,
+ * datakvalitet och 'saknad_uppgift'-frågorna) som PIPELINE.md och
+ * analyze.ts:s filkommentar är tydliga med att INTE ska komma från modellen.
+ * Ingen modellanrop görs här — allt är ren funktion av det som skickas in.
+ *
+ * Månadskostnaden (lånedata) är sedan Fas 1 Steg 0 INTE längre del av det
+ * här: den beräknas klientsidan i den fristående /bolanekalkyl-kalkylatorn
+ * (src/lib/analysis/calc/manadskostnad.ts) och skickas aldrig till servern.
  */
 
 export class AssemblyValidationError extends Error {
@@ -42,7 +44,6 @@ export class AssemblyValidationError extends Error {
 export interface AssembleraAnalysInput {
   extraction: ExtractionResult;
   input: PropertyInput;
-  lan: LaneUnderlag;
   /** Injiceras av anroparen — TomPrisdatakalla i produktion tills en riktig
    *  källa finns, DemoPrisdatakalla för utveckling/demo. */
   prisdatakalla: Prisdatakalla;
@@ -332,10 +333,10 @@ export async function byggPrisanalys(
 
 /**
  * Slutmonterar ett fullständigt AnalysisResult. Inget modellanrop — allt
- * som produceras här är antingen en ren beräkning (manadskostnad,
- * rantestress, prisanalys, datakvalitet, saknad_uppgift-frågor) eller en
- * direkt kopiering av det anroparen redan tagit fram (input, forening,
- * pass 2:s betyg/rodaFlaggor/analys-frågor).
+ * som produceras här är antingen en ren beräkning (rantestress, prisanalys,
+ * datakvalitet, saknad_uppgift-frågor) eller en direkt kopiering av det
+ * anroparen redan tagit fram (input, forening, pass 2:s
+ * betyg/rodaFlaggor/analys-frågor).
  *
  * BESLUT — SaknarRantekanslighetError FÅR PROPAGERA: beraknaRantestress
  * kastar när räntekänslighet saknas i årsredovisningen. Att fånga felet
@@ -359,13 +360,11 @@ export async function byggPrisanalys(
 export async function assembleraAnalys({
   extraction,
   input,
-  lan,
   prisdatakalla,
   analys,
   analysisId,
   skapad,
 }: AssembleraAnalysInput): Promise<AnalysisResult> {
-  const manadskostnad = beraknaManadskostnad(input, lan);
   // Propagerar avsiktligt SaknarRantekanslighetError — se filkommentaren ovan.
   const rantestress = beraknaRantestress(extraction.forening, input.manadsavgift);
   const prisanalys = await byggPrisanalys(input, prisdatakalla);
@@ -401,7 +400,6 @@ export async function assembleraAnalys({
     rodaFlaggor: analys.rodaFlaggor,
     prisanalys,
     rantestress,
-    manadskostnad,
     fragor: [...analys.fragor, ...saknadUppgiftFragor],
 
     datakvalitet,

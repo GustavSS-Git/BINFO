@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   AnalysJudgementSchema,
@@ -10,6 +8,7 @@ import {
   ForeningSchema,
   KeyFigureIdSchema,
   LaneUnderlagSchema,
+  ManadskostnadSchema,
   PrisanalysSchema,
   TristateSchema,
 } from "./schema";
@@ -81,7 +80,6 @@ const validAnalysisResult: AnalysisResult = {
     balkong: "okant",
     avgiftInkluderar: { varme: "nej", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" },
     antalPersoner: 2,
-    antalLantagare: 2,
   },
   forening: validExtractionResult.forening,
   betyg: "B",
@@ -109,18 +107,6 @@ const validAnalysisResult: AnalysisResult = {
       },
     ],
     kommentar: "Avgiften är känslig för ränteuppgångar.",
-  },
-  manadskostnad: {
-    poster: [],
-    totalBrutto: { value: 5_000, unit: "kr/man", source: "berakning" },
-    totalNetto: { value: 4_500, unit: "kr/man", source: "berakning" },
-    amortering: {
-      belaningsgrad: 80,
-      skuldkvot: 4.5,
-      tillampadAmorteringstakt: 2,
-      overBankernasTypiskaTak: false,
-    },
-    ranteavdragPerAr: { value: 30_000, unit: "kr", source: "berakning" },
   },
   fragor: [],
   datakvalitet: {
@@ -290,13 +276,18 @@ describe("KeyFigureIdSchema", () => {
 });
 
 describe("LaneUnderlagSchema", () => {
-  it("accepterar lan-objektet från fixtures/property-input-example.json", async () => {
-    const fixturePath = path.join(
-      import.meta.dirname,
-      "../../../fixtures/property-input-example.json",
-    );
-    const raw: unknown = JSON.parse(await readFile(fixturePath, "utf-8"));
-    const { lan } = raw as { lan: unknown };
+  // Fixturen ligger inline med flit. LaneUnderlag är sedan Fas 1 Steg 0 rent
+  // klientsidigt och skickas aldrig till servern, så det hör inte hemma i
+  // fixtures/property-input-example.json — den filen är indata till CLI:erna,
+  // som bara accepterar "input".
+  it("accepterar ett fullständigt låneunderlag", () => {
+    const lan = {
+      lanebelopp: 2_560_000,
+      kontantinsats: 640_000,
+      ranta: 3.6,
+      bruttoinkomst: 900_000,
+      antalLantagare: 2,
+    };
     expect(LaneUnderlagSchema.safeParse(lan).success).toBe(true);
   });
 
@@ -306,6 +297,7 @@ describe("LaneUnderlagSchema", () => {
       kontantinsats: 640_000,
       ranta: 3.6,
       bruttoinkomst: 900_000,
+      antalLantagare: 2,
       extraFalt: "oväntat",
     };
     expect(LaneUnderlagSchema.safeParse(medExtraFalt).success).toBe(false);
@@ -317,8 +309,52 @@ describe("LaneUnderlagSchema", () => {
       kontantinsats: 640_000,
       ranta: "3.6",
       bruttoinkomst: 900_000,
+      antalLantagare: 2,
     };
     expect(LaneUnderlagSchema.safeParse(felTyp).success).toBe(false);
+  });
+
+  it("avvisar antalLantagare: 3 — bara 1 eller 2 låntagare är giltigt", () => {
+    const felAntal = {
+      lanebelopp: 2_560_000,
+      kontantinsats: 640_000,
+      ranta: 3.6,
+      bruttoinkomst: 900_000,
+      antalLantagare: 3,
+    };
+    expect(LaneUnderlagSchema.safeParse(felAntal).success).toBe(false);
+  });
+});
+
+describe("ManadskostnadSchema", () => {
+  // Manadskostnad är sedan kontraktsändringen inte längre del av
+  // AnalysisResult (den beräknas klientsidan i bolånekalkylen) men schemat
+  // finns kvar och validerar fortfarande sin egen domänregel: det skärpta
+  // amorteringskravet (skuldkvot > 4,5x) är slopat sedan 1 april 2026, så
+  // tillampadAmorteringstakt får aldrig vara något annat än 0, 1 eller 2.
+  const giltig = {
+    poster: [],
+    totalBrutto: { value: 5_000, unit: "kr/man", source: "berakning" },
+    totalNetto: { value: 4_500, unit: "kr/man", source: "berakning" },
+    amortering: {
+      belaningsgrad: 80,
+      skuldkvot: 4.5,
+      tillampadAmorteringstakt: 2,
+      overBankernasTypiskaTak: false,
+    },
+    ranteavdragPerAr: { value: 30_000, unit: "kr", source: "berakning" },
+  };
+
+  it("accepterar ett giltigt Manadskostnad-objekt", () => {
+    expect(ManadskostnadSchema.safeParse(giltig).success).toBe(true);
+  });
+
+  it("avvisar tillampadAmorteringstakt: 3 — det skärpta kravet är slopat, får aldrig förekomma", () => {
+    const trasig = structuredClone(giltig) as typeof giltig & {
+      amortering: { tillampadAmorteringstakt: number };
+    };
+    trasig.amortering.tillampadAmorteringstakt = 3;
+    expect(ManadskostnadSchema.safeParse(trasig).success).toBe(false);
   });
 });
 
@@ -421,13 +457,6 @@ describe("AnalysisResultSchema", () => {
   it("avvisar när ett obligatoriskt fält saknas (malformad modell-JSON)", () => {
     const trasig = structuredClone(validAnalysisResult) as unknown as Record<string, unknown>;
     delete trasig["betyg"];
-    expect(AnalysisResultSchema.safeParse(trasig).success).toBe(false);
-  });
-
-  it("avvisar tillampadAmorteringstakt: 3 — det skärpta kravet är slopat, får aldrig förekomma", () => {
-    const trasig = structuredClone(validAnalysisResult);
-    // @ts-expect-error — testar just att schemat fångar ett otillåtet värde
-    trasig.manadskostnad.amortering.tillampadAmorteringstakt = 3;
     expect(AnalysisResultSchema.safeParse(trasig).success).toBe(false);
   });
 

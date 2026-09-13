@@ -7,11 +7,13 @@ import type { CostItem, Manadskostnad, PropertyInput } from "@/types/analysis";
 /**
  * Loan assumptions needed to assemble Manadskostnad. Not part of the
  * AnalysisResult contract — PropertyInput has no loan fields, they exist
- * only in the frontend's interactive calculator (kalkylDefaults,
- * routes/bolanekalkyl.tsx). Kept as a separate local type rather than a
- * contract change: AnalysisResult.manadskostnad stores a baseline computed
- * from these, and the frontend calculator recomputes live from the same
- * assumptions, the same way it already behaves.
+ * only in the frontend's standalone, client-side /bolanekalkyl calculator
+ * (kalkylDefaults, routes/bolanekalkyl.tsx). Loan data is never sent to the
+ * server or persisted (see CLAUDE.md's Phase 1 Step 0 decision).
+ *
+ * antalLantagare lives here rather than on PropertyInput: it exists solely
+ * to compute the ränteavdrag cap, which is a property of the borrower's
+ * loan, not of the apartment.
  */
 export interface LaneUnderlag {
   lanebelopp: number;
@@ -20,6 +22,7 @@ export interface LaneUnderlag {
   ranta: number;
   /** Annual, household. */
   bruttoinkomst: number;
+  antalLantagare: 1 | 2;
 }
 
 // TODO: unverified placeholder — reused from src/data/mockData.ts's existing
@@ -43,7 +46,7 @@ export function beraknaManadskostnad(input: PropertyInput, lan: LaneUnderlag): M
   const rantekostnadPerManad = (lan.lanebelopp * (lan.ranta / 100)) / 12;
   const amorteringPerManad = (lan.lanebelopp * (tillampadAmorteringstakt / 100)) / 12;
 
-  const ranteavdragPerAr = ranteavdrag(rantekostnadPerManad * 12, input.antalLantagare);
+  const ranteavdragPerAr = ranteavdrag(rantekostnadPerManad * 12, lan.antalLantagare);
 
   const s = schabloner(input.boarea, input.antalPersoner);
 

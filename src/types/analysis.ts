@@ -99,9 +99,13 @@ export interface PropertyInput {
 
   avgiftInkluderar: FeeInclusion;
 
-  // Household — needed for the cost model and the interest deduction cap
+  // Household — needed for the cost model's water schablon. Loan-specific
+  // household data (antalLantagare, for the ränteavdrag cap) lives on
+  // LaneUnderlag instead — see src/lib/analysis/calc/manadskostnad.ts. It is
+  // a property of the borrower's loan, not of the apartment, and the
+  // client-side mortgage calculator collects it independently of this
+  // contract (see the Manadskostnad doc comment below).
   antalPersoner: number;
-  antalLantagare: 1 | 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +292,15 @@ export interface Amorteringsunderlag {
   overBankernasTypiskaTak: boolean;
 }
 
+/**
+ * The monthly cost model. NOT part of AnalysisResult — since Phase 1 Step 0,
+ * loan data is never sent to the server or persisted, so this is computed
+ * entirely client-side by the standalone /bolanekalkyl calculator
+ * (src/lib/analysis/calc/manadskostnad.ts's beraknaManadskostnad), ephemeral
+ * to the buyer's browser session. The type (and its Zod mirror,
+ * ManadskostnadSchema) is kept because the calculator and its tests still
+ * need the shape — only the field that once lived on AnalysisResult is gone.
+ */
 export interface Manadskostnad {
   poster: CostItem[];
   /** Before interest deduction. */
@@ -357,7 +370,6 @@ export interface AnalysisResult {
   rodaFlaggor: RedFlag[];
   prisanalys: Prisanalys;
   rantestress: Rantestress;
-  manadskostnad: Manadskostnad;
   fragor: Fraga[];
 
   datakvalitet: Datakvalitet;

@@ -35,7 +35,6 @@ interface AnalysRow {
   pdf_hash: string;
   pdf_path: string | null;
   property_input: AnalysRad["propertyInput"];
-  lan_underlag: AnalysRad["lanUnderlag"];
   model: string;
   prompt_version: string;
   grundtext: string | null;
@@ -57,7 +56,6 @@ function radFranRad(row: AnalysRow): AnalysRad {
     pdfHash: row.pdf_hash,
     pdfPath: row.pdf_path,
     propertyInput: row.property_input,
-    lanUnderlag: row.lan_underlag,
     model: row.model,
     promptVersion: row.prompt_version,
     grundtext: row.grundtext,
@@ -82,7 +80,6 @@ function radTillRad(delta: Partial<AnalysRad>): Record<string, unknown> {
   if ("pdfHash" in delta) row["pdf_hash"] = delta.pdfHash;
   if ("pdfPath" in delta) row["pdf_path"] = delta.pdfPath;
   if ("propertyInput" in delta) row["property_input"] = delta.propertyInput;
-  if ("lanUnderlag" in delta) row["lan_underlag"] = delta.lanUnderlag;
   if ("model" in delta) row["model"] = delta.model;
   if ("promptVersion" in delta) row["prompt_version"] = delta.promptVersion;
   if ("grundtext" in delta) row["grundtext"] = delta.grundtext;

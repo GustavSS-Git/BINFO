@@ -15,13 +15,12 @@
  */
 
 import type { AnalysisResult, PropertyInput } from "@/types/analysis";
-import { PropertyInputSchema, LaneUnderlagSchema } from "@/lib/analysis/schema";
+import { PropertyInputSchema } from "@/lib/analysis/schema";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { extractPdfText } from "@/lib/analysis/pdf";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
 import { SchablonPrisdatakalla } from "@/lib/analysis/prisdata";
-import type { LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import type { Env } from "./env";
 import type { AnalysErrorCode, AnalysStage, AnalysStatus, Lager } from "./portar";
 import { hamtaAnalysFranCache, hamtaExtraktionFranCache } from "./cache";
@@ -38,7 +37,6 @@ export type SkapaAnalysResultat =
 export interface SkapaAnalysArgs {
   pdfBytes: Uint8Array;
   propertyInput: unknown;
-  lanUnderlag: unknown;
 }
 
 const MAX_PDF_STORLEK_BYTES = 25 * 1024 * 1024;
@@ -69,13 +67,12 @@ export async function skapaAnalys(
   args: SkapaAnalysArgs,
 ): Promise<SkapaAnalysResultat> {
   const parsedInput = PropertyInputSchema.safeParse(args.propertyInput);
-  const parsedLan = LaneUnderlagSchema.safeParse(args.lanUnderlag);
-  if (!parsedInput.success || !parsedLan.success) {
+  if (!parsedInput.success) {
     return {
       ok: false,
       errorCode: "validation",
       errorMessage:
-        "Uppgifterna om bostaden eller lånet kunde inte tolkas. Kontrollera formuläret och försök igen.",
+        "Uppgifterna om bostaden kunde inte tolkas. Kontrollera formuläret och försök igen.",
     };
   }
   // Zods inferrade typ för optionella fält (vaning/byggar) tillåter explicit
@@ -83,7 +80,6 @@ export async function skapaAnalys(
   // verifierad av Zod ovan — detta förenar bara de två typsystemen, samma
   // mönster som cli.ts och cache.ts använder.
   const propertyInput = parsedInput.data as PropertyInput;
-  const lanUnderlag = parsedLan.data as LaneUnderlag;
 
   // Hasha ORIGINALA byten innan något annat (t.ex. extractPdfText, som
   // detacherar sin input) rör dem. new Uint8Array(...) kopierar in i en
@@ -148,7 +144,6 @@ export async function skapaAnalys(
     pdfHash,
     pdfPath: `${pdfHash}.pdf`,
     propertyInput,
-    lanUnderlag,
     model: env.anthropicModel,
     promptVersion: PROMPT_VERSION,
     status,
@@ -238,7 +233,6 @@ export async function hamtaResultat(lager: Lager, analysisId: string): Promise<A
   return assembleraAnalys({
     extraction,
     input: rad.propertyInput,
-    lan: rad.lanUnderlag,
     prisdatakalla,
     analys: judgement,
     analysisId: rad.id,

@@ -23,14 +23,18 @@ import {
   AnalysHittadesInteError,
   AnalysInteKlarError,
 } from "../analys";
-import { PropertyInputSchema, LaneUnderlagSchema } from "@/lib/analysis/schema";
+import { PropertyInputSchema } from "@/lib/analysis/schema";
 import type { PropertyInput } from "@/types/analysis";
-import type { LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 
+// .strict() med flit: ett okänt fält i objektsfilen är nästan alltid ett
+// stavfel, och en tyst ignorering av det är extra dyr här — det här skriptet
+// skapar en riktig rad mot LIVE-projektet och drar riktig Anthropic-kostnad
+// vid cache miss. Särskilt lätt att missa på de valfria fälten: "byggår" i
+// stället för "byggar" skulle utan .strict() bara försvinna. Lånedata är
+// sedan Fas 1 Steg 0 rent klientsidigt och hör inte hemma i filen alls.
 const PropertyInputFileSchema = z
   .object({
     input: PropertyInputSchema,
-    lan: LaneUnderlagSchema,
   })
   .strict();
 
@@ -55,8 +59,9 @@ async function main() {
         "denna process) läser och skriver det här skriptet mot ett LIVE Supabase-projekt — det " +
         "skapar en riktig rad i `analys`-tabellen och, vid en cache miss, drar en riktig " +
         "Anthropic API-kostnad när cron-ticket plockar upp jobbet. Kör inte det här slentrianmässigt.\n\n" +
-        'Objektsfilen ska ha formen { "input": PropertyInput, "lan": LaneUnderlag }, se ' +
-        "fixtures/property-input-example.json för ett exempel.\n\n" +
+        'Objektsfilen ska ha formen { "input": PropertyInput }, se ' +
+        "fixtures/property-input-example.json för ett exempel. Okända fält avvisas, så ett " +
+        "stavfel tyst försvinner aldrig. Lånedata skickas aldrig till servern.\n\n" +
         "Flaggan --knuffa loggar bara en not om hur en fullständig driftsättning skulle knuffa på " +
         "Edge-funktionen direkt (se TODO-kommentaren i koden) — den gör inget riktigt HTTP-anrop.",
     );
@@ -75,7 +80,7 @@ async function main() {
   }
   // Samma isär-hållning av Zods inferrade typ och exactOptionalPropertyTypes
   // som cli.ts och analys.ts redan gör — formen är redan verifierad ovan.
-  const { input, lan } = parsedInputFile.data as { input: PropertyInput; lan: LaneUnderlag };
+  const { input } = parsedInputFile.data as { input: PropertyInput };
 
   const lager = skapaLager(env);
 
@@ -84,7 +89,6 @@ async function main() {
   const skapat = await skapaAnalys(lager, env, {
     pdfBytes,
     propertyInput: input,
-    lanUnderlag: lan,
   });
 
   if (!skapat.ok) {

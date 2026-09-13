@@ -23,7 +23,6 @@ function propertyInput(overrides: Partial<PropertyInput> = {}): PropertyInput {
     balkong: "okant",
     avgiftInkluderar: inclusion(),
     antalPersoner: 2,
-    antalLantagare: 2,
     ...overrides,
   };
 }
@@ -38,6 +37,7 @@ describe("beraknaManadskostnad", () => {
       kontantinsats: bostadsvarde - lanebelopp,
       ranta: 3.6,
       bruttoinkomst: 800_000,
+      antalLantagare: 2,
     };
 
     const m = beraknaManadskostnad(propertyInput(), lan);
@@ -53,6 +53,7 @@ describe("beraknaManadskostnad", () => {
       kontantinsats: 500_000, // belåningsgrad ~90 % -> takt 2 oavsett skuldkvot
       ranta: 3.6,
       bruttoinkomst: 500_000, // skuldkvot 9x, långt över 5x
+      antalLantagare: 2,
     };
     const m = beraknaManadskostnad(propertyInput(), lan);
 
@@ -66,18 +67,25 @@ describe("beraknaManadskostnad", () => {
       kontantinsats: 1_000_000,
       ranta: 4.0,
       bruttoinkomst: 900_000,
+      antalLantagare: 2,
     };
-    const input = propertyInput({ antalLantagare: 2 });
+    const input = propertyInput();
     const m = beraknaManadskostnad(input, lan);
 
     const arsranta = (lan.lanebelopp * (lan.ranta / 100));
-    const forvantatAvdrag = ranteavdrag(arsranta, input.antalLantagare);
+    const forvantatAvdrag = ranteavdrag(arsranta, lan.antalLantagare);
 
     expect(m.ranteavdragPerAr.value).toBeCloseTo(forvantatAvdrag, 0);
   });
 
   it("innehåller exakt de nio poster kontraktet definierar (ingen TV-post finns — CostItemId saknar en)", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(propertyInput(), lan);
 
     const ids = m.poster.map((p) => p.id).sort();
@@ -96,14 +104,26 @@ describe("beraknaManadskostnad", () => {
   });
 
   it("ränteavdraget redovisas som ett negativt belopp bland posterna", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(propertyInput(), lan);
     const avdragspost = m.poster.find((p) => p.id === "ranteavdrag")!;
     expect(avdragspost.figure.value).toBeLessThan(0);
   });
 
   it("hemförsäkring ingår aldrig i avgiften — post.ingarIAvgift är alltid false för den", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(
       propertyInput({ avgiftInkluderar: inclusion({ varme: "ja", vatten: "ja", el: "ja", bredband: "ja" }) }),
       lan,
@@ -113,7 +133,13 @@ describe("beraknaManadskostnad", () => {
   });
 
   it("en post markeras ingarIAvgift när FeeInclusion är 'ja' för den", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(
       propertyInput({ avgiftInkluderar: inclusion({ varme: "ja" }) }),
       lan,
@@ -123,13 +149,25 @@ describe("beraknaManadskostnad", () => {
   });
 
   it("totalSpann saknas när alla FeeInclusion-fält är kända", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(propertyInput({ avgiftInkluderar: inclusion() }), lan);
     expect(m.totalSpann).toBeUndefined();
   });
 
   it("totalSpann finns och breddas när ett FeeInclusion-fält är okant", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(
       propertyInput({ avgiftInkluderar: inclusion({ varme: "okant" }) }),
       lan,
@@ -140,14 +178,26 @@ describe("beraknaManadskostnad", () => {
   });
 
   it("totalNetto är totalBrutto minus den månatliga andelen av ränteavdraget", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_000_000, kontantinsats: 1_000_000, ranta: 3, bruttoinkomst: 700_000 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 700_000,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(propertyInput(), lan);
     const forvantadNetto = m.totalBrutto.value! - Math.round(m.ranteavdragPerAr.value! / 12);
     expect(m.totalNetto.value).toBeCloseTo(forvantadNetto, 0);
   });
 
   it("alla valutabelopp är heltal, inga decimaler", () => {
-    const lan: LaneUnderlag = { lanebelopp: 3_333_333, kontantinsats: 666_667, ranta: 3.37, bruttoinkomst: 712_345 };
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_333_333,
+      kontantinsats: 666_667,
+      ranta: 3.37,
+      bruttoinkomst: 712_345,
+      antalLantagare: 2,
+    };
     const m = beraknaManadskostnad(propertyInput(), lan);
     for (const post of m.poster) {
       expect(Number.isInteger(post.figure.value), post.id).toBe(true);

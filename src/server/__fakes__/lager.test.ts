@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ExtractionResult, KeyFigure, KeyFigureId, PropertyInput } from "@/types/analysis";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
-import type { LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import type { NyAnalysRad } from "../portar";
 import { skapaFakeLager } from "./lager";
 
@@ -83,12 +82,7 @@ function propertyInput(): PropertyInput {
       tv: "okant",
     },
     antalPersoner: 2,
-    antalLantagare: 2,
   };
-}
-
-function lanUnderlag(): LaneUnderlag {
-  return { lanebelopp: 2_000_000, kontantinsats: 1_000_000, ranta: 3.6, bruttoinkomst: 600_000 };
 }
 
 function nyAnalysRad(overrides: Partial<NyAnalysRad> = {}): NyAnalysRad {
@@ -96,7 +90,6 @@ function nyAnalysRad(overrides: Partial<NyAnalysRad> = {}): NyAnalysRad {
     pdfHash: "hash-1",
     pdfPath: "arsredovisningar/hash-1.pdf",
     propertyInput: propertyInput(),
-    lanUnderlag: lanUnderlag(),
     model: "claude-sonnet-5",
     promptVersion: "v1",
     status: "queued",

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Card, Field, PageHeader, Badge, Toggle, Tag } from "@/components/ui/binfo";
-import { kr, amorteringsregler } from "@/data/mockData";
+import { kr, amorteringsregler, kalkylDefaults } from "@/data/mockData";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
 import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
 import { beraknaManadskostnad, type LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
@@ -57,7 +57,7 @@ function Bolanekalkyl() {
   const [kontantinsats, setKontantinsats] = useState(String(KONTANTINSATS_DEFAULT));
   const [inkomst, setInkomst] = useState(String(BRUTTOINKOMST_DEFAULT));
   const [lantagare, setLantagare] = useState<"1" | "2">(
-    String(sampleAnalysis.input.antalLantagare) as "1" | "2",
+    String(kalkylDefaults.antalLantagare) as "1" | "2",
   );
   const [delta, setDelta] = useState(0);
   const uppgifter = useUppgifter();
@@ -79,9 +79,8 @@ function Bolanekalkyl() {
         tv: uppgifter.ingar.tv,
       },
       antalPersoner: uppgifter.antalPersoner,
-      antalLantagare: Number(lantagare) as 1 | 2,
     }),
-    [uppgifter, lantagare],
+    [uppgifter],
   );
 
   // Räntestressen har två ben: köparens egen lånränta (rakt påslag) och
@@ -104,8 +103,9 @@ function Bolanekalkyl() {
       kontantinsats: num(kontantinsats),
       ranta: num(ranta) + delta,
       bruttoinkomst: num(inkomst),
+      antalLantagare: Number(lantagare) as 1 | 2,
     }),
-    [lanebelopp, kontantinsats, ranta, delta, inkomst],
+    [lanebelopp, kontantinsats, ranta, delta, inkomst, lantagare],
   );
 
   const m = useMemo(() => beraknaManadskostnad(liveInput, lan), [liveInput, lan]);

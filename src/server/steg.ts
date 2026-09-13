@@ -329,7 +329,6 @@ async function korBedomningssteg(
     await assembleraAnalys({
       extraction,
       input: rad.propertyInput,
-      lan: rad.lanUnderlag,
       prisdatakalla,
       analys: judgement,
       analysisId: rad.id,

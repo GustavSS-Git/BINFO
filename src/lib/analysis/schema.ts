@@ -149,18 +149,17 @@ export const PropertyInputSchema = z
     balkong: TristateSchema,
     avgiftInkluderar: FeeInclusionSchema,
     antalPersoner: z.number(),
-    antalLantagare: z.union([z.literal(1), z.literal(2)]),
   })
   .strict();
 
 /**
  * The buyer/household loan assumptions LaneUnderlag needs. Not part of the
  * AnalysisResult contract — PropertyInput has no loan fields, they exist
- * only in the frontend's interactive calculator (kalkylDefaults,
- * routes/bolanekalkyl.tsx). Kept as a separate local type rather than a
- * contract change: AnalysisResult.manadskostnad stores a baseline computed
- * from these, and the frontend calculator recomputes live from the same
- * assumptions, the same way it already behaves.
+ * only in the frontend's standalone, client-side /bolanekalkyl calculator
+ * (kalkylDefaults, routes/bolanekalkyl.tsx). Loan data is never sent to the
+ * server or persisted. antalLantagare lives here (not on PropertyInput)
+ * because it exists solely to compute the ränteavdrag cap — a property of
+ * the borrower's loan, not of the apartment.
  */
 export const LaneUnderlagSchema = z
   .object({
@@ -168,6 +167,7 @@ export const LaneUnderlagSchema = z
     kontantinsats: z.number(),
     ranta: z.number(),
     bruttoinkomst: z.number(),
+    antalLantagare: z.union([z.literal(1), z.literal(2)]),
   })
   .strict();
 
@@ -416,7 +416,6 @@ export const AnalysisResultSchema = z
     rodaFlaggor: z.array(RedFlagSchema),
     prisanalys: PrisanalysSchema,
     rantestress: RantestressSchema,
-    manadskostnad: ManadskostnadSchema,
     fragor: z.array(FragaSchema),
 
     datakvalitet: DatakvalitetSchema,

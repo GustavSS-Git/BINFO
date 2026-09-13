@@ -5,7 +5,7 @@ import { KostnadsgransOverskriden } from "./costGuard";
 import { ScannedPdfError, runExtraction } from "./runExtraction";
 import { AnalysValidationError, runAnalys } from "./analyze";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
-import { PropertyInputSchema, LaneUnderlagSchema } from "./schema";
+import { PropertyInputSchema } from "./schema";
 import {
   DemoPrisdatakalla,
   SchablonPrisdatakalla,
@@ -13,7 +13,6 @@ import {
   type Prisdatakalla,
 } from "./prisdata";
 import { SaknarRantekanslighetError } from "./calc/rantestress";
-import type { LaneUnderlag } from "./calc/manadskostnad";
 import type { PropertyInput } from "@/types/analysis";
 
 try {
@@ -22,10 +21,15 @@ try {
   // No .env.local — fine if ANTHROPIC_API_KEY etc. are exported in the shell.
 }
 
+// .strict() med flit: ett okänt fält i objektsfilen är nästan alltid ett
+// stavfel, och en tyst ignorering av det är dyr här — en körning kostar
+// riktiga pengar mot Anthropic. Särskilt lätt att missa på de valfria
+// fälten: "byggår" i stället för "byggar" skulle utan .strict() bara
+// försvinna. Lånedata är sedan Fas 1 Steg 0 inte längre del av pipelinen och
+// hör alltså inte hemma i filen alls.
 const PropertyInputFileSchema = z
   .object({
     input: PropertyInputSchema,
-    lan: LaneUnderlagSchema,
   })
   .strict();
 
@@ -67,8 +71,10 @@ async function main() {
         "vilket gör utdatan ogiltig som JSON när den skickas vidare till en fil " +
         "eller till jq. Resultatet går till stdout, all loggning till stderr.\n\n" +
         "Utan objektsfil skrivs enbart pass 1:s ExtractionResult ut.\n" +
-        'Med en objektsfil ({ "input": PropertyInput, "lan": LaneUnderlag }) körs hela pipelinen ' +
-        "(extraktion → analys → sammanställning) och ett fullständigt AnalysisResult skrivs ut.\n\n" +
+        'Med en objektsfil ({ "input": PropertyInput }) körs hela pipelinen (extraktion → analys → ' +
+        "sammanställning) och ett fullständigt AnalysisResult skrivs ut. Filen får bara innehålla " +
+        '"input" — okända fält avvisas, så ett stavfel tyst försvinner aldrig. Lånedata är inte ' +
+        "längre del av pipelinen.\n\n" +
         "Miljövariabeln PRISKALLA styr prisdatakällan: 'schablon' (förval, platt värdering " +
         "80 000 kr/m², tydligt märkt som schablon), 'tom' (ingen extern prisdata alls) eller " +
         "'demo' (platshållarfigurer utan värde, se prisdata.ts).",
@@ -110,7 +116,7 @@ async function main() {
   // exactOptionalPropertyTypes doesn't. Runtime shape is already
   // Zod-verified — this reconciles the two type systems, nothing more
   // (same pattern as extract.ts/analyze.ts).
-  const { input, lan } = parsedInputFile.data as { input: PropertyInput; lan: LaneUnderlag };
+  const { input } = parsedInputFile.data as { input: PropertyInput };
 
   const { analys, spentSek: spentAnalys } = await runAnalys(extraction, {
     model,
@@ -120,7 +126,6 @@ async function main() {
   const resultat = await assembleraAnalys({
     extraction,
     input,
-    lan,
     prisdatakalla: valjPrisdatakalla(input),
     analys,
   });

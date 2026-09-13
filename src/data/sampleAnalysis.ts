@@ -36,7 +36,6 @@ export const sampleAnalysis: AnalysisResult = {
       tv: "okant",
     },
     antalPersoner: 2,
-    antalLantagare: 2,
   },
 
   forening: {
@@ -449,104 +448,6 @@ export const sampleAnalysis: AnalysisResult = {
     ],
     kommentar:
       "Varje procentenhet högre ränta för föreningen motsvarar ungefär 345 kr mer i månaden för den här lägenheten. Stiger räntan tre procentenheter blir avgiften 4 836 kr i månaden, 1 036 kr mer än i dag.",
-  },
-
-  manadskostnad: {
-    poster: [
-      {
-        id: "rantekostnad",
-        label: "Räntekostnad",
-        figure: { value: 7_680, unit: "kr", source: "berakning" },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "amortering",
-        label: "Amortering",
-        figure: { value: 4_267, unit: "kr", source: "berakning" },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "ranteavdrag",
-        label: "Ränteavdrag",
-        figure: { value: -2_304, unit: "kr", source: "berakning" },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "manadsavgift",
-        label: "Månadsavgift",
-        figure: { value: 3_800, unit: "kr", source: "anvandare" },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "hushallsel",
-        label: "Hushållsel",
-        figure: {
-          value: 682,
-          unit: "kr/man",
-          source: "schablon",
-          schablonBasis: "250 kr + 8 kr/m² × 54 m² boarea",
-        },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "varme",
-        label: "Värme",
-        figure: {
-          value: 936,
-          unit: "kr/man",
-          source: "schablon",
-          schablonBasis: "180 kr + 14 kr/m² × 54 m² boarea",
-        },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "vatten",
-        label: "Vatten",
-        figure: {
-          value: 240,
-          unit: "kr/man",
-          source: "schablon",
-          schablonBasis: "120 kr × 2 person(er)",
-        },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "bredband",
-        label: "Bredband",
-        figure: { value: 349, unit: "kr/man", source: "schablon", schablonBasis: "Platt belopp" },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-      {
-        id: "hemforsakring",
-        label: "Hemförsäkring inkl. bostadsrättstillägg",
-        figure: {
-          value: 282,
-          unit: "kr/man",
-          source: "schablon",
-          schablonBasis: "120 kr + 3 kr/m² × 54 m² boarea",
-        },
-        overriddenByUser: false,
-        ingarIAvgift: false,
-      },
-    ],
-    totalBrutto: { value: 16_029, unit: "kr", source: "berakning" },
-    totalNetto: { value: 13_725, unit: "kr", source: "berakning" },
-    totalSpann: { low: 13_725, high: 15_932 },
-    amortering: {
-      belaningsgrad: 80,
-      skuldkvot: 2.844,
-      tillampadAmorteringstakt: 2,
-      overBankernasTypiskaTak: false,
-    },
-    ranteavdragPerAr: { value: 27_648, unit: "kr", source: "berakning" },
   },
 
   fragor: [

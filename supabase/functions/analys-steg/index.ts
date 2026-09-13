@@ -113,9 +113,15 @@ function lasEnvInline(): InlineEnv {
 // implemented.
 // ---------------------------------------------------------------------------
 
-/** Mirrors `AnalysRad` in src/server/portar.ts. `propertyInput`/`lanUnderlag`
- *  are opaque jsonb blobs as far as this adapter is concerned — it never
- *  inspects them, only shuttles them between Postgres and `korNastaSteg`. */
+/** Mirrors `AnalysRad` in src/server/portar.ts. `propertyInput` is an opaque
+ *  jsonb blob as far as this adapter is concerned — it never inspects it,
+ *  only shuttles it between Postgres and `korNastaSteg`.
+ *
+ *  The `analys` table still has a `lan_underlag` column, deliberately left in
+ *  place but dead (see the `lan_underlag_nullable` migration and SUPABASE.md).
+ *  It is absent here on purpose: this interface mirrors `AnalysRad`, and
+ *  carrying a field the real type no longer has is how a hand-maintained
+ *  duplicate silently drifts from the thing it claims to mirror. */
 interface JobbRad {
   id: string;
   status: "queued" | "running" | "done" | "failed";
@@ -123,7 +129,6 @@ interface JobbRad {
   pdfHash: string;
   pdfPath: string | null;
   propertyInput: unknown;
-  lanUnderlag: unknown;
   model: string;
   promptVersion: string;
   grundtext: string | null;
@@ -137,8 +142,11 @@ interface JobbRad {
   finishedAt: string | null;
 }
 
-/** snake_case row shape, matching the `analys` table exactly (see the
- *  migration's `create table analys`). */
+/** snake_case row shape for the `analys` table columns this adapter actually
+ *  reads (see the migration's `create table analys`). Not every column is
+ *  listed: the dead `lan_underlag` is deliberately omitted, per the note on
+ *  `JobbRad` above. Postgres still returns it; TypeScript simply ignores an
+ *  undeclared property on a runtime value. */
 interface JobbRadKolumner {
   id: string;
   status: JobbRad["status"];
@@ -146,7 +154,6 @@ interface JobbRadKolumner {
   pdf_hash: string;
   pdf_path: string | null;
   property_input: unknown;
-  lan_underlag: unknown;
   model: string;
   prompt_version: string;
   grundtext: string | null;
@@ -168,7 +175,6 @@ function radFranKolumner(row: JobbRadKolumner): JobbRad {
     pdfHash: row.pdf_hash,
     pdfPath: row.pdf_path,
     propertyInput: row.property_input,
-    lanUnderlag: row.lan_underlag,
     model: row.model,
     promptVersion: row.prompt_version,
     grundtext: row.grundtext,
@@ -195,7 +201,6 @@ function radTillKolumner(delta: Partial<JobbRad>): Record<string, unknown> {
   if ("pdfHash" in delta) row["pdf_hash"] = delta.pdfHash;
   if ("pdfPath" in delta) row["pdf_path"] = delta.pdfPath;
   if ("propertyInput" in delta) row["property_input"] = delta.propertyInput;
-  if ("lanUnderlag" in delta) row["lan_underlag"] = delta.lanUnderlag;
   if ("model" in delta) row["model"] = delta.model;
   if ("promptVersion" in delta) row["prompt_version"] = delta.promptVersion;
   if ("grundtext" in delta) row["grundtext"] = delta.grundtext;
