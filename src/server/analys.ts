@@ -1,7 +1,8 @@
 /**
- * De tre publika serverfunktionerna för analysjobb: skapa, läsa status,
- * hämta ett färdigt resultat. Ramverksfria — en senare uppgift lindar in
- * dessa i TanStack `createServerFn`; den här filen vet inget om det.
+ * De publika serverfunktionerna för analysjobb: skapa, läsa status, hämta
+ * ett färdigt resultat, och hämta den smala förhandsvisningen. Ramverksfria
+ * — en senare uppgift lindar in dessa i TanStack `createServerFn`; den här
+ * filen vet inget om det.
  *
  * `skapaAnalys` gör bara det som krävs INNAN ett jobb kan köa: validering,
  * hash, magic-bytes/storlek, kill switch, skann-kontroll, dedupe-koll mot
@@ -12,9 +13,15 @@
  * det färdiga JSON:et — se assemble.ts/cache.ts filkommentarer för varför
  * (ett ändrat benchmark-tröskelvärde ska omgradera varje tidigare analys
  * gratis).
+ *
+ * `hamtaForhandsvisning` gör samma radslagning och återmontering som
+ * `hamtaResultat`, men smalnar av resultatet till `Forhandsvisning` innan
+ * det returneras — se den typens kontraktskommentar i
+ * src/types/analysis.ts för varför detta är en egen funktion och inte en
+ * flagga på hamtaResultat.
  */
 
-import type { AnalysisResult, PropertyInput } from "@/types/analysis";
+import type { AnalysisResult, Forhandsvisning, PropertyInput } from "@/types/analysis";
 import { PropertyInputSchema } from "@/lib/analysis/schema";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { extractPdfText } from "@/lib/analysis/pdf";
@@ -238,4 +245,107 @@ export async function hamtaResultat(lager: Lager, analysisId: string): Promise<A
     analysisId: rad.id,
     skapad: rad.createdAt,
   });
+}
+
+// ---------------------------------------------------------------------------
+// hamtaForhandsvisning
+// ---------------------------------------------------------------------------
+
+/** Antal röda flaggor /forhandsvisning visar gratis. Speglar
+ *  ANTAL_GRATIS_FLAGGOR i src/routes/forhandsvisning.tsx (UI-zonen, rörs
+ *  inte av den här uppgiften) — samma tal, definierat här separat eftersom
+ *  routen inte får importera från src/server/ förutom via analysFn. */
+const ANTAL_GRATIS_RODA_FLAGGOR = 2;
+
+/**
+ * Väljer de N mest allvarliga röda flaggorna, stabilt (samma severity
+ * behåller sin ursprungliga, backend-tilldelade ordning). Samma logik som
+ * `toppRodaFlaggor` i src/lib/analysisView.ts — kopierad hit i stället för
+ * importerad, eftersom analysisView.ts räknas som UI-zonens presentationslager
+ * (eslint.config.js listar den bland src/routes|components|data för
+ * import-restriktionen mot @/server) och dessutom importerar
+ * @/data/mockData, som aldrig ska nå server-bundlen.
+ */
+function toppRodaFlaggorForServer(
+  flaggor: AnalysisResult["rodaFlaggor"],
+  antal: number,
+): AnalysisResult["rodaFlaggor"] {
+  const severityRank: Record<AnalysisResult["rodaFlaggor"][number]["severity"], number> = {
+    hog: 0,
+    medel: 1,
+    lag: 2,
+  };
+  return flaggor
+    .map((flagga, index) => ({ flagga, index }))
+    .sort((a, b) => {
+      const diff = severityRank[a.flagga.severity] - severityRank[b.flagga.severity];
+      return diff !== 0 ? diff : a.index - b.index;
+    })
+    .slice(0, antal)
+    .map((entry) => entry.flagga);
+}
+
+/**
+ * Hämtar den smala, förhandsvisnings-endast projektionen av ett färdigt
+ * AnalysisResult — bara de sektioner `gratisSektioner` redan namnger som
+ * gratis, plus minimal identitet. Se Forhandsvisning-kontraktets
+ * dokumentationskommentar i src/types/analysis.ts för VARFÖR den här
+ * funktionen finns separat från hamtaResultat: betalväggen ska vara
+ * serverstyrd redan innan betalning finns, så förhandsvisningen läser
+ * aldrig ur samma fullständiga objekt som den betalda rapporten.
+ *
+ * Samma radslagning, samma fel och samma återmontering (assembleraAnalys)
+ * som hamtaResultat — bara den avslutande smalningen till Forhandsvisning
+ * skiljer sig. Smalningen är explicit fält-för-fält, aldrig en spridning
+ * med borttagna nycklar och aldrig en typecast — en cast skulle låta ett
+ * framtida kontraktsfält läcka ut tyst.
+ */
+export async function hamtaForhandsvisning(
+  lager: Lager,
+  analysisId: string,
+): Promise<Forhandsvisning> {
+  const rad = await lager.db.hamtaAnalys(analysisId);
+  if (!rad) {
+    throw new AnalysHittadesInteError(analysisId);
+  }
+  if (rad.status !== "done") {
+    throw new AnalysInteKlarError(analysisId, rad.stage);
+  }
+
+  const nyckel = { pdfHash: rad.pdfHash, model: rad.model, promptVersion: rad.promptVersion };
+  const [extraction, judgement] = await Promise.all([
+    hamtaExtraktionFranCache(lager.db, nyckel),
+    hamtaAnalysFranCache(lager.db, nyckel),
+  ]);
+
+  if (extraction === null || judgement === null) {
+    throw new Error(
+      `Internt inkonsistent tillstånd: analys ${analysisId} är markerad 'done' men saknar ` +
+        `${extraction === null ? "extraktion" : "analys"} i cachen (pdf_hash=${rad.pdfHash}, ` +
+        `model=${rad.model}, prompt_version=${rad.promptVersion}).`,
+    );
+  }
+
+  const prisdatakalla = new SchablonPrisdatakalla({ boarea: rad.propertyInput.boarea });
+
+  const fullResultat = await assembleraAnalys({
+    extraction,
+    input: rad.propertyInput,
+    prisdatakalla,
+    analys: judgement,
+    analysisId: rad.id,
+    skapad: rad.createdAt,
+  });
+
+  return {
+    schemaVersion: fullResultat.schemaVersion,
+    analysisId: fullResultat.analysisId,
+    skapad: fullResultat.skapad,
+    forening: { namn: fullResultat.forening.namn },
+    betyg: fullResultat.betyg,
+    betygMotivering: fullResultat.betygMotivering,
+    rodaFlaggor: toppRodaFlaggorForServer(fullResultat.rodaFlaggor, ANTAL_GRATIS_RODA_FLAGGOR),
+    datakvalitet: fullResultat.datakvalitet,
+    gratisSektioner: fullResultat.gratisSektioner,
+  };
 }

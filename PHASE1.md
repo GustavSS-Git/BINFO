@@ -139,14 +139,30 @@ Drop the `sampleAnalysis` import; add `antalLantagare` as a real field; accept
 an optional `manadsavgift` pre-fill via search param. Entirely client-side,
 works with no analysis in existence.
 
-### Step 3 — real upload
+### Step 3 — the preview server function
 
-A real `<input type="file">` plus drag-and-drop, holding an actual `File`.
-Blank the mockData pre-fills so a buyer starts from an empty form. POST to
-`skapaAnalysFn`, then navigate to the waiting screen. Add
-`hamtaForhandsvisningFn` per decision 2 above.
+`hamtaForhandsvisning`, per decision 2 above: a narrow read returning only the
+sections `gratisSektioner` already names as free, plus the förening's name.
+Server-zone only, with no UI wiring — deliberately landed on its own so the
+paywall's seam exists before anything reads from it.
 
-### Step 4 — waiting and failure
+The narrowing is explicit field-by-field construction rather than a cast or a
+spread-and-delete, and a test asserts on `Object.keys` that `prisanalys`,
+`rantestress`, `fragor` and `input` are genuinely absent. That test is what
+makes "turning the paywall on is a one-line change" a checked property rather
+than an intention.
+
+### Step 4 — the upload → job → result vertical slice
+
+**This absorbs what earlier drafts split across steps 3 and 4.** They cannot
+ship separately: an upload form whose submit handler navigates to a waiting
+screen is broken until that screen exists, so the form, the job polling and the
+failure screens are one deliverable.
+
+- A real `<input type="file">` plus drag-and-drop, holding an actual `File` —
+  today `/analysera` holds only a filename string, pre-seeded with a fake name.
+- Blank the mockData pre-fills so a buyer starts from an empty form.
+- POST to `skapaAnalysFn`, then navigate to `/analys/$analysisId`.
 
 The measured cold run is 195–326 s. The form currently says *"Tar ungefär en
 minut"*, which is wrong by three to five times.

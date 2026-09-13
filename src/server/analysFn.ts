@@ -1,7 +1,7 @@
 /**
- * TanStack Start-bindningen för de tre analysfunktionerna i `./analys.ts`.
+ * TanStack Start-bindningen för de fyra analysfunktionerna i `./analys.ts`.
  *
- * Den här filen finns SEPARAT från `analys.ts` med flit: `analys.ts`s tre
+ * Den här filen finns SEPARAT från `analys.ts` med flit: `analys.ts`s
  * vanliga funktioner anropas direkt av `src/server/cli/analysCli.ts` (ett
  * `tsx`-skript), där serverfunktions-runtimen i TanStack Start inte finns —
  * den kräver Vite-transformen/manifestet som bara existerar i en riktig
@@ -19,6 +19,7 @@ import {
   skapaAnalys as skapaAnalysImpl,
   hamtaStatus as hamtaStatusImpl,
   hamtaResultat as hamtaResultatImpl,
+  hamtaForhandsvisning as hamtaForhandsvisningImpl,
   type SkapaAnalysArgs,
 } from "./analys";
 import { envFromProcess } from "./env";
@@ -82,4 +83,10 @@ export const hamtaResultatFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
     return hamtaResultatImpl(skapaLager(envFromProcess()), data.analysisId);
+  });
+
+export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { analysisId: string }) => data)
+  .handler(async ({ data }) => {
+    return hamtaForhandsvisningImpl(skapaLager(envFromProcess()), data.analysisId);
   });
