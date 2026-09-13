@@ -3,12 +3,7 @@ import type { AnalysisResult } from "@/types/analysis";
 /**
  * A real AnalysisResult, produced by running an actual annual report
  * (Brf Granen 10-11) through the actual extraction + analysis pipeline —
- * not hand-invented. Used to wire the UI to the real contract shape while
- * the pipeline isn't yet exposed over an API.
- *
- * NOTE: this file may also be created independently by another agent
- * wiring src/routes/analys.tsx in parallel. If both versions exist when
- * branches merge, a human reconciles them — expected, not an error.
+ * not hand-invented. Powers the static example report at src/routes/exempel.tsx.
  */
 export const sampleAnalysis: AnalysisResult = {
   schemaVersion: "1.0.0",

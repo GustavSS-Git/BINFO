@@ -1,24 +1,23 @@
 import { Card, Badge } from "@/components/ui/binfo";
 import { kr } from "@/data/mockData";
-import { sampleAnalysis } from "@/data/sampleAnalysis";
 import { formatSkapadDatum } from "@/lib/analysisView";
 import type { PropertyInput } from "@/types/analysis";
 
 /**
- * Liten sammanfattning av objektet — visas överst på rapport- och
- * kalkylskärmar. Prop-lös som standard (läser sampleAnalysis) så att
- * befintliga call-sites (analys.tsx, bolanekalkyl.tsx) fortsätter fungera
- * oförändrade; ett annat objekt kan skickas in via props när det behövs.
+ * Liten sammanfattning av objektet — visas överst på rapportskärmar. Kräver
+ * sina props explicit (inget prop-löst fallback-läge) så att ingen call-site
+ * av misstag kan råka rendera exempeldata i tron att det är en ofarlig
+ * placeholder — se AnalysRapport.tsx för den enda call-siten.
  */
 export function PropertySummary({
-  input = sampleAnalysis.input,
-  foreningNamn = sampleAnalysis.forening.namn,
-  skapad = sampleAnalysis.skapad,
+  input,
+  foreningNamn,
+  skapad,
 }: {
-  input?: PropertyInput;
-  foreningNamn?: string;
-  skapad?: string;
-} = {}) {
+  input: PropertyInput;
+  foreningNamn: string;
+  skapad: string;
+}) {
   const rows = [
     ["Utgångspris", kr(input.utgangspris)],
     ["Boarea", `${input.boarea.toFixed(1).replace(".", ",")} m²`],

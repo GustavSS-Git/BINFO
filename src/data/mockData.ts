@@ -5,7 +5,7 @@
  * TODO(pipeline): this object is the shape the real analysis pipeline
  * (PDF-parsning av årsredovisning + värderingsdata) should return.
  * TODO(payment): betalintegrationen (Stripe/Swish) kopplas in i
- * src/routes/forhandsvisning.tsx och låser upp /analys.
+ * src/routes/analys_.$analysisId.tsx och låser upp den fullständiga rapporten.
  */
 
 /**

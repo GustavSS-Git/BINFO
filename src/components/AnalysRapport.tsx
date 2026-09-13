@@ -17,8 +17,8 @@ import type { AnalysisResult, Fraga, RantestressScenario } from "@/types/analysi
 /**
  * Rent presentationslager för en färdig `AnalysisResult` — betygskort, de sju
  * nyckeltalen, prisrimlighet, räntestress och frågor att ställa. Ingen egen
- * datahämtning: tar analysen som prop så att både demosidan (`/analys`, som
- * fortfarande visar `sampleAnalysis`) och den riktiga rapporten
+ * datahämtning: tar analysen som prop så att både exempelsidan (`/exempel`,
+ * som visar `sampleAnalysis`) och den riktiga rapporten
  * (`/analys/$analysisId`) delar exakt samma renderingskod och aldrig kan
  * glida isär.
  */

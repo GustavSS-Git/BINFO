@@ -10,10 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AnalysRouteImport } from './routes/analys'
 import { Route as AnalyseraRouteImport } from './routes/analysera'
 import { Route as BolanekalkylRouteImport } from './routes/bolanekalkyl'
-import { Route as ForhandsvisningRouteImport } from './routes/forhandsvisning'
+import { Route as ExempelRouteImport } from './routes/exempel'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
 import { Route as ForhandsvisningAnalysisIdRouteImport } from './routes/forhandsvisning_.$analysisId'
@@ -21,11 +20,6 @@ import { Route as ForhandsvisningAnalysisIdRouteImport } from './routes/forhands
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalysRoute = AnalysRouteImport.update({
-  id: '/analys',
-  path: '/analys',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalyseraRoute = AnalyseraRouteImport.update({
@@ -38,9 +32,9 @@ const BolanekalkylRoute = BolanekalkylRouteImport.update({
   path: '/bolanekalkyl',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ForhandsvisningRoute = ForhandsvisningRouteImport.update({
-  id: '/forhandsvisning',
-  path: '/forhandsvisning',
+const ExempelRoute = ExempelRouteImport.update({
+  id: '/exempel',
+  path: '/exempel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GuideRoute = GuideRouteImport.update({
@@ -62,20 +56,18 @@ const ForhandsvisningAnalysisIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/analys': typeof AnalysRoute
   '/analysera': typeof AnalyseraRoute
   '/bolanekalkyl': typeof BolanekalkylRoute
-  '/forhandsvisning': typeof ForhandsvisningRoute
+  '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/analys': typeof AnalysRoute
   '/analysera': typeof AnalyseraRoute
   '/bolanekalkyl': typeof BolanekalkylRoute
-  '/forhandsvisning': typeof ForhandsvisningRoute
+  '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
@@ -83,10 +75,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/analys': typeof AnalysRoute
   '/analysera': typeof AnalyseraRoute
   '/bolanekalkyl': typeof BolanekalkylRoute
-  '/forhandsvisning': typeof ForhandsvisningRoute
+  '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning_/$analysisId': typeof ForhandsvisningAnalysisIdRoute
@@ -95,30 +86,27 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/analys'
     | '/analysera'
     | '/bolanekalkyl'
-    | '/forhandsvisning'
+    | '/exempel'
     | '/guide'
     | '/analys/$analysisId'
     | '/forhandsvisning/$analysisId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/analys'
     | '/analysera'
     | '/bolanekalkyl'
-    | '/forhandsvisning'
+    | '/exempel'
     | '/guide'
     | '/analys/$analysisId'
     | '/forhandsvisning/$analysisId'
   id:
     | '__root__'
     | '/'
-    | '/analys'
     | '/analysera'
     | '/bolanekalkyl'
-    | '/forhandsvisning'
+    | '/exempel'
     | '/guide'
     | '/analys_/$analysisId'
     | '/forhandsvisning_/$analysisId'
@@ -126,10 +114,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AnalysRoute: typeof AnalysRoute
   AnalyseraRoute: typeof AnalyseraRoute
   BolanekalkylRoute: typeof BolanekalkylRoute
-  ForhandsvisningRoute: typeof ForhandsvisningRoute
+  ExempelRoute: typeof ExempelRoute
   GuideRoute: typeof GuideRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
   ForhandsvisningAnalysisIdRoute: typeof ForhandsvisningAnalysisIdRoute
@@ -142,13 +129,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analys': {
-      id: '/analys'
-      path: '/analys'
-      fullPath: '/analys'
-      preLoaderRoute: typeof AnalysRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysera': {
@@ -165,11 +145,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BolanekalkylRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/forhandsvisning': {
-      id: '/forhandsvisning'
-      path: '/forhandsvisning'
-      fullPath: '/forhandsvisning'
-      preLoaderRoute: typeof ForhandsvisningRouteImport
+    '/exempel': {
+      id: '/exempel'
+      path: '/exempel'
+      fullPath: '/exempel'
+      preLoaderRoute: typeof ExempelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/guide': {
@@ -198,10 +178,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AnalysRoute: AnalysRoute,
   AnalyseraRoute: AnalyseraRoute,
   BolanekalkylRoute: BolanekalkylRoute,
-  ForhandsvisningRoute: ForhandsvisningRoute,
+  ExempelRoute: ExempelRoute,
   GuideRoute: GuideRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,
   ForhandsvisningAnalysisIdRoute: ForhandsvisningAnalysisIdRoute,
