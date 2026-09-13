@@ -5,7 +5,7 @@ import { KostnadsgransOverskriden } from "./costGuard";
 import { ScannedPdfError, runExtraction } from "./runExtraction";
 import { AnalysValidationError, runAnalys } from "./analyze";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
-import { PropertyInputSchema } from "./schema";
+import { PropertyInputSchema, LaneUnderlagSchema } from "./schema";
 import {
   DemoPrisdatakalla,
   SchablonPrisdatakalla,
@@ -21,21 +21,6 @@ try {
 } catch {
   // No .env.local — fine if ANTHROPIC_API_KEY etc. are exported in the shell.
 }
-
-/**
- * The buyer/household loan assumptions LaneUnderlag needs. Not part of the
- * AnalysisResult contract (see calc/manadskostnad.ts's file comment) — a
- * small local schema so a typo in the input file fails with a clear Swedish
- * message rather than a bad number silently reaching the analysis.
- */
-const LaneUnderlagSchema = z
-  .object({
-    lanebelopp: z.number(),
-    kontantinsats: z.number(),
-    ranta: z.number(),
-    bruttoinkomst: z.number(),
-  })
-  .strict();
 
 const PropertyInputFileSchema = z
   .object({

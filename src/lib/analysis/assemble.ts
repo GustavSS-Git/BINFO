@@ -48,6 +48,11 @@ export interface AssembleraAnalysInput {
   prisdatakalla: Prisdatakalla;
   /** Pass 2:s betyg/rodaFlaggor/fragor(ursprung 'analys'), redan Zod-validerat. */
   analys: AnalysJudgement;
+  /** Injicera för idempotent omkörning mot en befintlig jobbrad (t.ex. en
+   *  Supabase-backad serverlagring) — samma id/datum in ska ge byte-identiskt
+   *  JSON ut. Utelämnas i normalfallet, då genereras båda internt. */
+  analysisId?: string;
+  skapad?: string;
 }
 
 const AVGIFTSPOSTER: ReadonlyArray<{ id: keyof FeeInclusion; label: string }> = [
@@ -357,6 +362,8 @@ export async function assembleraAnalys({
   lan,
   prisdatakalla,
   analys,
+  analysisId,
+  skapad,
 }: AssembleraAnalysInput): Promise<AnalysisResult> {
   const manadskostnad = beraknaManadskostnad(input, lan);
   // Propagerar avsiktligt SaknarRantekanslighetError — se filkommentaren ovan.
@@ -379,8 +386,11 @@ export async function assembleraAnalys({
     // Globala crypto.randomUUID(), inte node:crypto — samma API finns i
     // Cloudflare Workers (dit appen byggs), i Node 19+ och i webbläsaren,
     // så sammanställningen kan köras var som helst utan kompatibilitetsflagga.
-    analysisId: crypto.randomUUID(),
-    skapad: new Date().toISOString(),
+    // Injicerade av anroparen tar alltid företräde: en serverlagring som
+    // kör om samma jobbrad (stabilt id + skapad-tidsstämpel redan satta)
+    // måste få byte-identiskt JSON tillbaka, inte ett nytt id/datum varje gång.
+    analysisId: analysisId ?? crypto.randomUUID(),
+    skapad: skapad ?? new Date().toISOString(),
 
     input,
     forening: extraction.forening,

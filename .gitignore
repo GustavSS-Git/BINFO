@@ -20,6 +20,11 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Supabase CLI local state / build output
+supabase/.temp/
+supabase/.branches/
+supabase/functions/*/_bundle/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

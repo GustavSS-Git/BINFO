@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   AnalysJudgementSchema,
@@ -7,6 +9,7 @@ import {
   FigureSchema,
   ForeningSchema,
   KeyFigureIdSchema,
+  LaneUnderlagSchema,
   PrisanalysSchema,
   TristateSchema,
 } from "./schema";
@@ -283,6 +286,39 @@ describe("KeyFigureIdSchema", () => {
 
   it("avvisar ett id som inte finns i BFNAR 2023:1-listan", () => {
     expect(KeyFigureIdSchema.safeParse("nagot_pahittat_nyckeltal").success).toBe(false);
+  });
+});
+
+describe("LaneUnderlagSchema", () => {
+  it("accepterar lan-objektet från fixtures/property-input-example.json", async () => {
+    const fixturePath = path.join(
+      import.meta.dirname,
+      "../../../fixtures/property-input-example.json",
+    );
+    const raw: unknown = JSON.parse(await readFile(fixturePath, "utf-8"));
+    const { lan } = raw as { lan: unknown };
+    expect(LaneUnderlagSchema.safeParse(lan).success).toBe(true);
+  });
+
+  it("avvisar ett okänt extra fält (.strict())", () => {
+    const medExtraFalt = {
+      lanebelopp: 2_560_000,
+      kontantinsats: 640_000,
+      ranta: 3.6,
+      bruttoinkomst: 900_000,
+      extraFalt: "oväntat",
+    };
+    expect(LaneUnderlagSchema.safeParse(medExtraFalt).success).toBe(false);
+  });
+
+  it("avvisar en sträng för ranta (fel typ)", () => {
+    const felTyp = {
+      lanebelopp: 2_560_000,
+      kontantinsats: 640_000,
+      ranta: "3.6",
+      bruttoinkomst: 900_000,
+    };
+    expect(LaneUnderlagSchema.safeParse(felTyp).success).toBe(false);
   });
 });
 

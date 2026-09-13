@@ -1,0 +1,152 @@
+/**
+ * Miljövariabler för server-zonen (`src/server/`).
+ *
+ * Den här modulen körs i tre olika miljöer:
+ *   1. Node/tsx på den här maskinen (CLI:er).
+ *   2. En TanStack Start-serverfunktion, byggd av Vite för Cloudflare Workers.
+ *   3. En Deno-baserad Supabase Edge Function.
+ *
+ * Bara miljö (1) har `process.loadEnvFile`; (2) och (3) har varken `process`
+ * eller den funktionen. Därför är modulen delad i två halvor:
+ *
+ * - `lasEnv` är ren validering av ett redan inläst key-value-record (ett
+ *   almänt `Record<string, string | undefined>`) — inga sidoeffekter, inga
+ *   Node-specifika API:er. Den fungerar identiskt oavsett körtid: Node kan
+ *   skicka in `process.env`, Deno kan skicka in `Deno.env.toObject()`.
+ * - `envFromProcess` är Node-specifik bekvämlighet: den försöker läsa
+ *   `.env.local` via `process.loadEnvFile` (som bara finns i Node) och
+ *   anropar sedan `lasEnv(process.env)`. Den framtida Edge Function-koden
+ *   anropar aldrig den här funktionen — den anropar `lasEnv` direkt.
+ */
+
+import { z } from "zod";
+
+export interface Env {
+  supabaseUrl: string;
+  supabaseSecretKey: string;
+  supabasePublishableKey?: string;
+  maxDailySpendSek: number;
+  killSwitchPa: boolean;
+  anthropicApiKey: string;
+  anthropicModel: string;
+  maxCostPerAnalysisSek: number;
+}
+
+/**
+ * Kastas när en nyckel med `VITE_`-prefix hittas bland miljövariablerna som
+ * skickas in i den här — server-only — modulen. Vite injicerar allt som
+ * börjar på `VITE_` i klientbunten; en hemlighet under det prefixet skulle
+ * läcka till webbläsaren. Kollar ALLA nycklar i input-recordet, inte bara de
+ * den här modulen känner till, eftersom en felstavad eller okänd
+ * `VITE_`-nyckel är precis lika farlig.
+ */
+export class OsakerMiljoNyckelError extends Error {
+  constructor(public readonly nycklar: string[]) {
+    super(
+      `Miljövariabler med VITE_-prefix hittades där de aldrig får finnas ` +
+        `(server-only): ${nycklar.join(", ")}. Vite injicerar VITE_-prefixade ` +
+        `variabler i klientbunten — en hemlighet under det namnet skulle ` +
+        `exponeras i webbläsaren. Döp om variabeln eller ta bort den ur denna miljö.`,
+    );
+    this.name = "OsakerMiljoNyckelError";
+  }
+}
+
+/** Kastas när en enskild miljövariabel saknas eller har ett ogiltigt värde. */
+export class OgiltigMiljoError extends Error {
+  constructor(
+    public readonly variabel: string,
+    anledning: string,
+  ) {
+    super(`Miljövariabeln ${variabel} är ogiltig: ${anledning}`);
+    this.name = "OgiltigMiljoError";
+  }
+}
+
+const PositivtTalSchema = z
+  .string()
+  .min(1, "saknas")
+  .transform((varde, ctx) => {
+    const tal = Number(varde);
+    if (!Number.isFinite(tal) || tal <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "måste vara ett positivt tal, fick " + JSON.stringify(varde),
+      });
+      return z.NEVER;
+    }
+    return tal;
+  });
+
+// Inte .strict(): input-recordet är ofta hela process.env (eller
+// Deno.env.toObject()), som innehåller massor av variabler den här modulen
+// inte bryr sig om. VITE_-vakten nedan täcker den enda sortens okänd nyckel
+// som är farlig; allt annat okänt ignoreras och plockas bort av Zod som vanligt.
+const RawEnvSchema = z.object({
+  SUPABASE_URL: z.string().min(1, "saknas").url("måste vara en giltig URL"),
+  SUPABASE_SECRET_KEY: z.string().min(1, "saknas"),
+  SUPABASE_PUBLISHABLE_KEY: z.string().min(1, "saknas").optional(),
+  MAX_DAILY_SPEND_SEK: PositivtTalSchema,
+  ANALYSIS_KILL_SWITCH: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().min(1, "saknas"),
+  ANTHROPIC_MODEL: z.string().min(1, "saknas").optional(),
+  MAX_COST_PER_ANALYSIS_SEK: PositivtTalSchema.optional(),
+});
+
+/**
+ * Ren validering av ett redan inläst key-value-record till ett `Env`.
+ * Inga sidoeffekter, inga Node-specifika API:er — fungerar identiskt under
+ * Node, Vite/Workers och Deno.
+ */
+export function lasEnv(record: Record<string, string | undefined>): Env {
+  const viteNycklar = Object.keys(record).filter((key) => key.startsWith("VITE_"));
+  if (viteNycklar.length > 0) {
+    throw new OsakerMiljoNyckelError(viteNycklar);
+  }
+
+  const parsed = RawEnvSchema.safeParse(record);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const variabel =
+      issue === undefined ? "okänd variabel" : String(issue.path[0] ?? "okänd variabel");
+    const anledning = issue === undefined ? "okänt valideringsfel" : issue.message;
+    throw new OgiltigMiljoError(variabel, anledning);
+  }
+
+  const data = parsed.data;
+
+  const env: Env = {
+    supabaseUrl: data.SUPABASE_URL,
+    supabaseSecretKey: data.SUPABASE_SECRET_KEY,
+    maxDailySpendSek: data.MAX_DAILY_SPEND_SEK,
+    killSwitchPa: data.ANALYSIS_KILL_SWITCH === "on",
+    anthropicApiKey: data.ANTHROPIC_API_KEY,
+    anthropicModel: data.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+    maxCostPerAnalysisSek: data.MAX_COST_PER_ANALYSIS_SEK ?? 5,
+  };
+  // exactOptionalPropertyTypes: tilldela fältet bara när det faktiskt finns,
+  // aldrig `undefined` explicit — annars är "fältet är frånvarande" och
+  // "fältet är satt till undefined" inte samma sak för typsystemet.
+  if (data.SUPABASE_PUBLISHABLE_KEY !== undefined) {
+    env.supabasePublishableKey = data.SUPABASE_PUBLISHABLE_KEY;
+  }
+  return env;
+}
+
+/**
+ * Node-specifik bekvämlighet: läser `.env.local` om `process.loadEnvFile`
+ * finns (bara i Node), och validerar sedan `process.env` via `lasEnv`.
+ * Måste inte krascha när `process`/`process.loadEnvFile` inte finns (Deno) —
+ * i praktiken anropar ingen kod den här funktionen där; Edge Function-koden
+ * anropar `lasEnv(Deno.env.toObject())` direkt istället.
+ */
+export function envFromProcess(): Env {
+  if (typeof process !== "undefined" && typeof process.loadEnvFile === "function") {
+    try {
+      process.loadEnvFile(".env.local");
+    } catch {
+      // Ingen .env.local — fine om variablerna redan är exporterade i skalet.
+    }
+  }
+  return lasEnv(typeof process !== "undefined" ? process.env : {});
+}

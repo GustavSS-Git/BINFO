@@ -2,6 +2,15 @@ import type { ExtractionResult, KeyFigureId } from "@/types/analysis";
 import { BENCHMARKS } from "./benchmarks";
 
 /**
+ * Del av cachenyckeln (pdf_hash, model, prompt_version) i Supabase-cachen.
+ * Höjs för hand varje gång texten i någon av promptbyggarna nedan ändras —
+ * annars fortsätter cachen att träffa på svar som togs fram med en gammal
+ * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
+ * värde höjs.
+ */
+export const PROMPT_VERSION = "1";
+
+/**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
  * in CLAUDE.md. Single source for both prompt text and the cross-check
  * test that this list matches KeyFigureIdSchema exactly.

@@ -339,4 +339,56 @@ describe("assembleraAnalys", () => {
     expect(resultat.analysisId).toBeTruthy();
     expect(() => new Date(resultat.skapad).toISOString()).not.toThrow();
   });
+
+  describe("injicerbara analysisId/skapad — för idempotent omkörning mot en befintlig jobbrad", () => {
+    const injiceradId = "some-fixed-id";
+    const injiceratDatum = "2026-01-01T00:00:00.000Z";
+
+    it("använder de injicerade värdena exakt, i stället för att generera egna", async () => {
+      const resultat = await assembleraAnalys({
+        extraction: extraktion,
+        input: inputKomplett,
+        lan,
+        prisdatakalla: new TomPrisdatakalla(),
+        analys: analysJudgement,
+        analysisId: injiceradId,
+        skapad: injiceratDatum,
+      });
+
+      expect(resultat.analysisId).toBe(injiceradId);
+      expect(resultat.skapad).toBe(injiceratDatum);
+    });
+
+    it("genererar ett UUID-format analysisId och ett parsbart ISO-datum när båda utelämnas", async () => {
+      const resultat = await assembleraAnalys({
+        extraction: extraktion,
+        input: inputKomplett,
+        lan,
+        prisdatakalla: new TomPrisdatakalla(),
+        analys: analysJudgement,
+      });
+
+      expect(resultat.analysisId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(() => new Date(resultat.skapad).toISOString()).not.toThrow();
+    });
+
+    it("är idempotent: två anrop med samma injicerade analysisId/skapad ger byte-identiskt JSON", async () => {
+      const grundinput = {
+        extraction: extraktion,
+        input: inputKomplett,
+        lan,
+        prisdatakalla: new TomPrisdatakalla(),
+        analys: analysJudgement,
+        analysisId: injiceradId,
+        skapad: injiceratDatum,
+      };
+
+      const forstaKorningen = await assembleraAnalys(grundinput);
+      const andraKorningen = await assembleraAnalys(grundinput);
+
+      expect(JSON.stringify(andraKorningen)).toBe(JSON.stringify(forstaKorningen));
+    });
+  });
 });

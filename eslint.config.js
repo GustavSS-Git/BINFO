@@ -6,7 +6,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  { ignores: ["dist", ".output", ".vinxi", "supabase/functions/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -34,6 +34,43 @@ export default tseslint.config(
       ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    files: [
+      "src/routes/**/*.{ts,tsx}",
+      "src/components/**/*.{ts,tsx}",
+      "src/data/**/*.{ts,tsx}",
+      "src/lib/analysisView.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/server",
+                "@/server/*",
+                "@/lib/analysis/runExtraction",
+                "@/lib/analysis/analyze",
+                "@/lib/analysis/pdf",
+                "@/lib/analysis/extract",
+                "@/lib/analysis/prompts",
+                "@/lib/analysis/assemble",
+                "@/lib/analysis/costGuard",
+                "@/lib/analysis/prisdata",
+                "@/lib/analysis/schema",
+                "@/lib/analysis/cli",
+                "@/lib/analysis/answerKey",
+                "@/lib/analysis/verifyAnswerKey",
+              ],
+              message:
+                "Client code may only import the pure src/lib/analysis/calc/* modules and benchmarks.ts. Everything else in the analysis pipeline (and all of src/server/) does server-side work or holds secrets and must never reach the browser bundle.",
+            },
+          ],
+        },
+      ],
     },
   },
   eslintPluginPrettier,

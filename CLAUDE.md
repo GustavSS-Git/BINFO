@@ -26,12 +26,13 @@ the product.
 
 ## Repository boundaries — read before editing
 
-Three zones. Do not cross them without being explicitly asked.
+Four zones. Do not cross them without being explicitly asked.
 
 | Path | Contains | Rule |
 |---|---|---|
 | `src/components/`, `src/pages/` | UI, built in Lovable | Backend work must not touch these |
 | `src/lib/analysis/` | Extraction + analysis pipeline | UI work must not touch this |
+| `src/server/` | Supabase-backed job orchestration, caches, spend guard, the three server functions (`skapaAnalys`/`hamtaStatus`/`hamtaResultat`), the Edge Function bundle step | May import `src/lib/analysis/` and the contract. **Nothing may import it back.** UI reaches it only through `src/server/analysFn.ts`'s `createServerFn` wrappers — enforced by the Lovable build wrapper's `importProtection` (client-forbidden by directory) and an ESLint `no-restricted-imports` rule. See `SUPABASE.md`. |
 | `src/types/analysis.ts` | **The contract** | Changing it is a deliberate act, never a side effect |
 
 `src/types/analysis.ts` is the single source of truth for the shape of an
@@ -136,18 +137,39 @@ expensive to unwind than a question.
 ## Commands
 
 ```
-npm run dev          # dev server, localhost:8080
-npm test             # test suite
-npm run typecheck    # tsc --noEmit
+npm run dev             # dev server, localhost:8080
+npm test                # test suite
+npm run typecheck       # tsc --noEmit
+npm run extract         # -- <pdf> [input.json]   run the analysis pipeline standalone (no Supabase)
+npm run verify-extraction  # -- <dir>   score pass 1 against fixtures/answer-key/*.json
+npm run analys           # -- <pdf> <input.json>   create a job against the LIVE Supabase project, poll to completion
+npm run verify-rls       # empirically confirm the secret key bypasses RLS and the publishable key is denied
+npm run build:edge       # esbuild-bundle src/server/steg.ts for the Edge Function
+npm run deploy:edge      # build:edge, then supabase functions deploy analys-steg
 ```
+
+`npm run analys` and `npm run verify-rls` touch the live Supabase project and
+real Anthropic spend — see `SUPABASE.md`'s "Live verification" section for
+what they've already confirmed.
 
 ---
 
 ## Current state
 
-Frontend built and running on mock data. Backend pipeline not yet started.
+Frontend built and running on mock data (`src/data/sampleAnalysis.ts`) — the
+upload form on `/analysera` is still cosmetic; no route in `src/routes/` yet
+reads a real `AnalysisResult`.
 
-Next task: a **standalone terminal script** that takes one annual report PDF
-path and prints validated JSON matching `AnalysisResult`. No web framework, no
-UI wiring, no API route — that comes later, only once extraction is verified
-against a manual answer key.
+The analysis pipeline (`src/lib/analysis/`) is complete and verified against a
+manual answer key (`npm run verify-extraction`). The Supabase persistence and
+job-orchestration layer (`src/server/`, `supabase/`) is also complete and has
+been verified live end to end — a real upload creates a job, `pg_cron`
+processes it in three capped steps, and `npm run analys` prints a schema-valid
+`AnalysisResult`. Full detail, including two real bugs the live run caught
+(a daily-spend-cap bypass, and a per-job vs. per-stage retry-budget bug), is
+in `SUPABASE.md`.
+
+**What's not done**: wiring `/analysera` and the report routes to
+`skapaAnalys`/`hamtaResultat` instead of the static fixture, and the payment
+paywall (deliberately deferred — see `GOLIVE.md` Phase 2). Both are UI-zone
+work and out of scope for whoever is working in `src/server/`.

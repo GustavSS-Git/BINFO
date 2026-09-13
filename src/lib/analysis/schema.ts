@@ -153,6 +153,24 @@ export const PropertyInputSchema = z
   })
   .strict();
 
+/**
+ * The buyer/household loan assumptions LaneUnderlag needs. Not part of the
+ * AnalysisResult contract — PropertyInput has no loan fields, they exist
+ * only in the frontend's interactive calculator (kalkylDefaults,
+ * routes/bolanekalkyl.tsx). Kept as a separate local type rather than a
+ * contract change: AnalysisResult.manadskostnad stores a baseline computed
+ * from these, and the frontend calculator recomputes live from the same
+ * assumptions, the same way it already behaves.
+ */
+export const LaneUnderlagSchema = z
+  .object({
+    lanebelopp: z.number(),
+    kontantinsats: z.number(),
+    ranta: z.number(),
+    bruttoinkomst: z.number(),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // The seven statutory key figures
 // ---------------------------------------------------------------------------

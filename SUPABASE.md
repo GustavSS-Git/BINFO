@@ -116,6 +116,31 @@ create index analys_pdf_hash_idx   on analys (pdf_hash);
 create index analys_created_at_idx on analys (created_at desc);
 ```
 
+**As implemented, this draft changed in three ways — the migration file
+(`supabase/migrations/<timestamp>_init.sql`) is the source of truth, not the
+SQL above:**
+
+- **No `result` column.** Decided: assemble on read, not on write.
+  `hamtaResultat` (`src/server/analys.ts`) re-enriches the cached extraction
+  and calls `assembleraAnalys` fresh on every call, so a `BENCHMARKS.md`
+  threshold change re-grades every past analysis for free, and there is no
+  stored JSON blob that can drift out of sync with the current contract.
+  `analysisId`/`skapad` are threaded through from the row (`id`/`created_at`)
+  rather than generated per-call, so two reads of the same done row return
+  byte-identical JSON.
+- **`stage` has no `'assembling'` value.** Assembly is not a job step —
+  see above.
+- **The row carries more state than this draft shows**: `model` and
+  `prompt_version` (so a mid-flight deploy can't mix cache keys across one
+  job's own steps), `grundtext` (pass 1's intermediate grounding text — the
+  only state that needs to survive between the grounding and structured-
+  extraction invocations; job-scoped rather than a shared cache on purpose,
+  see the migration's own comment on why; nulled once consumed), and
+  `lease_until`/`attempts` for the claim/lease/retry mechanism the job runner
+  needs (`claim_next_steg`, `slapp_steg`, `binfo_reaper` — all in the
+  migration). `lan_underlag` is `not null`, not nullable as drafted here —
+  assembly needs it on every read.
+
 ### The caches — where the money is saved
 
 Both API calls are förening-level: `runExtraction` and `runAnalys` never see
@@ -157,9 +182,10 @@ create table analys_cache (
 but only if the read path actually re-enriches. That is a required step, not an
 optimisation.
 
-`prompt_version` does not exist yet. Add a `PROMPT_VERSION` constant to
-`prompts.ts`, bumped by hand whenever a prompt changes, and include it in the
-cache key — otherwise a prompt improvement silently serves stale output forever.
+**Done**: `PROMPT_VERSION` is now a constant in `prompts.ts` (bumped by hand
+whenever a prompt changes, with a drift test — `prompts.test.ts` — that hashes
+every prompt-builder's output and fails if the text changes without a matching
+bump), included in the cache key exactly as planned.
 
 ### Spend guard
 
@@ -173,9 +199,15 @@ create table spend_day (
 );
 ```
 
-Checked before a job starts, incremented after it finishes. With a kill switch
-in env, this is what stops a scripted upload loop from turning a bad night into
-a bad month.
+**As implemented**: reserve-then-reconcile, not check-then-increment
+(`src/server/spend.ts`) — a step reserves its estimated cost via
+`reservera_spend` (SQL) *before* calling the model, then reconciles down (or
+up) to the real cost via `avstam_spend` *after*. `reservera_spend`'s first
+draft had a real bug (the day's very first reservation bypassed the cap
+entirely — see "Live verification" above); fixed to an insert-if-absent
+followed by a uniformly-gated update. With a kill switch in env, checked
+before the reservation is even attempted, this is what stops a scripted
+upload loop from turning a bad night into a bad month.
 
 ### Row Level Security
 
@@ -245,6 +277,14 @@ Three consequences for this layer:
    storage shared across buyers, deleting one buyer's `analys` row must not
    necessarily delete the shared PDF — decide the rule now and write it down.
 
+   **Decided and implemented** (`radera_analys`, the migration): a buyer's own
+   `analys` row is always deleted; the shared PDF is deleted from storage only
+   when no other row still references the same `pdf_hash` — the function
+   reports which case it was so the caller knows whether to also delete the
+   storage object. The derived `extraktion_cache`/`analys_cache` rows are
+   never deleted by this path — they contain no document and name no one, so
+   they carry none of the retention risk the PDF itself does.
+
 Not blocking the schema, but blocking launch, and cheaper to design in than to
 retrofit.
 
@@ -275,6 +315,35 @@ by accident:
 Access env through one validated module (`src/server/env.ts`, Zod) that throws
 loudly at startup on a missing key — not `process.env.X` scattered across files.
 A missing key should fail the deploy, not the first buyer's upload.
+**Done**: `lasEnv`/`envFromProcess` in `src/server/env.ts`; the
+`no-restricted-imports` rule is in `eslint.config.js`, scoped to
+`src/routes/**`/`src/components/**`/`src/data/**`/`analysisView.ts`, blocking
+`@/server/*` and the heavy pipeline modules while leaving `calc/*` and
+`benchmarks` importable, matching what the UI actually uses today.
+
+**The deployed Edge Function does not use these same names.** Supabase
+reserves the whole `SUPABASE_`-prefixed namespace for its own auto-injected
+variables (`supabase secrets set` refuses anything starting with
+`SUPABASE_`), and what it actually auto-injects — `SUPABASE_URL`/
+`SUPABASE_SERVICE_ROLE_KEY`, the *legacy* pair — can be stale on a project
+that has disabled its legacy keys, as this one has (see Resolved, and the
+Live verification section above). `supabase/functions/analys-steg/index.ts`
+therefore reads two custom-named secrets instead:
+
+```
+PROJECT_URL=            # same value as SUPABASE_URL above
+PROJECT_SECRET_KEY=     # same value as SUPABASE_SECRET_KEY above
+AUTOMATIONS_KEY=        # separate from any web-app key; matches the Vault
+                         # secret `automations_key` the binfo-tick cron job
+                         # sends on the `apikey` header — this is the
+                         # function's entire auth boundary
+```
+
+Set with `supabase secrets set --env-file <file>` (never inline on the
+command line, and never with a value visible in shell history) — do not
+attempt to reuse `SUPABASE_URL`/`SUPABASE_SECRET_KEY` for the deployed
+function; the CLI won't allow it and the platform's own auto-injection can't
+be trusted to match.
 
 ---
 
@@ -289,12 +358,22 @@ A missing key should fail the deploy, not the first buyer's upload.
 ```
 src/server/
   env.ts        -- Zod-validated env, throws loudly when a secret is missing
+  portar.ts     -- Lager/Databas/Filarkiv interfaces (no impl) — the only surface
+                   the rest of this zone is allowed to depend on
   supabase.ts   -- secret-key client factory, server-only
+  __fakes__/    -- in-memory Lager, so nothing here needs a live database to test
   cache.ts      -- extraction/judgement cache read + write (re-enriches on read)
-  spend.ts      -- daily cap + kill switch
-  jobb.ts       -- the two pipeline steps, called by whatever runs the job
-  analys.ts     -- server functions: skapaAnalys, hamtaStatus, hamtaResultat
+  spend.ts      -- daily cap + kill switch, reserve-then-reconcile
+  fel.ts        -- maps a caught error to an AnalysErrorCode + buyer-safe Swedish message
+  steg.ts       -- korNastaSteg: claims one job row, advances it one step
+  analys.ts     -- skapaAnalys, hamtaStatus, hamtaResultat (framework-free)
+  analysFn.ts   -- createServerFn wrappers around analys.ts
+  edge/build.ts -- esbuild bundle of steg.ts for the Edge Function
+  cli/          -- analysCli.ts (npm run analys), verifyRls.ts (npm run verify-rls)
 ```
+
+(`jobb.ts` in the original sketch became `steg.ts` — same role, renamed
+during implementation.)
 
 The three server functions are the entire public surface:
 
@@ -313,21 +392,24 @@ though nothing reads it yet.
 
 ## Work breakdown
 
+All done and verified live (2026-09-13) — see "Live verification" above for
+what the live run actually found and fixed.
+
 | # | Task | Notes |
 |---|---|---|
 | 0 | ~~Create the Supabase project~~ | **Done** — live, EU (Ireland), key verified |
 | 1 | ~~Deno spike~~ | **Done** — real edge-runtime, all four report sizes, incl. the scan |
-| 2 | `supabase migration new init` — tables, enums, indexes, RLS, bucket | As above; commit the migration |
-| 3 | `PROMPT_VERSION` in `prompts.ts` | Needed for the cache key |
-| 4 | `src/server/env.ts` + `.env.example` | Zod-validated, fails loudly |
-| 5 | `src/server/supabase.ts` | Service-role client, server-only |
-| 6 | `src/server/cache.ts` | **Must re-apply `berikaNyckeltal` on read** |
-| 7 | `src/server/spend.ts` | Daily cap + kill switch |
-| 8 | Code-sharing build step for the Edge Function | One source of truth; no forked pipeline |
-| 9 | Edge Function: one pipeline step per invocation | Three steps; `attempts` counter |
-| 10 | `pg_cron` schedule + retention job | Queue tick; 30-day PDF deletion |
-| 11 | `src/server/analys.ts` | The three server functions |
-| 12 | ESLint `no-restricted-imports` guard | Server modules out of client code |
+| 2 | ~~`supabase migration new init`~~ | **Done** — applied to the live project via `db push` |
+| 3 | ~~`PROMPT_VERSION` in `prompts.ts`~~ | **Done** — with a drift test, not just the constant |
+| 4 | ~~`src/server/env.ts` + `.env.example`~~ | **Done** — Zod-validated, fails loudly |
+| 5 | ~~`src/server/supabase.ts`~~ | **Done** — plus `portar.ts`'s interfaces and the in-memory fake |
+| 6 | ~~`src/server/cache.ts`~~ | **Done** — re-enrichment on read verified by test |
+| 7 | ~~`src/server/spend.ts`~~ | **Done** — reserve-then-reconcile; caught and fixed a real cap-bypass bug |
+| 8 | ~~Code-sharing build step for the Edge Function~~ | **Done** — esbuild bundle, `npm run build:edge` |
+| 9 | ~~Edge Function: one pipeline step per invocation~~ | **Done** — deployed; `attempts` bug found and fixed by the live run |
+| 10 | ~~`pg_cron` schedule + retention job~~ | **Done** — tick, keep-alive, retention, reaper all scheduled and confirmed firing |
+| 11 | ~~`src/server/analys.ts`~~ | **Done** — the three server functions, plus `analysFn.ts`'s `createServerFn` wrappers |
+| 12 | ~~ESLint `no-restricted-imports` guard~~ | **Done** |
 
 Task 1 comes first because a failed Deno spike changes tasks 8–10 entirely (the
 fallback being a small Node service we control, where the pipeline runs
@@ -411,15 +493,87 @@ keep running against that source.
   `service_role` JWT that had been pasted into a chat now returns 401; the
   active `SUPABASE_SECRET_KEY` (`sb_secret_...`) returns 200 on both REST and
   storage.
+- ~~Confirm the secret key bypasses RLS empirically~~ — **done, `npm run
+  verify-rls`**: against the live `spend_day` table (RLS on, zero policies),
+  the secret key writes and reads back its own probe row; the publishable key
+  is denied on both a `select` (0 rows, no error — PostgREST's normal shape
+  for an RLS-denied read) and an `insert` (`42501`, "new row violates row-level
+  security policy"). Verdict: **secret-nyckeln förbigår RLS: JA**,
+  **publishable-nyckeln nekas av RLS: JA**. The deny-all backstop is real, not
+  assumed.
+- ~~Supabase plan~~ — **staying on Free for now**, accepting the pause risk,
+  with a dedicated `binfo-keep-alive` `pg_cron` job (see the migration) that
+  hits the project's own REST endpoint daily, independent of `binfo-tick`, so
+  disabling the tick to debug can never put the project on a path toward being
+  paused. Revisit the paid plan once real users arrive — see the wall-clock
+  finding below for why headroom matters more than it first seemed.
+- ~~Code-sharing for the Deno function~~ — **done, esbuild bundle**: `npm run
+  build:edge` bundles `src/server/steg.ts` (platform-neutral, ESM), rewriting
+  `@anthropic-ai/sdk` and `unpdf` to the exact `npm:` specifiers pinned in
+  `package-lock.json` and leaving everything else — including
+  `@supabase/supabase-js` — bundled in. One source of truth; the Edge Function
+  (`supabase/functions/analys-steg/index.ts`) imports the bundle and adds
+  nothing but the `apikey` auth check and a small inline `Lager`/`Env`
+  adapter (see the note below on why that adapter is duplicated rather than
+  imported).
+
+## Live verification (2026-09-13, against the real project)
+
+The plan above was carried out against the actual live Supabase project —
+migration applied, function deployed, real Anthropic calls made — not just
+reviewed on paper. What that run found, in order:
+
+**A genuine bug in `reservera_spend`, caught before it shipped.** The first
+draft's `insert ... on conflict do update ... where` only gated the *update*
+branch — the day's very first reservation took the plain `insert` path and
+would have bypassed the daily cap entirely. Fixed in the migration to an
+idempotent insert-if-absent followed by an update gated the same way on every
+call. Caught by re-reading the SQL during review, not by the live test, but
+worth recording here since it's exactly the kind of one-line trap this
+document exists to prevent.
+
+**A real design bug, caught only by the live test.** `attempts` was a single
+counter for the whole job's lifetime (incremented on every claim across all
+three stages), not "three tries per stage." A cold run against a real annual
+report needed one retry at the extraction step — its first invocation ran
+long enough that the claim's lease expired before a response ever came back,
+so the next tick reclaimed it — and that single retry alone consumed 2 of the
+job's 3 total attempts. The judging step was then left with zero, could never
+be claimed even once, and `binfo_reaper()` eventually swept the row as
+permanently failed. Fixed in `src/server/steg.ts`: a successful stage advance
+now resets `attempts` to 0, so each of the three stages gets its own fresh
+budget of three claims, counted from when that stage becomes current — not a
+budget the whole job shares. Covered by a regression test in
+`steg.test.ts` before the fix was redeployed.
+
+**`SUPABASE_URL`/`SUPABASE_SECRET_KEY` are not what's auto-injected into a
+deployed Edge Function on this project.** Supabase's documented auto-injection
+for Edge Functions is `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` — the
+*legacy* pair — and this project has disabled its legacy keys (see Resolved,
+above). There is a live upstream report (supabase/supabase#37648) of the
+analogous case for `SUPABASE_ANON_KEY` staying stale after a project migrates
+off the legacy format; the same risk applies here, and the CLI independently
+refuses to let `supabase secrets set` touch anything `SUPABASE_`-prefixed at
+all. The fix: `supabase/functions/analys-steg/index.ts` reads two
+custom-named secrets instead — `PROJECT_URL` and `PROJECT_SECRET_KEY` — set
+by hand via `supabase secrets set` to the exact same values as this repo's own
+`SUPABASE_URL`/`SUPABASE_SECRET_KEY`. Anyone redeploying this function to a
+new project needs to set those two names, not the `SUPABASE_*` ones.
+
+**Timing, measured for real, not estimated.** Against the live project, one
+full cold run of the smallest report (Nabo, after a partial prior run had
+already cached its extraction) needed only the judging step: ~88 s, 0,87 kr.
+A completely cold run of the **largest** report in the corpus (11,4 MB,
+never-before-seen — the free-plan worst case this design has to survive)
+completed in one pass per step, no retries: grounding ~98 s, extraction
+~120 s, judging ~109 s, all individually under the 150 s Free-plan ceiling;
+326 s and 3,58 kr end to end. The dedupe path was also confirmed live: an
+identical re-upload of the Nabo report completed in ~2 s at **0,00 kr**. The
+scanned-PDF refusal (SBC) was confirmed to leave zero rows in `analys` and
+zero objects in storage, refusing in well under a second.
 
 ## Still open
 
-**1. Supabase plan.** Free gives 150 s wall clock, which the three-step split
-fits. But free projects pause after inactivity, which is not viable for a live
-site — expect the paid plan once real users arrive, which also lifts wall clock
-to 400 s and gives more headroom on the largest reports.
-
-**2. Confirm the secret key bypasses RLS empirically, not on trust.** It is
-documented as the replacement for `service_role`, but the deny-all RLS backstop
-in this design depends on that being true — check it against a real
-RLS-enabled table once the init migration is applied.
+Nothing blocking. The remaining "Still open" items from `GOLIVE.md` (does an
+analysis expire, who owns deployment long-term) are product questions, not
+infrastructure gaps in this layer.

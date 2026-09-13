@@ -1,10 +1,14 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   ALLA_NYCKELTAL,
+  PROMPT_VERSION,
   buildAnalysSystemPrompt,
   buildAnalysUserPrompt,
   buildExtractionSystemPrompt,
+  buildExtractionUserPrompt,
   buildGroundingSystemPrompt,
+  buildGroundingUserPrompt,
   extractGroundingFindings,
   formatGroundingForExtraction,
 } from "./prompts";
@@ -316,5 +320,31 @@ describe("buildAnalysUserPrompt", () => {
   it("räknar upp exakt de sidnummer som får användas i en ref", () => {
     const prompt = buildAnalysUserPrompt(extraktion, tillatnaSidor(extraktion));
     expect(prompt).toMatch(/3, 4, 6, 8, 12/);
+  });
+});
+
+describe("PROMPT_VERSION", () => {
+  it("exporteras som en icke-tom sträng", () => {
+    expect(typeof PROMPT_VERSION).toBe("string");
+    expect(PROMPT_VERSION.length).toBeGreaterThan(0);
+  });
+
+  // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
+  // prompt med avsikt: höj PROMPT_VERSION i prompts.ts OCH uppdatera hashen
+  // nedan så att den stämmer med den nya texten — en avsiktlig redigering är
+  // inte samma sak som ett misstag, men båda ska tvinga cachen att missa.
+  it("larmar om någon promptbyggares utdata ändras utan att PROMPT_VERSION höjs", () => {
+    const allaPrompter = [
+      buildGroundingSystemPrompt(),
+      buildGroundingUserPrompt(),
+      buildExtractionSystemPrompt(),
+      buildExtractionUserPrompt(""),
+      buildAnalysSystemPrompt(),
+      buildAnalysUserPrompt(extraktion, new Set()),
+    ].join("");
+
+    const hash = createHash("sha256").update(allaPrompter).digest("hex");
+
+    expect(hash).toBe("827ffd5ac4435d6d2abafa50a910912172ccec24523b256937fe1deb3a982ae5");
   });
 });

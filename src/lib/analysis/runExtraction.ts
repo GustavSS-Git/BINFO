@@ -29,6 +29,34 @@ export class ScannedPdfError extends Error {
   }
 }
 
+/**
+ * Minimal structural shape of the Anthropic client this module calls —
+ * deliberately decoupled from the SDK's own (much larger, stricter)
+ * parameter/response types so a test can hand-build a fake
+ * `{ messages: { countTokens, create } }` without constructing a real
+ * `Anthropic` instance or satisfying its full type. The one real client this
+ * module ever constructs is cast to this shape at its construction site;
+ * everything it actually returns already has these fields.
+ */
+export interface AnthropicClientLike {
+  messages: {
+    countTokens(params: {
+      model: string;
+      system: string;
+      messages: Array<{ role: "user"; content: unknown }>;
+    }): Promise<{ input_tokens: number }>;
+    create(params: {
+      model: string;
+      max_tokens: number;
+      system: string;
+      messages: Array<{ role: "user"; content: unknown }>;
+    }): Promise<{
+      usage: { input_tokens: number; output_tokens: number };
+      content: Array<{ type: string; text?: string; citations?: unknown }>;
+    }>;
+  };
+}
+
 export interface RunExtractionOptions {
   apiKey?: string;
   model?: string;
@@ -37,11 +65,23 @@ export interface RunExtractionOptions {
   /** Worst-case output tokens assumed for the pre-flight cost check, per call. */
   maxOutputTokensGrounding?: number;
   maxOutputTokensExtraction?: number;
+  /** Injected for tests; production omits this and gets a real Anthropic client. */
+  client?: AnthropicClientLike;
 }
 
 export interface RunExtractionResult {
   extraction: ExtractionResult;
   spentSek: number;
+}
+
+/** Builds the real Anthropic client, cast to the narrow shape this module
+ *  depends on — or returns the injected test double unchanged. */
+function resolveClient(
+  options: Pick<RunExtractionOptions, "apiKey" | "client">,
+): AnthropicClientLike {
+  if (options.client) return options.client;
+  const real = options.apiKey ? new Anthropic({ apiKey: options.apiKey }) : new Anthropic();
+  return real as unknown as AnthropicClientLike;
 }
 
 function findTextBlock(content: Array<{ type: string; text?: string }>): string | undefined {
@@ -128,18 +168,32 @@ export function parseModelJson(content: Array<{ type: string; text?: string }>):
  * including the citation/schablonBasis/seven-key-figures refinements) is the
  * single source of validation truth — malformed JSON retries once, then
  * surfaces a clear error, per PIPELINE.md's failure-mode table.
+ *
+ * The two calls are split into `runGrounding` and `runStructuredExtraction`
+ * below (each independently callable) because each one becomes its own
+ * Supabase Edge Function invocation later, capped at one Anthropic API call
+ * to fit inside a 150s wall-clock budget per invocation. `runExtraction`
+ * itself stays a thin composition of the two, signature unchanged, so
+ * existing callers (cli.ts, verifyAnswerKey.ts) keep working untouched.
  */
-export async function runExtraction(
+
+export interface RunGroundingResult {
+  groundingText: string;
+  spentSek: number;
+  pdfSaknarTextlager: boolean;
+}
+
+/** Call 1 — grounding (citations enabled). Fails loudly, before any API
+ *  spend, on a scanned PDF with no text layer. */
+export async function runGrounding(
   pdfBytes: Uint8Array,
   options: RunExtractionOptions,
-): Promise<RunExtractionResult> {
+): Promise<RunGroundingResult> {
   const {
-    apiKey,
     model = "claude-sonnet-5",
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
     maxOutputTokensGrounding = 8000,
-    maxOutputTokensExtraction = 12000,
   } = options;
 
   // Step 0 — cheap local check, no API spend. A scanned PDF must fail
@@ -154,8 +208,7 @@ export async function runExtraction(
     throw new ScannedPdfError();
   }
 
-  const client = apiKey ? new Anthropic({ apiKey }) : new Anthropic();
-  let spentSek = 0;
+  const client = resolveClient(options);
 
   const documentBlock = {
     type: "document" as const,
@@ -167,7 +220,6 @@ export async function runExtraction(
     citations: { enabled: true },
   };
 
-  // --- Call 1: grounding (citations enabled) ---
   const groundingSystem = buildGroundingSystemPrompt();
   const groundingMessages = [
     {
@@ -181,12 +233,7 @@ export async function runExtraction(
     system: groundingSystem,
     messages: groundingMessages,
   });
-  enforceCostLimit(
-    groundingCount.input_tokens,
-    maxOutputTokensGrounding,
-    maxCostSek - spentSek,
-    pricing,
-  );
+  enforceCostLimit(groundingCount.input_tokens, maxOutputTokensGrounding, maxCostSek, pricing);
 
   const groundingResponse = await client.messages.create({
     model,
@@ -194,7 +241,7 @@ export async function runExtraction(
     system: groundingSystem,
     messages: groundingMessages,
   });
-  spentSek += estimateCostSek(
+  const spentSek = estimateCostSek(
     groundingResponse.usage.input_tokens,
     groundingResponse.usage.output_tokens,
     pricing,
@@ -203,9 +250,36 @@ export async function runExtraction(
   const findings = extractGroundingFindings(groundingResponse.content as GroundingTextBlock[]);
   const groundingText = formatGroundingForExtraction(findings);
 
-  // --- Call 2: structured JSON, grounded only in call 1's findings.
-  // Retried once on validation failure (extractWithRetry), reusing the
-  // same grounded context rather than re-running call 1. ---
+  return { groundingText, spentSek, pdfSaknarTextlager };
+}
+
+export interface RunStructuredExtractionOptions extends Omit<
+  RunExtractionOptions,
+  "maxOutputTokensGrounding"
+> {
+  /** From step 0 of `runGrounding` — default false matches the case where
+   *  grounding already ran and confirmed a text layer. */
+  pdfSaknarTextlager?: boolean;
+}
+
+/** Call 2 — structured JSON, grounded only in call 1's findings. Retried
+ *  once on validation failure (extractWithRetry). Never sees the PDF: this
+ *  call is text-only, no document block, no citations feature. */
+export async function runStructuredExtraction(
+  groundingText: string,
+  options: RunStructuredExtractionOptions,
+): Promise<RunExtractionResult> {
+  const {
+    model = "claude-sonnet-5",
+    maxCostSek,
+    pricing = SONNET_5_PRISSATTNING,
+    maxOutputTokensExtraction = 12000,
+    pdfSaknarTextlager = false,
+  } = options;
+
+  const client = resolveClient(options);
+  let spentSek = 0;
+
   const extractionSystem = buildExtractionSystemPrompt();
   const extractionUser = buildExtractionUserPrompt(groundingText);
 
@@ -223,8 +297,8 @@ export async function runExtraction(
     spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
 
     const raw = parseModelJson(response.content);
-    // pdfSaknarTextlager is already known deterministically from step 0 —
-    // never trust the model's own claim about it, override unconditionally.
+    // pdfSaknarTextlager is already known deterministically from grounding's
+    // step 0 — never trust the model's own claim about it, override unconditionally.
     if (raw !== null && typeof raw === "object" && "datakvalitet" in raw) {
       const dk = (raw as { datakvalitet: unknown }).datakvalitet;
       if (dk !== null && typeof dk === "object") {
@@ -248,4 +322,35 @@ export async function runExtraction(
   };
 
   return { extraction: enrichedExtraction, spentSek };
+}
+
+/**
+ * Composition of the two calls above, signature unchanged from before the
+ * split — cli.ts and verifyAnswerKey.ts call this and must keep compiling
+ * and behaving identically. Budget threading matches the pre-split
+ * single-function code exactly: call 2's cost cap is what's left of
+ * `maxCostSek` after call 1's actual spend, not a fresh budget per call.
+ */
+export async function runExtraction(
+  pdfBytes: Uint8Array,
+  options: RunExtractionOptions,
+): Promise<RunExtractionResult> {
+  const {
+    groundingText,
+    spentSek: spentGrounding,
+    pdfSaknarTextlager,
+  } = await runGrounding(pdfBytes, options);
+
+  // maxOutputTokensGrounding has no meaning for call 2 — drop it explicitly
+  // (rather than relying on excess-property leniency from a spread) since
+  // RunStructuredExtractionOptions doesn't declare it.
+  const { maxOutputTokensGrounding: _maxOutputTokensGrounding, ...restOptions } = options;
+
+  const { extraction, spentSek: spentStructured } = await runStructuredExtraction(groundingText, {
+    ...restOptions,
+    maxCostSek: options.maxCostSek - spentGrounding,
+    pdfSaknarTextlager,
+  });
+
+  return { extraction, spentSek: spentGrounding + spentStructured };
 }
