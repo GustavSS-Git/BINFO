@@ -2,8 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Card, Field, PageHeader, Badge, Toggle, Tag } from "@/components/ui/binfo";
 import { kr, amorteringsregler, kalkylDefaults } from "@/data/mockData";
-import { sampleAnalysis } from "@/data/sampleAnalysis";
 import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
+import {
+  buildMinimalPropertyInput,
+  parseBolanekalkylSearch,
+  type BolanekalkylSearch,
+} from "@/lib/bolanekalkyl";
 import { beraknaManadskostnad, type LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import { rantestressScenario } from "@/lib/analysis/calc/rantestress";
 import { costItemOsaker, FEE_KEY_BY_COST_ITEM } from "@/lib/analysisView";
@@ -25,20 +29,26 @@ export const Route = createFileRoute("/bolanekalkyl")({
       },
     ],
   }),
+  // Fristående kalkyl — fungerar med noll sökparametrar. `manadsavgift` är
+  // en bekvämlighet vid länk från en färdig analys (PHASE1.md, steg 2);
+  // `rantekanslighet` detsamma för räntestressen. Ett skräpvärde faller
+  // tillbaka till "inget värde" istället för att krascha sidan.
+  validateSearch: parseBolanekalkylSearch,
   component: Bolanekalkyl,
 });
 
 const num = (v: string) => (v.trim() === "" ? 0 : Number(v.replace(/\s/g, "")));
 
-/** Kalkylens startvärden — 80 % belåning av det verkliga objektets
- *  utgångspris, så att förvalen känns rimliga ihop med resten av sidan.
- *  Ränta och bruttoinkomst har ingen motsvarighet i kontraktet (personliga
- *  antaganden om köparens egen lånesituation, inte föreningens), så de
- *  förblir generiska startgissningar precis som i mockdatan tidigare. */
-const LANEBELOPP_DEFAULT = Math.round(sampleAnalysis.input.utgangspris * 0.8);
-const KONTANTINSATS_DEFAULT = sampleAnalysis.input.utgangspris - LANEBELOPP_DEFAULT;
-const RANTA_DEFAULT = 3.6;
-const BRUTTOINKOMST_DEFAULT = 900_000;
+/** Kalkylens startvärden. Helt fristående — inga siffror hämtas från någon
+ *  analys. Lånebelopp/kontantinsats/ränta/bruttoinkomst är samma generiska
+ *  startgissningar som redan fanns i mockdatan (kalkylDefaults):
+ *  låneuppgifter är personliga antaganden om köparens egen lånesituation,
+ *  inte föreningens, så de har ingen motsvarighet i kontraktet att hämtas
+ *  ifrån. */
+const LANEBELOPP_DEFAULT = kalkylDefaults.lanebelopp;
+const KONTANTINSATS_DEFAULT = kalkylDefaults.kontantinsats;
+const RANTA_DEFAULT = kalkylDefaults.ranta;
+const BRUTTOINKOMST_DEFAULT = kalkylDefaults.bruttoinkomst;
 
 /** De fem schablonbaserade kostnadsposterna som användaren kan skriva över
  *  inline. Ränta/amortering/ränteavdrag/avgift kommer alltid från
@@ -52,6 +62,7 @@ const SCHABLON_POST_IDS: CostItemId[] = [
 ];
 
 function Bolanekalkyl() {
+  const search: BolanekalkylSearch = Route.useSearch();
   const [lanebelopp, setLanebelopp] = useState(String(LANEBELOPP_DEFAULT));
   const [ranta, setRanta] = useState(String(RANTA_DEFAULT));
   const [kontantinsats, setKontantinsats] = useState(String(KONTANTINSATS_DEFAULT));
@@ -59,38 +70,56 @@ function Bolanekalkyl() {
   const [lantagare, setLantagare] = useState<"1" | "2">(
     String(kalkylDefaults.antalLantagare) as "1" | "2",
   );
+  // Förifylld vid länk från en färdig analys (?manadsavgift=…) — annars
+  // fylls den i för hand, precis som resten av kalkylen. `franAnalys`
+  // fångas bara vid mount: den styr enbart en etikett, inte beräkningen.
+  // Tom sträng, inte "0", när avgiften inte är förifylld: num("") är ändå 0 i
+  // beräkningen, men ett tomt fält LÄSER som "fyll i mig" medan en nolla läser
+  // som ett svar. Avgiften är en av de största posterna i totalen — en
+  // oifylld sådan får inte tyst räknas som noll kronor och se färdig ut.
+  const [manadsavgift, setManadsavgift] = useState(
+    search.manadsavgift !== undefined ? String(search.manadsavgift) : "",
+  );
+  const [manadsavgiftFranAnalys] = useState(search.manadsavgift !== undefined);
   const [delta, setDelta] = useState(0);
   const uppgifter = useUppgifter();
   // Egna värden som ersätter schablonerna när användaren redigerar en rad.
   const [egna, setEgna] = useState<Partial<Record<CostItemId, number>>>({});
 
-  // Objektets grunddata kommer från den riktiga analysen. Det enda som
-  // överlagras live är det som skärmens egna kontroller styr: vad avgiften
-  // täcker (Tristate-fälten från /analysera), antal personer (vattenschablonen)
-  // och antal låntagare (ränteavdragets tak).
+  // Ingen analys krävs — objektets grunddata kommer från kalkylens egna
+  // fält plus den delade "uppgifter"-butiken (samma boarea/antal personer
+  // som /analysera skriver till). PropertyInput byggs minimalt: bara de
+  // fyra fält beraknaManadskostnad faktiskt läser, resten är ofarliga
+  // platshållare (se buildMinimalPropertyInput).
   const input: PropertyInput = useMemo(
-    () => ({
-      ...sampleAnalysis.input,
-      avgiftInkluderar: {
-        varme: uppgifter.ingar.varme,
-        vatten: uppgifter.ingar.vatten,
-        el: uppgifter.ingar.el,
-        bredband: uppgifter.ingar.bredband,
-        tv: uppgifter.ingar.tv,
-      },
-      antalPersoner: uppgifter.antalPersoner,
-    }),
-    [uppgifter],
+    () =>
+      buildMinimalPropertyInput({
+        boarea: uppgifter.boarea,
+        antalPersoner: uppgifter.antalPersoner,
+        manadsavgift: num(manadsavgift),
+        avgiftInkluderar: {
+          varme: uppgifter.ingar.varme,
+          vatten: uppgifter.ingar.vatten,
+          el: uppgifter.ingar.el,
+          bredband: uppgifter.ingar.bredband,
+          tv: uppgifter.ingar.tv,
+        },
+      }),
+    [uppgifter, manadsavgift],
   );
 
-  // Räntestressen har två ben: köparens egen lånränta (rakt påslag) och
-  // föreningens avgift (via räntekänsligheten — det riktiga, sourcade
-  // nyckeltalet, inte en gissad kronorsumma per procentenhet).
-  const stressadAvgift = rantestressScenario(
-    input.manadsavgift,
-    sampleAnalysis.rantestress.rantekanslighetProcent,
-    delta,
-  ).nyManadsavgift;
+  // Räntestressen har två ben: köparens egen lånränta (rakt påslag, alltid
+  // beräkningsbar) och föreningens avgift (via räntekänsligheten — det
+  // riktiga, sourcade nyckeltalet, inte en gissad kronorsumma per
+  // procentenhet). Räntekänsligheten är ett faktum om en specifik förenings
+  // årsredovisning och kan inte gissas fram (se CLAUDE.md) — saknas den
+  // (ingen ?rantekanslighet i sökvägen) stressas bara den egna räntan.
+  const rantekanslighetProcent = search.rantekanslighet;
+  const harRantekanslighet = rantekanslighetProcent !== undefined;
+  const stressadAvgift =
+    rantekanslighetProcent !== undefined
+      ? rantestressScenario(input.manadsavgift, rantekanslighetProcent, delta).nyManadsavgift
+      : input.manadsavgift;
 
   const liveInput: PropertyInput = useMemo(
     () => ({ ...input, manadsavgift: stressadAvgift }),
@@ -171,7 +200,7 @@ function Bolanekalkyl() {
       <PageHeader
         eyebrow="Bolånekalkyl"
         title="Vad kostar bostaden per månad?"
-        lead={`Månadsavgiften hämtas automatiskt från ${sampleAnalysis.forening.namn}.`}
+        lead="Räkna ut din totala månadskostnad direkt i webbläsaren — inget laddas upp eller sparas. Kommer du från en analys är månadsavgiften redan ifylld."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -187,6 +216,18 @@ function Bolanekalkyl() {
               hint="Bolånetaket är 90 % — minst 10 % kontantinsats krävs."
             />
             <Field label="Ränta" suffix="%" value={ranta} onChange={setRanta} />
+            <Field
+              label="Månadsavgift"
+              suffix="kr"
+              value={manadsavgift}
+              onChange={setManadsavgift}
+              placeholder="t.ex. 3 240"
+              hint={
+                manadsavgiftFranAnalys
+                  ? "Förifylld från din analys — ändra om avgiften har uppdaterats."
+                  : "Från föreningens senaste årsredovisning eller objektsbeskrivning."
+              }
+            />
             <Field
               label="Antal personer i hushållet"
               value={String(uppgifter.antalPersoner)}
@@ -235,9 +276,15 @@ function Bolanekalkyl() {
                 className="mt-3 w-full accent-primary"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                Höjer både din ränta ({lan.ranta.toFixed(2).replace(".", ",")} %) och föreningens
-                avgift.
+                Höjer din ränta ({lan.ranta.toFixed(2).replace(".", ",")} %)
+                {harRantekanslighet ? " och föreningens avgift." : "."}
               </p>
+              {!harRantekanslighet ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Vi vet inte hur känslig den här föreningens avgift är för räntehöjningar — det
+                  kräver en uppladdad årsredovisning för att räkna med i totalen.
+                </p>
+              ) : null}
             </div>
           </div>
         </Card>
@@ -260,7 +307,11 @@ function Bolanekalkyl() {
                 Boendekostnad
               </p>
               <div className="mt-3 divide-y divide-border">
-                <Rad label="Månadsavgift" note="från årsredovisningen" value={manadsavgiftPost} />
+                <Rad
+                  label="Månadsavgift"
+                  value={manadsavgiftPost}
+                  {...(manadsavgiftFranAnalys ? { note: "från din analys" } : {})}
+                />
                 {boendeSchablonPoster.map((p) => (
                   <SchablonRad
                     key={p.id}
