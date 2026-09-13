@@ -122,7 +122,10 @@ function Analysera() {
     try {
       const resultat = await skapaAnalysFn({ data: formData });
       if (resultat.ok) {
-        navigate({ to: "/analys/$analysisId", params: { analysisId: resultat.analysisId } });
+        navigate({
+          to: "/forhandsvisning/$analysisId",
+          params: { analysisId: resultat.analysisId },
+        });
         return;
       }
       setSkickaFel({

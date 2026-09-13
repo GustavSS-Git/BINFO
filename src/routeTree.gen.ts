@@ -16,6 +16,7 @@ import { Route as BolanekalkylRouteImport } from './routes/bolanekalkyl'
 import { Route as ForhandsvisningRouteImport } from './routes/forhandsvisning'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
+import { Route as ForhandsvisningAnalysisIdRouteImport } from './routes/forhandsvisning_.$analysisId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,12 @@ const AnalysAnalysisIdRoute = AnalysAnalysisIdRouteImport.update({
   path: '/analys/$analysisId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForhandsvisningAnalysisIdRoute =
+  ForhandsvisningAnalysisIdRouteImport.update({
+    id: '/forhandsvisning_/$analysisId',
+    path: '/forhandsvisning/$analysisId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/forhandsvisning': typeof ForhandsvisningRoute
   '/guide': typeof GuideRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
+  '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +78,7 @@ export interface FileRoutesByTo {
   '/forhandsvisning': typeof ForhandsvisningRoute
   '/guide': typeof GuideRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
+  '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +89,7 @@ export interface FileRoutesById {
   '/forhandsvisning': typeof ForhandsvisningRoute
   '/guide': typeof GuideRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
+  '/forhandsvisning_/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +101,7 @@ export interface FileRouteTypes {
     | '/forhandsvisning'
     | '/guide'
     | '/analys/$analysisId'
+    | '/forhandsvisning/$analysisId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +111,7 @@ export interface FileRouteTypes {
     | '/forhandsvisning'
     | '/guide'
     | '/analys/$analysisId'
+    | '/forhandsvisning/$analysisId'
   id:
     | '__root__'
     | '/'
@@ -109,6 +121,7 @@ export interface FileRouteTypes {
     | '/forhandsvisning'
     | '/guide'
     | '/analys_/$analysisId'
+    | '/forhandsvisning_/$analysisId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +132,7 @@ export interface RootRouteChildren {
   ForhandsvisningRoute: typeof ForhandsvisningRoute
   GuideRoute: typeof GuideRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
+  ForhandsvisningAnalysisIdRoute: typeof ForhandsvisningAnalysisIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +186,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalysAnalysisIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forhandsvisning_/$analysisId': {
+      id: '/forhandsvisning_/$analysisId'
+      path: '/forhandsvisning/$analysisId'
+      fullPath: '/forhandsvisning/$analysisId'
+      preLoaderRoute: typeof ForhandsvisningAnalysisIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +204,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForhandsvisningRoute: ForhandsvisningRoute,
   GuideRoute: GuideRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,
+  ForhandsvisningAnalysisIdRoute: ForhandsvisningAnalysisIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
