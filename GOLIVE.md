@@ -308,10 +308,17 @@ klar"* is a real option worth considering once email capture exists).
 årsredovisning that is superseded annually. Does the buyer keep access
 forever? Affects storage and, later, refund policy. Not blocking Phase 1.
 
-**3. Who owns deployment today?** Is the site served through Lovable's
-hosting, or a separate Cloudflare account? Whichever it is, that's where
-`ANTHROPIC_API_KEY`, the Supabase keys, the spend cap and the kill switch have
-to live. This one does block going live.
+**3. Who owns deployment today? — ANSWERED: Lovable.** The site, including
+every server function, is built by Lovable's wrapper and runs as a Cloudflare
+Worker on Lovable's account (custom domain `binfo.slanesens.com`). So the
+secrets live in **Lovable's Secrets** (More → Cloud → Secrets), injected into
+the Worker as bindings at request time — not in `.env.local`, which is
+gitignored and never reaches the build. Until they were added there, every
+upload on the published site failed with a 500 while `npm run dev` worked
+fine. Lovable refuses secret names starting with `SUPABASE_`, so the web app
+now reads `PROJECT_URL`/`PROJECT_SECRET_KEY`, the same names the Edge Function
+already used. The full list of secrets and the diagnosis are in `SUPABASE.md`,
+"Deploying the web app to Lovable".
 
 ---
 

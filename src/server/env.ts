@@ -82,10 +82,17 @@ const PositivtTalSchema = z
 // Deno.env.toObject()), som innehåller massor av variabler den här modulen
 // inte bryr sig om. VITE_-vakten nedan täcker den enda sortens okänd nyckel
 // som är farlig; allt annat okänt ignoreras och plockas bort av Zod som vanligt.
+//
+// Namnen är PROJECT_* och inte SUPABASE_*: både Lovables och Supabases egna
+// hemlighetslager reserverar SUPABASE_-prefixet (Lovable vägrar spara en
+// hemlighet med det prefixet; `supabase secrets set` vägrar det av samma
+// skäl). Edge Function-koden (`supabase/functions/analys-steg/index.ts`)
+// läser redan samma PROJECT_*-namn — ett enda namnschema fungerar då i alla
+// tre körtider.
 const RawEnvSchema = z.object({
-  SUPABASE_URL: z.string().min(1, "saknas").url("måste vara en giltig URL"),
-  SUPABASE_SECRET_KEY: z.string().min(1, "saknas"),
-  SUPABASE_PUBLISHABLE_KEY: z.string().min(1, "saknas").optional(),
+  PROJECT_URL: z.string().min(1, "saknas").url("måste vara en giltig URL"),
+  PROJECT_SECRET_KEY: z.string().min(1, "saknas"),
+  PROJECT_PUBLISHABLE_KEY: z.string().min(1, "saknas").optional(),
   MAX_DAILY_SPEND_SEK: PositivtTalSchema,
   ANALYSIS_KILL_SWITCH: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().min(1, "saknas"),
@@ -116,8 +123,8 @@ export function lasEnv(record: Record<string, string | undefined>): Env {
   const data = parsed.data;
 
   const env: Env = {
-    supabaseUrl: data.SUPABASE_URL,
-    supabaseSecretKey: data.SUPABASE_SECRET_KEY,
+    supabaseUrl: data.PROJECT_URL,
+    supabaseSecretKey: data.PROJECT_SECRET_KEY,
     maxDailySpendSek: data.MAX_DAILY_SPEND_SEK,
     killSwitchPa: data.ANALYSIS_KILL_SWITCH === "on",
     anthropicApiKey: data.ANTHROPIC_API_KEY,
@@ -127,8 +134,8 @@ export function lasEnv(record: Record<string, string | undefined>): Env {
   // exactOptionalPropertyTypes: tilldela fältet bara när det faktiskt finns,
   // aldrig `undefined` explicit — annars är "fältet är frånvarande" och
   // "fältet är satt till undefined" inte samma sak för typsystemet.
-  if (data.SUPABASE_PUBLISHABLE_KEY !== undefined) {
-    env.supabasePublishableKey = data.SUPABASE_PUBLISHABLE_KEY;
+  if (data.PROJECT_PUBLISHABLE_KEY !== undefined) {
+    env.supabasePublishableKey = data.PROJECT_PUBLISHABLE_KEY;
   }
   return env;
 }

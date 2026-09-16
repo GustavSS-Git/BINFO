@@ -304,14 +304,27 @@ retrofit.
 
 ## Secrets
 
-Add to `.env.example` (and the Worker's secret store in production):
+Add to `.env.example` (and to Lovable's Secrets in production — see "Deploying
+the web app to Lovable" below):
 
 ```
-SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_SECRET_KEY=                # sb_secret_... — server only, never VITE_-prefixed, never in the browser
+PROJECT_URL=https://<project>.supabase.co
+PROJECT_SECRET_KEY=                 # sb_secret_... — server only, never VITE_-prefixed, never in the browser
 MAX_DAILY_SPEND_SEK=200             # global cap; the per-run cap already exists
 ANALYSIS_KILL_SWITCH=off            # 'on' refuses new jobs without a deploy
 ```
+
+**Why `PROJECT_*` and not `SUPABASE_*`.** Both secret stores this project
+deploys to reserve the `SUPABASE_` prefix: Supabase's own
+(`supabase secrets set` refuses it, see below) and Lovable's (the Secrets
+manager rejects any name starting with `SUPABASE_`, presumably because Lovable
+Cloud injects its own values under those names). The web app originally read
+`SUPABASE_URL`/`SUPABASE_SECRET_KEY`, which worked under `npm run dev` from
+`.env.local` and nowhere else. Renamed 2026-09-16 so that one naming scheme —
+`PROJECT_URL`, `PROJECT_SECRET_KEY`, `PROJECT_PUBLISHABLE_KEY` — is read by
+all three runtimes: the Node CLIs, the Lovable Worker, and the Deno Edge
+Function. Only `SUPABASE_ACCESS_TOKEN` keeps its prefix: it is the Supabase
+CLI's own variable, never read by our code, and never needed at runtime.
 
 Two hard rules, both already true of `ANTHROPIC_API_KEY` and both easy to break
 by accident:
@@ -333,18 +346,18 @@ A missing key should fail the deploy, not the first buyer's upload.
 `@/server/*` and the heavy pipeline modules while leaving `calc/*` and
 `benchmarks` importable, matching what the UI actually uses today.
 
-**The deployed Edge Function does not use these same names.** Supabase
-reserves the whole `SUPABASE_`-prefixed namespace for its own auto-injected
-variables (`supabase secrets set` refuses anything starting with
+**The deployed Edge Function reads the same names, for the same reason.**
+Supabase reserves the whole `SUPABASE_`-prefixed namespace for its own
+auto-injected variables (`supabase secrets set` refuses anything starting with
 `SUPABASE_`), and what it actually auto-injects — `SUPABASE_URL`/
 `SUPABASE_SERVICE_ROLE_KEY`, the *legacy* pair — can be stale on a project
 that has disabled its legacy keys, as this one has (see Resolved, and the
 Live verification section above). `supabase/functions/analys-steg/index.ts`
-therefore reads two custom-named secrets instead:
+therefore reads:
 
 ```
-PROJECT_URL=            # same value as SUPABASE_URL above
-PROJECT_SECRET_KEY=     # same value as SUPABASE_SECRET_KEY above
+PROJECT_URL=            # same value as in .env.local
+PROJECT_SECRET_KEY=     # same value as in .env.local
 AUTOMATIONS_KEY=        # separate from any web-app key; matches the Vault
                          # secret `automations_key` the binfo-tick cron job
                          # sends on the `apikey` header — this is the
@@ -352,10 +365,65 @@ AUTOMATIONS_KEY=        # separate from any web-app key; matches the Vault
 ```
 
 Set with `supabase secrets set --env-file <file>` (never inline on the
-command line, and never with a value visible in shell history) — do not
-attempt to reuse `SUPABASE_URL`/`SUPABASE_SECRET_KEY` for the deployed
-function; the CLI won't allow it and the platform's own auto-injection can't
-be trusted to match.
+command line, and never with a value visible in shell history). Do not rely
+on the platform's own `SUPABASE_*` auto-injection for the deployed function;
+it can't be trusted to match.
+
+---
+
+## Deploying the web app to Lovable
+
+The site — including every `createServerFn` in `src/server/analysFn.ts` — is
+built by Lovable's wrapper (`@lovable.dev/vite-tanstack-config`, forcing
+Nitro's `cloudflare-module` preset) and runs as a Cloudflare Worker on
+Lovable's account, served at `binfo.slanesens.com`. Two consequences follow
+from that, and both bit us once.
+
+**1. `.env.local` never reaches production.** It is gitignored (correctly —
+it holds real keys), so the deployed Worker starts with none of its values.
+`envFromProcess()` in `src/server/env.ts` tries `process.loadEnvFile` (Node
+only; silently skipped on workerd) and then validates `process.env`, which in
+the Cloudflare build is unenv's proxy over the Worker's **bindings**
+(`globalThis.__env__`). With no bindings set, `lasEnv` throws
+`OgiltigMiljoError: Miljövariabeln PROJECT_URL är ogiltig: saknas` on the
+first request, `src/start.ts`'s error middleware turns it into a 500, and
+every upload lands on the generic "okänt fel" screen while every
+`/analys/$id` link degrades to "hittades inte". That was the entire reason
+the analysis "worked in `npm run dev` but not on the published site".
+
+**2. Lovable injects secrets as Worker bindings at request time**, which is
+exactly what `process.env` resolves to there, so no code change is needed
+beyond reading env inside `.handler()` — which `analysFn.ts` already does.
+Add the following in the Lovable editor under **More → Cloud → Secrets**,
+with the same values as `.env.local`, then republish:
+
+| Secret | Note |
+|---|---|
+| `PROJECT_URL` | `SUPABASE_`-prefixed names are refused by Lovable |
+| `PROJECT_SECRET_KEY` | `sb_secret_…` |
+| `ANTHROPIC_API_KEY` | required by `lasEnv` even though the web app never calls the model itself — the Edge Function does that |
+| `ANTHROPIC_MODEL` | must match what the Edge Function uses; it is part of the cache key |
+| `MAX_DAILY_SPEND_SEK` | required — Zod insists on a positive number |
+| `ANALYSIS_KILL_SWITCH` | `off`; set to `on` to refuse new jobs without a deploy |
+| `MAX_COST_PER_ANALYSIS_SEK` | optional, defaults to 5 |
+
+Not needed on Lovable: `PROJECT_PUBLISHABLE_KEY` (only `npm run verify-rls`
+reads it) and `SUPABASE_ACCESS_TOKEN` (Supabase CLI only).
+
+**To confirm it is the env and not something else:** on the published site,
+open DevTools → Network, submit `/analysera`, and look at the `POST
+/_serverFn/…` response. Missing secrets give a 500 whose server-side log line
+is the Swedish `OgiltigMiljoError` above.
+
+**One thing to watch.** `lasEnv` throws `OsakerMiljoNyckelError` if *any*
+key in the record it is handed starts with `VITE_`. On the Worker that record
+is the full bindings object. Lovable documents `VITE_*` variables as compiled
+into the client bundle at build time, not injected as bindings — but if that
+ever changes (or Lovable Cloud starts injecting `VITE_SUPABASE_*`), every
+server function would refuse to start. The fix in that case is to narrow the
+guard to the secret names this module actually consumes rather than the whole
+record; it is deliberately not pre-emptively relaxed, because the guard is
+what makes "a secret under `VITE_` leaks" a loud failure.
 
 ---
 
@@ -503,7 +571,8 @@ keep running against that source.
 - ~~Which Supabase region~~ — **Ireland (EU-West)**, confirmed.
 - ~~Disable the legacy JWT API keys~~ — **done and verified**: the leaked
   `service_role` JWT that had been pasted into a chat now returns 401; the
-  active `SUPABASE_SECRET_KEY` (`sb_secret_...`) returns 200 on both REST and
+  active secret key (`sb_secret_...`, then `SUPABASE_SECRET_KEY` in `.env.local`,
+  now `PROJECT_SECRET_KEY`) returns 200 on both REST and
   storage.
 - ~~Confirm the secret key bypasses RLS empirically~~ — **done, `npm run
   verify-rls`**: against the live `spend_day` table (RLS on, zero policies),
@@ -569,8 +638,11 @@ refuses to let `supabase secrets set` touch anything `SUPABASE_`-prefixed at
 all. The fix: `supabase/functions/analys-steg/index.ts` reads two
 custom-named secrets instead — `PROJECT_URL` and `PROJECT_SECRET_KEY` — set
 by hand via `supabase secrets set` to the exact same values as this repo's own
-`SUPABASE_URL`/`SUPABASE_SECRET_KEY`. Anyone redeploying this function to a
-new project needs to set those two names, not the `SUPABASE_*` ones.
+`.env.local` (which at the time still called them `SUPABASE_URL`/
+`SUPABASE_SECRET_KEY`; the web app has since adopted the same `PROJECT_*`
+names, because Lovable's secret store refuses the prefix too — see "Secrets").
+Anyone redeploying this function to a new project needs to set those two
+names, not the `SUPABASE_*` ones.
 
 **Timing, measured for real, not estimated.** Against the live project, one
 full cold run of the smallest report (Nabo, after a partial prior run had

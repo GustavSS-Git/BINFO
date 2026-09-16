@@ -1,8 +1,8 @@
 /**
  * Bevisar EMPIRISKT — mot det riktiga Supabase-projektet, inte på förtroende
- * — att (a) SUPABASE_SECRET_KEY (`sb_secret_...`) förbigår RLS trots
+ * — att (a) PROJECT_SECRET_KEY (`sb_secret_...`) förbigår RLS trots
  * "enable row level security" + noll policies på tabellerna i
- * `supabase/migrations/*_init.sql`, och (b) SUPABASE_PUBLISHABLE_KEY
+ * `supabase/migrations/*_init.sql`, och (b) PROJECT_PUBLISHABLE_KEY
  * korrekt nekas. Stänger den öppna frågan i SUPABASE.md om det nya
  * `sb_secret_...`-nyckelformatet verkligen beter sig som gamla
  * `service_role`.
@@ -37,7 +37,7 @@ async function main() {
 
   if (!env.supabasePublishableKey) {
     console.error(
-      "SUPABASE_PUBLISHABLE_KEY saknas i .env.local. Den är valfri i Env generellt (se " +
+      "PROJECT_PUBLISHABLE_KEY saknas i .env.local. Den är valfri i Env generellt (se " +
         "src/server/env.ts), men KRÄVS för det här skriptet — utan den kan vi inte visa att en " +
         "icke-secret nyckel faktiskt nekas av RLS. Lägg till den och försök igen.",
     );

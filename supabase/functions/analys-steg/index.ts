@@ -401,7 +401,7 @@ Deno.serve(async (req: Request) => {
     // Instead this reads two custom-named secrets set explicitly via
     // `supabase secrets set PROJECT_URL=... PROJECT_SECRET_KEY=...`,
     // carrying the exact same value as this repo's own
-    // SUPABASE_URL/SUPABASE_SECRET_KEY in .env.local.
+    // PROJECT_URL/PROJECT_SECRET_KEY in .env.local.
     const sb = createClient(
       kravMiljovariabel("PROJECT_URL"),
       kravMiljovariabel("PROJECT_SECRET_KEY"),

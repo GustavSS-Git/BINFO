@@ -3,9 +3,9 @@ import { lasEnv, OgiltigMiljoError, OsakerMiljoNyckelError, type Env } from "./e
 
 function giltigRecord(): Record<string, string | undefined> {
   return {
-    SUPABASE_URL: "https://abcabcabc.supabase.co",
-    SUPABASE_SECRET_KEY: "sb_secret_xxx",
-    SUPABASE_PUBLISHABLE_KEY: "sb_publishable_xxx",
+    PROJECT_URL: "https://abcabcabc.supabase.co",
+    PROJECT_SECRET_KEY: "sb_secret_xxx",
+    PROJECT_PUBLISHABLE_KEY: "sb_publishable_xxx",
     MAX_DAILY_SPEND_SEK: "200",
     ANALYSIS_KILL_SWITCH: "off",
     ANTHROPIC_API_KEY: "sk-ant-xxx",
@@ -28,16 +28,16 @@ describe("lasEnv", () => {
     expect(env.maxCostPerAnalysisSek).toBe(5);
   });
 
-  it("kastar och namnger SUPABASE_URL när den saknas", () => {
+  it("kastar och namnger PROJECT_URL när den saknas", () => {
     const record = giltigRecord();
-    delete record["SUPABASE_URL"];
-    expect(() => lasEnv(record)).toThrowError(/SUPABASE_URL/);
+    delete record["PROJECT_URL"];
+    expect(() => lasEnv(record)).toThrowError(/PROJECT_URL/);
   });
 
-  it("kastar och namnger SUPABASE_SECRET_KEY när den saknas", () => {
+  it("kastar och namnger PROJECT_SECRET_KEY när den saknas", () => {
     const record = giltigRecord();
-    delete record["SUPABASE_SECRET_KEY"];
-    expect(() => lasEnv(record)).toThrowError(/SUPABASE_SECRET_KEY/);
+    delete record["PROJECT_SECRET_KEY"];
+    expect(() => lasEnv(record)).toThrowError(/PROJECT_SECRET_KEY/);
   });
 
   it("kastar och namnger ANTHROPIC_API_KEY när den saknas", () => {
@@ -54,7 +54,7 @@ describe("lasEnv", () => {
 
   it("kastar OgiltigMiljoError för en känd, saknad variabel", () => {
     const record = giltigRecord();
-    delete record["SUPABASE_URL"];
+    delete record["PROJECT_URL"];
     expect(() => lasEnv(record)).toThrowError(OgiltigMiljoError);
   });
 
@@ -71,8 +71,8 @@ describe("lasEnv", () => {
 
   it("VITE_-vakten går före övrig validering — den slår till även om andra fält saknas", () => {
     const record = giltigRecord();
-    delete record["SUPABASE_URL"];
-    (record as Record<string, string | undefined>)["VITE_SUPABASE_SECRET_KEY"] = "läckt";
+    delete record["PROJECT_URL"];
+    (record as Record<string, string | undefined>)["VITE_PROJECT_SECRET_KEY"] = "läckt";
     expect(() => lasEnv(record)).toThrowError(OsakerMiljoNyckelError);
   });
 
@@ -141,9 +141,9 @@ describe("lasEnv", () => {
     });
   });
 
-  it("SUPABASE_PUBLISHABLE_KEY utelämnad → fältet är undefined/frånvarande i resultatet", () => {
+  it("PROJECT_PUBLISHABLE_KEY utelämnad → fältet är undefined/frånvarande i resultatet", () => {
     const record = giltigRecord();
-    delete record["SUPABASE_PUBLISHABLE_KEY"];
+    delete record["PROJECT_PUBLISHABLE_KEY"];
     const env = lasEnv(record);
     expect(env.supabasePublishableKey).toBeUndefined();
     // exactOptionalPropertyTypes: verifierar att fältet kan utelämnas helt,
@@ -153,15 +153,15 @@ describe("lasEnv", () => {
     ).toBeUndefined();
   });
 
-  it("avvisar en URL som inte ser ut som en URL för SUPABASE_URL", () => {
-    expect(() => lasEnv({ ...giltigRecord(), SUPABASE_URL: "inte-en-url" })).toThrowError(
-      /SUPABASE_URL/,
+  it("avvisar en URL som inte ser ut som en URL för PROJECT_URL", () => {
+    expect(() => lasEnv({ ...giltigRecord(), PROJECT_URL: "inte-en-url" })).toThrowError(
+      /PROJECT_URL/,
     );
   });
 
-  it("avvisar ett tomt SUPABASE_SECRET_KEY", () => {
-    expect(() => lasEnv({ ...giltigRecord(), SUPABASE_SECRET_KEY: "" })).toThrowError(
-      /SUPABASE_SECRET_KEY/,
+  it("avvisar ett tomt PROJECT_SECRET_KEY", () => {
+    expect(() => lasEnv({ ...giltigRecord(), PROJECT_SECRET_KEY: "" })).toThrowError(
+      /PROJECT_SECRET_KEY/,
     );
   });
 
