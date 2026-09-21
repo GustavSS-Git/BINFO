@@ -108,10 +108,7 @@ function Index() {
               Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och vad du har kvar att leva på om
               räntan stiger, räknat på samma sätt som banken gör.
             </p>
-            <a
-              href="/bolanekalkyl"
-              className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
-            >
+            <a href="/bolanekalkyl" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
               Räkna på månadskostnaden
             </a>
           </Card>
@@ -140,26 +137,6 @@ function Index() {
           </div>
           <LinkButton to="/guide" variant="secondary">
             Öppna köpguiden
-          </LinkButton>
-        </Card>
-      </section>
-
-
- 
-
-      <section className="py-16">
-        <Card className="flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <h2 className="font-display text-2xl text-foreground md:text-3xl">
-              Du hinner sällan mer än en helg på dig.
-            </h2>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Binfo läser årsredovisningen, jämför priset mot värdering och tidigare försäljningar och visar vad
-              avgiften gör om räntan stiger.
-            </p>
-          </div>
-          <LinkButton to="/analysera" size="lg">
-            Kom igång
           </LinkButton>
         </Card>
       </section>
