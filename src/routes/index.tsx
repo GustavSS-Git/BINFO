@@ -105,17 +105,6 @@ function Index() {
             </a>
           </Card>
         </div>
-
-        <!-- 
-          <Card className="mt-6 flex flex-wrap items-center justify-between gap-6">
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            <strong className="text-foreground">Svaren vägs ihop till en gräns.</strong> Flaggor i föreningen sänker vad
-            bostaden är värd för dig, och din ekonomi sätter taket. Du går in i budgivningen med en siffra du redan har
-            bestämt dig för.
-          </p>
-          <LinkButton to="/analysera">Analysera en bostad</LinkButton>
-        </Card>
-          -->
       </section>
 
       <section className="py-12" aria-labelledby="guide-rubrik">
@@ -125,7 +114,7 @@ function Index() {
               Och resten av köpet? Köpguiden tar dig hela vägen.
             </h2>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör härnäst. 
+              Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör härnäst.
             </p>
           </div>
           <LinkButton to="/guide" variant="secondary">
