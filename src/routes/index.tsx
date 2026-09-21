@@ -76,7 +76,7 @@ function Index() {
         </p>
 
         <div className="mt-10 grid gap-6 md:grid-cols-3">
-          <Card id="foreningen">
+          <Card>
             <p className="text-sm text-muted-foreground">Du laddar upp årsredovisningen</p>
             <h3 className="mt-2 font-display text-xl text-foreground">Är föreningen frisk?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
@@ -89,7 +89,7 @@ function Index() {
             </Link>
           </Card>
 
-          <Card id="priset">
+          <Card>
             <p className="text-sm text-muted-foreground">Du fyller i adress, boarea och pris</p>
             <h3 className="mt-2 font-display text-xl text-foreground">Är priset rimligt?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
@@ -101,19 +101,19 @@ function Index() {
             </Link>
           </Card>
 
-          <Card id="kostnaden">
+          <Card>
             <p className="text-sm text-muted-foreground">Du fyller i inkomst, lån och kontantinsats</p>
             <h3 className="mt-2 font-display text-xl text-foreground">Har jag råd med just den här?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
               Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och vad du har kvar att leva på om
               räntan stiger, räknat på samma sätt som banken gör.
             </p>
-            <Link
-              to="/bolanekalkyl"
+            <a
+              href="/bolanekalkyl"
               className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
             >
               Räkna på månadskostnaden
-            </Link>
+            </a>
           </Card>
         </div>
 
