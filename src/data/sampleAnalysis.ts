@@ -22,7 +22,9 @@ export const sampleAnalysis: AnalysisResult = {
     postnummer: "123 45",
     ort: "Stockholm",
     hiss: "ja",
-    balkong: "ja",
+    balkong: "ja"
+    vaning: "2",
+    byggar: "1968",
     avgiftInkluderar: {
       varme: "okant",
       vatten: "okant",
