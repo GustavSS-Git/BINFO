@@ -64,7 +64,68 @@ function Index() {
             Se ett exempel på en rapport
           </Link>
         </p>
-      </section>
+        <div class="dossier-wrap">
+        <article class="dossier" aria-label="Exempel på en rapport från Binfo">
+          <span class="dossier-tab">Din rapport</span>
+          <header class="dossier-head">
+            <h2 class="dossier-title">2 rok på Södermalm</h2>
+            <p class="dossier-sub">Bostadsrätt, 58 m², byggår 1929</p>
+            <dl class="facts">
+              <div><dt>Utgångspris</dt><dd>4 950 000 kr</dd></div>
+              <div><dt>Avgift</dt><dd>3 630 kr/mån</dd></div>
+              <div><dt>Visning</dt><dd>Sön 13.00</dd></div>
+            </dl>
+          </header>
+
+          <ol class="dsteps">
+            <li class="is-flag" style="--d:.35s">
+              <a href="#foreningen">
+                <span class="marker" aria-hidden="true">!</span>
+                <span><span class="dstep-name">Föreningen</span><span class="dstep-val">Stambyte saknas i underhållsplanen. Skuld 14 200 kr/m².</span></span>
+                <span class="chip">2 flaggor</span>
+              </a>
+            </li>
+            <li class="is-done" style="--d:.65s">
+              <a href="#priset">
+                <span class="marker" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span><span class="dstep-name">Priset</span><span class="dstep-val">Rimligt slutpris 5,1–5,45 mkr. Räkna med budgivning.</span></span>
+                <span class="chip">Klar</span>
+              </a>
+            </li>
+            <li class="is-done" style="--d:.95s">
+              <a href="#kostnaden">
+                <span class="marker" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span><span class="dstep-name">Månadskostnad</span><span class="dstep-val">19 700 kr, eller 25 600 kr vid 5 % ränta</span></span>
+                <span class="chip">Klar</span>
+              </a>
+            </li>
+            <li class="is-done" style="--d:1.25s">
+              <a href="#kostnaden">
+                <span class="marker" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span><span class="dstep-name">Har du råd?</span><span class="dstep-val">Ja, även med bankens kalkylränta</span></span>
+                <span class="chip">Klar</span>
+              </a>
+            </li>
+          </ol>
+
+          <div class="verdict">
+            <span class="verdict-label">Din gräns i budgivningen</span>
+            <span class="verdict-value">5 250 000 kr</span>
+            <span class="verdict-why">Sänkt från 5,45 mkr för risken med stambytet.</span>
+          </div>
+
+          <a class="guide-progress" href="/guide">
+            <span class="gp-text"><strong>Köpguiden:</strong> nästa steg är budgivningen</span>
+            <span class="gp-count">4 av 12</span>
+            <span class="gp-bar" aria-hidden="true"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>
+          </a>
+
+          <p class="dossier-note">Exempel med påhittade siffror. Kalkylen utgår från 5 250 000 kr, 85 % belåning, 3 % ränta, ränteavdrag och 2 % amortering.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+     
 
       <section className="py-12" aria-labelledby="fragor-rubrik">
         <h2 id="fragor-rubrik" className="font-display text-3xl text-foreground md:text-4xl">
