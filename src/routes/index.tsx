@@ -65,54 +65,85 @@ function Index() {
           </Link>
         </p>
       </section>
-      
-  <!-- TRE FRÅGOR FÖRE BUDET -->
-  <section class="questions" aria-labelledby="fragor-rubrik">
-    <div class="wrap">
-      <div class="questions-head">
-        <h2 class="section-title" id="fragor-rubrik">Tre frågor du behöver svar på innan du budar.</h2>
-        <p class="section-lede">Du hinner sällan mer än en helg mellan visning och budgivning. Binfo svarar på alla tre i samma analys, så att du slipper fylla i samma sak två gånger.</p>
-      </div>
 
-      <div class="q-panel">
-        <div class="q-grid">
-          <article class="q-item" id="foreningen">
-            <p class="q-input">Du laddar upp årsredovisningen</p>
-            <h3>Är föreningen frisk?</h3>
-            <p class="q-body">Vi läser årsredovisningen, förklarar nyckeltalen på vanlig svenska och flaggar det som behöver förklaras, som lån som ska läggas om, lågt sparande eller renoveringar som saknar finansiering. Du får frågorna att ställa till styrelsen.</p>
-            <a class="tool-link" href="/analysera">Granska föreningen</a>
-          </article>
-          <article class="q-item" id="priset">
-            <p class="q-input">Du fyller i adress, boarea och pris</p>
-            <h3>Är priset rimligt?</h3>
-            <p class="q-body">Utgångspriset säger mer om mäklarens strategi än om bostadens värde. Vi jämför med vad liknande bostäder i området har sålts för och visar vilket slutpris som är rimligt.</p>
-            <a class="tool-link" href="/analysera">Kolla priset</a>
-          </article>
-          <article class="q-item" id="kostnaden">
-            <p class="q-input">Du fyller i inkomst, lån och kontantinsats</p>
-            <h3>Har jag råd med just den här?</h3>
-            <p class="q-body">Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och vad du har kvar att leva på om räntan stiger, räknat på samma sätt som banken gör.</p>
-            <a class="tool-link" href="/bolanekalkyl">Räkna på månadskostnaden</a>
-          </article>
-        </div>
-        <div class="q-synthesis">
-          <p><strong>Svaren vägs ihop till en gräns.</strong> Flaggor i föreningen sänker vad bostaden är värd för dig, och din ekonomi sätter taket. Du går in i budgivningen med en siffra du redan har bestämt dig för.</p>
-          <a class="btn btn-primary" href="/analysera">Analysera en bostad</a>
-        </div>
-      </div>
-    </div>
-  </section>
+      <section className="py-12" aria-labelledby="fragor-rubrik">
+        <h2 id="fragor-rubrik" className="font-display text-3xl text-foreground md:text-4xl">
+          Tre frågor du behöver svar på innan du budar.
+        </h2>
+        <p className="mt-3 max-w-2xl text-muted-foreground">
+          Du hinner sällan mer än en helg mellan visning och budgivning. Binfo svarar på alla tre i samma analys, så att
+          du slipper fylla i samma sak två gånger.
+        </p>
 
-  <!-- KÖPGUIDEN -->
-  <section class="guide" aria-labelledby="guide-rubrik">
-    <div class="wrap">
-      <div class="guide-head">
-        <div>
-          <h2 class="section-title" id="guide-rubrik">Och resten av köpet? Köpguiden tar dig hela vägen.</h2>
-          <p class="section-lede">Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör härnäst. Bocka av det du är klar med. Särskilt värdefull om det är ditt första köp.</p>
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <Card id="foreningen">
+            <p className="text-sm text-muted-foreground">Du laddar upp årsredovisningen</p>
+            <h3 className="mt-2 font-display text-xl text-foreground">Är föreningen frisk?</h3>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Vi läser årsredovisningen, förklarar nyckeltalen på vanlig svenska och flaggar det som behöver förklaras,
+              som lån som ska läggas om, lågt sparande eller renoveringar som saknar finansiering. Du får frågorna att
+              ställa till styrelsen.
+            </p>
+            <Link to="/analysera" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
+              Granska föreningen
+            </Link>
+          </Card>
+
+          <Card id="priset">
+            <p className="text-sm text-muted-foreground">Du fyller i adress, boarea och pris</p>
+            <h3 className="mt-2 font-display text-xl text-foreground">Är priset rimligt?</h3>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Utgångspriset säger mer om mäklarens strategi än om bostadens värde. Vi jämför med vad liknande bostäder i
+              området har sålts för och visar vilket slutpris som är rimligt.
+            </p>
+            <Link to="/analysera" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
+              Kolla priset
+            </Link>
+          </Card>
+
+          <Card id="kostnaden">
+            <p className="text-sm text-muted-foreground">Du fyller i inkomst, lån och kontantinsats</p>
+            <h3 className="mt-2 font-display text-xl text-foreground">Har jag råd med just den här?</h3>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och vad du har kvar att leva på om
+              räntan stiger, räknat på samma sätt som banken gör.
+            </p>
+            <Link
+              to="/bolanekalkyl"
+              className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
+            >
+              Räkna på månadskostnaden
+            </Link>
+          </Card>
         </div>
-        <a class="btn btn-secondary" href="/guide">Öppna köpguiden</a>
-      </div>
+
+        <Card className="mt-6 flex flex-wrap items-center justify-between gap-6">
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            <strong className="text-foreground">Svaren vägs ihop till en gräns.</strong> Flaggor i föreningen sänker vad
+            bostaden är värd för dig, och din ekonomi sätter taket. Du går in i budgivningen med en siffra du redan har
+            bestämt dig för.
+          </p>
+          <LinkButton to="/analysera">Analysera en bostad</LinkButton>
+        </Card>
+      </section>
+
+      <section className="py-12" aria-labelledby="guide-rubrik">
+        <Card className="flex flex-wrap items-center justify-between gap-6">
+          <div>
+            <h2 id="guide-rubrik" className="font-display text-2xl text-foreground md:text-3xl">
+              Och resten av köpet? Köpguiden tar dig hela vägen.
+            </h2>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör härnäst. Bocka av det du
+              är klar med. Särskilt värdefull om det är ditt första köp.
+            </p>
+          </div>
+          <LinkButton to="/guide" variant="secondary">
+            Öppna köpguiden
+          </LinkButton>
+        </Card>
+      </section>
+
 
  
 
