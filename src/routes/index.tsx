@@ -57,30 +57,33 @@ function Index() {
   return (
     <div className="mx-auto max-w-6xl px-5">
       <section className="py-16 md:py-28">
-        <Badge tone="teal">Oberoende beslutsstöd</Badge>
-        <h1 className="mt-6 max-w-4xl font-display text-5xl leading-[1.05] tracking-tight text-foreground md:text-7xl">
-          Säljaren har en mäklare. Nu har du Binfo.
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-          Binfo guidar dig genom köpet, granskar föreningen, kollar priset och räknar ut om du har råd med just den här
-          bostaden.
-        </p>
-        <div className="mt-10 flex flex-wrap items-center gap-4">
-          <LinkButton to="/analysera" size="lg">
-            Analysera en bostad
-          </LinkButton>
-          <LinkButton to="/guide" size="lg" variant="secondary">
-            Se köpguiden
-          </LinkButton>
-        </div>
-        <p className="mt-8 text-sm text-muted-foreground">
-          Oberoende · Inte kopplad till mäklare, bank eller förening. ·{" "}
-          <Link to="/exempel" className="font-medium text-primary underline underline-offset-2">
-            Se ett exempel på en rapport
-          </Link>
-        </p>
-        <div className="dossier-wrap">
-          <article className="dossier" aria-label="Exempel på en rapport från Binfo">
+        <div className="grid items-start gap-12 lg:grid-cols-2">
+          <div>
+            <Badge tone="teal">Oberoende beslutsstöd</Badge>
+            <h1 className="mt-6 max-w-4xl font-display text-5xl leading-[1.05] tracking-tight text-foreground md:text-7xl">
+              Säljaren har en mäklare. Nu har du Binfo.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+              Binfo guidar dig genom köpet, granskar föreningen, kollar priset och räknar ut om du har råd med just den
+              här bostaden.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <LinkButton to="/analysera" size="lg">
+                Analysera en bostad
+              </LinkButton>
+              <LinkButton to="/guide" size="lg" variant="secondary">
+                Se köpguiden
+              </LinkButton>
+            </div>
+            <p className="mt-8 text-sm text-muted-foreground">
+              Oberoende · Inte kopplad till mäklare, bank eller förening. ·{" "}
+              <Link to="/exempel" className="font-medium text-primary underline underline-offset-2">
+                Se ett exempel på en rapport
+              </Link>
+            </p>
+          </div>
+          <div className="dossier-wrap">
+            <article className="dossier" aria-label="Exempel på en rapport från Binfo">
             <span className="dossier-tab">Din rapport</span>
             <header className="dossier-head">
               <h2 className="dossier-title">2 rok på Södermalm</h2>
@@ -185,9 +188,8 @@ function Index() {
             </p>
           </article>
         </div>
+        </div>
       </section>
-
-     
 
       <section className="py-12" aria-labelledby="fragor-rubrik">
         <h2 id="fragor-rubrik" className="font-display text-3xl text-foreground md:text-4xl">
