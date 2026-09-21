@@ -21,7 +21,7 @@ export const sampleAnalysis: AnalysisResult = {
     adress: "Granstigen 10",
     postnummer: "123 45",
     ort: "Stockholm",
-    hiss: "okant",
+    hiss: "ja",
     balkong: "ja",
     avgiftInkluderar: {
       varme: "okant",
@@ -294,8 +294,7 @@ export const sampleAnalysis: AnalysisResult = {
       ],
       ref: {
         page: 5,
-        excerpt:
-          "Föreningen har en aktuell underhållsplan som upprättades 2025 och sträcker sig fram till 2075.",
+        excerpt: "Föreningen har en aktuell underhållsplan som upprättades 2025 och sträcker sig fram till 2075.",
       },
     },
     vasentligaHandelser: [
@@ -303,8 +302,7 @@ export const sampleAnalysis: AnalysisResult = {
         text: "Föreningen har lagt om ett lån på 8 942 000 kr från SEB till Swedbank med ränta 2,66 %, bunden på 3 år.",
         ref: {
           page: 7,
-          excerpt:
-            "Vi har lagt om ett av våra större lån (8.942.000 SEK) och flyttat det från SEB till Swedbank",
+          excerpt: "Vi har lagt om ett av våra större lån (8.942.000 SEK) och flyttat det från SEB till Swedbank",
         },
       },
       {
@@ -332,16 +330,14 @@ export const sampleAnalysis: AnalysisResult = {
         text: "Föreningens styrelserum har gjorts om till en övernattningslägenhet med fyra sovplatser, som tas i bruk 2026.",
         ref: {
           page: 8,
-          excerpt:
-            "Föreningens styrelserum har gjorts om för att även fungera som en övernattningslägenhet",
+          excerpt: "Föreningens styrelserum har gjorts om för att även fungera som en övernattningslägenhet",
         },
       },
       {
         text: "Avgiften höjdes med 2 % från 1 januari 2026 och tre lån till kommer att läggas om under 2026.",
         ref: {
           page: 20,
-          excerpt:
-            "Avgiften höjdes med 2% från den 1 januari 2026. ... Tre lån till kommer att läggas om 2026.",
+          excerpt: "Avgiften höjdes med 2% från den 1 januari 2026. ... Tre lån till kommer att läggas om 2026.",
         },
       },
     ],
@@ -468,8 +464,7 @@ export const sampleAnalysis: AnalysisResult = {
     },
     {
       id: "fraga-kostnad-fuktskador",
-      fraga:
-        "Vad är den uppskattade kostnaden för de två fuktskadorna, och täcks de av föreningens försäkring?",
+      fraga: "Vad är den uppskattade kostnaden för de två fuktskadorna, och täcks de av föreningens försäkring?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:
@@ -481,8 +476,7 @@ export const sampleAnalysis: AnalysisResult = {
     },
     {
       id: "fraga-forstudie-avlopp-resultat",
-      fraga:
-        "Vad indikerar förstudien om avloppet, och pekar den mot ett kommande stambyte inom de närmaste åren?",
+      fraga: "Vad indikerar förstudien om avloppet, och pekar den mot ett kommande stambyte inom de närmaste åren?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:
