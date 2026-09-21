@@ -77,12 +77,10 @@ function Index() {
 
         <div className="mt-10 grid gap-6 md:grid-cols-3">
           <Card>
-            <p className="text-sm text-muted-foreground">Du laddar upp årsredovisningen</p>
             <h3 className="mt-2 font-display text-xl text-foreground">Är föreningen frisk?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              Vi läser årsredovisningen, förklarar nyckeltalen på vanlig svenska och flaggar det som behöver förklaras,
-              som lån som ska läggas om, lågt sparande eller renoveringar som saknar finansiering. Du får frågorna att
-              ställa till styrelsen.
+              Vi läser årsredovisningen, förklarar nyckeltalen på vanlig svenska, flaggar det som behöver förklaras, och
+              tar fram frågor att ställa till styrelsen.
             </p>
             <Link to="/analysera" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
               Granska föreningen
@@ -90,7 +88,6 @@ function Index() {
           </Card>
 
           <Card>
-            <p className="text-sm text-muted-foreground">Du fyller i adress, boarea och pris</p>
             <h3 className="mt-2 font-display text-xl text-foreground">Är priset rimligt?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
               Utgångspriset säger mer om mäklarens strategi än om bostadens värde. Vi jämför med vad liknande bostäder i
@@ -102,11 +99,10 @@ function Index() {
           </Card>
 
           <Card>
-            <p className="text-sm text-muted-foreground">Du fyller i inkomst, lån och kontantinsats</p>
             <h3 className="mt-2 font-display text-xl text-foreground">Har jag råd med just den här?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och vad du har kvar att leva på om
-              räntan stiger, räknat på samma sätt som banken gör.
+              Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och hur mycket du har kvar i
+              plånboken om räntan stiger.
             </p>
             <a href="/bolanekalkyl" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
               Räkna på månadskostnaden
