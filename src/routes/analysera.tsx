@@ -209,8 +209,11 @@ function Analysera() {
         {visaFel && filFel ? <p className="mt-3 text-sm text-danger">{filFel}</p> : null}
       </Card>
 
-      <Card className="mb-6">
+      <Card>
         <h2 className="font-display text-2xl text-foreground">Objektets uppgifter</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Uppgifterna används för att analysera objektet samt estimera dess värde och kostnader.
+        </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field
             label="Utgångspris"
@@ -257,15 +260,6 @@ function Analysera() {
             onChange={set("antalRum")}
             error={visaFel ? fel.antalRum : null}
           />
-        </div>
-      </Card>
-
-      <Card>
-        <h2 className="font-display text-2xl text-foreground">Om föreningen</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Uppgifterna används för att beskriva objektet och hitta liknande priser i området.
-        </p>
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field
             label="Adress"
             type="text"
