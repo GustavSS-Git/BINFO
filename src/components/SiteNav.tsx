@@ -3,8 +3,8 @@ import { Link } from "@tanstack/react-router";
 const links = [
   { to: "/", label: "Hem" },
   { to: "/analysera", label: "Analysera" },
-  { to: "/guide", label: "Guide" },
   { to: "/bolanekalkyl", label: "Bolånekalkyl" },
+  { to: "/guide", label: "Guide" },
 ];
 
 export function SiteNav() {
