@@ -159,18 +159,18 @@
 
 @layer components {
   .dossier-wrap {
-    width: min(100%, 47rem);
-    margin: 4.5rem auto 0;
-    padding-top: 2.9rem;
+    width: min(100%, 38rem);
+    margin: 0 auto;
+    padding-top: 1.6rem;
   }
 
   .dossier {
     position: relative;
     border: 1px solid var(--border);
-    border-radius: 1.5rem 1.5rem 0 0;
+    border-radius: 1.25rem 1.25rem 0 0;
     background: var(--card);
-    padding: 3rem 2.75rem 2rem;
-    box-shadow: 0 1.25rem 3rem color-mix(in oklab, var(--foreground) 6%, transparent);
+    padding: 1.5rem 1.5rem 1.25rem;
+    box-shadow: 0 1rem 2.25rem color-mix(in oklab, var(--foreground) 5%, transparent);
   }
 
   .dossier-tab {
@@ -178,47 +178,47 @@
     bottom: 100%;
     left: -1px;
     display: flex;
-    height: 3rem;
+    height: 2.2rem;
     align-items: center;
     border: 1px solid var(--border);
     border-bottom-color: var(--card);
-    border-radius: 1rem 1rem 0 0;
+    border-radius: 0.75rem 0.75rem 0 0;
     background: var(--card);
-    padding: 0 1.75rem;
+    padding: 0 1.25rem;
     color: var(--accent-foreground);
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 600;
   }
 
   .dossier-title {
     font-family: var(--font-display);
-    font-size: clamp(1.8rem, 5vw, 2.4rem);
+    font-size: clamp(1.4rem, 3vw, 1.75rem);
     line-height: 1.2;
   }
 
   .dossier-sub {
-    margin-top: 0.75rem;
+    margin-top: 0.4rem;
     color: var(--muted-foreground);
-    font-size: 1.1rem;
+    font-size: 0.95rem;
   }
 
   .facts {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
-    margin-top: 1.75rem;
+    gap: 1rem;
+    margin-top: 1rem;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 1.75rem;
+    padding-bottom: 1rem;
   }
 
   .facts dt {
     color: var(--muted-foreground);
-    font-size: 0.95rem;
+    font-size: 0.8rem;
   }
 
   .facts dd {
-    margin-top: 0.25rem;
-    font-size: 1.15rem;
+    margin-top: 0.15rem;
+    font-size: 0.95rem;
     font-weight: 600;
   }
 
