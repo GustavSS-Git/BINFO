@@ -58,7 +58,7 @@ function Index() {
           </LinkButton>
         </div>
         <p className="mt-8 text-sm text-muted-foreground">
-          Oberoende · Inte kopplad till mäklare eller bank. ·{" "}
+          Oberoende · Inte kopplad till mäklare, bank eller förening. ·{" "}
           <Link to="/exempel" className="font-medium text-primary underline underline-offset-2">
             Se ett exempel på en rapport
           </Link>
