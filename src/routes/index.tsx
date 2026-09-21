@@ -65,7 +65,6 @@ function Index() {
           </Link>
         </p>
       </section>
-
       
   <!-- TRE FRÅGOR FÖRE BUDET -->
   <section class="questions" aria-labelledby="fragor-rubrik">
@@ -114,17 +113,8 @@ function Index() {
         </div>
         <a class="btn btn-secondary" href="/guide">Öppna köpguiden</a>
       </div>
-      
 
-      <section className="grid gap-5 pb-10 md:grid-cols-3">
-        {steg.map((s) => (
-          <Card key={s.nr}>
-            <p className="font-display text-3xl text-primary">{s.nr}</p>
-            <h2 className="mt-4 text-base font-semibold text-foreground">{s.titel}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{s.text}</p>
-          </Card>
-        ))}
-      </section>
+ 
 
       <section className="py-16">
         <Card className="flex flex-wrap items-center justify-between gap-6">
