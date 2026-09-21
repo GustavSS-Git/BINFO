@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Card, Button, Field, Toggle, TristateChoice, PageHeader } from "@/components/ui/binfo";
-import { usePropertyType } from "@/lib/propertyType";
+import { Card, Button, Field, TristateChoice, PageHeader } from "@/components/ui/binfo";
 import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
 import { avgiftPoster } from "@/data/mockData";
 import {
@@ -56,7 +55,9 @@ type SkickaFel =
 
 function Analysera() {
   const navigate = useNavigate();
-  const [typ, setTyp] = usePropertyType();
+  // Husstödet finns kvar i den bakomliggande mappningen, men Analysera är
+  // tills vidare grafiskt och funktionellt låst till bostadsrätter.
+  const typ = "brf" as const;
   const [dragging, setDragging] = useState(false);
   const [fil, setFil] = useState<File | null>(null);
   const [filFel, setFilFel] = useState<string | null>(null);
@@ -151,22 +152,6 @@ function Analysera() {
         title="Analysera en bostad"
         lead="Ladda upp föreningens senaste årsredovisning och fyll i objektets uppgifter."
       />
-
-      <div className="mb-8">
-        <Toggle
-          value={typ}
-          onChange={setTyp}
-          options={[
-            { value: "brf", label: "Bostadsrätt" },
-            { value: "hus", label: "Hus" },
-          ]}
-        />
-        <p className="mt-3 text-sm text-muted-foreground">
-          {typ === "brf"
-            ? "Analysen utgår från föreningens ekonomi och din andel av skulden."
-            : "För hus granskar vi i stället driftkostnader, besiktning samt lagfart och pantbrev."}
-        </p>
-      </div>
 
       <Card className="mb-6">
         <input
@@ -265,15 +250,6 @@ function Analysera() {
             error={visaFel ? fel.manadsavgift : null}
           />
           <Field
-            label="Andelstal"
-            type="text"
-            suffix="%"
-            placeholder="2,1"
-            value={form.andelstal}
-            onChange={set("andelstal")}
-            error={visaFel ? fel.andelstal : null}
-          />
-          <Field
             label="Antal rum"
             type="text"
             placeholder="3"
@@ -281,30 +257,15 @@ function Analysera() {
             onChange={set("antalRum")}
             error={visaFel ? fel.antalRum : null}
           />
-          <Field
-            label="Antal personer i hushållet"
-            value={String(uppgifter.antalPersoner)}
-            onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
-            hint="Används för schablonen för vattenkostnad."
-          />
         </div>
       </Card>
 
       <Card>
         <h2 className="font-display text-2xl text-foreground">Om föreningen</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Uppgifterna används för att hitta rätt förening och jämförbara försäljningar.
+          Uppgifterna används för att beskriva objektet och hitta liknande priser i området.
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
-          <Field
-            label="Föreningens organisationsnummer"
-            type="text"
-            placeholder="769612-3456"
-            value={form.organisationsnummer}
-            onChange={set("organisationsnummer")}
-            error={visaFel ? fel.organisationsnummer : null}
-            hint="Format: XXXXXX-XXXX"
-          />
           <Field
             label="Adress"
             type="text"

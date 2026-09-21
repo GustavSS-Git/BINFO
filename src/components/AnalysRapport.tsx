@@ -113,11 +113,9 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
 
 function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
   const p = analys.prisanalys;
-  const forsaljningar = p.senasteForsaljningarIForeningen ?? [];
-
   return (
     <section className="mb-10">
-      <SectionTitle hint="Jämförelse mot värdering och faktisk affär i samma hus.">
+      <SectionTitle hint="Jämförelse mot värdering och pris per kvadratmeter.">
         Är priset rimligt?
       </SectionTitle>
       <Card>
@@ -161,35 +159,6 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
             </div>
           ) : null}
 
-          <div className="py-4 first:pt-0 last:pb-0">
-            <p className="text-sm font-medium text-foreground">Försäljningar i föreningen</p>
-            {forsaljningar.length === 0 ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Inga kända försäljningar i föreningen.
-              </p>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {forsaljningar.map((f) => (
-                  <li
-                    key={f.datum}
-                    className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                  >
-                    <span className="text-muted-foreground">
-                      {f.datum} ·{" "}
-                      {f.boarea.toLocaleString("sv-SE", {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1,
-                      })}{" "}
-                      m²
-                    </span>
-                    <span className="font-display text-foreground">
-                      {formatFigureVarde(f.pris)} ({formatFigureVarde(f.prisPerM2)})
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </div>
 
         <p className="mt-6 rounded-xl bg-secondary p-4 text-sm text-foreground">{p.slutsats}</p>

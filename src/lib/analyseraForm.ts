@@ -73,8 +73,6 @@ export function parseValfrittHeltal(rått: string): number | undefined {
 // Formulärvalidering
 // ---------------------------------------------------------------------------
 
-const orgnrRegex = /^\d{6}-\d{4}$/;
-
 export interface AnalyseraFormFields {
   utgangspris: string;
   boarea: string;
@@ -95,9 +93,7 @@ export interface AnalyseraFormFel {
   utgangspris: string | null;
   boarea: string | null;
   manadsavgift: string | null;
-  andelstal: string | null;
   antalRum: string | null;
-  organisationsnummer: string | null;
   adress: string | null;
   postnummer: string | null;
   ort: string | null;
@@ -108,11 +104,7 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
     utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
-    andelstal: parsePositivtTal(f.andelstal) === null ? "Ange ett giltigt andelstal." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
-    organisationsnummer: !orgnrRegex.test(f.organisationsnummer.trim())
-      ? "Ange organisationsnummer i formatet XXXXXX-XXXX."
-      : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
     postnummer: f.postnummer.trim() === "" ? "Ange postnummer." : null,
     ort: f.ort.trim() === "" ? "Ange ort." : null,
@@ -164,8 +156,10 @@ export function buildPropertyInput(
     boarea: parsePositivtTal(form.boarea) ?? 0,
     antalRum: parsePositivtTal(form.antalRum) ?? 0,
     manadsavgift: Math.round(parsePositivtTal(form.manadsavgift) ?? 0),
-    andelstal: parsePositivtTal(form.andelstal) ?? 0,
-    orgnr: form.organisationsnummer.trim(),
+    // Kompatibilitetsvärden: fälten visas inte längre i UI, men kontraktet
+    // kräver dem fortfarande tills en separat kontraktsändring görs.
+    andelstal: 0,
+    orgnr: "",
     adress: form.adress.trim(),
     postnummer: form.postnummer.trim(),
     ort: form.ort.trim(),

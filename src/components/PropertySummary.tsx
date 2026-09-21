@@ -24,7 +24,6 @@ export function PropertySummary({
     ["Månadsavgift", `${kr(input.manadsavgift)}/mån`],
     // Kontraktet har ingen "våning X av N" — bara en enskild våning, om känd.
     ["Våning", input.vaning !== undefined ? String(input.vaning) : "Okänt"],
-    ["Andelstal", `${input.andelstal.toString().replace(".", ",")} %`],
     ["Byggår", input.byggar !== undefined ? String(input.byggar) : "Okänt"],
   ];
   return (
@@ -38,7 +37,7 @@ export function PropertySummary({
         </div>
         <Badge tone="teal">Analyserad {formatSkapadDatum(skapad)}</Badge>
       </div>
-      <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-6 md:grid-cols-6">
+      <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-6 md:grid-cols-5">
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt className="text-xs text-muted-foreground">{label}</dt>
