@@ -135,9 +135,7 @@ describe("validateraAnalyseraForm", () => {
     expect(fel.utgangspris).not.toBeNull();
     expect(fel.boarea).not.toBeNull();
     expect(fel.manadsavgift).not.toBeNull();
-    expect(fel.andelstal).not.toBeNull();
     expect(fel.antalRum).not.toBeNull();
-    expect(fel.organisationsnummer).not.toBeNull();
     expect(fel.adress).not.toBeNull();
     expect(fel.postnummer).not.toBeNull();
     expect(fel.ort).not.toBeNull();
@@ -165,9 +163,21 @@ describe("validateraAnalyseraForm", () => {
     expect(harValideringsfel(fel)).toBe(false);
   });
 
-  it("kräver organisationsnummer i formatet XXXXXX-XXXX", () => {
-    const fel = validateraAnalyseraForm(tomtFormulär({ organisationsnummer: "7696123456" }));
-    expect(fel.organisationsnummer).not.toBeNull();
+  it("blockerar inte formuläret på dolda andelstal eller organisationsnummer", () => {
+    const fel = validateraAnalyseraForm(
+      tomtFormulär({
+        utgangspris: "4 950 000",
+        boarea: "58",
+        manadsavgift: "3 240",
+        antalRum: "3",
+        adress: "Kapellgränd 12",
+        postnummer: "116 25",
+        ort: "Stockholm",
+      }),
+    );
+    expect(harValideringsfel(fel)).toBe(false);
+    expect("andelstal" in fel).toBe(false);
+    expect("organisationsnummer" in fel).toBe(false);
   });
 
   it("lämnar vaning/byggar utanför felobjektet — de är valfria", () => {
@@ -214,8 +224,8 @@ describe("buildPropertyInput", () => {
       boarea: 58,
       antalRum: 3,
       manadsavgift: 3_240,
-      andelstal: 2.1,
-      orgnr: "769612-3456",
+      andelstal: 0,
+      orgnr: "",
       adress: "Kapellgränd 12",
       postnummer: "116 25",
       ort: "Stockholm",
