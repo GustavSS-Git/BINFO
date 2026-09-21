@@ -47,7 +47,8 @@ function Index() {
           Säljaren har en mäklare. Nu har du Binfo.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-          En oberoende risk- och priskontroll för bostaden du är på väg att buda på.
+          Binfo guidar dig genom köpet,granskar föreningen, kollar priset och räknar ut om du har råd med just den här
+          bostaden.
         </p>
         <div className="mt-10 flex flex-wrap items-center gap-4">
           <LinkButton to="/analysera" size="lg">
