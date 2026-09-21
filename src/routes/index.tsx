@@ -247,6 +247,17 @@ function Index() {
           </LinkButton>
         </Card>
       </section>
+      
+      <!-- OBEROENDE -->
+  <section class="independent" aria-labelledby="oberoende-rubrik">
+    <div class="wrap independent-grid">
+      <h2 class="statement" id="oberoende-rubrik">Vi tjänar ingenting på att du köper.</h2>
+      <div class="independent-body">
+        <p>Säljaren anlitar och betalar mäklaren. Banken tjänar på ditt lån. Binfo tar ingen provision från mäklare, banker eller föreningar.</p>
+        <p>Därför kan vi säga det rakt ut när en bostad är för dyr, när en förening har problem eller när du borde låta bli att buda.</p>
+      </div>
+    </div>
+  </section>
     </div>
   );
 }
