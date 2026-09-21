@@ -70,10 +70,6 @@ function Index() {
         <h2 id="fragor-rubrik" className="font-display text-3xl text-foreground md:text-4xl">
           Tre frågor du behöver svar på innan du budar.
         </h2>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Du hinner sällan mer än en helg mellan visning och budgivning. Binfo svarar på alla tre i samma analys, så att
-          du slipper fylla i samma sak två gånger.
-        </p>
 
         <div className="mt-10 grid gap-6 md:grid-cols-3">
           <Card>
