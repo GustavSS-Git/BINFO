@@ -188,9 +188,8 @@ function Index() {
             </p>
           </article>
         </div>
+        </div>
       </section>
-
-     
 
       <section className="py-12" aria-labelledby="fragor-rubrik">
         <h2 id="fragor-rubrik" className="font-display text-3xl text-foreground md:text-4xl">
