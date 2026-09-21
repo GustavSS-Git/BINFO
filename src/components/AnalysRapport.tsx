@@ -158,7 +158,6 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
               </div>
             </div>
           ) : null}
-
         </div>
 
         <p className="mt-6 rounded-xl bg-secondary p-4 text-sm text-foreground">{p.slutsats}</p>
