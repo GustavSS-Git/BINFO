@@ -247,17 +247,31 @@ function Index() {
           </LinkButton>
         </Card>
       </section>
-      
-      <!-- OBEROENDE -->
-  <section class="independent" aria-labelledby="oberoende-rubrik">
-    <div class="wrap independent-grid">
-      <h2 class="statement" id="oberoende-rubrik">Vi tjänar ingenting på att du köper.</h2>
-      <div class="independent-body">
-        <p>Säljaren anlitar och betalar mäklaren. Banken tjänar på ditt lån. Binfo tar ingen provision från mäklare, banker eller föreningar.</p>
-        <p>Därför kan vi säga det rakt ut när en bostad är för dyr, när en förening har problem eller när du borde låta bli att buda.</p>
+
+    <section className="py-12 md:py-20" aria-labelledby="oberoende-rubrik">
+      <div className="grid items-start gap-8 md:grid-cols-2 md:gap-20">
+        <h2
+          id="oberoende-rubrik"
+          className="text-balance font-display text-4xl leading-[1.14] tracking-tight text-foreground md:text-5xl"
+        >
+          Vi tjänar ingenting på att du köper.
+        </h2>
+        <div className="max-w-[32em] space-y-4 text-muted-foreground md:text-lg">
+          <p>
+            Säljaren anlitar och betalar mäklaren. Banken tjänar på ditt lån. Binfo tar ingen provision från mäklare,
+            banker eller föreningar.
+          </p>
+          <p>
+            Därför kan vi säga det rakt ut när en bostad är för dyr, när en förening har problem eller när du borde låta
+            bli att buda.
+          </p>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  );
+}
+
+      
     </div>
   );
 }
