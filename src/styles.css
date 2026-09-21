@@ -159,18 +159,18 @@
 
 @layer components {
   .dossier-wrap {
-    width: min(100%, 47rem);
-    margin: 4.5rem auto 0;
-    padding-top: 2.9rem;
+    width: min(100%, 38rem);
+    margin: 0 auto;
+    padding-top: 1.6rem;
   }
 
   .dossier {
     position: relative;
     border: 1px solid var(--border);
-    border-radius: 1.5rem 1.5rem 0 0;
+    border-radius: 1.25rem 1.25rem 0 0;
     background: var(--card);
-    padding: 3rem 2.75rem 2rem;
-    box-shadow: 0 1.25rem 3rem color-mix(in oklab, var(--foreground) 6%, transparent);
+    padding: 1.5rem 1.5rem 1.25rem;
+    box-shadow: 0 1rem 2.25rem color-mix(in oklab, var(--foreground) 5%, transparent);
   }
 
   .dossier-tab {
@@ -178,52 +178,52 @@
     bottom: 100%;
     left: -1px;
     display: flex;
-    height: 3rem;
+    height: 2.2rem;
     align-items: center;
     border: 1px solid var(--border);
     border-bottom-color: var(--card);
-    border-radius: 1rem 1rem 0 0;
+    border-radius: 0.75rem 0.75rem 0 0;
     background: var(--card);
-    padding: 0 1.75rem;
+    padding: 0 1.25rem;
     color: var(--accent-foreground);
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 600;
   }
 
   .dossier-title {
     font-family: var(--font-display);
-    font-size: clamp(1.8rem, 5vw, 2.4rem);
+    font-size: clamp(1.4rem, 3vw, 1.75rem);
     line-height: 1.2;
   }
 
   .dossier-sub {
-    margin-top: 0.75rem;
+    margin-top: 0.4rem;
     color: var(--muted-foreground);
-    font-size: 1.1rem;
+    font-size: 0.95rem;
   }
 
   .facts {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
-    margin-top: 1.75rem;
+    gap: 1rem;
+    margin-top: 1rem;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 1.75rem;
+    padding-bottom: 1rem;
   }
 
   .facts dt {
     color: var(--muted-foreground);
-    font-size: 0.95rem;
+    font-size: 0.8rem;
   }
 
   .facts dd {
-    margin-top: 0.25rem;
-    font-size: 1.15rem;
+    margin-top: 0.15rem;
+    font-size: 0.95rem;
     font-weight: 600;
   }
 
   .dsteps {
-    margin-top: 1.5rem;
+    margin-top: 1rem;
   }
 
   .dsteps li {
@@ -232,9 +232,9 @@
 
   .dsteps li:not(:last-child)::after {
     position: absolute;
-    top: 2.1rem;
-    bottom: -0.75rem;
-    left: 0.93rem;
+    top: 1.65rem;
+    bottom: -0.5rem;
+    left: 0.72rem;
     width: 1px;
     background: var(--border);
     content: "";
@@ -242,10 +242,10 @@
 
   .dsteps a {
     display: grid;
-    grid-template-columns: 1.9rem minmax(0, 1fr) auto;
-    gap: 1rem;
+    grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+    gap: 0.75rem;
     align-items: start;
-    padding: 0 0 1.5rem;
+    padding: 0 0 1rem;
     color: inherit;
     text-decoration: none;
   }
@@ -254,12 +254,13 @@
     position: relative;
     z-index: 1;
     display: grid;
-    width: 1.9rem;
-    height: 1.9rem;
+    width: 1.5rem;
+    height: 1.5rem;
     place-items: center;
     border-radius: 999px;
     background: var(--primary);
     color: var(--primary-foreground);
+    font-size: 0.75rem;
     font-weight: 700;
   }
 
@@ -273,22 +274,23 @@
   }
 
   .dstep-name {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     font-weight: 600;
   }
 
   .dstep-val {
-    margin-top: 0.35rem;
+    margin-top: 0.15rem;
     color: var(--muted-foreground);
-    line-height: 1.55;
+    font-size: 0.85rem;
+    line-height: 1.45;
   }
 
   .chip {
     border-radius: 999px;
     background: var(--accent);
-    padding: 0.4rem 0.75rem;
+    padding: 0.2rem 0.55rem;
     color: var(--accent-foreground);
-    font-size: 0.85rem;
+    font-size: 0.7rem;
     font-weight: 600;
     white-space: nowrap;
   }
@@ -301,20 +303,21 @@
   .verdict {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.75rem 1.5rem;
+    gap: 0.4rem 1rem;
     align-items: center;
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     background: var(--accent);
-    padding: 1.5rem;
+    padding: 1rem;
   }
 
   .verdict-label {
     color: var(--accent-foreground);
+    font-size: 0.85rem;
   }
 
   .verdict-value {
     font-family: var(--font-display);
-    font-size: clamp(1.7rem, 5vw, 2.3rem);
+    font-size: clamp(1.3rem, 3vw, 1.65rem);
     line-height: 1;
     white-space: nowrap;
   }
@@ -322,15 +325,17 @@
   .verdict-why {
     grid-column: 1 / -1;
     color: var(--muted-foreground);
+    font-size: 0.8rem;
   }
 
   .guide-progress {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.8rem;
-    margin-top: 2rem;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
     color: inherit;
     text-decoration: none;
+    font-size: 0.85rem;
   }
 
   .gp-count {
@@ -341,11 +346,11 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 0.3rem;
+    gap: 0.25rem;
   }
 
   .gp-bar span {
-    height: 0.35rem;
+    height: 0.3rem;
     border-radius: 999px;
     background: var(--border);
   }
@@ -355,28 +360,29 @@
   }
 
   .dossier-note {
-    margin-top: 1.5rem;
+    margin-top: 1rem;
     color: var(--muted-foreground);
-    font-size: 0.75rem;
-    line-height: 1.5;
+    font-size: 0.65rem;
+    line-height: 1.45;
   }
 
   @media (max-width: 640px) {
     .dossier-wrap {
-      margin-top: 3.5rem;
+      margin-top: 2.5rem;
+      padding-top: 1.4rem;
     }
 
     .dossier {
-      padding: 2rem 1.25rem 1.5rem;
+      padding: 1.25rem 1.1rem 1rem;
     }
 
     .facts {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1rem;
+      gap: 0.75rem;
     }
 
     .dsteps a {
-      grid-template-columns: 1.9rem minmax(0, 1fr);
+      grid-template-columns: 1.5rem minmax(0, 1fr);
     }
 
     .chip {
