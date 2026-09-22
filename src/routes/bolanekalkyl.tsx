@@ -218,6 +218,20 @@ function Bolanekalkyl() {
   const bruttoHog = bruttoLag + baseSpread + extraSpread;
   const nettoHog = nettoLag + baseSpread + extraSpread;
 
+  // Faktisk månatlig utbetalning: ränta FÖRE ränteavdrag + amortering +
+  // avgift + drift (de boendeposter som inte täcks av avgiften, med
+  // användarens eventuella egna värden).
+  const drift = boendeSchablonPoster.reduce(
+    (acc, p) => acc + (egna[p.id] ?? p.figure.value ?? 0),
+    0,
+  );
+  const betalarPerManad = rantekostnad + amortering + manadsavgiftPost + drift;
+  const andelAvNetto = nettoinkomstPerManad > 0 ? (betalarPerManad / nettoinkomstPerManad) * 100 : 0;
+  // "Andra lån" finns inte som fält på sidan i dag — posten är därför 0 kr.
+  const andraLan = 0;
+  const kvarAttLevaPa = nettoinkomstPerManad - betalarPerManad - andraLan;
+
+
   return (
     <div className="mx-auto max-w-5xl px-5 py-14">
       <PageHeader
