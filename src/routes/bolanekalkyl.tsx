@@ -10,6 +10,7 @@ import {
 } from "@/lib/bolanekalkyl";
 import { beraknaManadskostnad, type LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import { rantestressScenario } from "@/lib/analysis/calc/rantestress";
+import { beraknaHushallSkatt } from "@/lib/skatt2026";
 import { costItemOsaker, FEE_KEY_BY_COST_ITEM } from "@/lib/analysisView";
 import type { CostItemId, PropertyInput } from "@/types/analysis";
 
