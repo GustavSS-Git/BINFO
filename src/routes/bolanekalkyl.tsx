@@ -66,7 +66,11 @@ function Bolanekalkyl() {
   const [lanebelopp, setLanebelopp] = useState(String(LANEBELOPP_DEFAULT));
   const [ranta, setRanta] = useState(String(RANTA_DEFAULT));
   const [kontantinsats, setKontantinsats] = useState(String(KONTANTINSATS_DEFAULT));
+  // Bruttoinkomst per låntagare. Låntagare 2:s värde ligger kvar i state
+  // även när "1 låntagare" är valt — det ingår då inte i någon beräkning,
+  // men återkommer om användaren byter tillbaka.
   const [inkomst, setInkomst] = useState(String(BRUTTOINKOMST_DEFAULT));
+  const [inkomst2, setInkomst2] = useState("");
   const [lantagare, setLantagare] = useState<"1" | "2">(
     String(kalkylDefaults.antalLantagare) as "1" | "2",
   );
