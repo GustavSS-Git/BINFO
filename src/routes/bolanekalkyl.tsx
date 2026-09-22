@@ -10,6 +10,7 @@ import {
 } from "@/lib/bolanekalkyl";
 import { beraknaManadskostnad, type LaneUnderlag } from "@/lib/analysis/calc/manadskostnad";
 import { rantestressScenario } from "@/lib/analysis/calc/rantestress";
+import { beraknaHushallSkatt } from "@/lib/skatt2026";
 import { costItemOsaker, FEE_KEY_BY_COST_ITEM } from "@/lib/analysisView";
 import type { CostItemId, PropertyInput } from "@/types/analysis";
 
@@ -66,7 +67,11 @@ function Bolanekalkyl() {
   const [lanebelopp, setLanebelopp] = useState(String(LANEBELOPP_DEFAULT));
   const [ranta, setRanta] = useState(String(RANTA_DEFAULT));
   const [kontantinsats, setKontantinsats] = useState(String(KONTANTINSATS_DEFAULT));
+  // Bruttoinkomst per låntagare. Låntagare 2:s värde ligger kvar i state
+  // även när "1 låntagare" är valt — det ingår då inte i någon beräkning,
+  // men återkommer om användaren byter tillbaka.
   const [inkomst, setInkomst] = useState(String(BRUTTOINKOMST_DEFAULT));
+  const [inkomst2, setInkomst2] = useState("");
   const [lantagare, setLantagare] = useState<"1" | "2">(
     String(kalkylDefaults.antalLantagare) as "1" | "2",
   );
@@ -126,16 +131,34 @@ function Bolanekalkyl() {
     [input, stressadAvgift],
   );
 
+  // Bara de aktiva låntagarnas inkomster — skuldkvoten och skatten räknas
+  // på summan av dem.
+  const bruttoinkomster = useMemo(
+    () => (lantagare === "2" ? [num(inkomst), num(inkomst2)] : [num(inkomst)]),
+    [inkomst, inkomst2, lantagare],
+  );
+  const hushalletsBruttoinkomst = bruttoinkomster.reduce((a, b) => a + b, 0);
+
   const lan: LaneUnderlag = useMemo(
     () => ({
       lanebelopp: num(lanebelopp),
       kontantinsats: num(kontantinsats),
       ranta: num(ranta) + delta,
-      bruttoinkomst: num(inkomst),
+      bruttoinkomst: hushalletsBruttoinkomst,
       antalLantagare: Number(lantagare) as 1 | 2,
     }),
-    [lanebelopp, kontantinsats, ranta, delta, inkomst, lantagare],
+    [lanebelopp, kontantinsats, ranta, delta, hushalletsBruttoinkomst, lantagare],
   );
+
+  // Skatt och nettoinkomst enligt 2026 års regler (src/lib/skatt2026.ts).
+  // Nettoinkomsten beräknas utan ränteavdrag — avdraget kommer normalt via
+  // deklarationen och redovisas separat nedan.
+  const arligBolaneranta = lan.lanebelopp * (lan.ranta / 100);
+  const hushall = useMemo(
+    () => beraknaHushallSkatt(bruttoinkomster, arligBolaneranta),
+    [bruttoinkomster, arligBolaneranta],
+  );
+  const nettoinkomstPerManad = hushall.nettoinkomstPerManad;
 
   const m = useMemo(() => beraknaManadskostnad(liveInput, lan), [liveInput, lan]);
 
@@ -195,6 +218,20 @@ function Bolanekalkyl() {
   const bruttoHog = bruttoLag + baseSpread + extraSpread;
   const nettoHog = nettoLag + baseSpread + extraSpread;
 
+  // Faktisk månatlig utbetalning: ränta FÖRE ränteavdrag + amortering +
+  // avgift + drift (de boendeposter som inte täcks av avgiften, med
+  // användarens eventuella egna värden).
+  const drift = boendeSchablonPoster.reduce(
+    (acc, p) => acc + (egna[p.id] ?? p.figure.value ?? 0),
+    0,
+  );
+  const betalarPerManad = rantekostnad + amortering + manadsavgiftPost + drift;
+  const andelAvNetto = nettoinkomstPerManad > 0 ? (betalarPerManad / nettoinkomstPerManad) * 100 : 0;
+  // "Andra lån" finns inte som fält på sidan i dag — posten är därför 0 kr.
+  const andraLan = 0;
+  const kvarAttLevaPa = nettoinkomstPerManad - betalarPerManad - andraLan;
+
+
   return (
     <div className="mx-auto max-w-5xl px-5 py-14">
       <PageHeader
@@ -234,12 +271,6 @@ function Bolanekalkyl() {
               onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
               hint="Styr schablonen för vattenkostnad."
             />
-            <Field
-              label="Hushållets bruttoinkomst per år"
-              suffix="kr"
-              value={inkomst}
-              onChange={setInkomst}
-            />
             <div>
               <span className="mb-1.5 block text-sm font-medium text-foreground">
                 Antal låntagare
@@ -254,6 +285,35 @@ function Bolanekalkyl() {
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 Ränteavdragets tak på 100 000 kr gäller per person och år.
+              </p>
+            </div>
+            <Field
+              label="Låntagare 1: bruttoinkomst per år"
+              suffix="kr/år"
+              value={inkomst}
+              onChange={setInkomst}
+              hint="Lön före skatt per år, inklusive fasta tillägg."
+            />
+            {lantagare === "2" ? (
+              <Field
+                label="Låntagare 2: bruttoinkomst per år"
+                suffix="kr/år"
+                value={inkomst2}
+                onChange={setInkomst2}
+                hint="Lön före skatt per år, inklusive fasta tillägg."
+              />
+            ) : null}
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-medium text-foreground">
+                  Hushållets nettoinkomst
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {kr(nettoinkomstPerManad)}/mån
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Uträknad efter skatt i Stockholm 2026, utan ränteavdrag.
               </p>
             </div>
             <div>
@@ -341,17 +401,69 @@ function Bolanekalkyl() {
               ) : (
                 <p className="mt-2 font-display text-5xl text-foreground">{kr(nettoLag)}</p>
               )}
+              <p className="mt-1 text-sm text-muted-foreground">
+                i snitt över året, efter ränteavdrag
+              </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Efter ränteavdrag. Brutto:{" "}
+                Brutto:{" "}
                 {harSpann
                   ? `${Math.round(bruttoLag).toLocaleString("sv-SE")} – ${kr(bruttoHog)}`
                   : kr(bruttoLag)}
               </p>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Ränteavdraget betalas ut via deklarationen, inte månadsvis. Din faktiska likviditet
-              under året motsvarar därför bruttobeloppet — om du inte jämkar skatten.
-            </p>
+
+            <div className="mt-8 border-t border-border pt-6">
+              <div className="divide-y divide-border">
+                <Rad label="Det här betalar ni varje månad" value={betalarPerManad} />
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <span className="text-sm text-muted-foreground">Andel av nettoinkomsten</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {andelAvNetto.toFixed(1).replace(".", ",")} %
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground">Kvar att leva på per månad</p>
+                <p
+                  className={`mt-1 font-display text-4xl ${
+                    kvarAttLevaPa < 0 ? "text-destructive" : "text-foreground"
+                  }`}
+                >
+                  {kvarAttLevaPa < 0 ? "−" : ""}
+                  {kr(Math.abs(kvarAttLevaPa))}
+                </p>
+              </div>
+              <div className="mt-6 border-t border-border pt-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Tillbaka i deklarationen</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {kr(hushall.ranteavdragPerAr)}/år
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  motsvarar {kr(hushall.ranteavdragPerAr / 12)}/mån
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Ränteavdraget betalas ut som skatteåterbäring året efter, vanligtvis mellan april
+                  och juni. Vill ni ha det varje månad i stället kan ni ansöka om jämkning hos
+                  Skatteverket.
+                </p>
+                {hushall.ranteavdragForloratPerAr > 0 ? (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+                    <p className="text-xs text-foreground">
+                      {kr(hushall.ranteavdragForloratPerAr)} av ränteavdraget kan inte utnyttjas
+                      eftersom skatten inte räcker till.
+                    </p>
+                    {lantagare === "2" ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Den som betalar räntan får avdraget. Betalar den med högre inkomst en större
+                        del av räntan kan ni få tillbaka mer.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </Card>
 
           <Card>
