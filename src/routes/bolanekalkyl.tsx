@@ -401,17 +401,69 @@ function Bolanekalkyl() {
               ) : (
                 <p className="mt-2 font-display text-5xl text-foreground">{kr(nettoLag)}</p>
               )}
+              <p className="mt-1 text-sm text-muted-foreground">
+                i snitt över året, efter ränteavdrag
+              </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Efter ränteavdrag. Brutto:{" "}
+                Brutto:{" "}
                 {harSpann
                   ? `${Math.round(bruttoLag).toLocaleString("sv-SE")} – ${kr(bruttoHog)}`
                   : kr(bruttoLag)}
               </p>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Ränteavdraget betalas ut via deklarationen, inte månadsvis. Din faktiska likviditet
-              under året motsvarar därför bruttobeloppet — om du inte jämkar skatten.
-            </p>
+
+            <div className="mt-8 border-t border-border pt-6">
+              <div className="divide-y divide-border">
+                <Rad label="Det här betalar ni varje månad" value={betalarPerManad} />
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <span className="text-sm text-muted-foreground">Andel av nettoinkomsten</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {andelAvNetto.toFixed(1).replace(".", ",")} %
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground">Kvar att leva på per månad</p>
+                <p
+                  className={`mt-1 font-display text-4xl ${
+                    kvarAttLevaPa < 0 ? "text-destructive" : "text-foreground"
+                  }`}
+                >
+                  {kvarAttLevaPa < 0 ? "−" : ""}
+                  {kr(Math.abs(kvarAttLevaPa))}
+                </p>
+              </div>
+              <div className="mt-6 border-t border-border pt-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Tillbaka i deklarationen</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {kr(hushall.ranteavdragPerAr)}/år
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  motsvarar {kr(hushall.ranteavdragPerAr / 12)}/mån
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Ränteavdraget betalas ut som skatteåterbäring året efter, vanligtvis mellan april
+                  och juni. Vill ni ha det varje månad i stället kan ni ansöka om jämkning hos
+                  Skatteverket.
+                </p>
+                {hushall.ranteavdragForloratPerAr > 0 ? (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+                    <p className="text-xs text-foreground">
+                      {kr(hushall.ranteavdragForloratPerAr)} av ränteavdraget kan inte utnyttjas
+                      eftersom skatten inte räcker till.
+                    </p>
+                    {lantagare === "2" ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Den som betalar räntan får avdraget. Betalar den med högre inkomst en större
+                        del av räntan kan ni få tillbaka mer.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </Card>
 
           <Card>
