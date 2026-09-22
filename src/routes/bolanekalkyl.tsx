@@ -257,12 +257,6 @@ function Bolanekalkyl() {
               onChange={(v) => setUppgifter({ antalPersoner: Math.max(1, Number(v) || 1) })}
               hint="Styr schablonen för vattenkostnad."
             />
-            <Field
-              label="Hushållets bruttoinkomst per år"
-              suffix="kr"
-              value={inkomst}
-              onChange={setInkomst}
-            />
             <div>
               <span className="mb-1.5 block text-sm font-medium text-foreground">
                 Antal låntagare
@@ -277,6 +271,35 @@ function Bolanekalkyl() {
               />
               <p className="mt-2 text-xs text-muted-foreground">
                 Ränteavdragets tak på 100 000 kr gäller per person och år.
+              </p>
+            </div>
+            <Field
+              label="Låntagare 1: bruttoinkomst per år"
+              suffix="kr/år"
+              value={inkomst}
+              onChange={setInkomst}
+              hint="Lön före skatt per år, inklusive fasta tillägg."
+            />
+            {lantagare === "2" ? (
+              <Field
+                label="Låntagare 2: bruttoinkomst per år"
+                suffix="kr/år"
+                value={inkomst2}
+                onChange={setInkomst2}
+                hint="Lön före skatt per år, inklusive fasta tillägg."
+              />
+            ) : null}
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-medium text-foreground">
+                  Hushållets nettoinkomst
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {kr(nettoinkomstPerManad)}/mån
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Uträknad efter skatt i Stockholm 2026, utan ränteavdrag.
               </p>
             </div>
             <div>
