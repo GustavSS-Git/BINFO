@@ -130,16 +130,34 @@ function Bolanekalkyl() {
     [input, stressadAvgift],
   );
 
+  // Bara de aktiva låntagarnas inkomster — skuldkvoten och skatten räknas
+  // på summan av dem.
+  const bruttoinkomster = useMemo(
+    () => (lantagare === "2" ? [num(inkomst), num(inkomst2)] : [num(inkomst)]),
+    [inkomst, inkomst2, lantagare],
+  );
+  const hushalletsBruttoinkomst = bruttoinkomster.reduce((a, b) => a + b, 0);
+
   const lan: LaneUnderlag = useMemo(
     () => ({
       lanebelopp: num(lanebelopp),
       kontantinsats: num(kontantinsats),
       ranta: num(ranta) + delta,
-      bruttoinkomst: num(inkomst),
+      bruttoinkomst: hushalletsBruttoinkomst,
       antalLantagare: Number(lantagare) as 1 | 2,
     }),
-    [lanebelopp, kontantinsats, ranta, delta, inkomst, lantagare],
+    [lanebelopp, kontantinsats, ranta, delta, hushalletsBruttoinkomst, lantagare],
   );
+
+  // Skatt och nettoinkomst enligt 2026 års regler (src/lib/skatt2026.ts).
+  // Nettoinkomsten beräknas utan ränteavdrag — avdraget kommer normalt via
+  // deklarationen och redovisas separat nedan.
+  const arligBolaneranta = lan.lanebelopp * (lan.ranta / 100);
+  const hushall = useMemo(
+    () => beraknaHushallSkatt(bruttoinkomster, arligBolaneranta),
+    [bruttoinkomster, arligBolaneranta],
+  );
+  const nettoinkomstPerManad = hushall.nettoinkomstPerManad;
 
   const m = useMemo(() => beraknaManadskostnad(liveInput, lan), [liveInput, lan]);
 
