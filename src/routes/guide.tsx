@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Card, Callout, Toggle, PageHeader, Badge } from "@/components/ui/binfo";
 import { usePropertyType } from "@/lib/propertyType";
 import type { PropertyType } from "@/data/mockData";
@@ -28,7 +28,7 @@ type Steg = {
   sammanfattning: string;
   beskrivning: string;
   flaggor: string[];
-  tips: string[];
+  tips: ReactNode[];
   only?: PropertyType;
 };
 
@@ -45,7 +45,12 @@ const steg: Steg[] = [
     ],
     tips: [
       "Ta lånelöfte från minst två banker och jämför både belopp och räntenivå.",
-      "Räkna själv på månadskostnaden — banken säger vad du får låna, inte vad du bör låna.",
+      <>
+        Räkna själv på månadskostnaden — banken säger vad du får låna, inte vad du bör låna.{" "}
+        <a href="/bolanekalkyl" className="font-medium text-primary underline underline-offset-2">
+          Räkna på din månadskostnad här
+        </a>
+      </>,
     ],
   },
   {
@@ -279,8 +284,8 @@ function Guide() {
                     {s.tips.length ? (
                       <Callout variant="tip" title="Tips">
                         <ul className="list-disc space-y-1 pl-4">
-                          {s.tips.map((t) => (
-                            <li key={t}>{t}</li>
+                          {s.tips.map((t, i) => (
+                            <li key={i}>{t}</li>
                           ))}
                         </ul>
                       </Callout>
