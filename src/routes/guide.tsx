@@ -10,8 +10,7 @@ export const Route = createFileRoute("/guide")({
       { title: "Guide: hela bostadsköpet steg för steg — Binfo" },
       {
         name: "description",
-        content:
-          "Från lånelöfte till tillträde: varje steg i det svenska bostadsköpet med varningar och tips.",
+        content: "Från lånelöfte till tillträde: varje steg i det svenska bostadsköpet med varningar och tips.",
       },
       { property: "og:title", content: "Guide: hela bostadsköpet steg för steg — Binfo" },
       {
@@ -42,6 +41,7 @@ const steg: Steg[] = [
       "Banken bedömer din inkomst, dina skulder och din kontantinsats och ger ett besked om hur mycket du får låna. Lånelöftet gäller normalt tre till sex månader och är din budgetram i budgivningen.",
     flaggor: [
       "Ett lånelöfte är inget löfte i juridisk mening — det kan dras tillbaka om din ekonomi, bostadens värde eller bankens bedömning ändras.",
+      "Sedan 1 april 2026 är bolånetaket 90 %. Kontantinsatsen måste alltså vara minst 10 % av priset.",
     ],
     tips: [
       "Ta lånelöfte från minst två banker och jämför både belopp och räntenivå.",
@@ -54,12 +54,8 @@ const steg: Steg[] = [
     sammanfattning: "Lägg upp bevakningar på Hemnet och Booli och lär dig ditt område.",
     beskrivning:
       "Sätt upp sparade sökningar med dina kriterier så att du ser objekten tidigt. Följ slutpriser i området under några veckor — det är den bästa magkänslan du kan skaffa dig inför budgivningen.",
-    flaggor: [
-      "Utgångspriset är ett marknadsföringsverktyg, inte en värdering. Jämför alltid mot faktiska slutpriser.",
-    ],
-    tips: [
-      "Bevaka även 'kommande objekt' och sålda objekt i samma förening.",
-    ],
+    flaggor: ["Utgångspriset är ett marknadsföringsverktyg, inte en värdering. Jämför alltid mot faktiska slutpriser."],
+    tips: ["Bevaka även 'kommande objekt' och sålda objekt i samma förening."],
   },
   {
     id: "visning",
@@ -86,9 +82,7 @@ const steg: Steg[] = [
       "Hög skuldsättning kombinerad med låg genomsnittsränta betyder nästan alltid avgiftshöjningar när lånen omsätts.",
       "Stora planerade projekt (stambyte, fasad, tak) utan avsättningar landar i din avgift.",
     ],
-    tips: [
-      "Kör objektet genom Binfo innan du budar — analysen tar några minuter.",
-    ],
+    tips: ["Kör objektet genom Binfo innan du budar — analysen tar några minuter."],
   },
   {
     id: "budgivning",
@@ -111,9 +105,7 @@ const steg: Steg[] = [
     sammanfattning: "Säljaren accepterar ditt bud — men affären är ännu inte klar.",
     beskrivning:
       "Mäklaren bokar kontraktsskrivning, oftast inom några dagar. Fram tills kontraktet är påskrivet kan båda parter dra sig ur utan påföljd.",
-    flaggor: [
-      "Ett accepterat bud är inte bindande. Både du och säljaren kan backa fram till signering.",
-    ],
+    flaggor: ["Ett accepterat bud är inte bindande. Både du och säljaren kan backa fram till signering."],
     tips: ["Be om kontraktsutkastet i förväg så du hinner läsa igenom det i lugn och ro."],
   },
   {
@@ -160,9 +152,7 @@ const steg: Steg[] = [
     sammanfattning: "Styrelsen prövar och godkänner dig som medlem.",
     beskrivning:
       "Efter kontraktet ansöker du om medlemskap. Styrelsen prövar ansökan, vanligtvis inom några veckor. Utan medlemskap blir köpet ogiltigt.",
-    flaggor: [
-      "Medlemskap kan nekas. Säg inte upp din nuvarande bostad förrän du är godkänd.",
-    ],
+    flaggor: ["Medlemskap kan nekas. Säg inte upp din nuvarande bostad förrän du är godkänd."],
     tips: ["Fråga mäklaren hur lång handläggningstid styrelsen brukar ha."],
     only: "brf",
   },
@@ -172,9 +162,7 @@ const steg: Steg[] = [
     sammanfattning: "Ansök om lagfart hos Lantmäteriet och ordna pantbrev.",
     beskrivning:
       "Lagfart söks inom tre månader från tillträdet och kostar 1,5 % av köpeskillingen i stämpelskatt plus expeditionsavgift. Nya pantbrev kostar 2 % av beloppet.",
-    flaggor: [
-      "Stämpelskatt och pantbrevskostnader är stora belopp som ofta glöms bort i kalkylen.",
-    ],
+    flaggor: ["Stämpelskatt och pantbrevskostnader är stora belopp som ofta glöms bort i kalkylen."],
     tips: ["Kontrollera vilka befintliga pantbrev som redan finns i fastigheten — de kan återanvändas."],
     only: "hus",
   },
@@ -184,9 +172,7 @@ const steg: Steg[] = [
     sammanfattning: "Resterande cirka 90 % betalas och du får nycklarna.",
     beskrivning:
       "På tillträdesdagen möts parterna hos banken eller mäklaren. Lånet betalas ut, likvidavräkningen skrivs under och nycklarna överlämnas.",
-    flaggor: [
-      "Kontrollera att bostaden är i utlovat skick och tömd innan pengarna går iväg.",
-    ],
+    flaggor: ["Kontrollera att bostaden är i utlovat skick och tömd innan pengarna går iväg."],
     tips: ["Gör en sista genomgång samma dag, före betalning.", "Läs av el och vatten."],
   },
   {
@@ -209,8 +195,7 @@ function Guide() {
   const antalKlara = klara.filter((id) => synliga.some((s) => s.id === id)).length;
   const progress = Math.round((antalKlara / synliga.length) * 100);
 
-  const toggleKlar = (id: string) =>
-    setKlara((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]));
+  const toggleKlar = (id: string) => setKlara((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]));
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-14">
@@ -235,10 +220,7 @@ function Guide() {
       </div>
 
       <div className="mb-10 h-2 w-full overflow-hidden rounded-full bg-secondary">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${progress}%` }}
-        />
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
       </div>
 
       <ol className="relative space-y-4 border-l border-border pl-6 md:pl-8">
@@ -265,9 +247,7 @@ function Guide() {
                     aria-expanded={isOpen}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Steg {i + 1}
-                    </p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Steg {i + 1}</p>
                     <h2 className="mt-1 font-display text-xl text-foreground">{s.titel}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">{s.sammanfattning}</p>
                   </button>
