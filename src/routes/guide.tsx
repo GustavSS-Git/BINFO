@@ -147,7 +147,7 @@ const steg: Steg[] = [
     ],
     tips: [
       "Kontrollera att tillträdesdagen fungerar med din nuvarande bostad och med bankens handläggning.",
-      "Fråga vad som följer med i köpet om något är oklart, till exempel vitvaror eller förråd.",
+      "Fråga vad som följer med i köpet om något är oklart, till exempel vitvaror eller garderob.",
     ],
   },
   {
@@ -155,25 +155,34 @@ const steg: Steg[] = [
     titel: "Handpenning",
     sammanfattning: "Normalt cirka 10 % av priset, några dagar efter kontraktet.",
     beskrivning:
-      "Handpenningen betalas till mäklarens klientmedelskonto och hålls där fram till tillträdet, då den räknas av mot köpeskillingen.",
+      "Handpenningen betalas oftast till mäklarens klientmedelskonto några dagar efter att avtalet skrivits under och räknas av från köpeskillingen på tillträdesdagen.",
     flaggor: [
-      "Det här är riktiga pengar i risk. Hoppar du av affären kan du bli skadeståndsskyldig — se till att finansieringen är säkrad innan du skriver kontrakt, inte efter.",
+      "Drar du dig ur efter att avtalet är underskrivet kan du bli skyldig att betala skadestånd till säljaren, och handpenningen står på spel.",
     ],
-    tips: ["Kontrollera att pengarna går till ett klientmedelskonto, aldrig till ett privatkonto."],
+    tips: [
+      "Se till att pengarna finns tillgängliga i tid. Att sälja fonder eller flytta sparpengar kan ta några dagar",
+      "Kontrollera att pengarna går till ett klientmedelskonto, aldrig till ett privatkonto.",
+    ],
   },
   {
     id: "bolan",
     titel: "Ansök om bolån & bind eller ha rörlig ränta",
     sammanfattning: "Nu formaliseras lånet och den faktiska räntan sätts.",
     beskrivning:
-      "Banken gör en slutlig kreditprövning och värderar bostaden. Du väljer bindningstid och får ett besked om amorteringskrav utifrån belåningsgrad och skuldkvot.",
+      "Banken gör en slutlig bedömning av dig, bostaden och föreningen innan lånet betalas ut. Du väljer rörlig ränta, bunden ränta eller en blandning, samt väljer bindningstid och får ett besked om amorteringskrav utifrån belåningsgrad och skuldkvot.",
     flaggor: [
-      "Din slutliga ränta kan skilja sig från nivån i lånelöftet.",
-      "Bankens värdering kan bli lägre än priset du betalat — då krävs mer kontantinsats.",
+      "Lånelöftet blir inte automatiskt ett lån. Banken kan säga nej om bostaden eller föreningen inte håller måttet, alternativt ändra villkoren.",
+      "Bankens värdering kan dessutom bli lägre än priset du betalat — då krävs mer kontantinsats.",
     ],
     tips: [
-      "Bestäm bunden eller rörlig ränta utifrån hur mycket svängning din ekonomi tål.",
-      "Förhandla — och använd ett konkurrerande erbjudande som hävstång.",
+      "Förhandla räntan. Listräntan är sällan den du behöver betala",
+      "Jämför erbjudanden från flera banker, inte bara den som gav lånelöftet.",
+      "Tänk på att rörliga räntan kan stiga och öka dina ränteutgifter och månadskostnader - undersök vad du har råd med.",
+      <>
+        <a href="/bolanekalkyl" className="font-medium text-primary underline underline-offset-2">
+          Räkna på din månadskostnad här
+        </a>
+      </>,
     ],
   },
   {
