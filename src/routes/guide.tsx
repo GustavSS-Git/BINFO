@@ -211,14 +211,18 @@ function Guide() {
       />
 
       <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
-        <Toggle
-          value={typ}
-          onChange={setTyp}
-          options={[
-            { value: "brf", label: "Bostadsrätt" },
-            { value: "hus", label: "Hus" },
-          ]}
-        />
+        {/* Bostadstypvalet är grafiskt dolt tills vidare — fokus är bostadsrätter.
+            State, funktioner och hus-stegen ligger kvar oförändrade. */}
+        <div className="hidden">
+          <Toggle
+            value={typ}
+            onChange={setTyp}
+            options={[
+              { value: "brf", label: "Bostadsrätt" },
+              { value: "hus", label: "Hus" },
+            ]}
+          />
+        </div>
         <Badge tone="teal">
           {antalKlara} av {synliga.length} steg klara
         </Badge>
