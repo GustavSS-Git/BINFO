@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, type ReactNode } from "react";
 import { Card, Callout, Toggle, PageHeader, Badge } from "@/components/ui/binfo";
 import { usePropertyType } from "@/lib/propertyType";
@@ -47,9 +47,9 @@ const steg: Steg[] = [
       "Ta lånelöfte från minst två banker och jämför både belopp och räntenivå.",
       <>
         Räkna själv på månadskostnaden — banken säger vad du får låna, inte vad du bör låna.{" "}
-        <Link to="/bolanekalkyl" className="font-medium text-primary underline underline-offset-2">
+        <a href="/bolanekalkyl" className="font-medium text-primary underline underline-offset-2">
           Räkna på din månadskostnad här
-        </Link>
+        </a>
       </>,
     ],
   },
