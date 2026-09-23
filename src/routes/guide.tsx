@@ -58,23 +58,25 @@ const steg: Steg[] = [
     titel: "Sök & bevaka objekt",
     sammanfattning: "Lägg upp bevakningar på Hemnet och Booli och lär dig ditt område.",
     beskrivning:
-      "Sätt upp sparade sökningar med dina kriterier så att du ser objekten tidigt. Följ slutpriser i området under några veckor — det är den bästa magkänslan du kan skaffa dig inför budgivningen.",
+      "Bevaka Hemnet och Booli i de områden du är intresserad av. Sätt upp sparade sökningar med dina kriterier så att du ser objekten tidigt. Följ slutpriserna, inte bara annonserna, så att du vet vad som är en rimlig nivå när rätt bostad dyker upp.",
     flaggor: ["Utgångspriset är ett marknadsföringsverktyg, inte en värdering. Jämför alltid mot faktiska slutpriser."],
-    tips: ["Bevaka även 'kommande objekt' och sålda objekt i samma förening."],
+    tips: ["Bevaka även 'kommande objekt' och sålda objekt i samma förening.",
+          "Spara annonsen och objektbeskrivningen. De kan behövas om något visar sig inte stämma.",],
   },
   {
     id: "visning",
     titel: "Visning",
     sammanfattning: "Titta på lägenheten — men lika mycket på huset och trapphuset.",
     beskrivning:
-      "Kontrollera ventilation, vattentryck, fuktfläckar i badrum och kök, fönstrens skick, ljudnivå och trapphusets underhåll. Fråga om stammarnas ålder och när badrummet renoverades.",
+      "Gå igenom lägenheten noggrant och titta även på de gemensamma utrymmena: trapphus, tvättstuga, källare, fasad och fönster. Fråga mäklaren om planerade renoveringar, avgiftshöjningar och stambyte.",
     flaggor: [
       "Mäklaren är säljarens ombud och betalas av säljaren — inte din rådgivare.",
       "Som köpare har du undersökningsplikt. Det du kunde ha upptäckt får du sällan klaga på i efterhand.",
     ],
     tips: [
-      "Ta med frågelistan från din Binfo-rapport.",
-      "Gå gärna på visningen två gånger, en gång vardag och en gång helg.",
+      "Ta med frågelistan från din Binfo-rapport, och ställ frågor till mäklaren.",
+      "Fotografera sådant du vill fråga om senare",
+      "Gå på visning två gånger om du kan, gärna vid olika tider på dygnet.",
     ],
   },
   {
@@ -82,12 +84,21 @@ const steg: Steg[] = [
     titel: "Granska föreningens ekonomi",
     sammanfattning: "Läs årsredovisningen innan du budar — här avgörs framtida avgifter.",
     beskrivning:
-      "Titta på skuldsättning per kvadratmeter, sparande till underhåll, räntebindningstider och underhållsplanen. En låg avgift i en högt belånad förening är ofta en framtida höjning i förklädnad.",
+      "Årsredovisningen visar föreningens skulder, sparande och hur känslig avgiften är för högre räntor. Nyckeltalen i förvaltningsberättelsen gör det lättare att jämföra med andra föreningar.",
     flaggor: [
-      "Hög skuldsättning kombinerad med låg genomsnittsränta betyder nästan alltid avgiftshöjningar när lånen omsätts.",
-      "Stora planerade projekt (stambyte, fasad, tak) utan avsättningar landar i din avgift.",
+      "Lån som ska läggas om snart kan få högre ränta, och då höjs ofta avgiften",
+      "Lågt sparande i kombination med stora åtgärder i underhållsplanen, till exempel stambyte, pekar mot avgiftshöjningar eller nya lån",
+      "Kontrollera om föreningen äger marken eller har tomträtt. Tomträttsavgälden kan höjas kraftigt när den omförhandlas.",
     ],
-    tips: ["Kör objektet genom Binfo innan du budar — analysen tar några minuter."],
+    tips: ["Be om de två senaste årsredovisningarna så att du ser utvecklingen",
+           <>
+           Ta hjälp av Binfos analysverktyg som granskar föreningen, ger den ett betyg och flaggar saker du borde veta:
+          {" "}
+        <a href="/analysera" className="font-medium text-primary underline underline-offset-2">
+          Analysera föreningen här
+        </a>
+          ],
+      </>,
   },
   {
     id: "budgivning",
