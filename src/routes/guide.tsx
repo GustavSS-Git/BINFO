@@ -17,6 +17,8 @@ export const Route = createFileRoute("/guide")({
         property: "og:description",
         content: "Interaktiv tidslinje över köpprocessen för bostadsrätt och hus.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Guide,
