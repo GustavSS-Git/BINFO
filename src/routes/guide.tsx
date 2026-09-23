@@ -47,9 +47,6 @@ const steg: Steg[] = [
       "Ta lånelöfte från minst två banker och jämför både belopp och räntenivå.",
       "Räkna själv på månadskostnaden — banken säger vad du får låna, inte vad du bör låna.",
     ],
-    <a href="/bolanekalkyl" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
-              Räkna på månadskostnaden
-            </a>
   },
   {
     id: "sok",
