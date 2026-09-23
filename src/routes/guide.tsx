@@ -90,15 +90,15 @@ const steg: Steg[] = [
       "Lågt sparande i kombination med stora åtgärder i underhållsplanen, till exempel stambyte, pekar mot avgiftshöjningar eller nya lån",
       "Kontrollera om föreningen äger marken eller har tomträtt. Tomträttsavgälden kan höjas kraftigt när den omförhandlas.",
     ],
-    tips: ["Be om de två senaste årsredovisningarna så att du ser utvecklingen",
-           <>
-           Ta hjälp av Binfos analysverktyg som granskar föreningen, ger den ett betyg och flaggar saker du borde veta:
-          {" "}
+    tips: [
+      "Be om de två senaste årsredovisningarna så att du ser utvecklingen",
+      <>
+        Ta hjälp av Binfos analysverktyg som granskar föreningen, ger den ett betyg och flaggar saker du borde veta:{" "}
         <a href="/analysera" className="font-medium text-primary underline underline-offset-2">
           Analysera föreningen här
         </a>
-          ],
       </>,
+    ],
   },
   {
     id: "budgivning",
