@@ -45,8 +45,8 @@ const steg: Steg[] = [
     ],
     tips: [
       "Ta lånelöfte från minst två banker och jämför både belopp och räntenivå.",
+      "Räkna själv på månadskostnaden — banken säger vad du får låna, inte vad du bör låna.",
       <>
-        Räkna själv på månadskostnaden — banken säger vad du får låna, inte vad du bör låna.{" "}
         <a href="/bolanekalkyl" className="font-medium text-primary underline underline-offset-2">
           Räkna på din månadskostnad här
         </a>
@@ -60,8 +60,10 @@ const steg: Steg[] = [
     beskrivning:
       "Bevaka Hemnet och Booli i de områden du är intresserad av. Sätt upp sparade sökningar med dina kriterier så att du ser objekten tidigt. Följ slutpriserna, inte bara annonserna, så att du vet vad som är en rimlig nivå när rätt bostad dyker upp.",
     flaggor: ["Utgångspriset är ett marknadsföringsverktyg, inte en värdering. Jämför alltid mot faktiska slutpriser."],
-    tips: ["Bevaka även 'kommande objekt' och sålda objekt i samma förening.",
-          "Spara annonsen och objektbeskrivningen. De kan behövas om något visar sig inte stämma.",],
+    tips: [
+      "Bevaka även 'kommande objekt' och sålda objekt i samma förening.",
+      "Spara annonsen och objektbeskrivningen. De kan behövas om något visar sig inte stämma.",
+    ],
   },
   {
     id: "visning",
