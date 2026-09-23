@@ -107,14 +107,22 @@ const steg: Steg[] = [
     titel: "Budgivning",
     sammanfattning: "Öppen budgivning där mäklaren förmedlar buden — inget är bindande.",
     beskrivning:
-      "Buden lämnas till mäklaren, som redovisar dem för säljaren. Säljaren är fri att välja vilket bud som helst, eller inget alls. Efter avslutad affär har du rätt att se budlistan.",
+      "Mäklaren tar emot buden och förmedlar dem till säljaren och de andra budgivarna, oftast via sms. Säljaren väljer fritt vem hen säljer till och behöver inte välja det högsta budet. Efter avslutad affär har du rätt att se budlistan.",
     flaggor: [
-      "Budgivning är inte juridiskt bindande, varken för dig eller säljaren.",
-      "Bud kan användas som press. Bestäm din smärtgräns i förväg och skriv ner den.",
+      "Inget bud är bindande, varken för dig eller för säljaren. Affären blir bindande först när båda har skrivit under avtalet.",
+      "Budgivningen kan gå snabbt. Bestäm din smärtgräns och budstrategi i förväg",
     ],
     tips: [
       "Buda utifrån den totala månadskostnaden du klarar — inte utifrån prislappen.",
-      "Lägg bud i egna, ojämna steg och undvik att gå upp direkt efter varje motbud.",
+      "Exempel på budgivningsstrategier är:
+      - Testa med ett starkt öppningsbud
+Lägg ett attraktivt bud tidigt för att signalera att du menar allvar och i bästa fall få säljaren att acceptera direkt, innan budgivningen tar fart.
+Avvakta och slå till
+Låt de andra budgivarna driva upp priset initialt. När konkurrensen börjar mattas av kan du kliva in med ett kraftfullt bud för att försöka avsluta budgivningen.
+Buda med mer än pengar
+Säljaren behöver inte välja det högsta budet. Flexibilitet kring exempelvis tillträdesdatum, snabbt kontrakt eller andra villkor kan göra ditt bud mer attraktivt.
+Variera dina budsteg
+Undvik att konsekvent höja med samma belopp. Använd mindre höjningar när du vill känna av motståndet och större hopp när du vill signalera att du är beredd att gå långt.",
     ],
   },
   {
