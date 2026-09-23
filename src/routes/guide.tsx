@@ -114,15 +114,10 @@ const steg: Steg[] = [
     ],
     tips: [
       "Buda utifrån den totala månadskostnaden du klarar — inte utifrån prislappen.",
-      "Exempel på budgivningsstrategier är:
-      - Testa med ett starkt öppningsbud
-Lägg ett attraktivt bud tidigt för att signalera att du menar allvar och i bästa fall få säljaren att acceptera direkt, innan budgivningen tar fart.
-Avvakta och slå till
-Låt de andra budgivarna driva upp priset initialt. När konkurrensen börjar mattas av kan du kliva in med ett kraftfullt bud för att försöka avsluta budgivningen.
-Buda med mer än pengar
-Säljaren behöver inte välja det högsta budet. Flexibilitet kring exempelvis tillträdesdatum, snabbt kontrakt eller andra villkor kan göra ditt bud mer attraktivt.
-Variera dina budsteg
-Undvik att konsekvent höja med samma belopp. Använd mindre höjningar när du vill känna av motståndet och större hopp när du vill signalera att du är beredd att gå långt.",
+      "Testa med ett starkt öppningsbud: lägg ett attraktivt bud tidigt för att signalera allvar och i bästa fall få säljaren att acceptera direkt.",
+      "Avvakta och slå till: låt andra driva upp priset initialt och kliv in med ett kraftfullt bud när konkurrensen mattas av.",
+      "Buda med mer än pengar: flexibelt tillträdesdatum, snabbt kontrakt eller andra villkor kan göra ditt bud mer attraktivt.",
+      "Variera dina budsteg: mindre höjningar när du vill känna av motståndet, större hopp när du vill signalera att du är beredd att gå långt.",
     ],
   },
   {
