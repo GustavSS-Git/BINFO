@@ -17,6 +17,8 @@ export const Route = createFileRoute("/guide")({
         property: "og:description",
         content: "Interaktiv tidslinje över köpprocessen för bostadsrätt och hus.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Guide,
@@ -31,6 +33,12 @@ type Steg = {
   tips: ReactNode[];
   only?: PropertyType;
 };
+
+const grupper = [
+  { titel: "Före budgivningen", start: 0, slut: 4 },
+  { titel: "Affären", start: 4, slut: 8 },
+  { titel: "Fram till och efter tillträdet", start: 8, slut: 12 },
+] as const;
 
 const steg: Steg[] = [
   {
@@ -271,75 +279,90 @@ function Guide() {
         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
       </div>
 
-      <ol className="relative space-y-4 border-l border-border pl-6 md:pl-8">
-        {synliga.map((s, i) => {
-          const isOpen = open === s.id;
-          const klar = klara.includes(s.id);
-          return (
-            <li key={s.id} className="relative">
-              <span
-                className={`absolute -left-[31px] top-6 size-3.5 rounded-full border-2 md:-left-[39px] ${
-                  klar
-                    ? "border-primary bg-primary"
-                    : isOpen
-                      ? "border-primary bg-background"
-                      : "border-border bg-background"
-                }`}
-                aria-hidden
-              />
-              <Card className="p-5 md:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setOpen(isOpen ? null : s.id)}
-                    aria-expanded={isOpen}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Steg {i + 1}</p>
-                    <h2 className="mt-1 font-display text-xl text-foreground">{s.titel}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">{s.sammanfattning}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleKlar(s.id)}
-                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      klar
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {klar ? "Klar" : "Markera klar"}
-                  </button>
-                </div>
+      <div className="space-y-14">
+        {grupper.map((grupp) => (
+          <section key={grupp.titel} aria-labelledby={`grupp-${grupp.start}`}>
+            <div className="mb-6 border-b border-border pb-4">
+              <h2 id={`grupp-${grupp.start}`} className="font-display text-3xl text-foreground">
+                {grupp.titel}
+              </h2>
+            </div>
 
-                {isOpen ? (
-                  <div className="mt-5 space-y-4 border-t border-border pt-5">
-                    <p className="text-sm text-foreground">{s.beskrivning}</p>
-                    {s.flaggor.length ? (
-                      <Callout variant="flag" title="Viktiga flaggor">
-                        <ul className="list-disc space-y-1 pl-4">
-                          {s.flaggor.map((f) => (
-                            <li key={f}>{f}</li>
-                          ))}
-                        </ul>
-                      </Callout>
-                    ) : null}
-                    {s.tips.length ? (
-                      <Callout variant="tip" title="Tips">
-                        <ul className="list-disc space-y-1 pl-4">
-                          {s.tips.map((t, i) => (
-                            <li key={i}>{t}</li>
-                          ))}
-                        </ul>
-                      </Callout>
-                    ) : null}
-                  </div>
-                ) : null}
-              </Card>
-            </li>
-          );
-        })}
-      </ol>
+            <ol className="relative space-y-4 border-l border-border pl-6 md:pl-8" start={grupp.start + 1}>
+              {synliga.slice(grupp.start, grupp.slut).map((s, index) => {
+                const stegnummer = grupp.start + index + 1;
+                const isOpen = open === s.id;
+                const klar = klara.includes(s.id);
+                return (
+                  <li key={s.id} className="relative">
+                    <span
+                      className={`absolute -left-[31px] top-6 size-3.5 rounded-full border-2 md:-left-[39px] ${
+                        klar
+                          ? "border-primary bg-primary"
+                          : isOpen
+                            ? "border-primary bg-background"
+                            : "border-border bg-background"
+                      }`}
+                      aria-hidden
+                    />
+                    <Card className="p-5 md:p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setOpen(isOpen ? null : s.id)}
+                          aria-expanded={isOpen}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Steg {stegnummer}
+                          </p>
+                          <h3 className="mt-1 font-display text-xl text-foreground">{s.titel}</h3>
+                          <p className="mt-1 text-sm text-muted-foreground">{s.sammanfattning}</p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleKlar(s.id)}
+                          className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            klar
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {klar ? "Klar" : "Markera klar"}
+                        </button>
+                      </div>
+
+                      {isOpen ? (
+                        <div className="mt-5 space-y-4 border-t border-border pt-5">
+                          <p className="text-sm text-foreground">{s.beskrivning}</p>
+                          {s.flaggor.length ? (
+                            <Callout variant="flag" title="Viktiga flaggor">
+                              <ul className="list-disc space-y-1 pl-4">
+                                {s.flaggor.map((f) => (
+                                  <li key={f}>{f}</li>
+                                ))}
+                              </ul>
+                            </Callout>
+                          ) : null}
+                          {s.tips.length ? (
+                            <Callout variant="tip" title="Tips">
+                              <ul className="list-disc space-y-1 pl-4">
+                                {s.tips.map((t, i) => (
+                                  <li key={i}>{t}</li>
+                                ))}
+                              </ul>
+                            </Callout>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </Card>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
