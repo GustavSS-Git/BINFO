@@ -190,9 +190,9 @@ const steg: Steg[] = [
     titel: "Medlemskap i föreningen",
     sammanfattning: "Styrelsen prövar och godkänner dig som medlem.",
     beskrivning:
-      "Efter kontraktet ansöker du om medlemskap. Styrelsen prövar ansökan, vanligtvis inom några veckor. Utan medlemskap blir köpet ogiltigt.",
-    flaggor: ["Medlemskap kan nekas. Säg inte upp din nuvarande bostad förrän du är godkänd."],
-    tips: ["Fråga mäklaren hur lång handläggningstid styrelsen brukar ha."],
+      "Efter kontraktet ansöker du om medlemskap. Styrelsen prövar ansökan enligt stadgarna och bostadsrättslagen,vanligtvis inom några veckor. U",
+    flaggor: ["Nekas du medlemskap blir köpet ogiltigt.", "Köper ni tillsammans ska ni båda ansöka om medlemskap"],
+    tips: ["Skicka in ansökan i god tid före tillträdet."],
     only: "brf",
   },
   {
@@ -208,7 +208,7 @@ const steg: Steg[] = [
   {
     id: "tilltrade",
     titel: "Tillträde & slutbetalning",
-    sammanfattning: "Resterande cirka 90 % betalas och du får nycklarna.",
+    sammanfattning: "Resten av köpeskillingen betalas och du får nycklarna.",
     beskrivning:
       "På tillträdesdagen möts parterna hos banken eller mäklaren. Lånet betalas ut, likvidavräkningen skrivs under och nycklarna överlämnas.",
     flaggor: ["Kontrollera att bostaden är i utlovat skick och tömd innan pengarna går iväg."],
@@ -219,9 +219,14 @@ const steg: Steg[] = [
     titel: "Efter tillträde",
     sammanfattning: "Försäkring, flyttanmälan och skatt att hålla koll på.",
     beskrivning:
-      "Hemförsäkringen (med bostadsrättstillägg om det behövs) ska gälla från tillträdesdagen. Gör flyttanmälan hos Skatteverket. Vid framtida försäljning betalar du 22 % vinstskatt på vinsten, med möjlighet till uppskov.",
-    flaggor: ["Utan giltig försäkring från dag ett står du själv för skador."],
-    tips: ["Spara alla kvitton på renoveringar — de kan dras av vid en framtida försäljning."],
+      "Teckna hemförsäkring (och bostadsrättstillägg om det behövs) från tillträdesdagen och gör flyttanmälan till Skatteverket. Ränteavdraget får du via deklarationen.",
+    flaggor: [
+      "Utan giltig försäkring från dag ett står du själv för skador.",
+      "Ränteavdraget kommer först med skatteåterbäringen. Vill du ha effekten varje månad kan du ansöka om jämkning hos Skatteverket.",
+    ],
+    tips: [
+      "Spara alla kvitton på renoveringar — de kan dras av vid en eventuell vinst vid framtida försäljning och på så sätt minska skatten",
+    ],
   },
 ];
 
