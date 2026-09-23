@@ -125,21 +125,30 @@ const steg: Steg[] = [
     titel: "Vinnande bud & överenskommelse",
     sammanfattning: "Säljaren accepterar ditt bud — men affären är ännu inte klar.",
     beskrivning:
-      "Mäklaren bokar kontraktsskrivning, oftast inom några dagar. Fram tills kontraktet är påskrivet kan båda parter dra sig ur utan påföljd.",
-    flaggor: ["Ett accepterat bud är inte bindande. Både du och säljaren kan backa fram till signering."],
-    tips: ["Be om kontraktsutkastet i förväg så du hinner läsa igenom det i lugn och ro."],
+      "När säljaren väljer ditt bud bokas en kontraktsskrivning, ofta inom några dagar. Fram till dess kan både du och säljaren fortfarande ändra er.",
+    flaggor: [
+      "Ett ja per telefon eller sms är inte bindande. Säljaren kan välja en annan köpare fram till att avtalet är undertecknat.",
+    ],
+    tips: [
+      "Be om kontraktsutkastet i förväg så du hinner läsa igenom det i lugn och ro.",
+      "Kontakta banken direkt och berätta att ditt bud har accepterats.",
+    ],
   },
   {
     id: "kontrakt",
-    titel: "Kontrakt (upplåtelseavtal/köpekontrakt)",
+    titel: "Kontrakt/Överlåtelseavtal",
     sammanfattning: "Här blir affären bindande. Läs varje klausul.",
     beskrivning:
-      "Kontraktet reglerar pris, tillträdesdag, vad som ingår, eventuella villkor och friskrivningar. För bostadsrätt skrivs överlåtelseavtal, för hus köpekontrakt.",
+      "Köpet av en bostadsrätt måste göras skriftligt i ett överlåtelseavtal som både du och säljaren skriver under. Avtalet anger bland annat pris, tillträdesdag och handpenning.",
     flaggor: [
       "Läs friskrivningsklausuler noga — de flyttar risk från säljaren till dig.",
-      "Villkor om lånelöfte eller besiktning måste skrivas in i kontraktet för att gälla.",
+      "Villkor du vill ha, till exempel att köpet bara gäller om du får lån, måste stå i avtalet. De går inte att lägga till i efterhand.",
+      "Det finns ingen ångerrätt vid bostadsköp",
     ],
-    tips: ["Det är nu affären blir bindande — var helt säker innan du skriver under."],
+    tips: [
+      "Kontrollera att tillträdesdagen fungerar med din nuvarande bostad och med bankens handläggning.",
+      "Fråga vad som följer med i köpet om något är oklart, till exempel vitvaror eller förråd.",
+    ],
   },
   {
     id: "handpenning",
