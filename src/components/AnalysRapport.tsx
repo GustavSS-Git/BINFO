@@ -261,11 +261,10 @@ function Fragor({ analys }: { analys: AnalysisResult }) {
   const toggle = (k: string) =>
     setChecked((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
 
-  // Frågor härledda ur analysen respektive auto-genererade av fält på "okänt".
+  // Frågor härledda ur analysen.
   const analysFragor = analys.fragor.filter((f) => f.ursprung === "analys");
-  const saknadeFragor = analys.fragor.filter((f) => f.ursprung === "saknad_uppgift");
 
-  const rad = (f: Fraga, auto = false) => (
+  const rad = (f: Fraga) => (
     <li key={f.id}>
       <label className="flex cursor-pointer items-start gap-3 rounded-xl p-3 hover:bg-secondary">
         <input
@@ -278,9 +277,7 @@ function Fragor({ analys }: { analys: AnalysisResult }) {
           className={`text-sm ${
             checked.includes(f.id)
               ? "text-muted-foreground line-through"
-              : auto
-                ? "text-muted-foreground"
-                : "text-foreground"
+              : "text-foreground"
           }`}
         >
           {f.fraga}
@@ -296,19 +293,6 @@ function Fragor({ analys }: { analys: AnalysisResult }) {
       </SectionTitle>
       <Card>
         <ul className="space-y-3">{analysFragor.map((f) => rad(f))}</ul>
-
-        {saknadeFragor.length > 0 ? (
-          <div className="mt-8 rounded-lg border border-dashed border-border p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-sm font-semibold text-foreground">Uppgifter som saknas</h3>
-              <Tag>auto</Tag>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Genererade av fält som står på ”Vet ej”. Svaren gör analysen säkrare.
-            </p>
-            <ul className="mt-3 space-y-2">{saknadeFragor.map((f) => rad(f, true))}</ul>
-          </div>
-        ) : null}
       </Card>
     </section>
   );
