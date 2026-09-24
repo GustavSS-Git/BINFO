@@ -21,6 +21,13 @@
 
 import { z } from "zod";
 
+/** Sonnet 5's `output_config.effort` values — see runExtraction.ts's
+ *  `ModelEffort` (this module can't import from `src/lib/analysis/` without
+ *  creating a server↔lib dependency edge the Edge Function's inline env
+ *  reader would also need to mirror; a plain, independently-defined string
+ *  union of the exact same five values is a smaller price than that). */
+export type ModelEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
 export interface Env {
   supabaseUrl: string;
   supabaseSecretKey: string;
@@ -30,7 +37,31 @@ export interface Env {
   anthropicApiKey: string;
   anthropicModel: string;
   maxCostPerAnalysisSek: number;
+  /**
+   * Per-stage reasoning-depth (task 1.2's speed work) — always set, never
+   * `undefined`. Defaults to "medium" for all three stages (see the
+   * `ANTHROPIC_EFFORT_*` env vars below): measured at 100% on the full
+   * verify-extraction regression set (both verified and draft fixtures)
+   * with real latency/cost wins over Sonnet 5's default adaptive thinking —
+   * a supervisor decision to make that the shipped default rather than an
+   * opt-in the deploy owner has to remember to set. The env vars remain
+   * pure overrides: set one to deliberately try a different depth (or to
+   * fall back toward "high"/adaptive-like behaviour by setting it there
+   * explicitly — there is no "unset" escape hatch once a var is present,
+   * see `lasEnv`). Grounding and extraction each get their own variable
+   * because they're independently-effort-tunable calls (see
+   * runGrounding/runStructuredExtraction in runExtraction.ts); judging is
+   * separate again since its quality (flags/questions) can't be scored
+   * automatically and may warrant a different setting later.
+   */
+  effortGrounding: ModelEffort;
+  effortExtraction: ModelEffort;
+  effortJudging: ModelEffort;
 }
+
+/** Shipped default for all three `ANTHROPIC_EFFORT_*` env vars — see
+ *  `Env.effortGrounding`'s doc comment. */
+const STANDARD_EFFORT: ModelEffort = "medium";
 
 /**
  * Kastas när en nyckel med `VITE_`-prefix hittas bland miljövariablerna som
@@ -89,6 +120,8 @@ const PositivtTalSchema = z
 // skäl). Edge Function-koden (`supabase/functions/analys-steg/index.ts`)
 // läser redan samma PROJECT_*-namn — ett enda namnschema fungerar då i alla
 // tre körtider.
+const EffortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]).optional();
+
 const RawEnvSchema = z.object({
   PROJECT_URL: z.string().min(1, "saknas").url("måste vara en giltig URL"),
   PROJECT_SECRET_KEY: z.string().min(1, "saknas"),
@@ -98,6 +131,9 @@ const RawEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1, "saknas"),
   ANTHROPIC_MODEL: z.string().min(1, "saknas").optional(),
   MAX_COST_PER_ANALYSIS_SEK: PositivtTalSchema.optional(),
+  ANTHROPIC_EFFORT_GROUNDING: EffortSchema,
+  ANTHROPIC_EFFORT_EXTRACTION: EffortSchema,
+  ANTHROPIC_EFFORT_JUDGING: EffortSchema,
 });
 
 /**
@@ -130,6 +166,10 @@ export function lasEnv(record: Record<string, string | undefined>): Env {
     anthropicApiKey: data.ANTHROPIC_API_KEY,
     anthropicModel: data.ANTHROPIC_MODEL ?? "claude-sonnet-5",
     maxCostPerAnalysisSek: data.MAX_COST_PER_ANALYSIS_SEK ?? 5,
+    // Alltid satta (never undefined) — se STANDARD_EFFORT/Env.effortGrounding.
+    effortGrounding: data.ANTHROPIC_EFFORT_GROUNDING ?? STANDARD_EFFORT,
+    effortExtraction: data.ANTHROPIC_EFFORT_EXTRACTION ?? STANDARD_EFFORT,
+    effortJudging: data.ANTHROPIC_EFFORT_JUDGING ?? STANDARD_EFFORT,
   };
   // exactOptionalPropertyTypes: tilldela fältet bara när det faktiskt finns,
   // aldrig `undefined` explicit — annars är "fältet är frånvarande" och

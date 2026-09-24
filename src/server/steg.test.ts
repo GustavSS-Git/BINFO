@@ -74,6 +74,11 @@ function miljo(overrides: Partial<Env> = {}): Env {
     anthropicApiKey: "sk-ant-test",
     anthropicModel: MODEL,
     maxCostPerAnalysisSek: 5,
+    // Samma default som lasEnv (env.ts) — supervisorbeslut: "medium" är
+    // shippad default, inte bara en opt-in via env-variabel.
+    effortGrounding: "medium",
+    effortExtraction: "medium",
+    effortJudging: "medium",
     ...overrides,
   };
 }
@@ -417,5 +422,265 @@ describe("korNastaSteg", () => {
     expect(rad?.stage).toBe("judging");
     expect(rad?.errorCode).toBe("saknar_rantekanslighet");
     expect(rad?.errorMessage).toMatch(/Räntekänslighet saknas/);
+  });
+
+  describe("reinvoke — task 1.2: hoppa direkt till nästa steg i stället för att vänta på nästa cron-tick", () => {
+    it("triggas efter en lyckad grundning (raden lämnas queued vid 'extracting', mer att göra direkt)", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 500 });
+      client.messages.create.mockResolvedValueOnce(groundingResponse());
+      const reinvoke = vi.fn();
+
+      await korNastaSteg(lager, miljo(), { client, reinvoke });
+
+      expect(reinvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it("triggas efter en lyckad extraktion via ett riktigt modellanrop (queued vid 'judging')", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager, { stage: "extracting" });
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 300 });
+      client.messages.create.mockResolvedValueOnce(extractionResponse());
+      const reinvoke = vi.fn();
+
+      await korNastaSteg(lager, miljo(), { client, reinvoke });
+
+      expect(reinvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it("triggas även vid en cache-träff i extraktionssteget — 'klar direkt' oavsett om ett modellanrop faktiskt gjordes", async () => {
+      const lager = skapaFakeLager();
+      const { nyckel } = await skapaRad(lager, { stage: "extracting" });
+      await sparaExtraktionICache(lager.db, nyckel, extraktion, 0.5);
+      const client = fakeClient();
+      const reinvoke = vi.fn();
+
+      await korNastaSteg(lager, miljo(), { client, reinvoke });
+
+      expect(reinvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it("triggas INTE efter en lyckad bedömning — jobbet är 'complete', inget mer att avancera", async () => {
+      const lager = skapaFakeLager();
+      const { nyckel } = await skapaRad(lager, { stage: "judging" });
+      await sparaExtraktionICache(lager.db, nyckel, extraktion, 0.5);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 200 });
+      client.messages.create.mockResolvedValueOnce(judgementResponse());
+      const reinvoke = vi.fn();
+
+      await korNastaSteg(lager, miljo(), { client, reinvoke });
+
+      expect(reinvoke).not.toHaveBeenCalled();
+    });
+
+    it("triggas INTE när reservationen refuseras (dagligt tak) — en omedelbar omkörning skulle bara refuseras igen", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager);
+      const client = fakeClient();
+      const reinvoke = vi.fn();
+
+      await korNastaSteg(lager, miljo({ maxDailySpendSek: 1 }), { client, reinvoke });
+
+      expect(reinvoke).not.toHaveBeenCalled();
+    });
+
+    it("triggas INTE när steget misslyckas", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager, { stage: "extracting" });
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+      client.messages.create.mockRejectedValue(new Error("Modellen svarade inte"));
+      const reinvoke = vi.fn();
+
+      await korNastaSteg(lager, miljo(), { client, reinvoke });
+
+      expect(reinvoke).not.toHaveBeenCalled();
+    });
+
+    it("frånvaron av reinvoke i options är ofarlig (produktionens Edge Function skickar den, men inget kraschar utan den)", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 500 });
+      client.messages.create.mockResolvedValueOnce(groundingResponse());
+
+      await expect(korNastaSteg(lager, miljo(), { client })).resolves.toBeDefined();
+    });
+  });
+
+  describe("spend-accounting vid fel (reviewer finding: ett fel efter ett betalt anrop stämdes tidigare alltid av mot 0 kr)", () => {
+    it("en trunkerad extraktion (stop_reason max_tokens) räknar den faktiska kostnaden mot jobbets costSek, inte 0 kr", async () => {
+      const lager = skapaFakeLager();
+      const { id } = await skapaRad(lager, { stage: "extracting" });
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+      client.messages.create.mockResolvedValue({
+        usage: { input_tokens: 300, output_tokens: 16000 },
+        content: [{ type: "text", text: '{"schemaVersion": "1.0.0"' }],
+        stop_reason: "max_tokens",
+      });
+
+      const foreRad = await lager.db.hamtaAnalys(id);
+      await korNastaSteg(lager, miljo(), { client });
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.status).toBe("queued"); // attempts < 3 än så länge
+      expect(rad?.errorCode).toBe("validation");
+      expect(rad?.costSek).toBeGreaterThan(foreRad?.costSek ?? 0);
+    });
+
+    it("en uttömd retry i bedömningssteget (två betalda anrop) räknar båda anropens kostnad, inte 0 kr", async () => {
+      const lager = skapaFakeLager();
+      const { id, nyckel } = await skapaRad(lager, { stage: "judging" });
+      await sparaExtraktionICache(lager.db, nyckel, extraktion, 0.5);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 200 });
+      client.messages.create.mockResolvedValue({
+        usage: { input_tokens: 200, output_tokens: 80 },
+        content: [{ type: "text", text: '{"helt": "fel form"}' }],
+      });
+
+      await korNastaSteg(lager, miljo(), { client });
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.errorCode).toBe("validation");
+      expect(client.messages.create).toHaveBeenCalledTimes(2);
+      expect(rad?.costSek).toBeGreaterThan(0);
+    });
+
+    it("cache-skrivning som misslyckas EFTER en lyckad, betald extraktion räknar den redan kända kostnaden, inte 0 kr (gap hittat av granskaren)", async () => {
+      const lager = skapaFakeLager();
+      const { id } = await skapaRad(lager, { stage: "extracting" });
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 300 });
+      client.messages.create.mockResolvedValueOnce(extractionResponse());
+      // Extraktionsanropet lyckas och betalas för — men skrivningen till
+      // extraktion_cache (efter anropet, före avslutaMedFramgang) misslyckas.
+      // spentSek är redan känt av korExtraktionssteg vid det laget.
+      lager.db.sparaExtraktion = async () => {
+        throw new Error("Databasen svarade inte");
+      };
+
+      const foreRad = await lager.db.hamtaAnalys(id);
+      await korNastaSteg(lager, miljo(), { client });
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(client.messages.create).toHaveBeenCalledTimes(1); // det betalda anropet gjordes
+      expect(rad?.status).toBe("queued"); // attempts < 3 än så länge
+      expect(rad?.errorCode).toBe("unknown");
+      expect(rad?.costSek).toBeGreaterThan(foreRad?.costSek ?? 0);
+    });
+
+    it("dry assembly-fel (saknad räntekänslighet) EFTER en FÄRSK, betald bedömning räknar den faktiska kostnaden, inte 0 kr (gap hittat av granskaren)", async () => {
+      const lager = skapaFakeLager();
+      const { id, nyckel } = await skapaRad(lager, { stage: "judging" });
+
+      const utanRantekanslighet: ExtractionResult = {
+        ...extraktion,
+        forening: {
+          ...extraktion.forening,
+          keyFigures: extraktion.forening.keyFigures.map((kf) =>
+            kf.id === "rantekanslighet" ? { ...kf, figure: { ...kf.figure, value: null } } : kf,
+          ),
+        },
+      };
+      await sparaExtraktionICache(lager.db, nyckel, utanRantekanslighet, 0.5);
+      // Ingen sparaAnalysICache här — bedömningen görs på riktigt (färskt,
+      // betalt anrop), till skillnad från den befintliga
+      // "cache-träff"-varianten av det här testet ovan.
+
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 200 });
+      client.messages.create.mockResolvedValueOnce(judgementResponse());
+
+      const foreRad = await lager.db.hamtaAnalys(id);
+      const resultat = await korNastaSteg(lager, miljo(), { client });
+
+      expect(resultat).toEqual({ claimed: true, analysisId: id, stage: "judging" });
+      expect(client.messages.create).toHaveBeenCalledTimes(1); // det betalda anropet gjordes
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.status).toBe("queued");
+      expect(rad?.errorCode).toBe("saknar_rantekanslighet");
+      expect(rad?.costSek).toBeGreaterThan(foreRad?.costSek ?? 0);
+    });
+
+    it("ett fel FÖRE något betalt anrop (kostnadstaket) räknar fortsatt 0 kr — det är fortfarande korrekt, inte en bugg", async () => {
+      const lager = skapaFakeLager();
+      const { id } = await skapaRad(lager);
+      const client = fakeClient();
+      // Ett absurt lågt tak per analys gör att enforceCostLimit kastar redan
+      // vid pre-flight, innan client.messages.create någonsin anropas.
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+      const env = miljo({ maxCostPerAnalysisSek: 0.0001 });
+
+      await korNastaSteg(lager, env, { client });
+
+      expect(client.messages.create).not.toHaveBeenCalled();
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.costSek).toBe(0);
+    });
+  });
+
+  describe("effort — per-stegs reasoning-djup från Env (task 1.2)", () => {
+    it("skickar env.effortGrounding vidare till grundningsanropet", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 500 });
+      client.messages.create.mockResolvedValueOnce(groundingResponse());
+
+      await korNastaSteg(lager, miljo({ effortGrounding: "low" }), { client });
+
+      const params = client.messages.create.mock.calls[0]?.[0] as { output_config?: unknown };
+      expect(params.output_config).toEqual({ effort: "low" });
+    });
+
+    it("skickar env.effortExtraction vidare till extraktionsanropet", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager, { stage: "extracting" });
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 300 });
+      client.messages.create.mockResolvedValueOnce(extractionResponse());
+
+      // "xhigh", inte "medium" — medium råkar vara Env-defaulten (se nedan),
+      // så ett värde SKILT från defaulten bevisar att det verkligen är
+      // overriden som styr, inte bara att defaulten händer stämma.
+      await korNastaSteg(lager, miljo({ effortExtraction: "xhigh" }), { client });
+
+      const params = client.messages.create.mock.calls[0]?.[0] as { output_config?: unknown };
+      expect(params.output_config).toEqual({ effort: "xhigh" });
+    });
+
+    it("skickar env.effortJudging vidare till bedömningsanropet", async () => {
+      const lager = skapaFakeLager();
+      const { nyckel } = await skapaRad(lager, { stage: "judging" });
+      await sparaExtraktionICache(lager.db, nyckel, extraktion, 0.5);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 200 });
+      client.messages.create.mockResolvedValueOnce(judgementResponse());
+
+      await korNastaSteg(lager, miljo({ effortJudging: "high" }), { client });
+
+      const params = client.messages.create.mock.calls[0]?.[0] as { output_config?: unknown };
+      expect(params.output_config).toEqual({ effort: "high" });
+    });
+
+    it("skickar effort: 'medium' som DEFAULT när miljo() inte overridar något (supervisorbeslut: shippad default, inte adaptivt)", async () => {
+      const lager = skapaFakeLager();
+      await skapaRad(lager);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 500 });
+      client.messages.create.mockResolvedValueOnce(groundingResponse());
+
+      await korNastaSteg(lager, miljo(), { client });
+
+      const params = client.messages.create.mock.calls[0]?.[0] as { output_config?: unknown };
+      expect(params.output_config).toEqual({ effort: "medium" });
+    });
   });
 });

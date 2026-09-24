@@ -55,6 +55,9 @@ function buildEnv(overrides: Partial<Env> = {}): Env {
     anthropicApiKey: "test-key",
     anthropicModel: "claude-sonnet-5",
     maxCostPerAnalysisSek: 5,
+    effortGrounding: "medium",
+    effortExtraction: "medium",
+    effortJudging: "medium",
     ...overrides,
   };
 }

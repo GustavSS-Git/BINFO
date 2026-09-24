@@ -19,6 +19,16 @@ import {
   SONNET_5_PRISSATTNING,
   type ModelPricing,
 } from "./costGuard";
+import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
+
+/**
+ * Sonnet 5's reasoning depth for a call (see `OutputConfig.effort` in the
+ * SDK's own types). Left `undefined` by default everywhere in this module —
+ * an unset `output_config.effort` is what gives Sonnet 5's default adaptive
+ * thinking behaviour (see CLAUDE.md/the task brief); only set it explicitly
+ * to deliberately trade quality for latency/cost.
+ */
+export type ModelEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export class ScannedPdfError extends Error {
   constructor() {
@@ -51,8 +61,19 @@ export interface AnthropicClientLike {
       max_tokens: number;
       system: string;
       messages: Array<{ role: "user"; content: unknown }>;
+      /** Reasoning depth — see `ModelEffort`. Omitted entirely (not just
+       *  `undefined`) unless a caller opts in, so the default adaptive-thinking
+       *  behaviour is unaffected when nobody asks for anything different. */
+      output_config?: { effort?: ModelEffort };
     }): Promise<{
-      usage: { input_tokens: number; output_tokens: number };
+      usage: {
+        input_tokens: number;
+        output_tokens: number;
+        /** Present only when prompt caching is actually in play — absent
+         *  (not just 0) on a plain, uncached call from the real API. */
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
       content: Array<{ type: string; text?: string; citations?: unknown }>;
       /** "max_tokens" means the response was cut off before it finished —
        *  see ModelTruncatedError. Optional because test doubles built before
@@ -73,16 +94,24 @@ export interface RunExtractionOptions {
   maxOutputTokensExtraction?: number;
   /** Injected for tests; production omits this and gets a real Anthropic client. */
   client?: AnthropicClientLike;
+  /** Reasoning depth for THIS call only — see `ModelEffort`. Left unset by
+   *  default (adaptive thinking, Sonnet 5's own default). */
+  effort?: ModelEffort;
 }
 
 export interface RunExtractionResult {
   extraction: ExtractionResult;
   spentSek: number;
+  /** Every `messages.create` call this run actually made, in order —
+   *  grounding's one call followed by extraction's one-or-two (on retry). */
+  calls: ModelCallMetrics[];
 }
 
 /** Builds the real Anthropic client, cast to the narrow shape this module
- *  depends on — or returns the injected test double unchanged. */
-function resolveClient(
+ *  depends on — or returns the injected test double unchanged. Exported so
+ *  analyze.ts's `runAnalys` can share the exact same client-resolution
+ *  behaviour instead of re-implementing it (see that module). */
+export function resolveClient(
   options: Pick<RunExtractionOptions, "apiKey" | "client">,
 ): AnthropicClientLike {
   if (options.client) return options.client;
@@ -187,6 +216,9 @@ export interface RunGroundingResult {
   groundingText: string;
   spentSek: number;
   pdfSaknarTextlager: boolean;
+  /** Always exactly one entry — grounding never retries (there is nothing to
+   *  validate a free-text response against). */
+  calls: ModelCallMetrics[];
 }
 
 /** Call 1 — grounding (citations enabled). Fails loudly, before any API
@@ -207,6 +239,7 @@ export async function runGrounding(
     // of an error. The explicit stop_reason check below exists for exactly
     // this call.
     maxOutputTokensGrounding = 16000,
+    effort,
   } = options;
 
   // Step 0 — cheap local check, no API spend. A scanned PDF must fail
@@ -248,30 +281,47 @@ export async function runGrounding(
   });
   enforceCostLimit(groundingCount.input_tokens, maxOutputTokensGrounding, maxCostSek, pricing);
 
+  const start = performance.now();
   const groundingResponse = await client.messages.create({
     model,
     max_tokens: maxOutputTokensGrounding,
     system: groundingSystem,
     messages: groundingMessages,
+    ...(effort ? { output_config: { effort } } : {}),
   });
+  const latencyMs = performance.now() - start;
   const spentSek = estimateCostSek(
     groundingResponse.usage.input_tokens,
     groundingResponse.usage.output_tokens,
     pricing,
   );
+  const calls = [
+    buildCallMetrics({
+      stage: "grundning",
+      model,
+      latencyMs,
+      usage: groundingResponse.usage,
+      stopReason: groundingResponse.stop_reason,
+      pricing,
+    }),
+  ];
 
   // Grounding's output is free text, not JSON — a truncated response would
   // otherwise pass through silently as a merely-shorter groundingText
   // instead of an error, and extraction downstream would just see fewer
   // findings than the report actually contains.
   if (groundingResponse.stop_reason === "max_tokens") {
-    throw new ModelTruncatedError("Grundningen", maxOutputTokensGrounding);
+    throw annotateSpend(
+      new ModelTruncatedError("Grundningen", maxOutputTokensGrounding),
+      spentSek,
+      calls,
+    );
   }
 
   const findings = extractGroundingFindings(groundingResponse.content as GroundingTextBlock[]);
   const groundingText = formatGroundingForExtraction(findings);
 
-  return { groundingText, spentSek, pdfSaknarTextlager };
+  return { groundingText, spentSek, pdfSaknarTextlager, calls };
 }
 
 export interface RunStructuredExtractionOptions extends Omit<
@@ -300,10 +350,12 @@ export async function runStructuredExtraction(
     // hit in judging (see analyze.ts).
     maxOutputTokensExtraction = 16000,
     pdfSaknarTextlager = false,
+    effort,
   } = options;
 
   const client = resolveClient(options);
   let spentSek = 0;
+  const calls: ModelCallMetrics[] = [];
 
   const extractionSystem = buildExtractionSystemPrompt();
   const extractionUser = buildExtractionUserPrompt(groundingText);
@@ -313,19 +365,36 @@ export async function runStructuredExtraction(
     const count = await client.messages.countTokens({ model, system, messages });
     enforceCostLimit(count.input_tokens, maxOutputTokensExtraction, maxCostSek - spentSek, pricing);
 
+    const start = performance.now();
     const response = await client.messages.create({
       model,
       max_tokens: maxOutputTokensExtraction,
       system,
       messages,
+      ...(effort ? { output_config: { effort } } : {}),
     });
+    const latencyMs = performance.now() - start;
     spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
+    calls.push(
+      buildCallMetrics({
+        stage: "extraktion",
+        model,
+        latencyMs,
+        usage: response.usage,
+        stopReason: response.stop_reason,
+        pricing,
+      }),
+    );
 
     // Diagnose a cut-off response immediately (see ModelTruncatedError) —
     // otherwise it's just malformed JSON to parseModelJson below, and the
     // retry would very likely hit the same truncation again for no benefit.
     if (response.stop_reason === "max_tokens") {
-      throw new ModelTruncatedError("Extraktionen", maxOutputTokensExtraction);
+      throw annotateSpend(
+        new ModelTruncatedError("Extraktionen", maxOutputTokensExtraction),
+        spentSek,
+        calls,
+      );
     }
 
     const raw = parseModelJson(response.content);
@@ -340,7 +409,19 @@ export async function runStructuredExtraction(
     return raw;
   };
 
-  const extraction = await extractWithRetry(extractionSystem, extractionUser, callModel);
+  let extraction: ExtractionResult;
+  try {
+    extraction = await extractWithRetry(extractionSystem, extractionUser, callModel);
+  } catch (error) {
+    // A validation failure only reaches here after extractWithRetry's own
+    // retry already made a second paid call — annotate whatever `calls`
+    // already holds (ModelTruncatedError above already carries its own,
+    // narrower snapshot from the moment it was thrown; this `catch` only
+    // widens it if a later attempt added to `calls` since — extractWithRetry
+    // never retries after ModelTruncatedError, so in practice that only
+    // matters for ModelValidationError below).
+    throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
+  }
 
   // Deterministic reconciliation, in order:
   //   1. tolkaNyckeltal — for any figure whose printed cell was not a plain
@@ -395,7 +476,7 @@ export async function runStructuredExtraction(
     },
   };
 
-  return { extraction: enrichedExtraction, spentSek };
+  return { extraction: enrichedExtraction, spentSek, calls };
 }
 
 /**
@@ -413,6 +494,7 @@ export async function runExtraction(
     groundingText,
     spentSek: spentGrounding,
     pdfSaknarTextlager,
+    calls: groundingCalls,
   } = await runGrounding(pdfBytes, options);
 
   // maxOutputTokensGrounding has no meaning for call 2 — drop it explicitly
@@ -420,11 +502,19 @@ export async function runExtraction(
   // RunStructuredExtractionOptions doesn't declare it.
   const { maxOutputTokensGrounding: _maxOutputTokensGrounding, ...restOptions } = options;
 
-  const { extraction, spentSek: spentStructured } = await runStructuredExtraction(groundingText, {
+  const {
+    extraction,
+    spentSek: spentStructured,
+    calls: extractionCalls,
+  } = await runStructuredExtraction(groundingText, {
     ...restOptions,
     maxCostSek: options.maxCostSek - spentGrounding,
     pdfSaknarTextlager,
   });
 
-  return { extraction, spentSek: spentGrounding + spentStructured };
+  return {
+    extraction,
+    spentSek: spentGrounding + spentStructured,
+    calls: [...groundingCalls, ...extractionCalls],
+  };
 }

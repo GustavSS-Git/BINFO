@@ -3,7 +3,13 @@ import path from "node:path";
 import { APIConnectionError } from "@anthropic-ai/sdk";
 import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
-import { ScannedPdfError, runExtraction, type RunExtractionOptions } from "./runExtraction";
+import {
+  ScannedPdfError,
+  runExtraction,
+  type ModelEffort,
+  type RunExtractionOptions,
+} from "./runExtraction";
+import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
 
 /**
@@ -73,6 +79,24 @@ try {
 
 const ANSWER_KEY_DIR = "fixtures/answer-key";
 
+const GILTIGA_EFFORT: ModelEffort[] = ["low", "medium", "high", "xhigh", "max"];
+
+/** ANTHROPIC_EFFORT — one setting for the whole run (this CLI runs
+ *  runExtraction, i.e. grounding+extraction combined, never judging), for
+ *  effort sweeps against the regression set (task 1.2). Unset means Sonnet
+ *  5's own adaptive-thinking default, unchanged from before this option
+ *  existed. */
+function lasEffort(): ModelEffort | undefined {
+  const rå = process.env["ANTHROPIC_EFFORT"];
+  if (!rå) return undefined;
+  if (!GILTIGA_EFFORT.includes(rå as ModelEffort)) {
+    throw new Error(
+      `ANTHROPIC_EFFORT måste vara en av ${GILTIGA_EFFORT.join(", ")}, fick "${rå}".`,
+    );
+  }
+  return rå as ModelEffort;
+}
+
 function felText(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 }
@@ -132,6 +156,7 @@ async function main() {
 
   const model = process.env["ANTHROPIC_MODEL"] || "claude-sonnet-5";
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
+  const effort = lasEffort();
   const fixtures = await loadFixtures();
 
   const verifierad = nyRakning();
@@ -140,6 +165,8 @@ async function main() {
   let misslyckade = 0;
   const utkastRapporter: string[] = [];
   const refuseringsFel: string[] = [];
+  const allaAnrop: ModelCallMetrics[] = [];
+  let totalWallMs = 0;
 
   for (const fixture of fixtures) {
     const rakning = arUtkast(fixture) ? utkast : verifierad;
@@ -163,7 +190,11 @@ async function main() {
     // --- Fixtures expected to be REFUSED before any API spend (scanned PDF) ---
     if (fixture.forvantatRefuserad) {
       try {
-        await korMedEttOmforsok(pdfBytes, { model, maxCostSek });
+        // No wall-clock/cost tracking here on purpose: a refusal is a local,
+        // pre-flight check (extractPdfText's text-layer detection) that
+        // fires before any Anthropic call is made — there is nothing to
+        // measure.
+        await korMedEttOmforsok(pdfBytes, { model, maxCostSek, ...(effort ? { effort } : {}) });
         console.log(
           `  ✗ FÖRVÄNTAD REFUSERING UTEBLEV — extraktionen lyckades, men skulle ha kastat ScannedPdfError`,
         );
@@ -187,13 +218,22 @@ async function main() {
     // fixturerna ska fortfarande köras och rapporteras.
     let extraction: Awaited<ReturnType<typeof runExtraction>>["extraction"];
     let spentSek: number;
+    let calls: ModelCallMetrics[];
+    const wallStart = performance.now();
     try {
-      ({ extraction, spentSek } = await korMedEttOmforsok(pdfBytes, { model, maxCostSek }));
+      ({ extraction, spentSek, calls } = await korMedEttOmforsok(pdfBytes, {
+        model,
+        maxCostSek,
+        ...(effort ? { effort } : {}),
+      }));
     } catch (error) {
       console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
       misslyckade++;
       continue;
     }
+    const wallMs = performance.now() - wallStart;
+    totalWallMs += wallMs;
+    allaAnrop.push(...calls);
 
     for (const [id, forvantat] of Object.entries(fixture.nyckeltal)) {
       const kf = extraction.forening.keyFigures.find((k) => k.id === id);
@@ -288,8 +328,19 @@ async function main() {
       }
     }
 
-    console.log(`  (${spentSek.toFixed(2)} kr)`);
+    console.log(`\n${formatCallMetricsTable(calls)}`);
+    console.log(
+      `  (${spentSek.toFixed(2)} kr, ${(wallMs / 1000).toFixed(1)} s väggklocka för denna rapport)`,
+    );
   }
+
+  console.log(`\n${"=".repeat(70)}`);
+  console.log("KOSTNAD OCH VÄGGKLOCKA — HELA KÖRNINGEN:");
+  console.log(
+    `  ${allaAnrop.length} API-anrop totalt, ${totalCostSek(allaAnrop).toFixed(2)} kr, ` +
+      `${(totalWallMs / 1000).toFixed(1)} s summerad väggklocka över rapporterna ` +
+      `(körda sekventiellt — se rapporten för uppskattad produktions-väggklocka per rapport).`,
+  );
 
   console.log(`\n${"=".repeat(70)}`);
   console.log("VERIFIERADE FIXTURER (facit avstämt mot originalrapporten):");

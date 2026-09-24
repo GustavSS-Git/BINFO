@@ -88,11 +88,23 @@ function kravPositivtTal(namn: string): number {
   return tal;
 }
 
+// ModelEffort/valideraEffort/STANDARD_EFFORT live in ./effort.ts — split out
+// specifically so they're unit-testable under Vitest (see that file's doc
+// comment for why this file itself can't be imported by a Node test runner).
+import { valideraEffort, type ModelEffort } from "./effort.ts";
+
 interface InlineEnv {
   maxDailySpendSek: number;
   killSwitchPa: boolean;
   anthropicApiKey: string;
   maxCostPerAnalysisSek: number;
+  // Task 1.2 — mirrors Env.effortGrounding/effortExtraction/effortJudging in
+  // src/server/env.ts (see that file for why each stage has its own
+  // variable). Always set (default STANDARD_EFFORT, from ./effort.ts) —
+  // never undefined, same as the Node side.
+  effortGrounding: ModelEffort;
+  effortExtraction: ModelEffort;
+  effortJudging: ModelEffort;
 }
 
 function lasEnvInline(): InlineEnv {
@@ -103,6 +115,15 @@ function lasEnvInline(): InlineEnv {
     anthropicApiKey: kravMiljovariabel("ANTHROPIC_API_KEY"),
     // Samma default (5 kr) som lasEnv i src/server/env.ts.
     maxCostPerAnalysisSek: maxCostRått ? Number(maxCostRått) : 5,
+    effortGrounding: valideraEffort(
+      "ANTHROPIC_EFFORT_GROUNDING",
+      Deno.env.get("ANTHROPIC_EFFORT_GROUNDING"),
+    ),
+    effortExtraction: valideraEffort(
+      "ANTHROPIC_EFFORT_EXTRACTION",
+      Deno.env.get("ANTHROPIC_EFFORT_EXTRACTION"),
+    ),
+    effortJudging: valideraEffort("ANTHROPIC_EFFORT_JUDGING", Deno.env.get("ANTHROPIC_EFFORT_JUDGING")),
   };
 }
 
@@ -409,8 +430,53 @@ Deno.serve(async (req: Request) => {
     );
     const lager = byggLager(sb);
 
+    // Task 1.2 — remove the queue-waiting bottleneck: without this, a job
+    // only advances one stage per `binfo-tick` (every minute), so a
+    // three-stage job takes ~3-5 minutes of pure queue latency on top of the
+    // actual API time. `korNastaSteg` calls `reinvoke()` itself (see
+    // src/server/steg.ts) the moment a stage succeeds and leaves the row
+    // `queued` at a non-terminal stage — i.e. exactly when there's more work
+    // to do right now rather than at the next tick. This POSTs back to this
+    // SAME function (`req.url` — the URL this very invocation was reached
+    // at, so it works under any custom domain/project ref without deriving
+    // one from PROJECT_URL) with the identical `apikey` header pg_cron uses,
+    // so the auth check above passes the same way for a self-triggered
+    // invocation as for a cron-triggered one.
+    //
+    // Deliberately NOT awaited: this invocation must return its own HTTP
+    // response promptly (the reason the pipeline was split into one
+    // Anthropic call per invocation in the first place is the 150s wall-clock
+    // cap per invocation — see SUPABASE.md — and awaiting the next stage's
+    // full round trip here would chain that wait right back in). `.catch`
+    // swallows a failed self-invoke silently on purpose: `reinvoke`'s own doc
+    // comment in steg.ts says why — it is a pure speed-up, never a
+    // correctness dependency, and `binfo-tick`'s normal once-a-minute poll
+    // remains the safety net if this never fires or never lands.
+    //
+    // UNVERIFIED (no live deploy in this task — see the task report): whether
+    // an un-awaited `fetch` reliably finishes sending once this handler
+    // returns its response is a real Deno/Supabase Edge Runtime behaviour
+    // question this task could not verify without deploying. If the
+    // platform provides a "keep running after response" primitive (Supabase
+    // has documented `EdgeRuntime.waitUntil()` for background work in the
+    // past), feature-detect and use it so the outbound request isn't cut off
+    // mid-flight; degrade to the plain fire-and-forget call otherwise. Worst
+    // case if neither works: the reinvoke silently never lands, and the job
+    // proceeds at the pre-existing once-a-minute cadence — not a regression.
+    const reinvoke = () => {
+      const gjord = fetch(req.url, {
+        method: "POST",
+        headers: { apikey: expected },
+      }).catch(() => {
+        // Best-effort — see the comment above.
+      });
+      const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
+        .EdgeRuntime;
+      runtime?.waitUntil?.(gjord);
+    };
+
     // deno-lint-ignore no-explicit-any
-    const resultat = await korNastaSteg(lager as any, env);
+    const resultat = await korNastaSteg(lager as any, env, { reinvoke });
     return new Response(JSON.stringify(resultat), {
       status: 200,
       headers: { "Content-Type": "application/json" },

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ExtractionResult, KeyFigure, KeyFigureId } from "@/types/analysis";
 import { estimateCostSek, KostnadsgransOverskriden, SONNET_5_PRISSATTNING } from "./costGuard";
 import { ModelTruncatedError } from "./extract";
+import { errorHasKnownSpend } from "./callMetrics";
 import {
   ScannedPdfError,
   runExtraction,
@@ -189,6 +190,66 @@ describe("runGrounding", () => {
       ModelTruncatedError,
     );
   });
+
+  it("returnerar exakt ett call-metrics-objekt med modell, tokens och latens", async () => {
+    const data = new Uint8Array(await fixture("med-text.pdf"));
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+    client.messages.create.mockResolvedValue(groundingApiResponse());
+
+    const result = await runGrounding(data, { maxCostSek: 5, client, model: "claude-sonnet-5" });
+
+    expect(result.calls).toHaveLength(1);
+    expect(result.calls[0]).toMatchObject({
+      stage: "grundning",
+      model: "claude-sonnet-5",
+      inputTokens: 500,
+      outputTokens: 200,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      stopReason: null,
+    });
+    expect(result.calls[0]?.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("annoterar ModelTruncatedError med den redan uppmätta kostnaden och anropet — inte 0 kr", async () => {
+    const data = new Uint8Array(await fixture("med-text.pdf"));
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+    client.messages.create.mockResolvedValue({
+      ...groundingApiResponse(),
+      stop_reason: "max_tokens",
+    });
+
+    try {
+      await runGrounding(data, { maxCostSek: 5, client });
+      expect.fail("skulle ha kastat");
+    } catch (error) {
+      expect(errorHasKnownSpend(error)).toBe(true);
+      if (errorHasKnownSpend(error)) {
+        expect(error.spentSek).toBeGreaterThan(0);
+        expect(error.calls).toHaveLength(1);
+      }
+    }
+  });
+
+  it("skickar output_config.effort vidare när angiven, annars inget output_config alls", async () => {
+    const data = new Uint8Array(await fixture("med-text.pdf"));
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+    client.messages.create.mockResolvedValue(groundingApiResponse());
+
+    await runGrounding(data, { maxCostSek: 5, client, effort: "low" });
+    const params = client.messages.create.mock.calls[0]?.[0] as { output_config?: unknown };
+    expect(params.output_config).toEqual({ effort: "low" });
+
+    client.messages.create.mockClear();
+    await runGrounding(data, { maxCostSek: 5, client });
+    const paramsUtanEffort = client.messages.create.mock.calls[0]?.[0] as {
+      output_config?: unknown;
+    };
+    expect(paramsUtanEffort.output_config).toBeUndefined();
+  });
 });
 
 describe("runStructuredExtraction", () => {
@@ -251,6 +312,69 @@ describe("runStructuredExtraction", () => {
     // Ingen retry — ett avklippt svar från samma prompt och samma tak skulle
     // med största sannolikhet klippas av likadant igen.
     expect(client.messages.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("annoterar en trunkering med den faktiska kostnaden (reviewer finding: 0 kr var fel)", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 16000 },
+      content: [{ type: "text", text: '{"schemaVersion": "1.0.0"' }],
+      stop_reason: "max_tokens",
+    });
+
+    try {
+      await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+      expect.fail("skulle ha kastat");
+    } catch (error) {
+      expect(errorHasKnownSpend(error)).toBe(true);
+      if (errorHasKnownSpend(error)) {
+        expect(error.spentSek).toBeGreaterThan(0);
+        expect(error.calls).toHaveLength(1);
+      }
+    }
+  });
+
+  it("annoterar ett valideringsfel efter uttömd retry med kostnaden av BÅDA anropen", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: '{"helt": "fel form"}' }],
+    });
+
+    try {
+      await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+      expect.fail("skulle ha kastat");
+    } catch (error) {
+      expect(client.messages.create).toHaveBeenCalledTimes(2);
+      expect(errorHasKnownSpend(error)).toBe(true);
+      if (errorHasKnownSpend(error)) {
+        expect(error.calls).toHaveLength(2);
+        expect(error.spentSek).toBeCloseTo(
+          estimateCostSek(300, 100, SONNET_5_PRISSATTNING) * 2,
+          10,
+        );
+      }
+    }
+  });
+
+  it("returnerar ett call-metrics-objekt per faktiskt anrop", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(validExtractionResult) }],
+    });
+
+    const result = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    expect(result.calls).toHaveLength(1);
+    expect(result.calls[0]).toMatchObject({
+      stage: "extraktion",
+      inputTokens: 300,
+      outputTokens: 100,
+    });
   });
 
   it("tolkar tryckt-fältet deterministiskt och låter det vinna över modellens egen value (Volontären-fallet: 'neg')", async () => {

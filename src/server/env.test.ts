@@ -58,6 +58,38 @@ describe("lasEnv", () => {
     expect(() => lasEnv(record)).toThrowError(OgiltigMiljoError);
   });
 
+  it("effortGrounding/effortExtraction/effortJudging defaultar till 'medium' när miljövariablerna saknas (supervisorbeslut: shippad default, inte bara en opt-in)", () => {
+    const env = lasEnv(giltigRecord());
+    expect(env.effortGrounding).toBe("medium");
+    expect(env.effortExtraction).toBe("medium");
+    expect(env.effortJudging).toBe("medium");
+  });
+
+  it("läser ANTHROPIC_EFFORT_GROUNDING/EXTRACTION/JUDGING när satta till giltiga värden — de OVERRIDAR default", () => {
+    const record = giltigRecord();
+    record["ANTHROPIC_EFFORT_GROUNDING"] = "low";
+    record["ANTHROPIC_EFFORT_EXTRACTION"] = "high";
+    record["ANTHROPIC_EFFORT_JUDGING"] = "xhigh";
+
+    const env = lasEnv(record);
+
+    expect(env.effortGrounding).toBe("low");
+    expect(env.effortExtraction).toBe("high");
+    expect(env.effortJudging).toBe("xhigh");
+  });
+
+  it("kastar OgiltigMiljoError för ett ogiltigt ANTHROPIC_EFFORT_GROUNDING-värde", () => {
+    const record = giltigRecord();
+    record["ANTHROPIC_EFFORT_GROUNDING"] = "turbo";
+    expect(() => lasEnv(record)).toThrowError(OgiltigMiljoError);
+  });
+
+  it("kastar OgiltigMiljoError för ett TOMT ANTHROPIC_EFFORT_EXTRACTION-värde — satt-men-tomt är inte samma sak som ospecificerat", () => {
+    const record = giltigRecord();
+    record["ANTHROPIC_EFFORT_EXTRACTION"] = "";
+    expect(() => lasEnv(record)).toThrowError(OgiltigMiljoError);
+  });
+
   it("kastar en egen, högljudd fel-typ om NÅGON nyckel i input-recordet är VITE_-prefixad", () => {
     const record = { ...giltigRecord(), VITE_NAGONTING: "hemlighet" };
     expect(() => lasEnv(record)).toThrowError(OsakerMiljoNyckelError);

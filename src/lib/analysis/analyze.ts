@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult, ExtractionResult, Fraga, PageRef } from "@/types/analysis";
 import {
   ModelTruncatedError,
@@ -8,13 +7,19 @@ import {
 } from "./extract";
 import { buildAnalysSystemPrompt, buildAnalysUserPrompt } from "./prompts";
 import { buildAnalysJudgementSchema } from "./schema";
-import { parseModelJson } from "./runExtraction";
+import {
+  parseModelJson,
+  resolveClient,
+  type AnthropicClientLike,
+  type ModelEffort,
+} from "./runExtraction";
 import {
   enforceCostLimit,
   estimateCostSek,
   SONNET_5_PRISSATTNING,
   type ModelPricing,
 } from "./costGuard";
+import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
 import type { z } from "zod";
 
 /**
@@ -117,11 +122,20 @@ export interface RunAnalysOptions {
   pricing?: ModelPricing;
   /** Worst-case output tokens assumed for the pre-flight cost check. */
   maxOutputTokens?: number;
+  /** Injected for tests (and, since the orchestration split, steg.ts's
+   *  judging step); production omits this and gets a real Anthropic client —
+   *  same resolution as runGrounding/runStructuredExtraction (runExtraction.ts). */
+  client?: AnthropicClientLike;
+  /** Reasoning depth for this call — see `ModelEffort` in runExtraction.ts.
+   *  Left unset by default (Sonnet 5's own adaptive-thinking default). */
+  effort?: ModelEffort;
 }
 
 export interface RunAnalysResult {
   analys: AnalysJudgement;
   spentSek: number;
+  /** Always one entry, or two if validateWithRetry's one retry fired. */
+  calls: ModelCallMetrics[];
 }
 
 /**
@@ -134,7 +148,6 @@ export async function runAnalys(
   options: RunAnalysOptions,
 ): Promise<RunAnalysResult> {
   const {
-    apiKey,
     model = "claude-sonnet-5",
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
@@ -144,34 +157,57 @@ export async function runAnalys(
     // JSON answer) — see ModelTruncatedError below, and the max_tokens
     // finding in the task report.
     maxOutputTokens = 16000,
+    effort,
   } = options;
 
-  const client = apiKey ? new Anthropic({ apiKey }) : new Anthropic();
+  const client = resolveClient(options);
   let spentSek = 0;
+  const calls: ModelCallMetrics[] = [];
 
   const callModel: ModelCaller = async (system, user) => {
     const messages = [{ role: "user" as const, content: user }];
     const count = await client.messages.countTokens({ model, system, messages });
     enforceCostLimit(count.input_tokens, maxOutputTokens, maxCostSek - spentSek, pricing);
 
+    const start = performance.now();
     const response = await client.messages.create({
       model,
       max_tokens: maxOutputTokens,
       system,
       messages,
+      ...(effort ? { output_config: { effort } } : {}),
     });
+    const latencyMs = performance.now() - start;
     spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
+    calls.push(
+      buildCallMetrics({
+        stage: "bedomning",
+        model,
+        latencyMs,
+        usage: response.usage,
+        stopReason: response.stop_reason,
+        pricing,
+      }),
+    );
 
     // A truncated response is a capacity problem, not a shape problem —
     // diagnose it as one immediately rather than let it surface later as an
     // opaque JSON-parse/validation failure after a wasted retry.
     if (response.stop_reason === "max_tokens") {
-      throw new ModelTruncatedError("Bedömningen", maxOutputTokens);
+      throw annotateSpend(new ModelTruncatedError("Bedömningen", maxOutputTokens), spentSek, calls);
     }
 
     return parseModelJson(response.content);
   };
 
-  const analys = await analysera(extraction, callModel);
-  return { analys, spentSek };
+  let analys: AnalysJudgement;
+  try {
+    analys = await analysera(extraction, callModel);
+  } catch (error) {
+    // Same reasoning as runStructuredExtraction's catch (runExtraction.ts):
+    // a validation error thrown after validateWithRetry's own retry already
+    // reflects real, paid calls, not 0 kr.
+    throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
+  }
+  return { analys, spentSek, calls };
 }

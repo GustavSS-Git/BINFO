@@ -25,15 +25,11 @@
  * jobbet redan sagt "done".
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import type { AnalysJudgement } from "@/lib/analysis/analyze";
-import { analysera } from "@/lib/analysis/analyze";
+import { runAnalys } from "@/lib/analysis/analyze";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
-import { enforceCostLimit, estimateCostSek, SONNET_5_PRISSATTNING } from "@/lib/analysis/costGuard";
-import { ModelTruncatedError, type ModelCaller } from "@/lib/analysis/extract";
+import { errorHasKnownSpend } from "@/lib/analysis/callMetrics";
 import { SchablonPrisdatakalla } from "@/lib/analysis/prisdata";
 import {
-  parseModelJson,
   runGrounding,
   runStructuredExtraction,
   type AnthropicClientLike,
@@ -59,8 +55,25 @@ import {
 
 export interface KorNastaStegOptions {
   /** Injected for tests; production omits this and each step builds a real
-   *  Anthropic client (see `resolveClient` below). */
+   *  Anthropic client (via runGrounding/runStructuredExtraction/runAnalys's
+   *  own `resolveClient`, in runExtraction.ts). */
   client?: AnthropicClientLike;
+  /**
+   * Fire-and-forget hook: called once a stage succeeds and leaves its row
+   * `queued` at a NON-terminal stage (i.e. there is more work to do right
+   * away) — see korGrundningssteg/korExtraktionssteg below. Production (the
+   * Edge Function, supabase/functions/analys-steg/index.ts) wires this to a
+   * POST back to the function's own URL with the same `apikey` header
+   * pg_cron uses, so the next stage starts immediately instead of waiting
+   * for the next once-a-minute tick. `korNastaSteg` NEVER awaits it and
+   * NEVER lets its failure affect the stage that just succeeded — a
+   * reinvoke that never fires or never lands is not a correctness problem,
+   * only a missed speed-up: the pg_cron tick remains the safety net that
+   * picks the row up within the next minute regardless. Never called after
+   * a failure, a refused spend reservation, or a stage that reaches
+   * "complete" (nothing left to advance).
+   */
+  reinvoke?: () => void;
 }
 
 export interface KorNastaStegResultat {
@@ -69,21 +82,11 @@ export interface KorNastaStegResultat {
   stage?: AnalysStage;
 }
 
-/**
- * Bygger den riktiga Anthropic-klienten, castad till samma smala form
- * `runExtraction.ts` redan använder — eller returnerar den injicerade
- * testdubbletten oförändrad. Samma mönster som `resolveClient` i
- * `runExtraction.ts`, duplicerat här (inte importerat) eftersom den
- * funktionen inte är exporterad därifrån och det här är den enda andra
- * platsen ett rått `AnthropicClientLike` behöver byggas — `judging`-steget,
- * som (till skillnad från grundning/extraktion) inte går via `runAnalys`.
- */
-function resolveClient(
-  client: AnthropicClientLike | undefined,
-  apiKey: string,
-): AnthropicClientLike {
-  if (client) return client;
-  return new Anthropic({ apiKey }) as unknown as AnthropicClientLike;
+/** See `KorNastaStegOptions.reinvoke`'s doc comment — this is just the
+ *  one-line "call it if it's there" so every success path reads the same
+ *  way instead of repeating the optional-chaining inline. */
+function trigger(options: KorNastaStegOptions | undefined): void {
+  options?.reinvoke?.();
 }
 
 /** Gemensam framgångsväg: stäm av reservationen (om någon gjordes — en
@@ -135,23 +138,47 @@ async function avslutaMedFramgang(
 }
 
 /**
- * Gemensam felväg. Reservationen (om någon gjordes) stäms av till noll —
- * det konservativa antagandet att inget faktiskt spenderades. Ett fel som
- * inträffar EFTER att modellanropet redan kostat något (men innan resten av
- * steget lyckades) skulle egentligen behöva stämmas av mot den delsumman;
- * det är en känd, medveten förenkling här (se uppgiftens instruktion) —
- * felfallet är sällsynt nog, och den ekonomiska avvikelsen liten nog, att
- * det inte är värt komplexiteten att spåra en delvis spenderad summa genom
- * varje felväg.
+ * Gemensam felväg. Reservationen (om någon gjordes) stäms av mot den
+ * FAKTISKA kostnaden när den är känd, inte alltid mot noll.
+ *
+ * Reviewer finding, nu fixad: ett fel som inträffar EFTER att modellanropet
+ * redan kostat något — vanligast `ModelTruncatedError`, som per definition
+ * bara kastas efter ett fullständigt, betalt svar (se den klassens egen
+ * doc-kommentar i extract.ts), men detsamma gäller ett valideringsfel efter
+ * en uttömd retry (två betalda anrop, inte noll) — stämdes tidigare alltid
+ * av mot 0 kr, det konservativa antagandet att inget spenderats. Det
+ * underskattar dagens faktiska spend mot `MAX_DAILY_SPEND_SEK`-taket, vilket
+ * är fel väg för en spend-guard att ha fel i: den ska aldrig kunna släppa
+ * igenom MER verkligt spend än den tror den gjort.
+ *
+ * Två källor till den faktiska kostnaden, i prioritetsordning:
+ *   1. `errorHasKnownSpend(error)` — `runGrounding`/`runStructuredExtraction`/
+ *      `runAnalys` annoterar SJÄLVA ett fel de kastar med den kostnad de redan
+ *      hunnit betala för (se `annotateSpend`, callMetrics.ts). Används när den
+ *      finns — den är mest exakt (täcker t.ex. båda anropen i en uttömd retry).
+ *   2. `knownSpentSek` — den kostnad ANROPAREN redan kände till INNAN felet
+ *      kastades, för fel som inträffar EFTER att modellanropet redan lyckats
+ *      och returnerat (t.ex. `sparaExtraktionICache`/`sparaAnalysICache` som
+ *      inte når databasen, eller den torra sammanställningens
+ *      `SaknarRantekanslighetError`/`AssemblyValidationError` efter en FÄRSK,
+ *      betald bedömning) — de felen bär själva ingen spend-annotering (de
+ *      kommer inte från pipelinelagret), men stegfunktionen som anropar
+ *      `avslutaMedFel` vet redan spentSek från sitt eget lyckade anrop.
+ * ALDRIG båda samtidigt (dubbelräkning): är felet självannoterat används
+ * ENDAST den annoteringen; annars faller vi tillbaka på `knownSpentSek`
+ * (default 0, korrekt för ett fel som kastas FÖRE något anrop alls, t.ex.
+ * `KostnadsgransOverskriden`).
  */
 async function avslutaMedFel(
   lager: Lager,
   rad: AnalysRad,
   reserveratSek: number,
   error: unknown,
+  knownSpentSek = 0,
 ): Promise<void> {
+  const faktisktSpenderatSek = errorHasKnownSpend(error) ? error.spentSek : knownSpentSek;
   if (reserveratSek > 0) {
-    await stamAvSteg(lager.db, reserveratSek, 0);
+    await stamAvSteg(lager.db, reserveratSek, faktisktSpenderatSek);
   }
   const { errorCode, message } = tolkaFel(error);
   if (rad.attempts < 3) {
@@ -159,12 +186,17 @@ async function avslutaMedFel(
     // konsumerat. Felet skrivs ändå transient så ett UI/en människa kan se
     // senaste anledningen, trots att jobbet kommer försöka igen.
     await lager.db.slappSteg(rad.id, false);
-    await lager.db.uppdateraAnalys(rad.id, { errorCode, errorMessage: message });
+    await lager.db.uppdateraAnalys(rad.id, {
+      errorCode,
+      errorMessage: message,
+      costSek: rad.costSek + faktisktSpenderatSek,
+    });
   } else {
     await lager.db.uppdateraAnalys(rad.id, {
       status: "failed",
       errorCode,
       errorMessage: message,
+      costSek: rad.costSek + faktisktSpenderatSek,
       finishedAt: new Date().toISOString(),
     });
   }
@@ -189,6 +221,11 @@ async function korGrundningssteg(
     return refuseraOchAterlamna(lager, rad);
   }
 
+  // Hålls i funktionens ytterscope (inte inuti try) så catch-blocket känner
+  // till den redan spenderade kostnaden även om felet kommer EFTER ett lyckat
+  // (betalt) `runGrounding`-anrop — t.ex. om `avslutaMedFramgang` själv skulle
+  // fela på vägen till databasen. Se `avslutaMedFel`s doc-kommentar.
+  let spentSek = 0;
   try {
     if (rad.pdfPath === null) {
       throw new Error("Jobbet saknar en lagrad PDF-sökväg.");
@@ -196,19 +233,26 @@ async function korGrundningssteg(
     const pdfBytes = await lager.filer.hamta(rad.pdfPath);
     // exactOptionalPropertyTypes: "client" bara med i objektet när den
     // faktiskt finns — att sätta den explicit till undefined är inte samma
-    // sak som att utelämna den, för RunExtractionOptions.
-    const { groundingText, spentSek } = await runGrounding(pdfBytes, {
+    // sak som att utelämna den, för RunExtractionOptions. "effort" behöver
+    // inte samma spread-trick — env.effortGrounding är alltid satt (default
+    // "medium" i lasEnv), aldrig `undefined`.
+    const result = await runGrounding(pdfBytes, {
       model: rad.model,
       maxCostSek: env.maxCostPerAnalysisSek,
+      effort: env.effortGrounding,
       ...(options?.client ? { client: options.client } : {}),
     });
+    spentSek = result.spentSek;
 
     await avslutaMedFramgang(lager, rad, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, spentSek, {
       stage: "extracting",
-      grundtext: groundingText,
+      grundtext: result.groundingText,
     });
+    // Grundning lyckades och lämnade raden `queued` vid "extracting" — mer
+    // arbete kvar direkt, inte nästa cron-tick. Se KorNastaStegOptions.reinvoke.
+    trigger(options);
   } catch (error) {
-    await avslutaMedFel(lager, rad, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, error);
+    await avslutaMedFel(lager, rad, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, error, spentSek);
   }
 
   return { claimed: true, analysisId: rad.id, stage: rad.stage };
@@ -227,6 +271,7 @@ async function korExtraktionssteg(
   const cachad = await hamtaExtraktionFranCache(lager.db, nyckel);
   if (cachad) {
     await avslutaMedFramgang(lager, rad, 0, 0, { stage: "judging", grundtext: null });
+    trigger(options); // se kommentaren i korGrundningssteg — cache-träffen är lika "klar direkt".
     return { claimed: true, analysisId: rad.id, stage: rad.stage };
   }
 
@@ -235,25 +280,33 @@ async function korExtraktionssteg(
     return refuseraOchAterlamna(lager, rad);
   }
 
+  // Se korGrundningssteg — samma anledning till att spentSek lever utanför try.
+  let spentSek = 0;
   try {
     // rad.grundtext ska aldrig vara null här (steg 1 sätter det alltid innan
     // det avancerar hit) — men om raden ändå är inkonsistent, skicka en tom
     // sträng och låt modellanropet misslyckas naturligt snarare än att
     // specialfalla här.
-    const { extraction, spentSek } = await runStructuredExtraction(rad.grundtext ?? "", {
+    const result = await runStructuredExtraction(rad.grundtext ?? "", {
       model: rad.model,
       maxCostSek: env.maxCostPerAnalysisSek,
       pdfSaknarTextlager: false,
+      effort: env.effortExtraction,
       ...(options?.client ? { client: options.client } : {}),
     });
+    spentSek = result.spentSek;
 
-    await sparaExtraktionICache(lager.db, nyckel, extraction, spentSek);
+    // Om det här steget (cache-skrivning) skulle fela: extraktionen redan
+    // BETALADES för av runStructuredExtraction ovan — spentSek är redan känd
+    // och skickas med till avslutaMedFel, inte 0 kr.
+    await sparaExtraktionICache(lager.db, nyckel, result.extraction, spentSek);
     await avslutaMedFramgang(lager, rad, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, spentSek, {
       stage: "judging",
       grundtext: null,
     });
+    trigger(options); // klar vid "judging" — mer arbete kvar direkt.
   } catch (error) {
-    await avslutaMedFel(lager, rad, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, error);
+    await avslutaMedFel(lager, rad, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, error, spentSek);
   }
 
   return { claimed: true, analysisId: rad.id, stage: rad.stage };
@@ -292,40 +345,27 @@ async function korBedomningssteg(
     }
 
     if (!judgement) {
-      const client = resolveClient(options?.client, env.anthropicApiKey);
-      const maxOutputTokens = 16000; // Matchar RunAnalysOptions default i analyze.ts.
-
-      const callModel: ModelCaller = async (system, user) => {
-        const messages = [{ role: "user" as const, content: user }];
-        const count = await client.messages.countTokens({ model: rad.model, system, messages });
-        enforceCostLimit(
-          count.input_tokens,
-          maxOutputTokens,
-          env.maxCostPerAnalysisSek - spentSek,
-          SONNET_5_PRISSATTNING,
-        );
-
-        const response = await client.messages.create({
-          model: rad.model,
-          max_tokens: maxOutputTokens,
-          system,
-          messages,
-        });
-        spentSek += estimateCostSek(
-          response.usage.input_tokens,
-          response.usage.output_tokens,
-          SONNET_5_PRISSATTNING,
-        );
-
-        // Diagnose a cut-off response immediately — see ModelTruncatedError.
-        if (response.stop_reason === "max_tokens") {
-          throw new ModelTruncatedError("Bedömningen", maxOutputTokens);
-        }
-
-        return parseModelJson(response.content);
-      };
-
-      judgement = await analysera(extraction, callModel);
+      // Går via runAnalys (analyze.ts) i stället för att duplicera
+      // anropsloopen härifrån — samma injicerbara klient
+      // (runGrounding/runStructuredExtraction i runExtraction.ts har redan
+      // det mönstret), och samma spend-annotering på ett kastat fel
+      // (annotateSpend/errorHasKnownSpend, callMetrics.ts) utan att skriva
+      // om den logiken en tredje gång.
+      const result = await runAnalys(extraction, {
+        apiKey: env.anthropicApiKey,
+        model: rad.model,
+        maxCostSek: env.maxCostPerAnalysisSek,
+        effort: env.effortJudging,
+        ...(options?.client ? { client: options.client } : {}),
+      });
+      judgement = result.analys;
+      spentSek = result.spentSek;
+      // Om cache-skrivningen nedan, eller den torra sammanställningen som
+      // följer, skulle fela: bedömningen redan BETALADES för av runAnalys
+      // ovan — spentSek är redan känd (satt just ovan) och skickas med till
+      // avslutaMedFel i catch-blocket, inte 0 kr. Gäller t.ex.
+      // SaknarRantekanslighetError som upptäcks av den torra
+      // sammanställningen EFTER en färsk, betald bedömning.
       await sparaAnalysICache(lager.db, nyckel, judgement, spentSek);
     }
 
@@ -351,7 +391,7 @@ async function korBedomningssteg(
       finishedAt: new Date().toISOString(),
     });
   } catch (error) {
-    await avslutaMedFel(lager, rad, reserveratSek, error);
+    await avslutaMedFel(lager, rad, reserveratSek, error, spentSek);
   }
 
   return { claimed: true, analysisId: rad.id, stage: rad.stage };
