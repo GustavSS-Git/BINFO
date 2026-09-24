@@ -1,16 +1,10 @@
 import { useState } from "react";
-import {
-  Card,
-  Button,
-  Badge,
-  StatusLabel,
-  SectionTitle,
-  LinkButton,
-  Tag,
-} from "@/components/ui/binfo";
+import { useNavigate } from "@tanstack/react-router";
+import { Card, Button, Badge, StatusLabel, SectionTitle, Tag } from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import { formatFigureVarde, formatVarde, toppRodaFlaggor } from "@/lib/analysisView";
+import type { BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import type { AnalysisResult, Fraga, RantestressScenario, Severity } from "@/types/analysis";
 
 /**
@@ -22,6 +16,26 @@ import type { AnalysisResult, Fraga, RantestressScenario, Severity } from "@/typ
  * glida isär.
  */
 export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
+  const navigate = useNavigate();
+
+  // Förifyllning av bolånekalkylen: hellre en extern värdering än
+  // utgångspriset när den finns (se AnalysisResult.prisanalys), men en
+  // uppskattning ('schablon') får aldrig se ut som ett fastställt pris —
+  // det flaggas separat så kalkylsidan kan säga "uppskattning" istället för
+  // att tyst presentera talet som ett känt pris (se CLAUDE.md).
+  const prisFigure = analys.prisanalys.externVardering ?? analys.prisanalys.utgangspris;
+  const bolanekalkylSearch: BolanekalkylSearch = {
+    manadsavgift: analys.rantestress.nuvarandeManadsavgift.value ?? undefined,
+    rantekanslighet: analys.rantestress.rantekanslighetProcent,
+    pris: prisFigure.value ?? undefined,
+    boarea: analys.input.boarea,
+    prisUppskattning:
+      analys.prisanalys.externVardering !== undefined &&
+      analys.prisanalys.externVardering.source === "schablon"
+        ? true
+        : undefined,
+  };
+
   return (
     <>
       <PropertySummary
@@ -49,9 +63,12 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
         <Button variant="secondary" size="lg">
           Ladda ner som PDF
         </Button>
-        <LinkButton to="/bolanekalkyl" size="lg">
+        <Button
+          size="lg"
+          onClick={() => navigate({ to: "/bolanekalkyl", search: bolanekalkylSearch })}
+        >
           Räkna på månadskostnaden
-        </LinkButton>
+        </Button>
       </div>
     </>
   );

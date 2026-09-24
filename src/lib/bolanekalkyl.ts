@@ -24,6 +24,21 @@ export interface BolanekalkylSearch {
    *  årsredovisning. Får aldrig gissas fram; finns den inte i sökvägen
    *  körs ingen avgiftsstress. Samma `| undefined`-resonemang som ovan. */
   rantekanslighet: number | undefined;
+  /** Förifyllning av priset, t.ex. vid länk från en färdig analys — antingen
+   *  utgångspriset eller en extern värdering (se AnalysRapport). Samma
+   *  `| undefined`-resonemang som manadsavgift ovan. */
+  pris: number | undefined;
+  /** Förifyllning av boarean från en färdig analys. Samma
+   *  `| undefined`-resonemang som manadsavgift ovan. */
+  boarea: number | undefined;
+  /** Sant när `pris` kommer från en extern värdering märkt `source:
+   *  'schablon'` i analysen (se AnalysisResult.prisanalys.externVardering) —
+   *  en uppskattning, inte ett fastställt pris. En gissning får aldrig se ut
+   *  som ett faktum (se CLAUDE.md): kalkylsidan använder flaggan för att
+   *  ordagrant säga "uppskattning" i förifyllningstexten istället för att
+   *  tyst presentera talet som ett känt pris. Samma
+   *  `| undefined`-resonemang som ovan. */
+  prisUppskattning: boolean | undefined;
 }
 
 const positivtTal = z.coerce.number().positive().finite();
@@ -40,6 +55,17 @@ function tolkaPositivtTal(varde: unknown): number | undefined {
   return resultat.success ? resultat.data : undefined;
 }
 
+/** Samma skräpvärdes-tolerans som `tolkaPositivtTal`, för en boolesk flagga
+ *  ("1"/"0", vanligt i URL:er — riktiga booleaner finns inte i en
+ *  sökväg). Allt annat än en igenkänd sträng blir `undefined`, aldrig ett
+ *  kastat fel. */
+function tolkaBoolean(varde: unknown): boolean | undefined {
+  if (typeof varde !== "string") return undefined;
+  if (varde === "1" || varde === "true") return true;
+  if (varde === "0" || varde === "false") return false;
+  return undefined;
+}
+
 /**
  * Tolkar sökparametrarna utan att någonsin kasta — ett skräpvärde
  * ("?manadsavgift=abc") ska falla tillbaka till "inget värde", inte krascha
@@ -51,6 +77,9 @@ export function parseBolanekalkylSearch(search: Record<string, unknown>): Bolane
   return {
     manadsavgift: tolkaPositivtTal(search["manadsavgift"]),
     rantekanslighet: tolkaPositivtTal(search["rantekanslighet"]),
+    pris: tolkaPositivtTal(search["pris"]),
+    boarea: tolkaPositivtTal(search["boarea"]),
+    prisUppskattning: tolkaBoolean(search["prisUppskattning"]),
   };
 }
 

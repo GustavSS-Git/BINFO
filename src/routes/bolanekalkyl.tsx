@@ -1,14 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import {
-  Card,
-  Field,
-  PageHeader,
-  Badge,
-  Toggle,
-  Tag,
-  TristateChoice,
-} from "@/components/ui/binfo";
+import { useEffect, useMemo, useState } from "react";
+import { Card, Field, PageHeader, Badge, Toggle, Tag, TristateChoice } from "@/components/ui/binfo";
 import { avgiftPoster, kr, amorteringsregler, kalkylDefaults } from "@/data/mockData";
 import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
 import {
@@ -72,9 +64,23 @@ const SCHABLON_POST_IDS: CostItemId[] = [
 
 function Bolanekalkyl() {
   const search: BolanekalkylSearch = Route.useSearch();
-  const [lanebelopp, setLanebelopp] = useState(String(LANEBELOPP_DEFAULT));
+  // Förifylld vid länk från en färdig analys (?pris=…): kalkylen har inget
+  // eget "pris"-fält (bara lånebelopp + kontantinsats), så priset delas upp
+  // i lagkravets minsta kontantinsats (bolånetak 90 % → minst 10 %) och ett
+  // lånebelopp på resten. Summan är exakt priset, oavsett prisnivå.
+  const prisKontantinsats =
+    search.pris !== undefined
+      ? Math.ceil(search.pris * amorteringsregler.minKontantinsatsAndel)
+      : undefined;
+  const [lanebelopp, setLanebelopp] = useState(
+    search.pris !== undefined && prisKontantinsats !== undefined
+      ? String(search.pris - prisKontantinsats)
+      : String(LANEBELOPP_DEFAULT),
+  );
   const [ranta, setRanta] = useState(String(RANTA_DEFAULT));
-  const [kontantinsats, setKontantinsats] = useState(String(KONTANTINSATS_DEFAULT));
+  const [kontantinsats, setKontantinsats] = useState(
+    String(prisKontantinsats ?? KONTANTINSATS_DEFAULT),
+  );
   // Bruttoinkomst per låntagare. Låntagare 2:s värde ligger kvar i state
   // även när "1 låntagare" är valt — det ingår då inte i någon beräkning,
   // men återkommer om användaren byter tillbaka.
@@ -94,10 +100,24 @@ function Bolanekalkyl() {
     search.manadsavgift !== undefined ? String(search.manadsavgift) : "",
   );
   const [manadsavgiftFranAnalys] = useState(search.manadsavgift !== undefined);
+  const [prisFranAnalys] = useState(search.pris !== undefined);
+  const [prisUppskattningFranAnalys] = useState(search.prisUppskattning === true);
+  const [boareaFranAnalys] = useState(search.boarea !== undefined);
   const [delta, setDelta] = useState(0);
   const uppgifter = useUppgifter();
   // Egna värden som ersätter schablonerna när användaren redigerar en rad.
   const [egna, setEgna] = useState<Partial<Record<CostItemId, number>>>({});
+
+  // Boarean styr schablonerna för el/värme/vatten (src/data/schabloner.ts).
+  // Delad "uppgifter"-butik, samma som /analysera skriver till — så en
+  // förifylld boarea från analysen ersätter mockdatans generiska default en
+  // gång vid mount, precis som lånebeloppet ovan.
+  useEffect(() => {
+    if (search.boarea !== undefined) {
+      setUppgifter({ boarea: search.boarea });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Ingen analys krävs — objektets grunddata kommer från kalkylens egna
   // fält plus den delade "uppgifter"-butiken (samma boarea/antal personer
@@ -234,11 +254,11 @@ function Bolanekalkyl() {
     0,
   );
   const betalarPerManad = rantekostnad + amortering + manadsavgiftPost + drift;
-  const andelAvNetto = nettoinkomstPerManad > 0 ? (betalarPerManad / nettoinkomstPerManad) * 100 : 0;
+  const andelAvNetto =
+    nettoinkomstPerManad > 0 ? (betalarPerManad / nettoinkomstPerManad) * 100 : 0;
   // "Andra lån" finns inte som fält på sidan i dag — posten är därför 0 kr.
   const andraLan = 0;
   const kvarAttLevaPa = nettoinkomstPerManad - betalarPerManad - andraLan;
-
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-14">
@@ -251,7 +271,19 @@ function Bolanekalkyl() {
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Card>
           <div className="grid gap-5">
-            <Field label="Lånebelopp" suffix="kr" value={lanebelopp} onChange={setLanebelopp} />
+            <Field
+              label="Lånebelopp"
+              suffix="kr"
+              value={lanebelopp}
+              onChange={setLanebelopp}
+              {...(prisFranAnalys
+                ? {
+                    hint: prisUppskattningFranAnalys
+                      ? "Förifyllt utifrån en uppskattning av priset i din analys, med minsta kontantinsats (10 %) — ändra om beloppet inte stämmer."
+                      : "Förifyllt utifrån priset i din analys, med minsta kontantinsats (10 %) — ändra om beloppet inte stämmer.",
+                  }
+                : {})}
+            />
             <Field
               label="Kontantinsats"
               suffix="kr"
@@ -338,9 +370,7 @@ function Bolanekalkyl() {
             ) : null}
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-medium text-foreground">
-                  Hushållets nettoinkomst
-                </span>
+                <span className="text-sm font-medium text-foreground">Hushållets nettoinkomst</span>
                 <span className="text-sm font-medium text-foreground">
                   {kr(nettoinkomstPerManad)}/mån
                 </span>
@@ -399,6 +429,11 @@ function Bolanekalkyl() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Boendekostnad
               </p>
+              {boareaFranAnalys ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Schablonerna nedan räknar med boarean från din analys ({uppgifter.boarea} m²).
+                </p>
+              ) : null}
               <div className="mt-3 divide-y divide-border">
                 <Rad
                   label="Månadsavgift"

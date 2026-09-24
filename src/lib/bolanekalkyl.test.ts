@@ -7,10 +7,13 @@ function inclusion(overrides: Partial<FeeInclusion> = {}): FeeInclusion {
 }
 
 describe("parseBolanekalkylSearch", () => {
-  it("returnerar båda nycklarna som undefined när inga sökparametrar finns", () => {
+  it("returnerar alla nycklar som undefined när inga sökparametrar finns", () => {
     expect(parseBolanekalkylSearch({})).toEqual({
       manadsavgift: undefined,
       rantekanslighet: undefined,
+      pris: undefined,
+      boarea: undefined,
+      prisUppskattning: undefined,
     });
   });
 
@@ -32,6 +35,9 @@ describe("parseBolanekalkylSearch", () => {
     expect(parseBolanekalkylSearch({ manadsavgift: "3240" })).toEqual({
       manadsavgift: 3240,
       rantekanslighet: undefined,
+      pris: undefined,
+      boarea: undefined,
+      prisUppskattning: undefined,
     });
   });
 
@@ -39,14 +45,64 @@ describe("parseBolanekalkylSearch", () => {
     expect(parseBolanekalkylSearch({ rantekanslighet: "8.3" })).toEqual({
       manadsavgift: undefined,
       rantekanslighet: 8.3,
+      pris: undefined,
+      boarea: undefined,
+      prisUppskattning: undefined,
     });
   });
 
-  it("tar med båda när båda finns", () => {
-    expect(parseBolanekalkylSearch({ manadsavgift: "3240", rantekanslighet: "8.3" })).toEqual({
+  it("tar med ett giltigt pris-värde", () => {
+    expect(parseBolanekalkylSearch({ pris: "3500000" })).toEqual({
+      manadsavgift: undefined,
+      rantekanslighet: undefined,
+      pris: 3500000,
+      boarea: undefined,
+      prisUppskattning: undefined,
+    });
+  });
+
+  it("tar med ett giltigt boarea-värde", () => {
+    expect(parseBolanekalkylSearch({ boarea: "55" })).toEqual({
+      manadsavgift: undefined,
+      rantekanslighet: undefined,
+      pris: undefined,
+      boarea: 55,
+      prisUppskattning: undefined,
+    });
+  });
+
+  it("ignorerar skräpvärden för pris och boarea utan att kasta", () => {
+    expect(() => parseBolanekalkylSearch({ pris: "abc", boarea: "abc" })).not.toThrow();
+    const result = parseBolanekalkylSearch({ pris: "abc", boarea: "0" });
+    expect(result.pris).toBeUndefined();
+    expect(result.boarea).toBeUndefined();
+  });
+
+  it("tar med alla fem när alla finns", () => {
+    expect(
+      parseBolanekalkylSearch({
+        manadsavgift: "3240",
+        rantekanslighet: "8.3",
+        pris: "3500000",
+        boarea: "55",
+        prisUppskattning: "1",
+      }),
+    ).toEqual({
       manadsavgift: 3240,
       rantekanslighet: 8.3,
+      pris: 3500000,
+      boarea: 55,
+      prisUppskattning: true,
     });
+  });
+
+  it("tolkar prisUppskattning som en boolesk flagga, med fallback till undefined för skräpvärden", () => {
+    expect(parseBolanekalkylSearch({ prisUppskattning: "1" }).prisUppskattning).toBe(true);
+    expect(parseBolanekalkylSearch({ prisUppskattning: "true" }).prisUppskattning).toBe(true);
+    expect(parseBolanekalkylSearch({ prisUppskattning: "0" }).prisUppskattning).toBe(false);
+    expect(parseBolanekalkylSearch({ prisUppskattning: "false" }).prisUppskattning).toBe(false);
+    expect(parseBolanekalkylSearch({ prisUppskattning: "yes" }).prisUppskattning).toBeUndefined();
+    expect(parseBolanekalkylSearch({}).prisUppskattning).toBeUndefined();
   });
 
   it("ignorerar skräpvärde utan att kasta", () => {

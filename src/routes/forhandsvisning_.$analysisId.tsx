@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hamtaForhandsvisningFn, hamtaStatusFn } from "@/server/analysFn";
 import { Card, Button, Badge, PageHeader } from "@/components/ui/binfo";
@@ -11,6 +12,7 @@ import {
   type StatusSvar,
 } from "@/components/AnalysStatus";
 import { arAnalysHittadesInteFel } from "@/lib/analysStatusCopy";
+import { sparaAnalys } from "@/lib/senasteAnalyser";
 import type { Forhandsvisning, Severity } from "@/types/analysis";
 
 /**
@@ -106,6 +108,17 @@ function ForhandsvisningInnehall({ analysisId, loaderData }: { analysisId: strin
     // andra fel (nätverk, tillfälligt serverfel) får några försök.
     retry: (antalForsok, fel) => !arAnalysHittadesInteFel(fel) && antalForsok < 2,
   });
+
+  // Kommer man hit direkt via en delad länk (nytt id, ny enhet) ska den
+  // fortfarande dyka upp i "Dina senaste analyser" på /analysera — därför
+  // sparas den här också, inte bara vid skapandet. Måste stå FÖRE de tidiga
+  // returnerna nedan: annars kallas hooken olika många gånger mellan
+  // renderingar (regeln om hooks) beroende på om datan hunnit laddas.
+  useEffect(() => {
+    const fv = forhandsvisningQuery.data;
+    if (!fv) return;
+    sparaAnalys({ analysisId, skapad: fv.skapad, foreningsnamn: fv.forening.namn });
+  }, [analysisId, forhandsvisningQuery.data]);
 
   if (forhandsvisningQuery.data === undefined) {
     if (forhandsvisningQuery.isError) {

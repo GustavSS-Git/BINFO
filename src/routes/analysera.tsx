@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Card, Button, Field, TristateChoice, PageHeader } from "@/components/ui/binfo";
 import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
@@ -12,6 +12,12 @@ import {
 } from "@/lib/analyseraForm";
 import { skapaAnalysFn } from "@/server/analysFn";
 import { FELKOD_INNEHALL, type AnalysErrorCode } from "@/lib/analysStatusCopy";
+import {
+  sparaAnalys,
+  hamtaSenasteAnalyser,
+  glomAnalys,
+  type SenasteAnalys,
+} from "@/lib/senasteAnalyser";
 
 export const Route = createFileRoute("/analysera")({
   head: () => ({
@@ -122,6 +128,12 @@ function Analysera() {
     try {
       const resultat = await skapaAnalysFn({ data: formData });
       if (resultat.ok) {
+        // Föreningens namn är inte känt än här (svaret ger bara ett id) —
+        // förhandsvisnings-/rapportsidan fyller i det när den läser
+        // analysen (se sparaAnalys-anropen där). Utan det här anropet
+        // skulle en analys som aldrig hinner klart innan användaren
+        // navigerar bort inte synas i listan alls.
+        sparaAnalys({ analysisId: resultat.analysisId, skapad: new Date().toISOString() });
         navigate({
           to: "/forhandsvisning/$analysisId",
           params: { analysisId: resultat.analysisId },
@@ -151,6 +163,8 @@ function Analysera() {
         title="Analysera en bostad"
         lead="Ladda upp föreningens senaste årsredovisning och fyll i objektets uppgifter."
       />
+
+      <SenasteAnalyserSektion />
 
       <Card className="mb-6">
         <input
@@ -350,5 +364,64 @@ function Analysera() {
         </div>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Genväg tillbaka till en redan skapad analys — annars finns ingen väg
+ * tillbaka efter att ha lämnat förhandsvisningen/rapporten (t.ex. via
+ * bolånekalkylen), eftersom "Analysera" i navet alltid pekar på det här
+ * tomma formuläret. Listan kommer enbart från localStorage (se
+ * src/lib/senasteAnalyser.ts) — ingen inloggning finns, så den är knuten
+ * till just den här webbläsaren. Läses först i en effekt (inte vid render)
+ * så SSR-svaret alltid är tomt/identiskt och aldrig gissar på klientens
+ * lagring.
+ */
+function SenasteAnalyserSektion() {
+  const [poster, setPoster] = useState<SenasteAnalys[]>([]);
+  const [laddad, setLaddad] = useState(false);
+
+  useEffect(() => {
+    setPoster(hamtaSenasteAnalyser());
+    setLaddad(true);
+  }, []);
+
+  const glom = (analysisId: string) => {
+    glomAnalys(analysisId);
+    setPoster(hamtaSenasteAnalyser());
+  };
+
+  if (!laddad || poster.length === 0) return null;
+
+  return (
+    <Card className="mb-6">
+      <h2 className="text-base font-semibold text-foreground">Dina senaste analyser</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Sparas bara i den här webbläsaren och försvinner automatiskt efter 30 dagar.
+      </p>
+      <ul className="mt-4 space-y-3">
+        {poster.map((post) => (
+          <li
+            key={post.analysisId}
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+          >
+            <Link
+              to="/analys/$analysisId"
+              params={{ analysisId: post.analysisId }}
+              className="text-sm font-medium text-primary underline underline-offset-2"
+            >
+              {post.foreningsnamn ?? "Analys utan namn ännu"}
+            </Link>
+            <button
+              type="button"
+              onClick={() => glom(post.analysisId)}
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              Glöm
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

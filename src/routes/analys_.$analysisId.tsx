@@ -1,7 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { hamtaResultatFn } from "@/server/analysFn";
 import { AnalysRapport } from "@/components/AnalysRapport";
 import { PageHeader } from "@/components/ui/binfo";
+import { sparaAnalys } from "@/lib/senasteAnalyser";
 
 /**
  * Ren loader-route för den fullständiga, betalda rapporten — ingen egen
@@ -37,6 +39,19 @@ export const Route = createFileRoute("/analys_/$analysisId")({
 
 function AnalysSida() {
   const analys = Route.useLoaderData();
+
+  // Uppdaterar historiken (src/lib/senasteAnalyser.ts) med det autentiska,
+  // servergenererade `skapad` och föreningens namn — sätts redan vid
+  // skapandet (analysera.tsx) utan namn, och kompletteras här. Fångar också
+  // en delad rapportlänk som öppnas direkt, utan att ha gått via
+  // /analysera.
+  useEffect(() => {
+    sparaAnalys({
+      analysisId: analys.analysisId,
+      skapad: analys.skapad,
+      foreningsnamn: analys.forening.namn,
+    });
+  }, [analys.analysisId, analys.skapad, analys.forening.namn]);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-14">
