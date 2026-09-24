@@ -10,8 +10,8 @@ import {
 } from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
-import { formatFigureVarde, formatVarde } from "@/lib/analysisView";
-import type { AnalysisResult, Fraga, RantestressScenario } from "@/types/analysis";
+import { formatFigureVarde, formatVarde, toppRodaFlaggor } from "@/lib/analysisView";
+import type { AnalysisResult, Fraga, RantestressScenario, Severity } from "@/types/analysis";
 
 /**
  * Rent presentationslager för en färdig `AnalysisResult` — betygskort, de sju
@@ -37,6 +37,8 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
         <p className="max-w-xl flex-1 text-sm text-foreground">{analys.betygMotivering}</p>
       </Card>
 
+      <RodaFlaggor analys={analys} />
+
       <Foreningsekonomi analys={analys} />
       <Prisrimlighet analys={analys} />
       <Rantestress analys={analys} />
@@ -54,6 +56,36 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
     </>
   );
 }
+
+function RodaFlaggor({ analys }: { analys: AnalysisResult }) {
+  const flaggor = toppRodaFlaggor(analys.rodaFlaggor, 2);
+
+  if (flaggor.length === 0) return null;
+
+  return (
+    <div className="mb-6 grid gap-5 md:grid-cols-2">
+      {flaggor.map((flagga) => (
+        <Card key={flagga.id}>
+          <Badge tone={severityTone[flagga.severity]}>{severityLabel[flagga.severity]}</Badge>
+          <h3 className="mt-4 text-base font-semibold text-foreground">{flagga.titel}</h3>
+          <p className="mt-2 text-sm text-muted-foreground">{flagga.beskrivning}</p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+const severityTone: Record<Severity, "danger" | "warning"> = {
+  hog: "danger",
+  medel: "warning",
+  lag: "warning",
+};
+
+const severityLabel: Record<Severity, string> = {
+  hog: "Hög risk",
+  medel: "Medelrisk",
+  lag: "Låg risk",
+};
 
 function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
   const keyFigures = analys.forening.keyFigures.filter((kf) => visasIHuvudanalys(kf.id));
