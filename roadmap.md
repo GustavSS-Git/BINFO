@@ -19,3 +19,4 @@
 - [x] Dölj organisationsnummer och skicka tomt kompatibilitetsvärde.
 - [x] Dölj försäljningar i föreningen i både exempelrapport och riktiga rapporter.
 - [x] Dölj hushållsstorlek endast på Analysera; behåll fält och beräkning i Bolånekalkyl.
+- [x] Flytta ”Vad ingår i avgiften?” från Analysera till en kompakt meny efter månadsavgiften i Bolånekalkyl.

@@ -1,8 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Card, Field, PageHeader, Badge, Toggle, Tag } from "@/components/ui/binfo";
-import { kr, amorteringsregler, kalkylDefaults } from "@/data/mockData";
-import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
+import {
+  Card,
+  Field,
+  PageHeader,
+  Badge,
+  Toggle,
+  Tag,
+  TristateChoice,
+} from "@/components/ui/binfo";
+import { avgiftPoster, kr, amorteringsregler, kalkylDefaults } from "@/data/mockData";
+import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
 import {
   buildMinimalPropertyInput,
   parseBolanekalkylSearch,
@@ -265,6 +273,31 @@ function Bolanekalkyl() {
                   : "Från föreningens senaste årsredovisning eller objektsbeskrivning."
               }
             />
+            <details className="rounded-lg border border-border bg-secondary/40">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+                Vad ingår i avgiften?
+              </summary>
+              <div className="border-t border-border px-4 pb-4 pt-3">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann.
+                </p>
+                <div className="space-y-3">
+                  {avgiftPoster.map((post) => (
+                    <div
+                      key={post.id}
+                      className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
+                    >
+                      <span className="text-sm text-foreground">{post.label}</span>
+                      <TristateChoice
+                        value={uppgifter.ingar[post.id]}
+                        onChange={(value) => setIngar(post.id, value)}
+                        labels={{ ja: "Ingår", nej: "Ingår ej" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </details>
             <Field
               label="Antal personer i hushållet"
               value={String(uppgifter.antalPersoner)}
