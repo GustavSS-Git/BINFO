@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Card,
@@ -25,7 +24,6 @@ import type { AnalysisResult, Fraga, RantestressScenario } from "@/types/analysi
 export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
   return (
     <>
-      <Sakerhetsmatare analys={analys} />
       <PropertySummary
         input={analys.input}
         foreningNamn={analys.forening.namn}
@@ -221,37 +219,6 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
         <p className="mt-5 text-sm text-muted-foreground">{r.kommentar}</p>
       </Card>
     </section>
-  );
-}
-
-/** Analysens säkerhet — hur många av de osäkra uppgifterna som är kända. */
-function Sakerhetsmatare({ analys }: { analys: AnalysisResult }) {
-  const d = analys.datakvalitet;
-  const andel = d.uppgifterTotalt > 0 ? d.uppgifterKanda / d.uppgifterTotalt : 1;
-
-  return (
-    <Link
-      to="/analysera"
-      hash="vet-ej"
-      className="mb-6 block rounded-lg border border-border bg-card/60 px-5 py-4 transition-colors hover:bg-secondary"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-sm text-muted-foreground">
-          Analysens säkerhet: {d.uppgifterKanda} av {d.uppgifterTotalt} uppgifter kända
-        </span>
-        <span className="text-xs text-muted-foreground/80">
-          {d.saknadeFalt.length > 0
-            ? "Klicka för att fylla i det som saknas"
-            : "Alla uppgifter ifyllda"}
-        </span>
-      </div>
-      <div className="mt-3 h-1 w-full rounded-full bg-secondary">
-        <div
-          className="h-1 rounded-full bg-primary transition-[width]"
-          style={{ width: `${Math.round(andel * 100)}%` }}
-        />
-      </div>
-    </Link>
   );
 }
 
