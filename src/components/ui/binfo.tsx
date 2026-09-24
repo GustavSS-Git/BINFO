@@ -98,6 +98,18 @@ const statusColors: Record<Status | AnalysStatus, string> = {
   okant: "bg-muted-foreground/40",
 };
 
+const statusTextColors: Record<Status | AnalysStatus, string> = {
+  green: "text-success",
+  amber: "text-warning",
+  red: "text-danger",
+
+  god: "text-success",
+  acceptabel: "text-success/70",
+  svag: "text-warning",
+  kritisk: "text-danger",
+  okant: "text-muted-foreground",
+};
+
 /** Svensk etikett för skärmläsare — färgen ensam bär annars hela innebörden. */
 const statusLabels: Record<Status | AnalysStatus, string> = {
   green: "God",
@@ -130,6 +142,14 @@ export function StatusDot({
       />
       <span className="sr-only">{statusLabels[status]}</span>
     </>
+  );
+}
+
+export function StatusLabel({ status, className }: { status: Status | AnalysStatus; className?: string }) {
+  return (
+    <span className={cn("block text-xs font-semibold", statusTextColors[status], className)}>
+      {statusLabels[status]}
+    </span>
   );
 }
 
