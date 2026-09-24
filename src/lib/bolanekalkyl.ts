@@ -3,7 +3,7 @@ import type { FeeInclusion, PropertyInput } from "@/types/analysis";
 
 /**
  * Stöd för /bolanekalkyl — en fristående klientberäkning som inte kräver
- * någon analys (se PHASE1.md, steg 2). Ren logik, inga React-beroenden,
+ * någon analys. Ren logik, inga React-beroenden,
  * så den kan testas direkt.
  */
 

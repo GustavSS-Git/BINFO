@@ -35,16 +35,16 @@ export interface SpendResultat {
 /**
  * Uppskattade kostnader per pipeline-steg, i SEK — avsiktligt avrundade
  * UPPÅT (ett steg ska reservera minst så mycket som det troligen kostar,
- * aldrig mindre). Källa: GOLIVE.md, tabellen "Measured cost of one cold
- * run" (mätning mot Nabo-rapporten):
+ * aldrig mindre). Källa: uppmätt kall körning mot Nabo-rapporten
+ * (september 2026; tabellen stod i GOLIVE.md, nu borttagen — se git-historiken):
  *
  *   | Pass 1 — extraction (sends the whole PDF) | 3,27 kr |
  *   | Pass 2 — judgement (text only)             | 0,64 kr |
  *
  * Pass 1 görs i sin tur av två separata API-anrop — grundning (skickar hela
  * PDF:en, se `grundtext`-fältet på `AnalysRad` i portar.ts) och därefter
- * extraktion (resonerar bara över grundtexten, text only). GOLIVE.md mäter
- * inte den interna fördelningen mellan de två separat, men grundning är
+ * extraktion (resonerar bara över grundtexten, text only). Mätningen skiljer
+ * inte ut den interna fördelningen mellan de två, men grundning är
  * steget som bär hela dokumentet genom modellen och antas därför dominera
  * pass 1:s kostnad; extraktion är billigare. Bedömning (Pass 2) mäts direkt
  * till 0,64 kr och avrundas uppåt till 1,5 kr för marginal.

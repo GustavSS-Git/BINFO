@@ -9,7 +9,7 @@ import type { CostItem, Manadskostnad, PropertyInput } from "@/types/analysis";
  * AnalysisResult contract — PropertyInput has no loan fields, they exist
  * only in the frontend's standalone, client-side /bolanekalkyl calculator
  * (kalkylDefaults, routes/bolanekalkyl.tsx). Loan data is never sent to the
- * server or persisted (see CLAUDE.md's Phase 1 Step 0 decision).
+ * server or persisted (a deliberate privacy decision).
  *
  * antalLantagare lives here rather than on PropertyInput: it exists solely
  * to compute the ränteavdrag cap, which is a property of the borrower's

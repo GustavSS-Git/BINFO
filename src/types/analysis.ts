@@ -386,8 +386,8 @@ export interface AnalysisResult {
  * Carries EXACTLY the sections `gratisSektioner` already names as free
  * ('betyg', 'rodaFlaggor_topp2', 'datakvalitet'), plus the minimum identity
  * the preview screen needs to render a heading. It exists so gating can be
- * server-side from day one (PHASE1.md, "The paywall is deferred, not
- * removed"): even while everything is free, the preview route never reads
+ * server-side from day one (the paywall is deferred, not removed): even
+ * while everything is free, the preview route never reads
  * from the same full-object endpoint as the paid report, so turning payment
  * on later means adding a check to `/analys/$id`'s loader, not re-plumbing
  * `/forhandsvisning`'s data source.

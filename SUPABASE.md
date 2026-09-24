@@ -1,8 +1,11 @@
 # Supabase — schema, storage, secrets
 
-Scope for step 3 of `GOLIVE.md`: the persistence layer Phase 1 needs before a
-buyer's own upload can produce their own analysis. Read `GOLIVE.md` first for
-why the job has to be asynchronous and what the caching is worth.
+> Reference doc, partly a work log from September 2026. When it disagrees with
+> the code, the code wins — fix this file. The planning docs it originally
+> referred to (`GOLIVE.md`, `PHASE1.md`) have been removed; see git history.
+
+The persistence layer that lets a buyer's own upload produce their own
+analysis: why the job is asynchronous, the schema, and what the caching is worth.
 
 **Settled:** storage is the project's **own Supabase** (verified live, service
 key works, buckets empty). Payment deferred. Hosting is **Lovable's**, on the
@@ -455,12 +458,13 @@ src/server/
 (`jobb.ts` in the original sketch became `steg.ts` — same role, renamed
 during implementation.)
 
-The three server functions are the entire public surface:
+The server functions are the entire public surface:
 
 ```
 skapaAnalys(pdf, propertyInput)  -> { analysisId }   hash, dedupe, store, enqueue
 hamtaStatus(analysisId)          -> { status, stage, error? }
 hamtaResultat(analysisId)        -> AnalysisResult
+hamtaForhandsvisning(analysisId) -> Forhandsvisning   narrow free-preview projection
 ```
 
 `hamtaResultat` stays the single place a full analysis is handed out, so

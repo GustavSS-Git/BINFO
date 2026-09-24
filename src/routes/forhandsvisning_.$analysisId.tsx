@@ -21,8 +21,8 @@ import type { Forhandsvisning, Severity } from "@/types/analysis";
  * tillstånd. Den fria innehållet nedan är EXAKT det `Forhandsvisning`
  * (src/types/analysis.ts) bär — betyg, upp till två röda flaggor och
  * datakvalitet — aldrig prisanalys, räntestress eller frågor. CTA:n är en
- * ren länk vidare till den fullständiga rapporten, ingen betalningstext:
- * PHASE1.md, "Decisions that shape this phase" #3.
+ * ren länk vidare till den fullständiga rapporten, ingen betalningstext —
+ * betalväggen är uppskjuten, inte borttagen.
  */
 
 interface LoaderData {

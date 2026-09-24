@@ -11,7 +11,7 @@
  * eller för lite) tills den här filen uppdaterats för hand — det är
  * medvetet, inte en risk.
  *
- * Uppmätt kall körning (PHASE1.md): 195–326 sekunder totalt. Texten här
+ * Uppmätt kall körning (september 2026): 195–326 sekunder totalt. Texten här
  * lovar därför aldrig "snart" eller "några sekunder" — bara vilket steg som
  * faktiskt pågår, plus ett ärligt tidsspann.
  */

@@ -50,3 +50,6 @@ supabase/functions/*/_bundle/
 # Pipeline scratch output
 /tmp/
 *.extraction.json
+
+# Claude Code supervisor working plan (local only)
+.claude/working-plan.md

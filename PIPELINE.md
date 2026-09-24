@@ -3,6 +3,8 @@
 Design notes for `src/lib/analysis/`. Read `CLAUDE.md` first for the
 boundaries and the working agreement.
 
+> Reference doc. When it disagrees with the code, the code wins — fix this file.
+
 ---
 
 ## Two passes, deliberately separate
@@ -105,8 +107,8 @@ span collapses to a point when every field is known.
 
 ## Cost
 
-Roughly 20–50k input tokens and 2–4k output per analysis, so on the order of
-SEK 0.50–1.50 per report at current pricing. Against a SEK 249 price this is
+Measured cold runs (September 2026) cost 3,58–4,25 kr across three runs, i.e. roughly
+SEK 3.6–4.3 per report; a cache hit costs nothing. Against a SEK 249 price this is
 irrelevant — which means there is no reason to compromise output quality to
 save tokens. Do not cut the prompt short to economise.
 

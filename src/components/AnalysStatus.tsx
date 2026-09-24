@@ -29,7 +29,7 @@ export type StatusSvar = Awaited<ReturnType<typeof hamtaStatusFn>>;
 /**
  * Pollningsintervall medan jobbet varken är klart eller misslyckat. Några
  * sekunder, inte snabbare — varje pollning är en riktig tur-och-retur till
- * servern, och ett jobb tar 195–326 sekunder totalt (PHASE1.md), så det
+ * servern, och ett jobb tar 195–326 sekunder totalt (uppmätt kall körning), så det
  * finns inget att vinna på tätare pollning.
  */
 export const POLLNINGSINTERVALL_MS = 5000;

@@ -19,7 +19,7 @@ export default defineConfig({
     // nothing but `createServerFn().handler()` wrappers, and Start's transform rewrites those
     // into RPC stubs that fetch /_serverFn/…; the handler bodies never enter the client graph.
     // Without this exclusion the build fails the moment a route wires up skapaAnalys/
-    // hamtaStatus/hamtaResultat (see PHASE1.md, step 1).
+    // hamtaStatus/hamtaResultat.
     //
     // Verified empirically before adding, with a throwaway route importing and calling
     // hamtaStatusFn: the production build succeeds, the route's client chunk is an 8 KB RPC

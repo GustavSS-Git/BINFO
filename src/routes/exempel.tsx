@@ -5,8 +5,8 @@ import { sampleAnalysis } from "@/data/sampleAnalysis";
 
 /**
  * Statisk exempelrapport — läser `sampleAnalysis` direkt, ingen uppladdning,
- * ingen API-kostnad. Ersätter den gamla `/analys` (borttagen, se PHASE1.md
- * steg 5), som visade samma data men utan att tydliggöra att den var påhittad.
+ * ingen API-kostnad. Ersätter den gamla statiska `/analys` (borttagen), som
+ * visade samma data men utan att tydliggöra att den var påhittad.
  * Länkas från startsidan; syftet är att visa vad en riktig analys innehåller
  * innan någon laddar upp något.
  */

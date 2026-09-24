@@ -39,7 +39,7 @@ export const Route = createFileRoute("/bolanekalkyl")({
     ],
   }),
   // Fristående kalkyl — fungerar med noll sökparametrar. `manadsavgift` är
-  // en bekvämlighet vid länk från en färdig analys (PHASE1.md, steg 2);
+  // en bekvämlighet vid länk från en färdig analys;
   // `rantekanslighet` detsamma för räntestressen. Ett skräpvärde faller
   // tillbaka till "inget värde" istället för att krascha sidan.
   validateSearch: parseBolanekalkylSearch,

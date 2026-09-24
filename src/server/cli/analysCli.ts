@@ -100,7 +100,7 @@ async function main() {
   const { analysisId } = skapat;
   console.error(
     `Jobb skapat: ${analysisId}. Väntar på att köns cron-tick bearbetar det (kan ta några ` +
-      "minuter — se GOLIVE.md för uppmätta tider)...",
+      "minuter — uppmätt 195–326 s för en kall körning)...",
   );
 
   if (process.argv.includes("--knuffa")) {
