@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Card, Button, Field, TristateChoice, PageHeader } from "@/components/ui/binfo";
-import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
-import { avgiftPoster } from "@/data/mockData";
+import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
 import {
   buildPropertyInput,
   formateraFilstorlek,
@@ -310,29 +309,6 @@ function Analysera() {
               value={uppgifter.balkong}
               onChange={(v) => setUppgifter({ balkong: v })}
             />
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <span className="block text-sm font-medium text-foreground">Vad ingår i avgiften?</span>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann i stället för att
-            gissa.
-          </p>
-          <div className="mt-4 space-y-3">
-            {avgiftPoster.map((p) => (
-              <div
-                key={p.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
-              >
-                <span className="text-sm text-foreground">{p.label}</span>
-                <TristateChoice
-                  value={uppgifter.ingar[p.id]}
-                  onChange={(v) => setIngar(p.id, v)}
-                  labels={{ ja: "Ingår", nej: "Ingår ej" }}
-                />
-              </div>
-            ))}
           </div>
         </div>
 
