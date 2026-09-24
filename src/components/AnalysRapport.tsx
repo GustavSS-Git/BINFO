@@ -3,7 +3,7 @@ import {
   Card,
   Button,
   Badge,
-  StatusDot,
+  StatusLabel,
   SectionTitle,
   LinkButton,
   Tag,
@@ -105,9 +105,9 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
                 highlight ? "border-primary/40 bg-primary/[0.04] p-5 md:p-6" : "p-5 md:p-6"
               }
             >
+              <StatusLabel status={kf.status} className="mb-3" />
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h3 className="flex items-center gap-3 text-base font-semibold text-foreground">
-                  <StatusDot status={kf.status} />
                   {kf.label}
                   {highlight ? <Badge tone="teal">Viktigast här</Badge> : null}
                 </h3>
@@ -115,7 +115,7 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
                   {formatFigureVarde(kf.figure)}
                 </p>
               </div>
-              <p className="mt-2 pl-[22px] text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 {kf.forklaring}
                 {kf.benchmark ? (
                   <span className="mt-1 block text-xs text-muted-foreground/80">
@@ -124,7 +124,7 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
                 ) : null}
               </p>
               {kf.figure.source === "schablon" || kf.figure.ref ? (
-                <div className="mt-2 flex items-center gap-2 pl-[22px]">
+                <div className="mt-2 flex items-center gap-2">
                   {kf.figure.source === "schablon" ? <Tag>Schablon</Tag> : null}
                   {kf.figure.ref ? (
                     <span title={kf.figure.ref.excerpt}>
