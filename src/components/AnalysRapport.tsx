@@ -17,6 +17,23 @@ import type { AnalysisResult, Fraga, RantestressScenario, Severity } from "@/typ
  */
 export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
   const navigate = useNavigate();
+  const [pdfStatus, setPdfStatus] = useState<"vilande" | "skapar" | "fel">("vilande");
+
+  // Dynamically imported so @react-pdf/renderer (and the PDF document tree)
+  // only ever loads when the user actually clicks the button — it must
+  // never enter the page's main bundle or run during SSR (see
+  // src/components/pdf/download.tsx).
+  const handleDownloadPdf = async () => {
+    setPdfStatus("skapar");
+    try {
+      const { downloadAnalysPdf } = await import("@/components/pdf/download");
+      await downloadAnalysPdf(analys);
+      setPdfStatus("vilande");
+    } catch (error) {
+      console.error("PDF-export misslyckades", error);
+      setPdfStatus("fel");
+    }
+  };
 
   // Förifyllning av bolånekalkylen: hellre en extern värdering än
   // utgångspriset när den finns (se AnalysisResult.prisanalys), men en
@@ -58,10 +75,14 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
       <Rantestress analys={analys} />
       <Fragor analys={analys} />
 
-      <div className="mt-10 flex flex-wrap gap-4">
-        {/* TODO(export): PDF-generering kopplas in här. */}
-        <Button variant="secondary" size="lg">
-          Ladda ner som PDF
+      <div className="mt-10 flex flex-wrap items-center gap-4">
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={handleDownloadPdf}
+          disabled={pdfStatus === "skapar"}
+        >
+          {pdfStatus === "skapar" ? "Skapar PDF…" : "Ladda ner som PDF"}
         </Button>
         <Button
           size="lg"
@@ -69,6 +90,11 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
         >
           Räkna på månadskostnaden
         </Button>
+        {pdfStatus === "fel" ? (
+          <p className="text-sm text-danger">
+            Det gick inte att skapa PDF:en just nu. Försök igen om en liten stund.
+          </p>
+        ) : null}
       </div>
     </>
   );
