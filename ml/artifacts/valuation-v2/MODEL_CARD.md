@@ -233,7 +233,18 @@ condition (see above), not a permanent guarantee.
 ## Effects table
 
 Unchanged methodology (FULL feature set, unregularised OLS, interpretability only).
-Numbers refreshed against the v3 mapping in `ml/artifacts/valuation-v1/coefficients.json`.
+Numbers refreshed against the v3.1 mapping in `ml/artifacts/valuation-v1/coefficients.json`.
+
+**Machine-readable "main drivers" (new)**: `ml/artifacts/valuation-v2/effects.json`
+is the product-facing subset of this same OLS effects table, restricted to inputs
+the product actually supplies (hiss, balkong, rooms, floor, build year, avgift/avgift
+per m², boarea) and excluding area-vs-area effects (area is the location itself, not
+a driver a buyer can compare). Each entry has `id`, `label_sv`, `effekt_procent`,
+`ci_low_procent`/`ci_high_procent`, `niva` ("stad" or "omrade"), `omrade` when
+area-specific, `n`, and `signifikant` (CI excludes 0). Area-specific entries are
+included only for hiss/balkong (the only drivers with an area-specific breakdown
+computed, per the n>=100 / CI-width rule above); everything else is city-wide.
+Validated by `ml/tests/test_effects.py` (schema + CI-contains-point-estimate).
 
 ## Limitations (in addition to `ml/artifacts/valuation-v1/MODEL_CARD.md` and `ml/mapping/README.md`)
 

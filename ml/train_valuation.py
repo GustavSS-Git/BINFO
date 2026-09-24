@@ -554,6 +554,12 @@ def area_specific_amenity_effects(df: pd.DataFrame, amenity_col: str, amenity_la
                 "pct_effect": round((float(np.exp(beta)) - 1) * 100, 2),
                 "pct_effect_ci_low": round((float(np.exp(lo)) - 1) * 100, 2),
                 "pct_effect_ci_high": round((float(np.exp(hi)) - 1) * 100, 2),
+                # raw log-scale beta/CI for the "ja" (has-amenity) direction, kept so
+                # effects.json can precisely derive the "nej" (no-amenity) direction
+                # (exp(-beta)-1) without re-deriving from rounded percentages.
+                "beta_log_ja_direction": float(beta),
+                "ci_low_log_ja_direction": float(lo),
+                "ci_high_log_ja_direction": float(hi),
             }
         else:
             out[area] = {
@@ -562,6 +568,160 @@ def area_specific_amenity_effects(df: pd.DataFrame, amenity_col: str, amenity_la
                 "reason": f"CI half-width {half_width:.3f} >= {AREA_EFFECT_MAX_CI_HALFWIDTH_LOG}",
             }
     return out
+
+
+# ---------------------------------------------------------------------------
+# task 4d driver effects, machine-readable (product "main drivers" display)
+# ---------------------------------------------------------------------------
+DRIVER_REFERENCE_CATEGORIES = {
+    "elevator_clean": "ja",  # "has elevator" (alphabetically-first category, dropped by get_dummies)
+    "balcony_clean": "ja",  # "has balcony"
+}
+
+# continuous-feature drivers: (effects_table feature name, driver id, sv label,
+# multiplier -- i.e. the effect is reported per this many units of the raw feature,
+# not per 1 unit, to keep the % magnitude interpretable)
+_CONTINUOUS_DRIVERS = [
+    ("number_of_rooms", "rooms+1", "Ett rum till", 1),
+    ("apartment_floor_clean", "floor+1", "En våning högre", 1),
+    ("build_year_clean", "build_year+10", "10 år nyare byggnad", 10),
+    ("fee_per_sqm", "fee_per_sqm+100", "100 kr/m² högre avgift", 100),
+    ("living_area", "boarea+10", "10 kvm större boarea", 10),
+]
+
+_CATEGORICAL_DRIVERS = [
+    ("elevator_clean", "nej", "elevator=nej", "Ingen hiss"),
+    ("elevator_clean", "okant", "elevator=okant", "Hiss okänt"),
+    ("balcony_clean", "nej", "balcony=nej", "Ingen balkong"),
+    ("balcony_clean", "okant", "balcony=okant", "Balkong okänt"),
+]
+
+
+def _scaled_pct_effect(beta: float, lo: float, hi: float, multiplier: float) -> tuple[float, float, float]:
+    """Scales a per-1-unit log-scale coefficient (and its 95% CI) to a per-`multiplier`-
+    unit % effect. Valid because the OLS is linear in the raw feature on the log
+    scale, so beta*multiplier is exactly the coefficient for a `multiplier`-unit
+    change, and the CI scales the same way (multiplier > 0 preserves ordering)."""
+    eff = (np.exp(beta * multiplier) - 1) * 100
+    ci_lo = (np.exp(lo * multiplier) - 1) * 100
+    ci_hi = (np.exp(hi * multiplier) - 1) * 100
+    return round(float(eff), 2), round(float(ci_lo), 2), round(float(ci_hi), 2)
+
+
+def build_driver_effects(df: pd.DataFrame, ols_model, balcony_area_effects: dict, elevator_area_effects: dict) -> dict:
+    """Task 4d, machine-readable: the product-facing "main drivers" list. Restricted
+    to inputs the product actually supplies (hiss, balkong, rooms, floor, build
+    year, avgift/avgift per m², boarea) -- area itself is deliberately excluded from
+    the drivers list (it's the location, not a driver a buyer can act on/compare;
+    area-level price differences are shown elsewhere in the product, not here)."""
+    ci = ols_model.conf_int(alpha=0.05)
+    effects: list[dict] = []
+
+    # continuous drivers (city-wide only -- no area-specific breakdown was computed
+    # for these, only for the binary amenities below)
+    for feature, driver_id, label_sv, multiplier in _CONTINUOUS_DRIVERS:
+        beta = ols_model.params[feature]
+        lo, hi = ci.loc[feature]
+        eff, ci_lo, ci_hi = _scaled_pct_effect(beta, lo, hi, multiplier)
+        n = int(df[feature].notna().sum())
+        effects.append(
+            {
+                "id": driver_id,
+                "label_sv": label_sv,
+                "effekt_procent": eff,
+                "ci_low_procent": ci_lo,
+                "ci_high_procent": ci_hi,
+                "niva": "stad",
+                "omrade": None,
+                "n": n,
+                "signifikant": bool(ci_lo > 0 or ci_hi < 0),
+            }
+        )
+
+    # categorical (binary/tristate) drivers: city-wide, framed relative to the "ja"
+    # reference category (has elevator / has balcony), i.e. id="elevator=nej" means
+    # "no elevator vs has elevator".
+    for col, level, driver_id, label_sv in _CATEGORICAL_DRIVERS:
+        param_name = f"{'hiss' if col == 'elevator_clean' else 'balkong'}_{level}"
+        beta = ols_model.params[param_name]
+        lo, hi = ci.loc[param_name]
+        eff, ci_lo, ci_hi = _scaled_pct_effect(beta, lo, hi, 1)
+        n = int((df[col] == level).sum())
+        effects.append(
+            {
+                "id": driver_id,
+                "label_sv": label_sv,
+                "effekt_procent": eff,
+                "ci_low_procent": ci_lo,
+                "ci_high_procent": ci_hi,
+                "niva": "stad",
+                "omrade": None,
+                "n": n,
+                "signifikant": bool(ci_lo > 0 or ci_hi < 0),
+            }
+        )
+
+    # area-specific amenity effects that meet the n>=100 / CI-width rule (only
+    # "nej" is a meaningful driver level -- "ja" is the reference/baseline, not a
+    # driver in itself). Convert from the stored "ja-direction" beta (log scale,
+    # effect of HAVING the amenity) to the "nej-direction" (effect of NOT having
+    # it, matching the city-wide id convention): if beta is the ja-vs-nej log
+    # coefficient, the nej-vs-ja coefficient is exactly -beta, so its 95% CI is
+    # [-hi, -lo].
+    for area_dict, driver_id, label_sv in [
+        (elevator_area_effects, "elevator=nej", "Ingen hiss"),
+        (balcony_area_effects, "balcony=nej", "Ingen balkong"),
+    ]:
+        for area, entry in area_dict.items():
+            if entry.get("used") != "area_specific":
+                continue
+            beta_ja = entry["beta_log_ja_direction"]
+            lo_ja, hi_ja = entry["ci_low_log_ja_direction"], entry["ci_high_log_ja_direction"]
+            beta_nej, lo_nej, hi_nej = -beta_ja, -hi_ja, -lo_ja
+            eff, ci_lo, ci_hi = _scaled_pct_effect(beta_nej, lo_nej, hi_nej, 1)
+            effects.append(
+                {
+                    "id": driver_id,
+                    "label_sv": label_sv,
+                    "effekt_procent": eff,
+                    "ci_low_procent": ci_lo,
+                    "ci_high_procent": ci_hi,
+                    "niva": "omrade",
+                    "omrade": area,
+                    "n": entry["n"],
+                    "signifikant": bool(ci_lo > 0 or ci_hi < 0),
+                }
+            )
+
+    return {
+        "version": "valuation-v2",
+        "generated_at": pd.Timestamp.now().isoformat(),
+        "method": (
+            "Unregularised OLS on log(price_per_sqm), FULL feature set (statsmodels) "
+            "-- an interpretability companion to the LightGBM production model in "
+            "model.json, not used for point predictions. See "
+            "ml/artifacts/valuation-v1/MODEL_CARD.md 'Two models, one purpose'."
+        ),
+        "data_period": DATA_PERIOD,
+        "reference_categories": {
+            "hiss": "ja (har hiss)",
+            "balkong": "ja (har balkong)",
+        },
+        "area_specific_rule": {
+            "min_n": AREA_EFFECT_MIN_N,
+            "max_ci_halfwidth_log": AREA_EFFECT_MAX_CI_HALFWIDTH_LOG,
+            "note": "endast hiss/balkong har omrädesspecifika effekter beräknade; övriga drivrutiner är stadsövergripande",
+        },
+        "caveat_sv": (
+            "Det här är genomsnittliga effekter för Stockholm (eller angivet område), "
+            "inte en beräkning för just din lägenhet."
+        ),
+        "excluded_note": (
+            "Area-vs-area-effekter (skillnaden mellan Stockholmsområden) visas inte "
+            "här -- området är lägenhetens läge, inte en drivrutin köparen kan jämföra."
+        ),
+        "effects": effects,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -907,6 +1067,14 @@ def main() -> None:
     )
     (ARTIFACT_DIR_V2 / "parity_fixtures.json").write_text(json.dumps(fixtures, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
     print(f"Wrote {len(fixtures)} parity fixtures to {ARTIFACT_DIR_V2 / 'parity_fixtures.json'}")
+
+    print("\nBuilding task 4d driver effects (product-facing, product-input-restricted)...")
+    driver_effects = build_driver_effects(df, ols_model, balcony_area_effects, elevator_area_effects)
+    (ARTIFACT_DIR_V2 / "effects.json").write_text(json.dumps(driver_effects, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
+    print(f"Wrote {len(driver_effects['effects'])} driver effects to {ARTIFACT_DIR_V2 / 'effects.json'}")
+    for e in driver_effects["effects"]:
+        area_note = f" [{e['omrade']}]" if e["omrade"] else ""
+        print(f"  {e['id']}{area_note}: {e['effekt_procent']:+.2f}% (CI [{e['ci_low_procent']:+.2f}%, {e['ci_high_procent']:+.2f}%]) n={e['n']} sig={e['signifikant']}")
 
     metadata_v2 = {
         "version": "valuation-v2",

@@ -313,7 +313,10 @@
       "used": "area_specific",
       "pct_effect": 5.61,
       "pct_effect_ci_low": 0.58,
-      "pct_effect_ci_high": 10.9
+      "pct_effect_ci_high": 10.9,
+      "beta_log_ja_direction": 0.054628488189245705,
+      "ci_low_log_ja_direction": 0.0058078427960525855,
+      "ci_high_log_ja_direction": 0.10344913358243882
     },
     "H\u00e4sselby-V\u00e4llingby": {
       "n": 125,
@@ -325,7 +328,10 @@
       "used": "area_specific",
       "pct_effect": 5.53,
       "pct_effect_ci_low": 2.21,
-      "pct_effect_ci_high": 8.95
+      "pct_effect_ci_high": 8.95,
+      "beta_log_ja_direction": 0.05379807582476692,
+      "ci_low_log_ja_direction": 0.021838750795151997,
+      "ci_high_log_ja_direction": 0.08575740085438185
     },
     "Ok\u00e4nt (postnummer ej kartlagt)": {
       "n": 24,
@@ -342,21 +348,30 @@
       "used": "area_specific",
       "pct_effect": -3.67,
       "pct_effect_ci_low": -6.79,
-      "pct_effect_ci_high": -0.44
+      "pct_effect_ci_high": -0.44,
+      "beta_log_ja_direction": -0.03734380679305005,
+      "ci_low_log_ja_direction": -0.070321566895936,
+      "ci_high_log_ja_direction": -0.004366046690164112
     },
     "Vasastan-Norrmalm": {
       "n": 636,
       "used": "area_specific",
       "pct_effect": 0.44,
       "pct_effect_ci_low": -2.05,
-      "pct_effect_ci_high": 3.0
+      "pct_effect_ci_high": 3.0,
+      "beta_log_ja_direction": 0.004420900995648486,
+      "ci_low_log_ja_direction": -0.02073818282157175,
+      "ci_high_log_ja_direction": 0.02957998481286872
     },
     "\u00d6stermalm": {
       "n": 510,
       "used": "area_specific",
       "pct_effect": 9.66,
       "pct_effect_ci_low": 4.72,
-      "pct_effect_ci_high": 14.84
+      "pct_effect_ci_high": 14.84,
+      "beta_log_ja_direction": 0.09221418544561344,
+      "ci_low_log_ja_direction": 0.04609415658344712,
+      "ci_high_log_ja_direction": 0.13833421430777976
     }
   }
 }
