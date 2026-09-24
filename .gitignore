@@ -53,3 +53,8 @@ supabase/functions/*/_bundle/
 
 # Claude Code supervisor working plan (local only)
 .claude/working-plan.md
+
+# Offline ML environment
+ml/.venv/
+__pycache__/
+ml/mapping/sources/raw/

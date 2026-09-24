@@ -1,0 +1,1441 @@
+postnummer,omrade,andel_i_omrade,n_adresser,metod,kalla,granne_konflikt
+10004,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10026 (distance 22); below=None (None), above=10026 (Kungsholmen)",False
+10005,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10026 (distance 21); below=None (None), above=10026 (Kungsholmen)",False
+10012,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10026 (distance 14); below=None (None), above=10026 (Kungsholmen)",False
+10019,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10026 (distance 7); below=None (None), above=10026 (Kungsholmen)",False
+10026,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10028,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10026 (distance 2); below=10026 (Kungsholmen), above=10031 (Vasastan-Norrmalm)",True
+10029,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10031 (distance 2); below=10026 (Kungsholmen), above=10031 (Vasastan-Norrmalm)",True
+10031,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10040,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10041 (distance 1); below=10031 (Vasastan-Norrmalm), above=10041 (Östermalm)",True
+10041,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10044,Östermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10052,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10054 (distance 2); below=10044 (Östermalm), above=10054 (Östermalm)",False
+10054,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10055,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10054 (distance 1); below=10054 (Östermalm), above=None (None)",False
+10061,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10054 (distance 7); below=10054 (Östermalm), above=None (None)",False
+10064,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10054 (distance 10); below=10054 (Östermalm), above=None (None)",False
+10073,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10054 (distance 19); below=10054 (Östermalm), above=None (None)",False
+10074,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10054 (distance 20); below=10054 (Östermalm), above=None (None)",False
+10101,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 22); below=None (None), above=10123 (Vasastan-Norrmalm)",False
+10110,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 13); below=None (None), above=10123 (Vasastan-Norrmalm)",False
+10120,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 3); below=None (None), above=10123 (Vasastan-Norrmalm)",False
+10121,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 2); below=None (None), above=10123 (Vasastan-Norrmalm)",False
+10122,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 1); below=None (None), above=10123 (Vasastan-Norrmalm)",False
+10123,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10124,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 1); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10125,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 2); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10126,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 3); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10127,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 4); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10128,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 5); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10129,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 6); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10130,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 7); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10131,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 8); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10132,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 9); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10133,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 10); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10134,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 11); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10135,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 12); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10136,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 13); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10137,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 14); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10138,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 15); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10139,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 16); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10152,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 29); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10153,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 30); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10154,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 31); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10155,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 32); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10156,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 33); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10158,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 35); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10159,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10123 (distance 36); below=10123 (Vasastan-Norrmalm), above=None (None)",False
+10204,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 37); below=None (None), above=10241 (Östermalm)",False
+10214,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 27); below=None (None), above=10241 (Östermalm)",False
+10215,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 26); below=None (None), above=10241 (Östermalm)",False
+10216,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 25); below=None (None), above=10241 (Östermalm)",False
+10217,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 24); below=None (None), above=10241 (Östermalm)",False
+10218,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 23); below=None (None), above=10241 (Östermalm)",False
+10220,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 21); below=None (None), above=10241 (Östermalm)",False
+10221,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 20); below=None (None), above=10241 (Östermalm)",False
+10222,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 19); below=None (None), above=10241 (Östermalm)",False
+10223,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 18); below=None (None), above=10241 (Östermalm)",False
+10224,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 17); below=None (None), above=10241 (Östermalm)",False
+10225,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 16); below=None (None), above=10241 (Östermalm)",False
+10226,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 15); below=None (None), above=10241 (Östermalm)",False
+10227,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 14); below=None (None), above=10241 (Östermalm)",False
+10228,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 13); below=None (None), above=10241 (Östermalm)",False
+10229,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 12); below=None (None), above=10241 (Östermalm)",False
+10230,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 11); below=None (None), above=10241 (Östermalm)",False
+10231,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 10); below=None (None), above=10241 (Östermalm)",False
+10232,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 9); below=None (None), above=10241 (Östermalm)",False
+10233,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 8); below=None (None), above=10241 (Östermalm)",False
+10234,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 7); below=None (None), above=10241 (Östermalm)",False
+10235,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 6); below=None (None), above=10241 (Östermalm)",False
+10239,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 2); below=None (None), above=10241 (Östermalm)",False
+10240,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 1); below=None (None), above=10241 (Östermalm)",False
+10241,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10242,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10241 (distance 1); below=10241 (Östermalm), above=10243 (Östermalm)",False
+10243,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10244,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10245,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 1); below=10244 (Östermalm), above=None (None)",False
+10246,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 2); below=10244 (Östermalm), above=None (None)",False
+10247,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 3); below=10244 (Östermalm), above=None (None)",False
+10248,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 4); below=10244 (Östermalm), above=None (None)",False
+10249,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 5); below=10244 (Östermalm), above=None (None)",False
+10250,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 6); below=10244 (Östermalm), above=None (None)",False
+10251,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 7); below=10244 (Östermalm), above=None (None)",False
+10252,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 8); below=10244 (Östermalm), above=None (None)",False
+10253,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 9); below=10244 (Östermalm), above=None (None)",False
+10254,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 10); below=10244 (Östermalm), above=None (None)",False
+10260,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 16); below=10244 (Östermalm), above=None (None)",False
+10261,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 17); below=10244 (Östermalm), above=None (None)",False
+10262,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 18); below=10244 (Östermalm), above=None (None)",False
+10263,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 19); below=10244 (Östermalm), above=None (None)",False
+10264,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 20); below=10244 (Östermalm), above=None (None)",False
+10265,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 21); below=10244 (Östermalm), above=None (None)",False
+10266,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 22); below=10244 (Östermalm), above=None (None)",False
+10267,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 23); below=10244 (Östermalm), above=None (None)",False
+10268,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 24); below=10244 (Östermalm), above=None (None)",False
+10269,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 25); below=10244 (Östermalm), above=None (None)",False
+10270,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 26); below=10244 (Östermalm), above=None (None)",False
+10271,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 27); below=10244 (Östermalm), above=None (None)",False
+10272,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 28); below=10244 (Östermalm), above=None (None)",False
+10273,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 29); below=10244 (Östermalm), above=None (None)",False
+10274,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10244 (distance 30); below=10244 (Östermalm), above=None (None)",False
+10301,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 26); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10302,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 25); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10303,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 24); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10304,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 23); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10305,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 22); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10306,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 21); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10307,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 20); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10310,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 17); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10311,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 16); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10312,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 15); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10313,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 14); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10314,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 13); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10315,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 12); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10316,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 11); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10317,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 10); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10318,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 9); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10320,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 7); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10321,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 6); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10322,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 5); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10323,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 4); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10324,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 3); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10325,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 2); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10326,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 1); below=None (None), above=10327 (Vasastan-Norrmalm)",False
+10327,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10329,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 2); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10332,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 5); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10333,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 6); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10334,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 7); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10335,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 8); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10336,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 9); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10337,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 10); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10338,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 11); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10339,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 12); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10350,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 23); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10351,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 24); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10352,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 25); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10354,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 27); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10355,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10327 (distance 28); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10359,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 29); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10360,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 28); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10361,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 27); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10362,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 26); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10363,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 25); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10364,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 24); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10365,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 23); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10366,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 22); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10367,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 21); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10368,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 20); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10369,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 19); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10370,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 18); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10371,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 17); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10372,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 16); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10373,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 15); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10374,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 14); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10375,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 13); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10376,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 12); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10377,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 11); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10378,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 10); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10379,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 9); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10380,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 8); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10382,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 6); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10383,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 5); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10384,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 4); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10385,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 3); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10386,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 2); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10387,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 1); below=10327 (Vasastan-Norrmalm), above=10388 (Östermalm)",True
+10388,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10389,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 1); below=10388 (Östermalm), above=None (None)",False
+10390,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 2); below=10388 (Östermalm), above=None (None)",False
+10391,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 3); below=10388 (Östermalm), above=None (None)",False
+10392,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 4); below=10388 (Östermalm), above=None (None)",False
+10393,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 5); below=10388 (Östermalm), above=None (None)",False
+10394,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 6); below=10388 (Östermalm), above=None (None)",False
+10395,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 7); below=10388 (Östermalm), above=None (None)",False
+10396,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 8); below=10388 (Östermalm), above=None (None)",False
+10397,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 9); below=10388 (Östermalm), above=None (None)",False
+10398,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 10); below=10388 (Östermalm), above=None (None)",False
+10399,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10388 (distance 11); below=10388 (Östermalm), above=None (None)",False
+10405,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 17); below=None (None), above=10422 (Kungsholmen)",False
+10406,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 16); below=None (None), above=10422 (Kungsholmen)",False
+10420,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 2); below=None (None), above=10422 (Kungsholmen)",False
+10422,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10425,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 3); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10430,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 8); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10431,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 9); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10432,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 10422 (distance 10); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10435,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10444 (distance 9); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10440,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10444 (distance 4); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10441,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10444 (distance 3); below=10422 (Kungsholmen), above=10444 (Östermalm)",True
+10444,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10450,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10444 (distance 6); below=10444 (Östermalm), above=10460 (Södermalm)",True
+10451,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10444 (distance 7); below=10444 (Östermalm), above=10460 (Södermalm)",True
+10455,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10460 (distance 5); below=10444 (Östermalm), above=10460 (Södermalm)",True
+10460,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10462,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10460 (distance 2); below=10460 (Södermalm), above=10465 (Södermalm)",False
+10465,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10691,Östermalm,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10700,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 24); below=None (None), above=10724 (Vasastan-Norrmalm)",False
+10707,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 17); below=None (None), above=10724 (Vasastan-Norrmalm)",False
+10710,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 14); below=None (None), above=10724 (Vasastan-Norrmalm)",False
+10721,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 3); below=None (None), above=10724 (Vasastan-Norrmalm)",False
+10722,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 2); below=None (None), above=10724 (Vasastan-Norrmalm)",False
+10723,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 1); below=None (None), above=10724 (Vasastan-Norrmalm)",False
+10724,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+10725,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 1); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10726,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 2); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10760,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 36); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10767,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 43); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10768,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 44); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10769,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 45); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10770,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 46); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10772,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 48); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10775,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 51); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10776,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 52); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10777,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 53); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10780,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 56); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10781,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 57); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10782,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 58); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10785,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 61); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10786,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 62); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10788,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 64); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10790,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 66); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10791,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 67); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10795,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 71); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+10796,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 10724 (distance 72); below=10724 (Vasastan-Norrmalm), above=None (None)",False
+11101,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11120 (distance 19); below=None (None), above=11120 (Vasastan-Norrmalm)",False
+11102,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11120 (distance 18); below=None (None), above=11120 (Vasastan-Norrmalm)",False
+11115,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11120 (distance 5); below=None (None), above=11120 (Vasastan-Norrmalm)",False
+11120,Vasastan-Norrmalm,1.0,30,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11121,Vasastan-Norrmalm,0.9583,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11122,Vasastan-Norrmalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11123,Vasastan-Norrmalm,0.963,27,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11124,Vasastan-Norrmalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11127,Centrala Stockholm,1.0,22,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11128,Centrala Stockholm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11129,Centrala Stockholm,1.0,43,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11130,Centrala Stockholm,0.95,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11131,Centrala Stockholm,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11134,Vasastan-Norrmalm,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11135,Vasastan-Norrmalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11136,Vasastan-Norrmalm,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11137,Vasastan-Norrmalm,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11138,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11139,Vasastan-Norrmalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11140,Vasastan-Norrmalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11142,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11143,Vasastan-Norrmalm,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11144,Vasastan-Norrmalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11145,Vasastan-Norrmalm,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11146,Vasastan-Norrmalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11147,Vasastan-Norrmalm,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11148,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11149,Centrala Stockholm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11151,Vasastan-Norrmalm,1.0,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11152,Vasastan-Norrmalm,1.0,21,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11153,Vasastan-Norrmalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11156,Vasastan-Norrmalm,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11157,Vasastan-Norrmalm,1.0,34,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11160,Vasastan-Norrmalm,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11161,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11160 (distance 1); below=11160 (Vasastan-Norrmalm), above=11164 (Vasastan-Norrmalm)",False
+11164,Vasastan-Norrmalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11171,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11174 (distance 3); below=11164 (Vasastan-Norrmalm), above=11174 (Vasastan-Norrmalm)",False
+11173,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11174 (distance 1); below=11164 (Vasastan-Norrmalm), above=11174 (Vasastan-Norrmalm)",False
+11174,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11175,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11174 (distance 1); below=11174 (Vasastan-Norrmalm), above=11181 (Vasastan-Norrmalm)",False
+11176,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11174 (distance 2); below=11174 (Vasastan-Norrmalm), above=11181 (Vasastan-Norrmalm)",False
+11177,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11174 (distance 3); below=11174 (Vasastan-Norrmalm), above=11181 (Vasastan-Norrmalm)",False
+11181,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11182,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11181 (distance 1); below=11181 (Vasastan-Norrmalm), above=11183 (Vasastan-Norrmalm)",False
+11183,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11184,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 1); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11185,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 2); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11186,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 3); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11187,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 4); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11188,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 5); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11189,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 6); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11191,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 8); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11192,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 9); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11193,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 10); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11194,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 11); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11195,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 12); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11196,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 13); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11197,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 14); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11198,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 15); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11199,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11183 (distance 16); below=11183 (Vasastan-Norrmalm), above=None (None)",False
+11201,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11212 (distance 11); below=None (None), above=11212 (Kungsholmen)",False
+11202,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11212 (distance 10); below=None (None), above=11212 (Kungsholmen)",False
+11203,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11212 (distance 9); below=None (None), above=11212 (Kungsholmen)",False
+11204,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11212 (distance 8); below=None (None), above=11212 (Kungsholmen)",False
+11206,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11212 (distance 6); below=None (None), above=11212 (Kungsholmen)",False
+11212,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11213,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11214,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11213 (distance 1); below=11213 (Kungsholmen), above=11215 (Kungsholmen)",False
+11215,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11216,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11217,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11218,Kungsholmen,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11219,Kungsholmen,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11220,Kungsholmen,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11221,Kungsholmen,1.0,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11222,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11223,Kungsholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11224,Kungsholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11225,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11226,Kungsholmen,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11227,Kungsholmen,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11228,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11229,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11230,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11231,Kungsholmen,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11232,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11233,Kungsholmen,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11234,Kungsholmen,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11235,Kungsholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11236,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11237,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11238,Kungsholmen,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11239,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11240,Kungsholmen,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11241,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11240 (distance 1); below=11240 (Kungsholmen), above=11242 (Kungsholmen)",False
+11242,Kungsholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11243,Kungsholmen,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11244,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11243 (distance 1); below=11243 (Kungsholmen), above=11245 (Kungsholmen)",False
+11245,Kungsholmen,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11246,Kungsholmen,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11247,Kungsholmen,1.0,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11248,Kungsholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11249,Kungsholmen,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11250,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11249 (distance 1); below=11249 (Kungsholmen), above=11251 (Kungsholmen)",False
+11251,Kungsholmen,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11252,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11253,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11252 (distance 1); below=11252 (Kungsholmen), above=11254 (Kungsholmen)",False
+11254,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11255,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11254 (distance 1); below=11254 (Kungsholmen), above=11256 (Kungsholmen)",False
+11256,Kungsholmen,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11257,Kungsholmen,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11258,Kungsholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11259,Kungsholmen,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11260,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11259 (distance 1); below=11259 (Kungsholmen), above=11261 (Essingen)",True
+11261,Essingen,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11262,Essingen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11263,Essingen,,,prefix_granne,"nearest same-prefix mapped postnummer 11262 (distance 1); below=11262 (Essingen), above=11264 (Essingen)",False
+11264,Essingen,0.8,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11265,Essingen,1.0,30,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11266,Essingen,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11267,Essingen,0.9474,19,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11268,Essingen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11269,Kungsholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11272,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 3); below=11269 (Kungsholmen), above=None (None)",False
+11273,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 4); below=11269 (Kungsholmen), above=None (None)",False
+11274,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 5); below=11269 (Kungsholmen), above=None (None)",False
+11275,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 6); below=11269 (Kungsholmen), above=None (None)",False
+11276,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 7); below=11269 (Kungsholmen), above=None (None)",False
+11277,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 8); below=11269 (Kungsholmen), above=None (None)",False
+11278,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 9); below=11269 (Kungsholmen), above=None (None)",False
+11279,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 10); below=11269 (Kungsholmen), above=None (None)",False
+11280,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 11); below=11269 (Kungsholmen), above=None (None)",False
+11281,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 12); below=11269 (Kungsholmen), above=None (None)",False
+11282,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 13); below=11269 (Kungsholmen), above=None (None)",False
+11283,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 14); below=11269 (Kungsholmen), above=None (None)",False
+11284,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 15); below=11269 (Kungsholmen), above=None (None)",False
+11285,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 16); below=11269 (Kungsholmen), above=None (None)",False
+11286,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 17); below=11269 (Kungsholmen), above=None (None)",False
+11287,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 18); below=11269 (Kungsholmen), above=None (None)",False
+11288,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 19); below=11269 (Kungsholmen), above=None (None)",False
+11289,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 20); below=11269 (Kungsholmen), above=None (None)",False
+11292,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 23); below=11269 (Kungsholmen), above=None (None)",False
+11293,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 24); below=11269 (Kungsholmen), above=None (None)",False
+11294,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 25); below=11269 (Kungsholmen), above=None (None)",False
+11296,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 27); below=11269 (Kungsholmen), above=None (None)",False
+11297,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 28); below=11269 (Kungsholmen), above=None (None)",False
+11298,Kungsholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11269 (distance 29); below=11269 (Kungsholmen), above=None (None)",False
+11301,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11320 (distance 19); below=None (None), above=11320 (Vasastan-Norrmalm)",False
+11302,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11320 (distance 18); below=None (None), above=11320 (Vasastan-Norrmalm)",False
+11303,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11320 (distance 17); below=None (None), above=11320 (Vasastan-Norrmalm)",False
+11304,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11320 (distance 16); below=None (None), above=11320 (Vasastan-Norrmalm)",False
+11320,Vasastan-Norrmalm,0.9,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11321,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11322,Vasastan-Norrmalm,1.0,29,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11323,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11324,Vasastan-Norrmalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11325,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11326,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11327,Vasastan-Norrmalm,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11328,Vasastan-Norrmalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11329,Vasastan-Norrmalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11330,Vasastan-Norrmalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11331,Vasastan-Norrmalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11332,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11333,Vasastan-Norrmalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11334,Vasastan-Norrmalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11335,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11336,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11337,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11338,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11339,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11340,Vasastan-Norrmalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11341,Vasastan-Norrmalm,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11342,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11343,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11344,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11345,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11346,Vasastan-Norrmalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11347,Vasastan-Norrmalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11348,Vasastan-Norrmalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11349,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11350,Vasastan-Norrmalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11351,Vasastan-Norrmalm,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11352,Vasastan-Norrmalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11353,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11354,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11355,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11356,Vasastan-Norrmalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11357,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11358,Östermalm,0.6,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11359,Vasastan-Norrmalm,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11360,Vasastan-Norrmalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11361,Vasastan-Norrmalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11362,Vasastan-Norrmalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11363,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11362 (distance 1); below=11362 (Vasastan-Norrmalm), above=11364 (Vasastan-Norrmalm)",False
+11364,Vasastan-Norrmalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11365,Vasastan-Norrmalm,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11366,Vasastan-Norrmalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11367,Vasastan-Norrmalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11368,Vasastan-Norrmalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11369,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 1); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11376,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 8); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11378,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 10); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11379,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 11); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11380,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 12); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11381,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 13); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11382,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 14); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11383,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 15); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11384,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 16); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11385,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 17); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11386,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 18); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11387,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 19); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11388,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 20); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11389,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 21); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11390,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 22); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11391,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 23); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11392,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 24); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11393,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 25); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11394,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 26); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11395,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 27); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11396,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 28); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11397,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 29); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11398,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 30); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11399,Vasastan-Norrmalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11368 (distance 31); below=11368 (Vasastan-Norrmalm), above=None (None)",False
+11401,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11415 (distance 14); below=None (None), above=11415 (Östermalm)",False
+11402,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11415 (distance 13); below=None (None), above=11415 (Östermalm)",False
+11411,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11415 (distance 4); below=None (None), above=11415 (Östermalm)",False
+11415,Östermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11416,Östermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11417,Östermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11418,Östermalm,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11419,Östermalm,1.0,35,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11420,Östermalm,1.0,21,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11421,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11422,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11421 (distance 1); below=11421 (Östermalm), above=11424 (Östermalm)",False
+11423,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11424 (distance 1); below=11421 (Östermalm), above=11424 (Östermalm)",False
+11424,Östermalm,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11425,Östermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11426,Östermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11427,Östermalm,0.6667,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11428,Östermalm,1.0,39,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11429,Östermalm,0.9167,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11430,Östermalm,0.8,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11431,Östermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11432,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11433,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11434,Östermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11435,Östermalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11436,Östermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11437,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11438,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11439,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11440,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11441,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11440 (distance 1); below=11440 (Östermalm), above=11442 (Östermalm)",False
+11442,Östermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11443,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11444,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11445,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11446,Östermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11447,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11448,Östermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11449,Östermalm,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11450,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11449 (distance 1); below=11449 (Östermalm), above=11451 (Östermalm)",False
+11451,Östermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11452,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11453,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11452 (distance 1); below=11452 (Östermalm), above=11454 (Östermalm)",False
+11454,Östermalm,1.0,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11455,Östermalm,1.0,56,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11456,Östermalm,1.0,46,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11457,Östermalm,1.0,30,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11458,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11459,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11460,Östermalm,1.0,63,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11473,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11460 (distance 13); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11475,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 11); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11476,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 10); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11478,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 8); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11479,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 7); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11480,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 6); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11481,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 5); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11482,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 4); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11483,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 3); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11484,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 2); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11485,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 1); below=11460 (Östermalm), above=11486 (Östermalm)",False
+11486,Östermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11487,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 1); below=11486 (Östermalm), above=11491 (Östermalm)",False
+11488,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11486 (distance 2); below=11486 (Östermalm), above=11491 (Östermalm)",False
+11489,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 2); below=11486 (Östermalm), above=11491 (Östermalm)",False
+11490,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 1); below=11486 (Östermalm), above=11491 (Östermalm)",False
+11491,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11492,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 1); below=11491 (Östermalm), above=None (None)",False
+11494,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 3); below=11491 (Östermalm), above=None (None)",False
+11495,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 4); below=11491 (Östermalm), above=None (None)",False
+11497,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 6); below=11491 (Östermalm), above=None (None)",False
+11498,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 7); below=11491 (Östermalm), above=None (None)",False
+11499,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11491 (distance 8); below=11491 (Östermalm), above=None (None)",False
+11501,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11520 (distance 19); below=None (None), above=11520 (Östermalm)",False
+11502,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11520 (distance 18); below=None (None), above=11520 (Östermalm)",False
+11520,Östermalm,1.0,42,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11521,Östermalm,1.0,60,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11522,Östermalm,1.0,72,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11523,Östermalm,1.0,81,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11524,Östermalm,1.0,39,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11525,Östermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11526,Östermalm,1.0,41,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11527,Östermalm,1.0,48,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11528,Östermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11529,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11530,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11531,Östermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11532,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11531 (distance 1); below=11531 (Östermalm), above=11535 (Östermalm)",False
+11533,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11531 (distance 2); below=11531 (Östermalm), above=11535 (Östermalm)",False
+11534,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11535 (distance 1); below=11531 (Östermalm), above=11535 (Östermalm)",False
+11535,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11536,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11535 (distance 1); below=11535 (Östermalm), above=11539 (Östermalm)",False
+11537,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11535 (distance 2); below=11535 (Östermalm), above=11539 (Östermalm)",False
+11538,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11539 (distance 1); below=11535 (Östermalm), above=11539 (Östermalm)",False
+11539,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11540,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11541,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11542,Östermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11543,Östermalm,1.0,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11544,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11545,Östermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11546,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11545 (distance 1); below=11545 (Östermalm), above=11547 (Östermalm)",False
+11547,Östermalm,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11548,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11547 (distance 1); below=11547 (Östermalm), above=11550 (Östermalm)",False
+11549,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11550 (distance 1); below=11547 (Östermalm), above=11550 (Östermalm)",False
+11550,Östermalm,0.75,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11551,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11550 (distance 1); below=11550 (Östermalm), above=11553 (Östermalm)",False
+11553,Östermalm,1.0,26,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11556,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11557,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11558,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11557 (distance 1); below=11557 (Östermalm), above=11559 (Östermalm)",False
+11559,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11560,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11559 (distance 1); below=11559 (Östermalm), above=11574 (Östermalm)",False
+11571,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11574 (distance 3); below=11559 (Östermalm), above=11574 (Östermalm)",False
+11573,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11574 (distance 1); below=11559 (Östermalm), above=11574 (Östermalm)",False
+11574,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11576,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11574 (distance 2); below=11574 (Östermalm), above=11583 (Östermalm)",False
+11577,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11574 (distance 3); below=11574 (Östermalm), above=11583 (Östermalm)",False
+11578,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11574 (distance 4); below=11574 (Östermalm), above=11583 (Östermalm)",False
+11579,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11583 (distance 4); below=11574 (Östermalm), above=11583 (Östermalm)",False
+11580,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11583 (distance 3); below=11574 (Östermalm), above=11583 (Östermalm)",False
+11582,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11583 (distance 1); below=11574 (Östermalm), above=11583 (Östermalm)",False
+11583,Östermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11584,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11583 (distance 1); below=11583 (Östermalm), above=11589 (Östermalm)",False
+11587,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11589 (distance 2); below=11583 (Östermalm), above=11589 (Östermalm)",False
+11588,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11589 (distance 1); below=11583 (Östermalm), above=11589 (Östermalm)",False
+11589,Östermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11590,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11589 (distance 1); below=11589 (Östermalm), above=11593 (Östermalm)",False
+11591,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11589 (distance 2); below=11589 (Östermalm), above=11593 (Östermalm)",False
+11592,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11593 (distance 1); below=11589 (Östermalm), above=11593 (Östermalm)",False
+11593,Östermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11594,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11593 (distance 1); below=11593 (Östermalm), above=None (None)",False
+11595,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11593 (distance 2); below=11593 (Östermalm), above=None (None)",False
+11596,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11593 (distance 3); below=11593 (Östermalm), above=None (None)",False
+11597,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11593 (distance 4); below=11593 (Östermalm), above=None (None)",False
+11599,Östermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11593 (distance 6); below=11593 (Östermalm), above=None (None)",False
+11601,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11620 (distance 19); below=None (None), above=11620 (Södermalm)",False
+11618,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11620 (distance 2); below=None (None), above=11620 (Södermalm)",False
+11620,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11621,Södermalm,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11622,Södermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11623,Södermalm,1.0,25,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11624,Södermalm,1.0,33,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11625,Södermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11628,Södermalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11629,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11628 (distance 1); below=11628 (Södermalm), above=11630 (Södermalm)",False
+11630,Södermalm,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11631,Södermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11632,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11633,Södermalm,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11634,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11635,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11636,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11637,Södermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11638,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11639,Södermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11640,Södermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11641,Södermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11642,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11643,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11642 (distance 1); below=11642 (Södermalm), above=11644 (Södermalm)",False
+11644,Södermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11645,Södermalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11646,Södermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11647,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11648,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11647 (distance 1); below=11647 (Södermalm), above=11649 (Södermalm)",False
+11649,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11650,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11649 (distance 1); below=11649 (Södermalm), above=11661 (Södermalm)",False
+11661,Södermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11662,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11663,Södermalm,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11664,Södermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11665,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11666,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11665 (distance 1); below=11665 (Södermalm), above=11667 (Södermalm)",False
+11667,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11668,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 1); below=11667 (Södermalm), above=None (None)",False
+11674,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 7); below=11667 (Södermalm), above=None (None)",False
+11681,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 14); below=11667 (Södermalm), above=None (None)",False
+11685,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 18); below=11667 (Södermalm), above=None (None)",False
+11688,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 21); below=11667 (Södermalm), above=None (None)",False
+11691,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 24); below=11667 (Södermalm), above=None (None)",False
+11692,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 25); below=11667 (Södermalm), above=None (None)",False
+11693,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 26); below=11667 (Södermalm), above=None (None)",False
+11694,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11667 (distance 27); below=11667 (Södermalm), above=None (None)",False
+11701,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11726 (distance 25); below=None (None), above=11726 (Södermalm)",False
+11705,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11726 (distance 21); below=None (None), above=11726 (Södermalm)",False
+11718,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11726 (distance 8); below=None (None), above=11726 (Södermalm)",False
+11726,Södermalm,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11727,Södermalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11728,Södermalm,1.0,27,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11729,Södermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11730,Södermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11731,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11732,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11733,Södermalm,1.0,42,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11734,Södermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11735,Södermalm,1.0,17,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11736,Södermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11737,Södermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11738,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11739,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11740,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11741,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11743,Hägersten-Liljeholmen,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11750,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11755 (distance 5); below=11743 (Hägersten-Liljeholmen), above=11755 (Hägersten-Liljeholmen)",False
+11754,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11755 (distance 1); below=11743 (Hägersten-Liljeholmen), above=11755 (Hägersten-Liljeholmen)",False
+11755,Hägersten-Liljeholmen,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11756,Hägersten-Liljeholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11757,Hägersten-Liljeholmen,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11758,Hägersten-Liljeholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11759,Hägersten-Liljeholmen,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11760,Hägersten-Liljeholmen,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11761,Hägersten-Liljeholmen,1.0,34,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11762,Hägersten-Liljeholmen,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11763,Hägersten-Liljeholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11764,Hägersten-Liljeholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11765,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11764 (distance 1); below=11764 (Hägersten-Liljeholmen), above=11766 (Hägersten-Liljeholmen)",False
+11766,Hägersten-Liljeholmen,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11767,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11768,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11767 (distance 1); below=11767 (Hägersten-Liljeholmen), above=11769 (Hägersten-Liljeholmen)",False
+11769,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11770,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11769 (distance 1); below=11769 (Hägersten-Liljeholmen), above=11771 (Hägersten-Liljeholmen)",False
+11771,Hägersten-Liljeholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11775,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 4); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11780,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 9); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11783,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 12); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11784,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 13); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11785,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 14); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11786,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 15); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11788,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 17); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11790,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 19); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11791,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 20); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11792,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 21); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11793,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 22); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11794,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 23); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11795,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 24); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11796,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 25); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11797,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 26); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11798,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 27); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11799,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 11771 (distance 28); below=11771 (Hägersten-Liljeholmen), above=None (None)",False
+11801,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11820 (distance 19); below=None (None), above=11820 (Södermalm)",False
+11805,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11820 (distance 15); below=None (None), above=11820 (Södermalm)",False
+11818,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11820 (distance 2); below=None (None), above=11820 (Södermalm)",False
+11820,Södermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11821,Södermalm,1.0,17,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11822,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11821 (distance 1); below=11821 (Södermalm), above=11823 (Södermalm)",False
+11823,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11824,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11823 (distance 1); below=11823 (Södermalm), above=11825 (Södermalm)",False
+11825,Södermalm,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11826,Södermalm,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11827,Södermalm,1.0,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11828,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11829,Södermalm,1.0,52,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11830,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11842,Enskede-Skarpnäck,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11846,Södermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11847,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11848,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11849,Södermalm,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11850,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11851,Södermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11852,Södermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11853,Södermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11854,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11853 (distance 1); below=11853 (Södermalm), above=11855 (Södermalm)",False
+11855,Södermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11856,Södermalm,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11857,Södermalm,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11858,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11859,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11858 (distance 1); below=11858 (Södermalm), above=11860 (Södermalm)",False
+11860,Södermalm,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11861,Södermalm,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11862,Södermalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11863,Södermalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11864,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11865,Södermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11866,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11867,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11869,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11872,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+11880,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 8); below=11872 (Södermalm), above=None (None)",False
+11881,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 9); below=11872 (Södermalm), above=None (None)",False
+11882,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 10); below=11872 (Södermalm), above=None (None)",False
+11883,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 11); below=11872 (Södermalm), above=None (None)",False
+11885,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 13); below=11872 (Södermalm), above=None (None)",False
+11886,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 14); below=11872 (Södermalm), above=None (None)",False
+11887,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 15); below=11872 (Södermalm), above=None (None)",False
+11888,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 16); below=11872 (Södermalm), above=None (None)",False
+11889,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 17); below=11872 (Södermalm), above=None (None)",False
+11890,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 18); below=11872 (Södermalm), above=None (None)",False
+11891,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 19); below=11872 (Södermalm), above=None (None)",False
+11892,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 20); below=11872 (Södermalm), above=None (None)",False
+11893,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 21); below=11872 (Södermalm), above=None (None)",False
+11894,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 22); below=11872 (Södermalm), above=None (None)",False
+11895,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 11872 (distance 23); below=11872 (Södermalm), above=None (None)",False
+12000,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 30); below=None (None), above=12030 (Södermalm)",False
+12001,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 29); below=None (None), above=12030 (Södermalm)",False
+12002,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 28); below=None (None), above=12030 (Södermalm)",False
+12003,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 27); below=None (None), above=12030 (Södermalm)",False
+12004,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 26); below=None (None), above=12030 (Södermalm)",False
+12005,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 25); below=None (None), above=12030 (Södermalm)",False
+12006,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 24); below=None (None), above=12030 (Södermalm)",False
+12007,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 23); below=None (None), above=12030 (Södermalm)",False
+12008,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 22); below=None (None), above=12030 (Södermalm)",False
+12009,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 21); below=None (None), above=12030 (Södermalm)",False
+12010,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 20); below=None (None), above=12030 (Södermalm)",False
+12011,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 19); below=None (None), above=12030 (Södermalm)",False
+12012,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 18); below=None (None), above=12030 (Södermalm)",False
+12013,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 17); below=None (None), above=12030 (Södermalm)",False
+12014,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 16); below=None (None), above=12030 (Södermalm)",False
+12015,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 15); below=None (None), above=12030 (Södermalm)",False
+12016,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 14); below=None (None), above=12030 (Södermalm)",False
+12017,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 13); below=None (None), above=12030 (Södermalm)",False
+12018,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 12); below=None (None), above=12030 (Södermalm)",False
+12019,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 11); below=None (None), above=12030 (Södermalm)",False
+12020,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 10); below=None (None), above=12030 (Södermalm)",False
+12021,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 9); below=None (None), above=12030 (Södermalm)",False
+12022,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 8); below=None (None), above=12030 (Södermalm)",False
+12023,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 7); below=None (None), above=12030 (Södermalm)",False
+12024,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 6); below=None (None), above=12030 (Södermalm)",False
+12025,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 5); below=None (None), above=12030 (Södermalm)",False
+12026,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12030 (distance 4); below=None (None), above=12030 (Södermalm)",False
+12030,Södermalm,0.9444,36,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12031,Södermalm,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12032,Södermalm,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12033,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12032 (distance 1); below=12032 (Södermalm), above=12038 (Enskede-Skarpnäck)",True
+12038,Enskede-Skarpnäck,1.0,71,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12039,Enskede-Skarpnäck,1.0,68,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12040,Enskede-Skarpnäck,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12044,Enskede-Skarpnäck,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12047,Enskede-Skarpnäck,1.0,46,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12048,Enskede-Skarpnäck,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12050,Enskede-Skarpnäck,1.0,115,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12051,Enskede-Skarpnäck,1.0,102,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12052,Enskede-Skarpnäck,1.0,101,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12053,Enskede-Skarpnäck,1.0,117,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12054,Enskede-Skarpnäck,1.0,94,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12055,Enskede-Skarpnäck,1.0,81,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12056,Enskede-Skarpnäck,1.0,60,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12057,Enskede-Skarpnäck,1.0,100,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12058,Enskede-Skarpnäck,1.0,107,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12059,Enskede-Skarpnäck,1.0,77,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12060,Enskede-Skarpnäck,1.0,135,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12061,Södermalm,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12062,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12063,Södermalm,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12064,Södermalm,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12065,Södermalm,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12066,Södermalm,1.0,67,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12067,Södermalm,1.0,45,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12068,Södermalm,1.0,61,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12069,Södermalm,1.0,28,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12070,Södermalm,1.0,50,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12071,Södermalm,1.0,57,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12078,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 1); below=12071 (Södermalm), above=12079 (Södermalm)",False
+12079,Södermalm,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12080,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 1); below=12079 (Södermalm), above=None (None)",False
+12081,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 2); below=12079 (Södermalm), above=None (None)",False
+12082,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 3); below=12079 (Södermalm), above=None (None)",False
+12083,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 4); below=12079 (Södermalm), above=None (None)",False
+12086,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 7); below=12079 (Södermalm), above=None (None)",False
+12087,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 8); below=12079 (Södermalm), above=None (None)",False
+12088,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 9); below=12079 (Södermalm), above=None (None)",False
+12090,Södermalm,,,prefix_granne,"nearest same-prefix mapped postnummer 12079 (distance 11); below=12079 (Södermalm), above=None (None)",False
+12100,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 17); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12105,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 12); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12106,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 11); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12107,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 10); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12111,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 6); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12112,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 5); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12113,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 4); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12114,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 3); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12115,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 2); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12116,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 1); below=None (None), above=12117 (Enskede-Skarpnäck)",False
+12117,Enskede-Skarpnäck,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12118,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 1); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12119,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 2); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12120,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 3); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12121,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12117 (distance 4); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12122,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12126 (distance 4); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12123,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12126 (distance 3); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12124,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12126 (distance 2); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12125,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12126 (distance 1); below=12117 (Enskede-Skarpnäck), above=12126 (Enskede-Skarpnäck)",False
+12126,Enskede-Skarpnäck,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12127,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12126 (distance 1); below=12126 (Enskede-Skarpnäck), above=12130 (Enskede-Skarpnäck)",False
+12128,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12126 (distance 2); below=12126 (Enskede-Skarpnäck), above=12130 (Enskede-Skarpnäck)",False
+12129,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12130 (distance 1); below=12126 (Enskede-Skarpnäck), above=12130 (Enskede-Skarpnäck)",False
+12130,Enskede-Skarpnäck,1.0,197,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12131,Enskede-Skarpnäck,1.0,36,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12132,Enskede-Skarpnäck,1.0,17,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12133,Enskede-Skarpnäck,1.0,254,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12134,Enskede-Skarpnäck,1.0,257,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12135,Enskede-Skarpnäck,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12136,Enskede-Skarpnäck,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12137,Enskede-Skarpnäck,1.0,130,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12138,Enskede-Skarpnäck,1.0,171,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12139,Enskede-Skarpnäck,1.0,95,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12140,Enskede-Skarpnäck,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12143,Enskede-Skarpnäck,1.0,35,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12144,Enskede-Skarpnäck,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12145,Enskede-Skarpnäck,1.0,47,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12146,Enskede-Skarpnäck,1.0,151,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12147,Kungsholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Johanneshov'",
+12148,Enskede-Skarpnäck,1.0,109,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12149,Enskede-Skarpnäck,1.0,158,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12150,Enskede-Skarpnäck,1.0,186,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12151,Enskede-Skarpnäck,1.0,127,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12152,Enskede-Skarpnäck,1.0,100,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12153,Enskede-Skarpnäck,1.0,129,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12154,Enskede-Skarpnäck,1.0,150,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12155,Enskede-Skarpnäck,1.0,130,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12156,Enskede-Skarpnäck,1.0,70,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12162,Enskede-Skarpnäck,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12163,Enskede-Skarpnäck,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12177,Enskede-Skarpnäck,0.9333,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12186,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12177 (distance 9); below=12177 (Enskede-Skarpnäck), above=None (None)",False
+12187,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12177 (distance 10); below=12177 (Enskede-Skarpnäck), above=None (None)",False
+12188,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12177 (distance 11); below=12177 (Enskede-Skarpnäck), above=None (None)",False
+12189,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12177 (distance 12); below=12177 (Enskede-Skarpnäck), above=None (None)",False
+12200,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12231 (distance 31); below=None (None), above=12231 (Enskede-Skarpnäck)",False
+12203,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12231 (distance 28); below=None (None), above=12231 (Enskede-Skarpnäck)",False
+12206,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12231 (distance 25); below=None (None), above=12231 (Enskede-Skarpnäck)",False
+12220,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12231 (distance 11); below=None (None), above=12231 (Enskede-Skarpnäck)",False
+12231,Enskede-Skarpnäck,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12232,Enskede-Skarpnäck,1.0,151,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12233,Enskede-Skarpnäck,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12234,Enskede-Skarpnäck,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12237,Enskede-Skarpnäck,1.0,386,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12238,Enskede-Skarpnäck,1.0,63,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12239,Farsta-Vantör,1.0,150,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12240,Farsta-Vantör,1.0,582,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12241,Enskede-Skarpnäck,1.0,62,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12242,Enskede-Skarpnäck,1.0,78,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12243,Enskede-Skarpnäck,1.0,154,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12244,Farsta-Vantör,1.0,192,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12245,Farsta-Vantör,1.0,64,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12246,Farsta-Vantör,1.0,112,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12247,Enskede-Skarpnäck,0.8571,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12248,Farsta-Vantör,1.0,375,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12249,Farsta-Vantör,1.0,46,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12260,Farsta-Vantör,1.0,258,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12262,Enskede-Skarpnäck,1.0,70,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12263,Enskede-Skarpnäck,1.0,174,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12264,Enskede-Skarpnäck,1.0,50,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12265,Farsta-Vantör,1.0,31,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12266,Enskede-Skarpnäck,1.0,115,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12286,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12266 (distance 20); below=12266 (Enskede-Skarpnäck), above=None (None)",False
+12288,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12266 (distance 22); below=12266 (Enskede-Skarpnäck), above=None (None)",False
+12322,Farsta-Vantör,1.0,1,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Farsta'",
+12331,Farsta-Vantör,1.0,17,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12332,Farsta-Vantör,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12333,Farsta-Vantör,1.0,46,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12334,Farsta-Vantör,1.0,44,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12340,Farsta-Vantör,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Farsta'",
+12341,Farsta-Vantör,1.0,19,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12342,Farsta-Vantör,1.0,113,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12343,Farsta-Vantör,1.0,108,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12344,Farsta-Vantör,1.0,19,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12346,Farsta-Vantör,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12347,Farsta-Vantör,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12348,Farsta-Vantör,1.0,31,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12349,Farsta-Vantör,1.0,29,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12350,Farsta-Vantör,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12352,Farsta-Vantör,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12353,Farsta-Vantör,1.0,71,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12354,Farsta-Vantör,1.0,97,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12355,Farsta-Vantör,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Farsta'",
+12356,Farsta-Vantör,1.0,232,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12357,Farsta-Vantör,1.0,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12358,Farsta-Vantör,1.0,88,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12359,Farsta-Vantör,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12360,Farsta-Vantör,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12361,Farsta-Vantör,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Fasta'",
+12363,Farsta-Vantör,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12371,Farsta-Vantör,1.0,50,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12372,Farsta-Vantör,1.0,25,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12373,Farsta-Vantör,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12400,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 30); below=None (None), above=12430 (Farsta-Vantör)",False
+12403,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 27); below=None (None), above=12430 (Farsta-Vantör)",False
+12404,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 26); below=None (None), above=12430 (Farsta-Vantör)",False
+12420,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 10); below=None (None), above=12430 (Farsta-Vantör)",False
+12421,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 9); below=None (None), above=12430 (Farsta-Vantör)",False
+12422,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 8); below=None (None), above=12430 (Farsta-Vantör)",False
+12425,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12430 (distance 5); below=None (None), above=12430 (Farsta-Vantör)",False
+12430,Farsta-Vantör,1.0,85,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12431,Farsta-Vantör,1.0,99,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12432,Farsta-Vantör,1.0,245,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12433,Farsta-Vantör,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12434,Farsta-Vantör,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12436,Farsta-Vantör,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12450,Farsta-Vantör,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12451,Farsta-Vantör,1.0,243,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12452,Farsta-Vantör,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12453,Farsta-Vantör,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12454,Farsta-Vantör,1.0,39,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12455,Farsta-Vantör,1.0,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12456,Farsta-Vantör,1.0,26,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12457,Farsta-Vantör,1.0,60,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12458,Farsta-Vantör,1.0,117,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12459,Farsta-Vantör,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12460,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12459 (distance 1); below=12459 (Farsta-Vantör), above=12461 (Farsta-Vantör)",False
+12461,Farsta-Vantör,1.0,75,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12462,Farsta-Vantör,1.0,30,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12463,Farsta-Vantör,1.0,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12464,Farsta-Vantör,1.0,97,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12465,Farsta-Vantör,1.0,68,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12466,Farsta-Vantör,1.0,47,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12467,Farsta-Vantör,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12470,Farsta-Vantör,1.0,106,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12471,Farsta-Vantör,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12472,Farsta-Vantör,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12473,Farsta-Vantör,1.0,28,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12474,Farsta-Vantör,1.0,22,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12475,Farsta-Vantör,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12476,Farsta-Vantör,1.0,67,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12477,Farsta-Vantör,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12500,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 30); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12501,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 29); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12502,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 28); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12503,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 27); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12505,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 25); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12520,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 10); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12521,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 9); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12522,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 8); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12523,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 7); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12524,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 6); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12525,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12530 (distance 5); below=None (None), above=12530 (Hägersten-Liljeholmen)",False
+12530,Hägersten-Liljeholmen,1.0,90,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12531,Hägersten-Liljeholmen,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12532,Hägersten-Liljeholmen,1.0,247,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12533,Hägersten-Liljeholmen,1.0,135,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12534,Hägersten-Liljeholmen,1.0,228,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12535,Hägersten-Liljeholmen,1.0,132,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12540,Farsta-Vantör,1.0,474,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12541,Farsta-Vantör,1.0,342,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12542,Farsta-Vantör,0.6772,158,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12543,Farsta-Vantör,1.0,179,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12544,Hägersten-Liljeholmen,1.0,71,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12545,Hägersten-Liljeholmen,1.0,64,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12546,Hägersten-Liljeholmen,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12547,Hägersten-Liljeholmen,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12548,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12549,Hägersten-Liljeholmen,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12551,Hägersten-Liljeholmen,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12552,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12553,Hägersten-Liljeholmen,1.0,238,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12554,Hägersten-Liljeholmen,1.0,40,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12555,Hägersten-Liljeholmen,0.9412,17,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12556,Hägersten-Liljeholmen,1.0,114,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12557,Farsta-Vantör,0.5238,21,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12558,Hägersten-Liljeholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12559,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12560,Hägersten-Liljeholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Älvsjö'",
+12570,Hägersten-Liljeholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Älvsjö'",
+12571,Hägersten-Liljeholmen,1.0,106,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12572,Enskede-Skarpnäck,1.0,49,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12573,Enskede-Skarpnäck,1.0,184,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12574,Enskede-Skarpnäck,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12580,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12581 (distance 1); below=12574 (Enskede-Skarpnäck), above=12581 (Hägersten-Liljeholmen)",True
+12581,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12582,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12581 (distance 1); below=12581 (Hägersten-Liljeholmen), above=None (None)",False
+12586,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12581 (distance 5); below=12581 (Hägersten-Liljeholmen), above=None (None)",False
+12600,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 26); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12601,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 25); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12608,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 18); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12609,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 17); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12611,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 15); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12612,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 14); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12613,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 13); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12614,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 12); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12615,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 11); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12616,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 10); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12617,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 9); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12618,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 8); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12619,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 7); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12620,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 6); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12625,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 1); below=None (None), above=12626 (Hägersten-Liljeholmen)",False
+12626,Hägersten-Liljeholmen,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12627,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12626 (distance 1); below=12626 (Hägersten-Liljeholmen), above=12628 (Hägersten-Liljeholmen)",False
+12628,Hägersten-Liljeholmen,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12629,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12630,Hägersten-Liljeholmen,1.0,44,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12631,Hägersten-Liljeholmen,1.0,25,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12632,Hägersten-Liljeholmen,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12633,Hägersten-Liljeholmen,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12634,Hägersten-Liljeholmen,1.0,21,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12635,Hägersten-Liljeholmen,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12636,Hägersten-Liljeholmen,1.0,107,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12637,Hägersten-Liljeholmen,1.0,89,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12638,Hägersten-Liljeholmen,1.0,252,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12639,Hägersten-Liljeholmen,1.0,66,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12640,Hägersten-Liljeholmen,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12641,Hägersten-Liljeholmen,1.0,115,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12642,Hägersten-Liljeholmen,1.0,32,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12647,Hägersten-Liljeholmen,1.0,64,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12648,Hägersten-Liljeholmen,1.0,57,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12649,Hägersten-Liljeholmen,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12650,Hägersten-Liljeholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Hägersten'",
+12651,Hägersten-Liljeholmen,1.0,79,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12652,Hägersten-Liljeholmen,1.0,47,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12653,Hägersten-Liljeholmen,1.0,26,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12654,Hägersten-Liljeholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12655,Hägersten-Liljeholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Hägersten'",
+12675,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12677 (distance 2); below=12655 (Hägersten-Liljeholmen), above=12677 (Hägersten-Liljeholmen)",False
+12677,Hägersten-Liljeholmen,1.0,35,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12678,Hägersten-Liljeholmen,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12679,Hägersten-Liljeholmen,1.0,87,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12680,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12679 (distance 1); below=12679 (Hägersten-Liljeholmen), above=None (None)",False
+12681,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12679 (distance 2); below=12679 (Hägersten-Liljeholmen), above=None (None)",False
+12686,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12679 (distance 7); below=12679 (Hägersten-Liljeholmen), above=None (None)",False
+12688,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12679 (distance 9); below=12679 (Hägersten-Liljeholmen), above=None (None)",False
+12689,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12679 (distance 10); below=12679 (Hägersten-Liljeholmen), above=None (None)",False
+12700,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 29); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12702,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 27); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12703,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 26); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12720,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 9); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12721,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 8); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12722,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 7); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12723,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 6); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12724,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 5); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12725,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 4); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12726,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12729 (distance 3); below=None (None), above=12729 (Brännkyrka-Skärholmen)",False
+12729,Brännkyrka-Skärholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12730,Brännkyrka-Skärholmen,1.0,560,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12731,Brännkyrka-Skärholmen,1.0,19,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12732,Brännkyrka-Skärholmen,1.0,69,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12733,Brännkyrka-Skärholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Skärholmen'",
+12734,Brännkyrka-Skärholmen,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12735,Brännkyrka-Skärholmen,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12736,Brännkyrka-Skärholmen,1.0,110,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12737,Brännkyrka-Skärholmen,1.0,57,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12738,Brännkyrka-Skärholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12739,Brännkyrka-Skärholmen,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12740,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12739 (distance 1); below=12739 (Brännkyrka-Skärholmen), above=12741 (Brännkyrka-Skärholmen)",False
+12741,Brännkyrka-Skärholmen,1.0,237,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12742,Brännkyrka-Skärholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12743,Brännkyrka-Skärholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12744,Brännkyrka-Skärholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Skärholmen'",
+12745,Brännkyrka-Skärholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Skärholmen'",
+12746,Brännkyrka-Skärholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Skärholmen'",
+12747,Brännkyrka-Skärholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12748,Brännkyrka-Skärholmen,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12749,Brännkyrka-Skärholmen,1.0,152,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12751,Brännkyrka-Skärholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Skärholmen'",
+12755,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12751 (distance 4); below=12751 (Brännkyrka-Skärholmen), above=12761 (Brännkyrka-Skärholmen)",False
+12760,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12761 (distance 1); below=12751 (Brännkyrka-Skärholmen), above=12761 (Brännkyrka-Skärholmen)",False
+12761,Brännkyrka-Skärholmen,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12781,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12761 (distance 20); below=12761 (Brännkyrka-Skärholmen), above=None (None)",False
+12784,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12761 (distance 23); below=12761 (Brännkyrka-Skärholmen), above=None (None)",False
+12785,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12761 (distance 24); below=12761 (Brännkyrka-Skärholmen), above=None (None)",False
+12786,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12761 (distance 25); below=12761 (Brännkyrka-Skärholmen), above=None (None)",False
+12787,Brännkyrka-Skärholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12761 (distance 26); below=12761 (Brännkyrka-Skärholmen), above=None (None)",False
+12800,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 30); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12804,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 26); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12805,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 25); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12806,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 24); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12807,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 23); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12820,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 10); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12821,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 9); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12822,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 8); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12823,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 7); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12824,Enskede-Skarpnäck,,,prefix_granne,"nearest same-prefix mapped postnummer 12830 (distance 6); below=None (None), above=12830 (Enskede-Skarpnäck)",False
+12830,Enskede-Skarpnäck,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12831,Enskede-Skarpnäck,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12832,Enskede-Skarpnäck,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12833,Enskede-Skarpnäck,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12834,Enskede-Skarpnäck,1.0,87,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12835,Enskede-Skarpnäck,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12836,Enskede-Skarpnäck,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Skarpnäck'",
+12838,Enskede-Skarpnäck,1.0,409,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12839,Enskede-Skarpnäck,1.0,220,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12841,Enskede-Skarpnäck,1.0,86,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12842,Enskede-Skarpnäck,1.0,73,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12843,Enskede-Skarpnäck,1.0,60,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12844,Farsta-Vantör,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Bagarmossen'",
+12845,Enskede-Skarpnäck,1.0,56,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12846,Enskede-Skarpnäck,1.0,109,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12847,Enskede-Skarpnäck,1.0,169,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12848,Enskede-Skarpnäck,1.0,211,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12862,Farsta-Vantör,1.0,364,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12863,Farsta-Vantör,1.0,78,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12864,Farsta-Vantör,1.0,37,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12865,Enskede-Skarpnäck,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12866,Farsta-Vantör,1.0,75,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12867,Farsta-Vantör,1.0,128,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12868,Farsta-Vantör,1.0,49,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12869,Farsta-Vantör,1.0,324,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12885,Farsta-Vantör,,,prefix_granne,"nearest same-prefix mapped postnummer 12869 (distance 16); below=12869 (Farsta-Vantör), above=None (None)",False
+12900,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12904 (distance 4); below=None (None), above=12904 (Hägersten-Liljeholmen)",False
+12904,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12906,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12907,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12906 (distance 1); below=12906 (Hägersten-Liljeholmen), above=12930 (Hägersten-Liljeholmen)",False
+12918,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12906 (distance 12); below=12906 (Hägersten-Liljeholmen), above=12930 (Hägersten-Liljeholmen)",False
+12920,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12930 (distance 10); below=12906 (Hägersten-Liljeholmen), above=12930 (Hägersten-Liljeholmen)",False
+12921,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12930 (distance 9); below=12906 (Hägersten-Liljeholmen), above=12930 (Hägersten-Liljeholmen)",False
+12922,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12930 (distance 8); below=12906 (Hägersten-Liljeholmen), above=12930 (Hägersten-Liljeholmen)",False
+12923,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12930 (distance 7); below=12906 (Hägersten-Liljeholmen), above=12930 (Hägersten-Liljeholmen)",False
+12930,Hägersten-Liljeholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Hägersten'",
+12931,Hägersten-Liljeholmen,1.0,92,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12932,Hägersten-Liljeholmen,1.0,41,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12933,Hägersten-Liljeholmen,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12934,Hägersten-Liljeholmen,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12935,Hägersten-Liljeholmen,1.0,107,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12936,Hägersten-Liljeholmen,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12937,Hägersten-Liljeholmen,1.0,119,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12938,Hägersten-Liljeholmen,1.0,340,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12939,Hägersten-Liljeholmen,1.0,46,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12940,Hägersten-Liljeholmen,1.0,320,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12941,Hägersten-Liljeholmen,1.0,235,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12942,Hägersten-Liljeholmen,1.0,485,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12943,Hägersten-Liljeholmen,1.0,148,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12944,Hägersten-Liljeholmen,1.0,284,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12945,Hägersten-Liljeholmen,1.0,40,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12946,Hägersten-Liljeholmen,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Hägersten'",
+12947,Hägersten-Liljeholmen,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12948,Hägersten-Liljeholmen,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12949,Hägersten-Liljeholmen,1.0,65,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12950,Hägersten-Liljeholmen,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12951,Hägersten-Liljeholmen,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12952,Hägersten-Liljeholmen,1.0,14,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12953,Hägersten-Liljeholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12954,Hägersten-Liljeholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12955,Hägersten-Liljeholmen,1.0,39,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+12956,Hägersten-Liljeholmen,,,prefix_granne,"nearest same-prefix mapped postnummer 12955 (distance 1); below=12955 (Hägersten-Liljeholmen), above=12957 (Hägersten-Liljeholmen)",False
+12957,Hägersten-Liljeholmen,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+15853,Bromma-Västerled,1.0,42,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16100,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 3); below=None (None), above=16103 (Hässelby-Vällingby)",False
+16102,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 1); below=None (None), above=16103 (Hässelby-Vällingby)",False
+16103,Hässelby-Vällingby,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16104,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 1); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16105,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 2); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16107,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 4); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16111,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 8); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16120,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 17); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16124,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 21); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16125,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 22); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16126,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 23); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16184,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 81); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16186,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 83); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16189,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16103 (distance 86); below=16103 (Hässelby-Vällingby), above=None (None)",False
+16200,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 13); below=None (None), above=16213 (Hässelby-Vällingby)",False
+16201,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 12); below=None (None), above=16213 (Hässelby-Vällingby)",False
+16206,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 7); below=None (None), above=16213 (Hässelby-Vällingby)",False
+16211,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 2); below=None (None), above=16213 (Hässelby-Vällingby)",False
+16212,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 1); below=None (None), above=16213 (Hässelby-Vällingby)",False
+16213,Hässelby-Vällingby,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16215,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 2); below=16213 (Hässelby-Vällingby), above=16243 (Hässelby-Vällingby)",False
+16216,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 3); below=16213 (Hässelby-Vällingby), above=16243 (Hässelby-Vällingby)",False
+16220,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16213 (distance 7); below=16213 (Hässelby-Vällingby), above=16243 (Hässelby-Vällingby)",False
+16243,Hässelby-Vällingby,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16244,Hässelby-Vällingby,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16245,Hässelby-Vällingby,1.0,35,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16246,Hässelby-Vällingby,1.0,548,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16247,Hässelby-Vällingby,1.0,448,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16250,Hässelby-Vällingby,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16251,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16250 (distance 1); below=16250 (Hässelby-Vällingby), above=16252 (Hässelby-Vällingby)",False
+16252,Hässelby-Vällingby,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Vällingby'",
+16253,Hässelby-Vällingby,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16254,Hässelby-Vällingby,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16255,Hässelby-Vällingby,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16256,Hässelby-Vällingby,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Vällingby'",
+16257,Hässelby-Vällingby,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16258,Hässelby-Vällingby,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Vällingby'",
+16260,Hässelby-Vällingby,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16261,Hässelby-Vällingby,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16262,Hässelby-Vällingby,1.0,50,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16263,Hässelby-Vällingby,1.0,79,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16264,Hässelby-Vällingby,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Vällingby'",
+16265,Hässelby-Vällingby,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16266,Hässelby-Vällingby,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Vällingby'",
+16267,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16266 (distance 1); below=16266 (Hässelby-Vällingby), above=16268 (Hässelby-Vällingby)",False
+16268,Hässelby-Vällingby,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16270,Hässelby-Vällingby,1.0,8,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16271,Hässelby-Vällingby,1.0,75,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16272,Hässelby-Vällingby,1.0,147,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16273,Hässelby-Vällingby,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16274,Hässelby-Vällingby,1.0,53,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16283,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16274 (distance 9); below=16274 (Hässelby-Vällingby), above=None (None)",False
+16287,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16274 (distance 13); below=16274 (Hässelby-Vällingby), above=None (None)",False
+16288,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16274 (distance 14); below=16274 (Hässelby-Vällingby), above=None (None)",False
+16289,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16274 (distance 15); below=16274 (Hässelby-Vällingby), above=None (None)",False
+16300,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 40); below=None (None), above=16340 (Spånga-Kista)",False
+16303,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 37); below=None (None), above=16340 (Spånga-Kista)",False
+16304,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 36); below=None (None), above=16340 (Spånga-Kista)",False
+16305,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 35); below=None (None), above=16340 (Spånga-Kista)",False
+16308,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 32); below=None (None), above=16340 (Spånga-Kista)",False
+16310,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 30); below=None (None), above=16340 (Spånga-Kista)",False
+16319,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 21); below=None (None), above=16340 (Spånga-Kista)",False
+16320,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 20); below=None (None), above=16340 (Spånga-Kista)",False
+16321,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 19); below=None (None), above=16340 (Spånga-Kista)",False
+16329,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16340 (distance 11); below=None (None), above=16340 (Spånga-Kista)",False
+16340,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Spånga'",
+16341,Spånga-Kista,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16342,Spånga-Kista,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16343,Spånga-Kista,1.0,36,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16344,Spånga-Kista,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16345,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Spånga'",
+16346,Spånga-Kista,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16347,Hässelby-Vällingby,1.0,90,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16348,Spånga-Kista,1.0,19,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16349,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16348 (distance 1); below=16348 (Spånga-Kista), above=16350 (Spånga-Kista)",False
+16350,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Spånga'",
+16351,Spånga-Kista,1.0,21,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16352,Spånga-Kista,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16353,Spånga-Kista,1.0,13,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16354,Hässelby-Vällingby,0.8696,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16355,Spånga-Kista,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16356,Spånga-Kista,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16357,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16356 (distance 1); below=16356 (Spånga-Kista), above=16361 (Spånga-Kista)",False
+16361,Spånga-Kista,1.0,27,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16362,Spånga-Kista,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16363,Spånga-Kista,1.0,65,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16364,Spånga-Kista,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16365,Spånga-Kista,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16366,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16365 (distance 1); below=16365 (Spånga-Kista), above=16367 (Spånga-Kista)",False
+16367,Spånga-Kista,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16368,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16367 (distance 1); below=16367 (Spånga-Kista), above=16371 (Spånga-Kista)",False
+16370,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16371 (distance 1); below=16367 (Spånga-Kista), above=16371 (Spånga-Kista)",False
+16371,Spånga-Kista,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16372,Spånga-Kista,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16373,Spånga-Kista,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16374,Spånga-Kista,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16375,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16374 (distance 1); below=16374 (Spånga-Kista), above=16376 (Spånga-Kista)",False
+16376,Spånga-Kista,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16377,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 1); below=16376 (Spånga-Kista), above=None (None)",False
+16380,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 4); below=16376 (Spånga-Kista), above=None (None)",False
+16385,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 9); below=16376 (Spånga-Kista), above=None (None)",False
+16388,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 12); below=16376 (Spånga-Kista), above=None (None)",False
+16389,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 13); below=16376 (Spånga-Kista), above=None (None)",False
+16391,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 15); below=16376 (Spånga-Kista), above=None (None)",False
+16394,Spånga-Kista,,,prefix_granne,"nearest same-prefix mapped postnummer 16376 (distance 18); below=16376 (Spånga-Kista), above=None (None)",False
+16421,Spånga-Kista,1.0,1,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16432,Spånga-Kista,1.0,1,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16433,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16434,Spånga-Kista,1.0,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16435,Spånga-Kista,1.0,1,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16438,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16440,Spånga-Kista,1.0,39,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16441,Spånga-Kista,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16442,Spånga-Kista,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16443,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16444,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16446,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16447,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16448,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16453,Spånga-Kista,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16455,Spånga-Kista,1.0,220,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16456,Spånga-Kista,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16471,Spånga-Kista,1.0,17,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16472,Spånga-Kista,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16473,Spånga-Kista,1.0,1,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16474,Spånga-Kista,1.0,10,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16475,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16476,Spånga-Kista,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Kista'",
+16478,Spånga-Kista,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16479,Spånga-Kista,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16491,Spånga-Kista,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16500,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 47); below=None (None), above=16547 (Bromma-Västerled)",False
+16510,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 37); below=None (None), above=16547 (Bromma-Västerled)",False
+16511,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 36); below=None (None), above=16547 (Bromma-Västerled)",False
+16512,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 35); below=None (None), above=16547 (Bromma-Västerled)",False
+16513,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 34); below=None (None), above=16547 (Bromma-Västerled)",False
+16515,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 32); below=None (None), above=16547 (Bromma-Västerled)",False
+16516,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 31); below=None (None), above=16547 (Bromma-Västerled)",False
+16520,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 27); below=None (None), above=16547 (Bromma-Västerled)",False
+16521,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 26); below=None (None), above=16547 (Bromma-Västerled)",False
+16522,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 25); below=None (None), above=16547 (Bromma-Västerled)",False
+16523,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 24); below=None (None), above=16547 (Bromma-Västerled)",False
+16524,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16547 (distance 23); below=None (None), above=16547 (Bromma-Västerled)",False
+16547,Bromma-Västerled,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16552,Hässelby-Vällingby,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16553,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16552 (distance 1); below=16552 (Hässelby-Vällingby), above=16555 (Hässelby-Vällingby)",False
+16554,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16555 (distance 1); below=16552 (Hässelby-Vällingby), above=16555 (Hässelby-Vällingby)",False
+16555,Hässelby-Vällingby,1.0,22,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16556,Hässelby-Vällingby,1.0,80,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16557,Hässelby-Vällingby,1.0,24,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16558,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16557 (distance 1); below=16557 (Hässelby-Vällingby), above=16559 (Hässelby-Vällingby)",False
+16559,Hässelby-Vällingby,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16560,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16559 (distance 1); below=16559 (Hässelby-Vällingby), above=16561 (Hässelby-Vällingby)",False
+16561,Hässelby-Vällingby,1.0,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16562,Hässelby-Vällingby,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16563,Hässelby-Vällingby,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16564,Hässelby-Vällingby,,,prefix_granne,"nearest same-prefix mapped postnummer 16563 (distance 1); below=16563 (Hässelby-Vällingby), above=16565 (Hässelby-Vällingby)",False
+16565,Hässelby-Vällingby,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16566,Hässelby-Vällingby,1.0,9,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16570,Hässelby-Vällingby,1.0,127,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16571,Hässelby-Vällingby,1.0,455,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16572,Hässelby-Vällingby,1.0,463,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16573,Hässelby-Vällingby,1.0,351,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16574,Hässelby-Vällingby,1.0,411,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16575,Hässelby-Vällingby,1.0,351,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16576,Hässelby-Vällingby,1.0,596,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16577,Hässelby-Vällingby,1.0,536,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16578,Hässelby-Vällingby,1.0,624,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16700,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 14); below=None (None), above=16714 (Bromma-Västerled)",False
+16714,Bromma-Västerled,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16715,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 1); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16717,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 3); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16719,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 5); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16720,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 6); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16721,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 7); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16722,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16714 (distance 8); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16724,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16731 (distance 7); below=16714 (Bromma-Västerled), above=16731 (Bromma-Västerled)",False
+16731,Bromma-Västerled,1.0,30,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16732,Bromma-Västerled,1.0,89,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16733,Bromma-Västerled,1.0,105,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16735,Bromma-Västerled,1.0,69,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16736,Bromma-Västerled,1.0,51,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16737,Bromma-Västerled,1.0,70,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16738,Bromma-Västerled,1.0,47,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16739,Bromma-Västerled,1.0,60,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16740,Bromma-Västerled,1.0,26,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16741,Bromma-Västerled,1.0,90,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16743,Bromma-Västerled,1.0,109,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16744,Bromma-Västerled,1.0,30,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16745,Bromma-Västerled,1.0,53,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16751,Bromma-Västerled,1.0,73,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16752,Bromma-Västerled,1.0,79,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16753,Bromma-Västerled,1.0,256,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16754,Bromma-Västerled,1.0,207,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16755,Bromma-Västerled,1.0,52,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16756,Bromma-Västerled,1.0,267,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16757,Bromma-Västerled,1.0,114,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16758,Bromma-Västerled,1.0,45,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16761,Bromma-Västerled,1.0,155,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16762,Bromma-Västerled,1.0,173,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16763,Bromma-Västerled,1.0,184,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16764,Bromma-Västerled,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16765,Bromma-Västerled,1.0,280,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16766,Bromma-Västerled,1.0,145,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16767,Bromma-Västerled,1.0,16,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16771,Bromma-Västerled,1.0,160,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16772,Bromma-Västerled,1.0,72,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16773,Bromma-Västerled,1.0,138,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16774,Bromma-Västerled,1.0,42,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16775,Bromma-Västerled,1.0,81,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16776,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16775 (distance 1); below=16775 (Bromma-Västerled), above=None (None)",False
+16780,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16775 (distance 5); below=16775 (Bromma-Västerled), above=None (None)",False
+16781,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16775 (distance 6); below=16775 (Bromma-Västerled), above=None (None)",False
+16800,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16830 (distance 30); below=None (None), above=16830 (Bromma-Västerled)",False
+16810,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16830 (distance 20); below=None (None), above=16830 (Bromma-Västerled)",False
+16820,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16830 (distance 10); below=None (None), above=16830 (Bromma-Västerled)",False
+16827,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16830 (distance 3); below=None (None), above=16830 (Bromma-Västerled)",False
+16830,Bromma-Västerled,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16831,Bromma-Västerled,1.0,50,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16832,Bromma-Västerled,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Bromma'",
+16833,Bromma-Västerled,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Bromma'",
+16834,Bromma-Västerled,1.0,11,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16835,Bromma-Västerled,1.0,101,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16836,Bromma-Västerled,1.0,41,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16837,Bromma-Västerled,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16838,Bromma-Västerled,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16839,Bromma-Västerled,1.0,270,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16840,Bromma-Västerled,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Bromma'",
+16841,Bromma-Västerled,1.0,99,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16842,Bromma-Västerled,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16843,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16842 (distance 1); below=16842 (Bromma-Västerled), above=16844 (Bromma-Västerled)",False
+16844,Bromma-Västerled,0.8889,18,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16845,Bromma-Västerled,1.0,81,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16846,Bromma-Västerled,1.0,71,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16847,Bromma-Västerled,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16848,Bromma-Västerled,1.0,47,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16849,Bromma-Västerled,1.0,70,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16850,Bromma-Västerled,1.0,282,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16851,Bromma-Västerled,1.0,221,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16852,Bromma-Västerled,1.0,51,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16853,Bromma-Västerled,1.0,457,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16854,Bromma-Västerled,1.0,206,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16855,Bromma-Västerled,1.0,357,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16856,Bromma-Västerled,1.0,403,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16857,Bromma-Västerled,1.0,98,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16858,Bromma-Västerled,1.0,396,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16859,Bromma-Västerled,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16860,Bromma-Västerled,1.0,39,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16861,Bromma-Västerled,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16862,Bromma-Västerled,1.0,3,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16863,Bromma-Västerled,1.0,7,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16864,Bromma-Västerled,1.0,247,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16865,Bromma-Västerled,1.0,52,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16866,Bromma-Västerled,1.0,43,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16867,Bromma-Västerled,1.0,29,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16868,Bromma-Västerled,1.0,23,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16869,Bromma-Västerled,1.0,15,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16870,Bromma-Västerled,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Bromma'",
+16871,Bromma-Västerled,1.0,4,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16872,Bromma-Västerled,1.0,12,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16873,Bromma-Västerled,1.0,1,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16874,Bromma-Västerled,1.0,20,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16875,Bromma-Västerled,1.0,2,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16876,Bromma-Västerled,1.0,5,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16877,Bromma-Västerled,1.0,6,osm_address_majority,"OpenStreetMap addr:postcode (Overpass API, Stockholms lan query), ODbL",
+16878,Bromma-Västerled,1.0,0,geonames_point_in_polygon,"GeoNames SE postal code dump (CC BY 4.0), place='Bromma'",
+16879,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16878 (distance 1); below=16878 (Bromma-Västerled), above=None (None)",False
+16880,Bromma-Västerled,,,prefix_granne,"nearest same-prefix mapped postnummer 16878 (distance 2); below=16878 (Bromma-Västerled), above=None (None)",False

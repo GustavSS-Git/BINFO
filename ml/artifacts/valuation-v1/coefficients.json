@@ -1,0 +1,362 @@
+{
+  "target": "log(price_per_sq_meter)",
+  "effects_pct_all_else_equal": [
+    {
+      "feature": "living_area",
+      "pct_effect": 0.13,
+      "pct_effect_ci_low": 0.06,
+      "pct_effect_ci_high": 0.21,
+      "p_value": 0.0007
+    },
+    {
+      "feature": "number_of_rooms",
+      "pct_effect": 5.36,
+      "pct_effect_ci_low": 4.03,
+      "pct_effect_ci_high": 6.71,
+      "p_value": 0.0
+    },
+    {
+      "feature": "apartment_floor_clean",
+      "pct_effect": 1.7,
+      "pct_effect_ci_low": 1.39,
+      "pct_effect_ci_high": 2.02,
+      "p_value": 0.0
+    },
+    {
+      "feature": "building_storeys_clean",
+      "pct_effect": 0.17,
+      "pct_effect_ci_low": -0.16,
+      "pct_effect_ci_high": 0.5,
+      "p_value": 0.304
+    },
+    {
+      "feature": "build_year_clean",
+      "pct_effect": -0.14,
+      "pct_effect_ci_low": -0.16,
+      "pct_effect_ci_high": -0.12,
+      "p_value": 0.0
+    },
+    {
+      "feature": "monthly_fee_clean",
+      "pct_effect": -0.01,
+      "pct_effect_ci_low": -0.01,
+      "pct_effect_ci_high": -0.01,
+      "p_value": 0.0
+    },
+    {
+      "feature": "fee_per_sqm",
+      "pct_effect": 0.09,
+      "pct_effect_ci_low": 0.03,
+      "pct_effect_ci_high": 0.16,
+      "p_value": 0.0048
+    },
+    {
+      "feature": "month_num",
+      "pct_effect": 0.35,
+      "pct_effect_ci_low": 0.09,
+      "pct_effect_ci_high": 0.61,
+      "p_value": 0.009
+    },
+    {
+      "feature": "apartment_floor_missing",
+      "pct_effect": 1.84,
+      "pct_effect_ci_low": -0.75,
+      "pct_effect_ci_high": 4.51,
+      "p_value": 0.1654
+    },
+    {
+      "feature": "building_storeys_missing",
+      "pct_effect": 1.33,
+      "pct_effect_ci_low": -0.16,
+      "pct_effect_ci_high": 2.84,
+      "p_value": 0.0811
+    },
+    {
+      "feature": "build_year_missing",
+      "pct_effect": -8.23,
+      "pct_effect_ci_low": -10.11,
+      "pct_effect_ci_high": -6.31,
+      "p_value": 0.0
+    },
+    {
+      "feature": "monthly_fee_missing",
+      "pct_effect": 7.46,
+      "pct_effect_ci_low": -0.14,
+      "pct_effect_ci_high": 15.63,
+      "p_value": 0.0544
+    },
+    {
+      "feature": "omrade_Br\u00e4nnkyrka-Sk\u00e4rholmen",
+      "pct_effect": -50.37,
+      "pct_effect_ci_low": -53.25,
+      "pct_effect_ci_high": -47.32,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_Centrala Stockholm",
+      "pct_effect": 22.84,
+      "pct_effect_ci_low": 8.11,
+      "pct_effect_ci_high": 39.58,
+      "p_value": 0.0016
+    },
+    {
+      "feature": "omrade_Enskede-Skarpn\u00e4ck",
+      "pct_effect": -3.89,
+      "pct_effect_ci_low": -6.35,
+      "pct_effect_ci_high": -1.36,
+      "p_value": 0.0027
+    },
+    {
+      "feature": "omrade_Essingen",
+      "pct_effect": 30.42,
+      "pct_effect_ci_low": 24.11,
+      "pct_effect_ci_high": 37.04,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_Farsta-Vant\u00f6r",
+      "pct_effect": -33.05,
+      "pct_effect_ci_low": -35.03,
+      "pct_effect_ci_high": -31.01,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_H\u00e4gersten-Liljeholmen",
+      "pct_effect": 10.06,
+      "pct_effect_ci_low": 7.42,
+      "pct_effect_ci_high": 12.75,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_H\u00e4sselby-V\u00e4llingby",
+      "pct_effect": -41.61,
+      "pct_effect_ci_low": -43.92,
+      "pct_effect_ci_high": -39.21,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_Kungsholmen",
+      "pct_effect": 54.8,
+      "pct_effect_ci_low": 50.69,
+      "pct_effect_ci_high": 59.01,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_Ok\u00e4nt (postnummer ej kartlagt)",
+      "pct_effect": -5.51,
+      "pct_effect_ci_low": -13.24,
+      "pct_effect_ci_high": 2.9,
+      "p_value": 0.1926
+    },
+    {
+      "feature": "omrade_Sp\u00e5nga-Kista",
+      "pct_effect": -54.31,
+      "pct_effect_ci_low": -56.13,
+      "pct_effect_ci_high": -52.41,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_S\u00f6dermalm",
+      "pct_effect": 61.5,
+      "pct_effect_ci_low": 57.35,
+      "pct_effect_ci_high": 65.75,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_Vasastan-Norrmalm",
+      "pct_effect": 80.19,
+      "pct_effect_ci_low": 75.21,
+      "pct_effect_ci_high": 85.31,
+      "p_value": 0.0
+    },
+    {
+      "feature": "omrade_\u00d6stermalm",
+      "pct_effect": 76.35,
+      "pct_effect_ci_low": 71.55,
+      "pct_effect_ci_high": 81.3,
+      "p_value": 0.0
+    },
+    {
+      "feature": "hiss_nej",
+      "pct_effect": -2.5,
+      "pct_effect_ci_low": -4.01,
+      "pct_effect_ci_high": -0.97,
+      "p_value": 0.0015
+    },
+    {
+      "feature": "hiss_okant",
+      "pct_effect": 6.55,
+      "pct_effect_ci_low": 2.21,
+      "pct_effect_ci_high": 11.08,
+      "p_value": 0.0028
+    },
+    {
+      "feature": "balkong_nej",
+      "pct_effect": -2.87,
+      "pct_effect_ci_low": -14.43,
+      "pct_effect_ci_high": 10.25,
+      "p_value": 0.6527
+    },
+    {
+      "feature": "balkong_okant",
+      "pct_effect": -1.45,
+      "pct_effect_ci_low": -2.65,
+      "pct_effect_ci_high": -0.24,
+      "p_value": 0.0187
+    }
+  ],
+  "area_specific_balcony_effect": {
+    "Bromma-V\u00e4sterled": {
+      "n": 273,
+      "used": "city_wide",
+      "reason": "n=273 < 100 or single category"
+    },
+    "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+      "n": 30,
+      "used": "city_wide",
+      "reason": "n=30 < 100 or single category"
+    },
+    "Centrala Stockholm": {
+      "n": 2,
+      "used": "city_wide",
+      "reason": "n=2 < 100 or single category"
+    },
+    "Enskede-Skarpn\u00e4ck": {
+      "n": 325,
+      "used": "city_wide",
+      "reason": "n=325 < 100 or single category"
+    },
+    "Essingen": {
+      "n": 43,
+      "used": "city_wide",
+      "reason": "n=43 < 100 or single category"
+    },
+    "Farsta-Vant\u00f6r": {
+      "n": 192,
+      "used": "city_wide",
+      "reason": "n=192 < 100 or single category"
+    },
+    "H\u00e4gersten-Liljeholmen": {
+      "n": 421,
+      "used": "city_wide",
+      "reason": "CI half-width 0.328 >= 0.05"
+    },
+    "H\u00e4sselby-V\u00e4llingby": {
+      "n": 77,
+      "used": "city_wide",
+      "reason": "n=77 < 100 or single category"
+    },
+    "Kungsholmen": {
+      "n": 296,
+      "used": "city_wide",
+      "reason": "CI half-width 0.212 >= 0.05"
+    },
+    "Ok\u00e4nt (postnummer ej kartlagt)": {
+      "n": 7,
+      "used": "city_wide",
+      "reason": "n=7 < 100 or single category"
+    },
+    "Sp\u00e5nga-Kista": {
+      "n": 88,
+      "used": "city_wide",
+      "reason": "n=88 < 100 or single category"
+    },
+    "S\u00f6dermalm": {
+      "n": 367,
+      "used": "city_wide",
+      "reason": "CI half-width 0.216 >= 0.05"
+    },
+    "Vasastan-Norrmalm": {
+      "n": 336,
+      "used": "city_wide",
+      "reason": "n=336 < 100 or single category"
+    },
+    "\u00d6stermalm": {
+      "n": 305,
+      "used": "city_wide",
+      "reason": "CI half-width 0.347 >= 0.05"
+    }
+  },
+  "area_specific_elevator_effect": {
+    "Bromma-V\u00e4sterled": {
+      "n": 429,
+      "used": "city_wide",
+      "reason": "CI half-width 0.080 >= 0.05"
+    },
+    "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+      "n": 49,
+      "used": "city_wide",
+      "reason": "n=49 < 100 or single category"
+    },
+    "Centrala Stockholm": {
+      "n": 12,
+      "used": "city_wide",
+      "reason": "n=12 < 100 or single category"
+    },
+    "Enskede-Skarpn\u00e4ck": {
+      "n": 518,
+      "used": "city_wide",
+      "reason": "CI half-width 0.057 >= 0.05"
+    },
+    "Essingen": {
+      "n": 73,
+      "used": "city_wide",
+      "reason": "n=73 < 100 or single category"
+    },
+    "Farsta-Vant\u00f6r": {
+      "n": 287,
+      "used": "city_wide",
+      "reason": "CI half-width 0.079 >= 0.05"
+    },
+    "H\u00e4gersten-Liljeholmen": {
+      "n": 732,
+      "used": "area_specific",
+      "pct_effect": 5.61,
+      "pct_effect_ci_low": 0.58,
+      "pct_effect_ci_high": 10.9
+    },
+    "H\u00e4sselby-V\u00e4llingby": {
+      "n": 125,
+      "used": "city_wide",
+      "reason": "CI half-width 0.086 >= 0.05"
+    },
+    "Kungsholmen": {
+      "n": 637,
+      "used": "area_specific",
+      "pct_effect": 5.53,
+      "pct_effect_ci_low": 2.21,
+      "pct_effect_ci_high": 8.95
+    },
+    "Ok\u00e4nt (postnummer ej kartlagt)": {
+      "n": 24,
+      "used": "city_wide",
+      "reason": "n=24 < 100 or single category"
+    },
+    "Sp\u00e5nga-Kista": {
+      "n": 125,
+      "used": "city_wide",
+      "reason": "CI half-width 0.101 >= 0.05"
+    },
+    "S\u00f6dermalm": {
+      "n": 731,
+      "used": "area_specific",
+      "pct_effect": -3.67,
+      "pct_effect_ci_low": -6.79,
+      "pct_effect_ci_high": -0.44
+    },
+    "Vasastan-Norrmalm": {
+      "n": 636,
+      "used": "area_specific",
+      "pct_effect": 0.44,
+      "pct_effect_ci_low": -2.05,
+      "pct_effect_ci_high": 3.0
+    },
+    "\u00d6stermalm": {
+      "n": 510,
+      "used": "area_specific",
+      "pct_effect": 9.66,
+      "pct_effect_ci_low": 4.72,
+      "pct_effect_ci_high": 14.84
+    }
+  }
+}

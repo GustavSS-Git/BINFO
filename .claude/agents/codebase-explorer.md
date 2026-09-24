@@ -15,6 +15,7 @@ You investigate the Binfo codebase (Vite + React + TanStack Start, Supabase, Ant
 
 - Read `CLAUDE.md` first. It is the source of truth for conventions, domain rules and the visual boundary.
 - Never commit, push, delete files, or edit `CLAUDE.md` or `.claude/working-plan.md`. The supervisor does those.
+- Never run state-changing git commands on the shared working tree (`git stash`, `checkout`, `reset`, `restore`, `clean`, `switch`) — other agents edit it concurrently. For a clean baseline use a separate `git worktree add` in the scratchpad (and remove it afterwards) or `git show HEAD:<file>`.
 - Never change shared contracts (`src/types/analysis.ts`, server function signatures, DB schema, the model artefact format) unless your brief explicitly says so. If one must change, stop and report why.
 - Only edit the files your brief names. Another agent may be editing other files in parallel.
 - Do not guess external facts: Swedish rules, postcode geography, API behaviour, data definitions. If information is missing or ambiguous, stop and report the question.

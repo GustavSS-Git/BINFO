@@ -1,0 +1,134 @@
+{
+  "period": {
+    "start": "2026-01-01",
+    "end": "2026-08-31"
+  },
+  "min_n_per_area": 50,
+  "n_rows_total": 5000,
+  "n_rows_missing_asking_price_excluded": 949,
+  "n_rows_used": 4051,
+  "n_rows_unmapped_area": 33,
+  "overall": {
+    "n": 4051,
+    "median_pct": 4.78,
+    "mean_pct": 6.41
+  },
+  "areas": {
+    "Bromma-Västerled": {
+      "n": 376,
+      "median_pct": 2.98,
+      "mean_pct": 3.79,
+      "fallback_to_overall": false,
+      "median_pct_used": 2.98,
+      "mean_pct_used": 3.79
+    },
+    "Brännkyrka-Skärholmen": {
+      "n": 45,
+      "median_pct": 0.0,
+      "mean_pct": -0.25,
+      "fallback_to_overall": true,
+      "fallback_reason": "n=45 < minimum n=50",
+      "median_pct_used": 4.78,
+      "mean_pct_used": 6.41
+    },
+    "Centrala Stockholm": {
+      "n": 10,
+      "median_pct": 2.12,
+      "mean_pct": 6.74,
+      "fallback_to_overall": true,
+      "fallback_reason": "n=10 < minimum n=50",
+      "median_pct_used": 4.78,
+      "mean_pct_used": 6.41
+    },
+    "Enskede-Skarpnäck": {
+      "n": 433,
+      "median_pct": 5.1,
+      "mean_pct": 6.24,
+      "fallback_to_overall": false,
+      "median_pct_used": 5.1,
+      "mean_pct_used": 6.24
+    },
+    "Essingen": {
+      "n": 70,
+      "median_pct": 3.27,
+      "mean_pct": 3.6,
+      "fallback_to_overall": false,
+      "median_pct_used": 3.27,
+      "mean_pct_used": 3.6
+    },
+    "Farsta-Vantör": {
+      "n": 270,
+      "median_pct": 2.87,
+      "mean_pct": 4.44,
+      "fallback_to_overall": false,
+      "median_pct_used": 2.87,
+      "mean_pct_used": 4.44
+    },
+    "Hägersten-Liljeholmen": {
+      "n": 611,
+      "median_pct": 4.21,
+      "mean_pct": 5.94,
+      "fallback_to_overall": false,
+      "median_pct_used": 4.21,
+      "mean_pct_used": 5.94
+    },
+    "Hässelby-Vällingby": {
+      "n": 117,
+      "median_pct": 0.0,
+      "mean_pct": 1.89,
+      "fallback_to_overall": false,
+      "median_pct_used": 0.0,
+      "mean_pct_used": 1.89
+    },
+    "Kungsholmen": {
+      "n": 495,
+      "median_pct": 5.43,
+      "mean_pct": 6.52,
+      "fallback_to_overall": false,
+      "median_pct_used": 5.43,
+      "mean_pct_used": 6.52
+    },
+    "Okänt (postnummer ej kartlagt)": {
+      "n": 33,
+      "median_pct": 0.0,
+      "mean_pct": -0.67,
+      "fallback_to_overall": true,
+      "fallback_reason": "n=33 < minimum n=50",
+      "median_pct_used": 4.78,
+      "mean_pct_used": 6.41
+    },
+    "Spånga-Kista": {
+      "n": 118,
+      "median_pct": -0.26,
+      "mean_pct": -1.48,
+      "fallback_to_overall": false,
+      "median_pct_used": -0.26,
+      "mean_pct_used": -1.48
+    },
+    "Södermalm": {
+      "n": 536,
+      "median_pct": 12.76,
+      "mean_pct": 12.84,
+      "fallback_to_overall": false,
+      "median_pct_used": 12.76,
+      "mean_pct_used": 12.84
+    },
+    "Vasastan-Norrmalm": {
+      "n": 489,
+      "median_pct": 7.22,
+      "mean_pct": 8.26,
+      "fallback_to_overall": false,
+      "median_pct_used": 7.22,
+      "mean_pct_used": 8.26
+    },
+    "Östermalm": {
+      "n": 448,
+      "median_pct": 3.7,
+      "mean_pct": 5.57,
+      "fallback_to_overall": false,
+      "median_pct_used": 3.7,
+      "mean_pct_used": 5.57
+    }
+  },
+  "methodology": "pct_increase = (contract_price - real_estate_ad_asking_price) / real_estate_ad_asking_price * 100, recomputed from the raw price columns (not the pre-rounded 'Increase in price' string column). Rows with a missing asking price are excluded (na in the source, exactly where 'Increase in price' == 'na'). Areas with n below 50 fall back to the overall Stockholm figure (median_pct_used/mean_pct_used); their own (noisy) area-level median_pct/mean_pct are still reported for transparency."
+}

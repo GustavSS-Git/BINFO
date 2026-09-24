@@ -1,0 +1,696 @@
+{
+  "version": "valuation-v1",
+  "superseded_by": "valuation-v2 (restricted feature set matching actual product inputs; see MODEL_CARD.md)",
+  "trained_at": "2026-09-24T22:14:06.258978",
+  "data_period": "2026-01-01 to 2026-08-31 (8 months)",
+  "n_rows_used_for_training": 4991,
+  "cleaning_report": {
+    "rows_in": 5000,
+    "rows_out": 4991,
+    "duplicate_rows_dropped": 1,
+    "missing_target_rows_dropped": 8,
+    "apartment_floor_parsed_nonnull": 4634,
+    "apartment_floor_still_missing": 357,
+    "build_year_parsed_nonnull": 4531,
+    "build_year_still_missing": 460,
+    "monthly_fee_implausible_nulled": 6,
+    "building_storeys_implausible_nulled": 9,
+    "postal_code_missing": 18,
+    "notes": []
+  },
+  "n_unmapped_omrade": 24,
+  "log_vs_level_comparison": {
+    "log_target": {
+      "mae": 808244.8336599867,
+      "mape": 16.149552341054562
+    },
+    "level_target": {
+      "mae": 807996.0138759089,
+      "mape": 16.826154100472294
+    }
+  },
+  "cv_results": {
+    "log_linear_ridge": {
+      "overall": {
+        "mae": 808244.8336599867,
+        "mape": 16.149552341054562,
+        "n": 4991
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 434,
+          "mae": 726921.3302969054,
+          "mape": 16.37228842912027
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 50,
+          "mae": 545172.2466453518,
+          "mape": 26.795372223453263
+        },
+        "Centrala Stockholm": {
+          "n": 12,
+          "mae": 1479317.1652233247,
+          "mape": 19.932087870390312
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 544,
+          "mae": 726362.7226469578,
+          "mape": 20.559008088689666
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 648622.3891607727,
+          "mape": 13.338952104837468
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 303,
+          "mae": 596634.8253691082,
+          "mape": 22.577996589124673
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 749,
+          "mae": 841760.5575265563,
+          "mape": 20.040343600018414
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 128,
+          "mae": 393170.92432473577,
+          "mape": 16.864406657450225
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 836934.9768310449,
+          "mape": 12.872807074521619
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 24,
+          "mae": 1185723.7272742158,
+          "mape": 34.31093060421412
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 125,
+          "mae": 506169.01201223076,
+          "mape": 24.84413863867947
+        },
+        "S\u00f6dermalm": {
+          "n": 737,
+          "mae": 777719.0606177464,
+          "mape": 12.21346820897621
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 909702.2798687618,
+          "mape": 10.279094367813514
+        },
+        "\u00d6stermalm": {
+          "n": 521,
+          "mae": 1109315.5880880458,
+          "mape": 15.099507934948884
+        }
+      }
+    },
+    "random_forest": {
+      "overall": {
+        "mae": 680496.6518546786,
+        "mape": 13.364268097980315,
+        "n": 4991
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 434,
+          "mae": 684049.4524520645,
+          "mape": 15.397268008693665
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 50,
+          "mae": 388214.0609530115,
+          "mape": 18.148142921921977
+        },
+        "Centrala Stockholm": {
+          "n": 12,
+          "mae": 1364918.4096779067,
+          "mape": 18.51455511689392
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 544,
+          "mae": 603014.0030968343,
+          "mape": 16.960124949314658
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 616009.7857466047,
+          "mape": 12.338623898772303
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 303,
+          "mae": 468198.3900934696,
+          "mape": 16.543853057185967
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 749,
+          "mae": 748619.4524914967,
+          "mape": 17.507690638558735
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 128,
+          "mae": 347127.21416878345,
+          "mape": 12.98641350220991
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 643356.2470779371,
+          "mape": 10.219374120788926
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 24,
+          "mae": 1379686.5694561321,
+          "mape": 39.45391130782179
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 125,
+          "mae": 286695.1590282991,
+          "mape": 14.658961401797429
+        },
+        "S\u00f6dermalm": {
+          "n": 737,
+          "mae": 693920.9640507014,
+          "mape": 11.052244877496587
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 710649.489697637,
+          "mape": 8.31458626426636
+        },
+        "\u00d6stermalm": {
+          "n": 521,
+          "mae": 939671.2059863203,
+          "mape": 11.65460810976158
+        }
+      }
+    },
+    "lightgbm": {
+      "overall": {
+        "mae": 635257.1124854396,
+        "mape": 12.226927543359402,
+        "n": 4991
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 434,
+          "mae": 603620.0688790602,
+          "mape": 12.85139730490325
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 50,
+          "mae": 420649.6675728805,
+          "mape": 19.574779959461758
+        },
+        "Centrala Stockholm": {
+          "n": 12,
+          "mae": 1632124.0135506436,
+          "mape": 18.96488735169081
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 544,
+          "mae": 519855.7879162342,
+          "mape": 13.938127082888732
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 494472.52448080666,
+          "mape": 10.229322365104276
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 303,
+          "mae": 440307.72106325725,
+          "mape": 15.528624854067507
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 749,
+          "mae": 727135.7434947032,
+          "mape": 16.64956758627904
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 128,
+          "mae": 325503.94613538485,
+          "mape": 11.808734963961125
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 605057.4543118723,
+          "mape": 9.186581339706754
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 24,
+          "mae": 1353334.4389348642,
+          "mape": 36.47152881428342
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 125,
+          "mae": 300198.986889291,
+          "mape": 15.086747074971218
+        },
+        "S\u00f6dermalm": {
+          "n": 737,
+          "mae": 647588.9179075274,
+          "mape": 10.150417668022603
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 701586.4191328471,
+          "mape": 8.154298492827811
+        },
+        "\u00d6stermalm": {
+          "n": 521,
+          "mae": 843274.1209805581,
+          "mape": 11.098204602652803
+        }
+      }
+    },
+    "xgboost": {
+      "overall": {
+        "mae": 637936.2400210613,
+        "mape": 12.290710501530157,
+        "n": 4991
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 434,
+          "mae": 618362.5877466158,
+          "mape": 13.196073029979166
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 50,
+          "mae": 399030.940625,
+          "mape": 18.51071934657094
+        },
+        "Centrala Stockholm": {
+          "n": 12,
+          "mae": 1379841.4827473958,
+          "mape": 15.683809352173258
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 544,
+          "mae": 540932.9072768268,
+          "mape": 14.546087874812857
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 462870.4341010552,
+          "mape": 9.950837583780912
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 303,
+          "mae": 443197.83559715346,
+          "mape": 15.775679082360023
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 749,
+          "mae": 715641.4441562708,
+          "mape": 16.593146041967877
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 128,
+          "mae": 308700.71135559084,
+          "mape": 11.406165004392973
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 619704.5161090354,
+          "mape": 9.45019438645318
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 24,
+          "mae": 1229921.147298177,
+          "mape": 29.436153278623824
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 125,
+          "mae": 306118.8935671875,
+          "mape": 15.468966612005493
+        },
+        "S\u00f6dermalm": {
+          "n": 737,
+          "mae": 653976.6053447253,
+          "mape": 10.066758248201637
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 700074.0635619168,
+          "mape": 8.128727973884695
+        },
+        "\u00d6stermalm": {
+          "n": 521,
+          "mae": 845169.1084977807,
+          "mape": 11.098924312043765
+        }
+      }
+    }
+  },
+  "time_split_results": {
+    "log_linear_ridge": {
+      "overall": {
+        "mae": 820654.9216470753,
+        "mape": 17.373667826482027,
+        "n_train": 4103,
+        "n_test": 888
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 85,
+          "mae": 753093.8544610909,
+          "mape": 17.51492009160494
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 9,
+          "mae": 490408.2216463271,
+          "mape": 28.399634016171007
+        },
+        "Centrala Stockholm": {
+          "n": 1,
+          "mae": 246774.9303802848,
+          "mape": 2.1002102072949955
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 92,
+          "mae": 729580.9606528755,
+          "mape": 20.610239683509725
+        },
+        "Essingen": {
+          "n": 17,
+          "mae": 566232.3540704629,
+          "mape": 13.581434745374054
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 62,
+          "mae": 604606.1642899655,
+          "mape": 24.97977440970262
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 120,
+          "mae": 864913.5508399787,
+          "mape": 23.446974402742534
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 32,
+          "mae": 407824.63616461563,
+          "mape": 14.39510173230058
+        },
+        "Kungsholmen": {
+          "n": 107,
+          "mae": 858458.1298773385,
+          "mape": 15.591372861676597
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 5,
+          "mae": 544632.0382462787,
+          "mape": 17.418551767618084
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 28,
+          "mae": 486489.10276226135,
+          "mape": 29.519586024157373
+        },
+        "S\u00f6dermalm": {
+          "n": 125,
+          "mae": 690114.5480995825,
+          "mape": 10.307235420922895
+        },
+        "Vasastan-Norrmalm": {
+          "n": 98,
+          "mae": 829721.0702281645,
+          "mape": 9.872437605634001
+        },
+        "\u00d6stermalm": {
+          "n": 107,
+          "mae": 1431946.639856539,
+          "mape": 17.696055050251047
+        }
+      }
+    },
+    "random_forest": {
+      "overall": {
+        "mae": 684609.0674893614,
+        "mape": 13.842911453625694,
+        "n_train": 4103,
+        "n_test": 888
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 85,
+          "mae": 739872.3101345527,
+          "mape": 16.02199756968886
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 9,
+          "mae": 503763.50180458504,
+          "mape": 25.792957377229698
+        },
+        "Centrala Stockholm": {
+          "n": 1,
+          "mae": 797032.4532652684,
+          "mape": 6.783248571131281
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 92,
+          "mae": 599298.6213118855,
+          "mape": 16.293418785840753
+        },
+        "Essingen": {
+          "n": 17,
+          "mae": 426322.4136304781,
+          "mape": 10.234419222702572
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 62,
+          "mae": 420032.2168307151,
+          "mape": 16.22315510906894
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 120,
+          "mae": 681596.6904746207,
+          "mape": 18.29057145695864
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 32,
+          "mae": 512820.38602529047,
+          "mape": 16.772090635515358
+        },
+        "Kungsholmen": {
+          "n": 107,
+          "mae": 623015.4242411278,
+          "mape": 11.631946474169549
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 5,
+          "mae": 456084.7211203631,
+          "mape": 14.661969487702443
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 28,
+          "mae": 207663.42473607726,
+          "mape": 12.616093508457041
+        },
+        "S\u00f6dermalm": {
+          "n": 125,
+          "mae": 643411.2798941695,
+          "mape": 9.784781701020107
+        },
+        "Vasastan-Norrmalm": {
+          "n": 98,
+          "mae": 710594.021211096,
+          "mape": 8.373685992412579
+        },
+        "\u00d6stermalm": {
+          "n": 107,
+          "mae": 1198726.3625837243,
+          "mape": 14.639507356237127
+        }
+      }
+    },
+    "lightgbm": {
+      "overall": {
+        "mae": 639259.4083824923,
+        "mape": 12.930952238168189,
+        "n_train": 4103,
+        "n_test": 888
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 85,
+          "mae": 660252.7975718026,
+          "mape": 14.074909229392693
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 9,
+          "mae": 193154.3071625832,
+          "mape": 8.898879592565546
+        },
+        "Centrala Stockholm": {
+          "n": 1,
+          "mae": 653419.0471689571,
+          "mape": 5.561007961345373
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 92,
+          "mae": 536563.7206420016,
+          "mape": 14.481398692572265
+        },
+        "Essingen": {
+          "n": 17,
+          "mae": 444464.6600310711,
+          "mape": 8.26339043215107
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 62,
+          "mae": 403392.7865812959,
+          "mape": 15.781897038653975
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 120,
+          "mae": 692319.7194224834,
+          "mape": 18.60821386373288
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 32,
+          "mae": 595407.4443810356,
+          "mape": 18.476524258013434
+        },
+        "Kungsholmen": {
+          "n": 107,
+          "mae": 612900.4524565344,
+          "mape": 10.438582760977638
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 5,
+          "mae": 403166.33607612865,
+          "mape": 12.245137372173739
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 28,
+          "mae": 303721.42831543705,
+          "mape": 17.233513931481895
+        },
+        "S\u00f6dermalm": {
+          "n": 125,
+          "mae": 612988.8940261744,
+          "mape": 8.853941512283813
+        },
+        "Vasastan-Norrmalm": {
+          "n": 98,
+          "mae": 678121.270635875,
+          "mape": 7.616810615261384
+        },
+        "\u00d6stermalm": {
+          "n": 107,
+          "mae": 989791.2508247127,
+          "mape": 13.189779847087257
+        }
+      }
+    },
+    "xgboost": {
+      "overall": {
+        "mae": 624554.3501788166,
+        "mape": 12.907627903088143,
+        "n_train": 4103,
+        "n_test": 888
+      },
+      "per_area": {
+        "Bromma-V\u00e4sterled": {
+          "n": 85,
+          "mae": 660204.2588235295,
+          "mape": 14.267735935853882
+        },
+        "Br\u00e4nnkyrka-Sk\u00e4rholmen": {
+          "n": 9,
+          "mae": 251055.7734375,
+          "mape": 11.093735418499874
+        },
+        "Centrala Stockholm": {
+          "n": 1,
+          "mae": 742668.0625,
+          "mape": 6.320573338186662
+        },
+        "Enskede-Skarpn\u00e4ck": {
+          "n": 92,
+          "mae": 518726.5818274457,
+          "mape": 14.308000171629326
+        },
+        "Essingen": {
+          "n": 17,
+          "mae": 397518.95772058825,
+          "mape": 8.558120659506622
+        },
+        "Farsta-Vant\u00f6r": {
+          "n": 62,
+          "mae": 406092.9521610383,
+          "mape": 15.636835482206072
+        },
+        "H\u00e4gersten-Liljeholmen": {
+          "n": 120,
+          "mae": 698216.6043261719,
+          "mape": 18.89829432250237
+        },
+        "H\u00e4sselby-V\u00e4llingby": {
+          "n": 32,
+          "mae": 403759.93908691406,
+          "mape": 13.43423773223345
+        },
+        "Kungsholmen": {
+          "n": 107,
+          "mae": 558625.7353606892,
+          "mape": 10.410815781911058
+        },
+        "Ok\u00e4nt (postnummer ej kartlagt)": {
+          "n": 5,
+          "mae": 460933.5109375,
+          "mape": 13.836866114721769
+        },
+        "Sp\u00e5nga-Kista": {
+          "n": 28,
+          "mae": 339411.25115094864,
+          "mape": 19.456163387264304
+        },
+        "S\u00f6dermalm": {
+          "n": 125,
+          "mae": 637181.0241,
+          "mape": 9.21373894170772
+        },
+        "Vasastan-Norrmalm": {
+          "n": 98,
+          "mae": 653681.6902104592,
+          "mape": 7.386311069968611
+        },
+        "\u00d6stermalm": {
+          "n": 107,
+          "mae": 970377.7532564253,
+          "mape": 13.1828316972718
+        }
+      }
+    }
+  },
+  "chosen_model": "lightgbm",
+  "features": {
+    "numeric": [
+      "living_area",
+      "number_of_rooms",
+      "apartment_floor_clean",
+      "building_storeys_clean",
+      "build_year_clean",
+      "monthly_fee_clean",
+      "fee_per_sqm",
+      "month_num"
+    ],
+    "missing_indicators": [
+      "apartment_floor_missing",
+      "building_storeys_missing",
+      "build_year_missing",
+      "monthly_fee_missing"
+    ],
+    "categorical": [
+      "omrade",
+      "elevator_clean",
+      "balcony_clean"
+    ]
+  }
+}
