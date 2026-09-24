@@ -92,7 +92,7 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
 
   return (
     <section className="mb-10">
-      <SectionTitle hint="De sju nyckeltal som föreningen enligt lag ska redovisa — översatta till vanlig svenska.">
+      <SectionTitle hint="Viktiga nyckeltal att ha koll på från föreningens årsredovisning">
         Föreningens ekonomi
       </SectionTitle>
       <div className="space-y-3">
