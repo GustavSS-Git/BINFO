@@ -3,7 +3,15 @@ import { useNavigate } from "@tanstack/react-router";
 import { Card, Button, Badge, StatusLabel, SectionTitle, Tag } from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
-import { formatFigureVarde, formatVarde, toppRodaFlaggor } from "@/lib/analysisView";
+import {
+  formatBudpremieText,
+  formatDataperiod,
+  formatFigureVarde,
+  formatVarde,
+  OMRADESINDELNING_ATTRIBUTION,
+  toppRodaFlaggor,
+  VARDERINGSDRIVARE_CAVEAT,
+} from "@/lib/analysisView";
 import type { BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import type { AnalysisResult, Fraga, RantestressScenario, Severity } from "@/types/analysis";
 
@@ -188,9 +196,12 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
 
 function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
   const p = analys.prisanalys;
+  const u = p.varderingsunderlag;
+  const varderingslabel =
+    p.externVardering?.source === "schablon" ? "Binfos värdering" : "Extern värdering";
   return (
     <section className="mb-10">
-      <SectionTitle hint="Jämförelse mot värdering och pris per kvadratmeter.">
+      <SectionTitle hint="Jämförelse mot Binfos värderingsmodell och pris per kvadratmeter.">
         Är priset rimligt?
       </SectionTitle>
       <Card>
@@ -210,7 +221,7 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <div>
                 <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  Extern värdering
+                  {varderingslabel}
                   {p.externVardering.source === "schablon" ? <Tag>Schablon</Tag> : null}
                 </p>
                 <p className="text-xs text-muted-foreground">{p.externVardering.leverantor}</p>
@@ -219,6 +230,13 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                 <p className="font-display text-xl text-foreground">
                   {formatFigureVarde(p.externVardering)}
                 </p>
+                {p.externVardering.range && u ? (
+                  <p className="text-xs text-muted-foreground">
+                    Sannolikt mellan {formatVarde(p.externVardering.range.low, "kr")} och{" "}
+                    {formatVarde(p.externVardering.range.high, "kr")} ({u.intervallTackningProcent}{" "}
+                    %)
+                  </p>
+                ) : null}
                 {p.avvikelseMotVardering !== undefined ? (
                   <p
                     className={`text-xs ${p.avvikelseMotVardering > 0 ? "text-danger" : "text-success"}`}
@@ -232,8 +250,53 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                 ) : null}
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
+              <p className="text-sm font-medium text-foreground">Binfos värdering</p>
+              <p className="text-sm text-muted-foreground">
+                Inte tillgänglig — täcker i dag bara Stockholms kommun
+              </p>
+            </div>
+          )}
         </div>
+
+        {u ? (
+          <div className="mt-6 space-y-3 border-t border-border pt-6">
+            <p className="text-sm font-medium text-foreground">
+              Område: {u.omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)"}
+            </p>
+            {u.drivare.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Vad påverkar värderingen
+                </p>
+                <ul className="mt-1 space-y-1 text-sm text-foreground">
+                  {u.drivare.map((d) => (
+                    <li key={d.label} className="flex items-center justify-between gap-2">
+                      <span>{d.label}</span>
+                      <span className={d.effektProcent >= 0 ? "text-success" : "text-danger"}>
+                        {d.effektProcent >= 0 ? "+" : ""}
+                        {d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-xs text-muted-foreground">{VARDERINGSDRIVARE_CAVEAT}</p>
+              </div>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Bygger på {u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar i Stockholm{" "}
+              {formatDataperiod(u.dataperiod)} · typiskt fel ±
+              {u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell{" "}
+              {u.modellVersion}
+            </p>
+            <p className="text-xs text-muted-foreground">{OMRADESINDELNING_ATTRIBUTION}</p>
+          </div>
+        ) : null}
+
+        {p.budpremie ? (
+          <p className="mt-3 text-sm text-foreground">{formatBudpremieText(p.budpremie)}</p>
+        ) : null}
 
         <p className="mt-6 rounded-xl bg-secondary p-4 text-sm text-foreground">{p.slutsats}</p>
 
@@ -318,9 +381,7 @@ function Fragor({ analys }: { analys: AnalysisResult }) {
         />
         <span
           className={`text-sm ${
-            checked.includes(f.id)
-              ? "text-muted-foreground line-through"
-              : "text-foreground"
+            checked.includes(f.id) ? "text-muted-foreground line-through" : "text-foreground"
           }`}
         >
           {f.fraga}

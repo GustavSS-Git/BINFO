@@ -312,6 +312,72 @@ describe("PrisanalysSchema", () => {
     };
     expect(PrisanalysSchema.safeParse(medVardering).success).toBe(true);
   });
+
+  it("accepterar en Prisanalys med varderingsunderlag och budpremie (task 4g) — stripas inte tyst", () => {
+    const medModellunderlag = {
+      ...bas,
+      externVardering: {
+        value: 6_597_964,
+        unit: "kr",
+        source: "schablon",
+        schablonBasis: "Binfos värderingsmodell (valuation-v2): ...",
+        range: { low: 5_123_045, high: 8_497_510 },
+        leverantor: "Binfo värderingsmodell valuation-v2",
+      },
+      varderingsunderlag: {
+        modellVersion: "valuation-v2",
+        omrade: "Södermalm",
+        intervallTackningProcent: 90,
+        dataperiod: { fran: "2026-01-01", till: "2026-08-31" },
+        antalForsaljningar: 4_991,
+        typisktFelProcent: 10.3,
+        drivare: [
+          {
+            label: "Ett rum till",
+            effektProcent: 5.4,
+            intervallProcent: { low: 4.0, high: 6.7 },
+            niva: "stad",
+          },
+        ],
+      },
+      budpremie: {
+        omrade: "Södermalm",
+        medianProcent: 3.7,
+        medelProcent: 5.6,
+        n: 448,
+        dataperiod: { fran: "2026-01-01", till: "2026-08-31" },
+      },
+    };
+    const parsed = PrisanalysSchema.safeParse(medModellunderlag);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data).toEqual(medModellunderlag);
+    }
+  });
+
+  it("avvisar ett okänt fält i varderingsunderlag — strict, en modellhallucination ska fela högt", () => {
+    const medFelaktigtFalt = {
+      ...bas,
+      externVardering: {
+        value: 6_597_964,
+        unit: "kr",
+        source: "schablon",
+        schablonBasis: "x",
+        leverantor: "Binfo värderingsmodell valuation-v2",
+      },
+      varderingsunderlag: {
+        modellVersion: "valuation-v2",
+        omrade: null,
+        intervallTackningProcent: 90,
+        dataperiod: { fran: "2026-01-01", till: "2026-08-31" },
+        antalForsaljningar: 4_991,
+        typisktFelProcent: 12.2,
+        drivare: [],
+        pahittatFalt: "borde inte accepteras",
+      },
+    };
+    expect(PrisanalysSchema.safeParse(medFelaktigtFalt).success).toBe(false);
+  });
 });
 
 describe("KeyFigureIdSchema", () => {

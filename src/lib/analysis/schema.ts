@@ -304,6 +304,52 @@ export const RedFlagSchema = z
   })
   .strict();
 
+/** En kalenderperiod, ISO-datum (YYYY-MM-DD) — mirrors Dataperiod. */
+export const DataperiodSchema = z
+  .object({
+    fran: z.string(),
+    till: z.string(),
+  })
+  .strict();
+
+/** Mirrors Varderingsdrivare — se src/types/analysis.ts. */
+export const VarderingsdrivareSchema = z
+  .object({
+    label: z.string(),
+    effektProcent: z.number(),
+    intervallProcent: z.object({ low: z.number(), high: z.number() }).strict(),
+    niva: z.enum(["stad", "omrade"]),
+  })
+  .strict();
+
+/**
+ * Mirrors Varderingsunderlag — vad Binfos värderingsmodell vilar på.
+ * Närvarande bara när externVardering kom från den modellen, se
+ * kontraktskommentaren på Prisanalys.varderingsunderlag.
+ */
+export const VarderingsunderlagSchema = z
+  .object({
+    modellVersion: z.string(),
+    omrade: z.string().nullable(),
+    intervallTackningProcent: z.number(),
+    dataperiod: DataperiodSchema,
+    antalForsaljningar: z.number(),
+    typisktFelProcent: z.number(),
+    drivare: z.array(VarderingsdrivareSchema),
+  })
+  .strict();
+
+/** Mirrors Budpremie — hur långt över/under utgångspris jämförbara bostäder sålts. */
+export const BudpremieSchema = z
+  .object({
+    omrade: z.string().nullable(),
+    medianProcent: z.number(),
+    medelProcent: z.number(),
+    n: z.number().int().nonnegative(),
+    dataperiod: DataperiodSchema,
+  })
+  .strict();
+
 export const PrisanalysSchema = z
   .object({
     utgangspris: FigureSchema,
@@ -326,6 +372,8 @@ export const PrisanalysSchema = z
     avvikelseMotForeningen: z.number().optional(),
     slutsats: z.string(),
     konfidens: KonfidensSchema,
+    varderingsunderlag: VarderingsunderlagSchema.optional(),
+    budpremie: BudpremieSchema.optional(),
   })
   .strict();
 

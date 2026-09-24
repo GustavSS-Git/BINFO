@@ -28,7 +28,7 @@
 import { runAnalys } from "@/lib/analysis/analyze";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
 import { errorHasKnownSpend } from "@/lib/analysis/callMetrics";
-import { SchablonPrisdatakalla } from "@/lib/analysis/prisdata";
+import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
 import {
   runGrounding,
   runStructuredExtraction,
@@ -375,7 +375,7 @@ async function korBedomningssteg(
     // en rad köad före en kontraktsändring får inte fastna här bara för att
     // dess lagrade input bär en numera borttagen nyckel.
     const input = lasPropertyInputFranRad(rad);
-    const prisdatakalla = new SchablonPrisdatakalla({ boarea: input.boarea });
+    const prisdatakalla = new ModellPrisdatakalla();
     await assembleraAnalys({
       extraction,
       input,

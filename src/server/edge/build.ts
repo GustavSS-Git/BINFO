@@ -21,7 +21,7 @@
  */
 
 import * as esbuild from "esbuild";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -121,7 +121,14 @@ function aliasPlugin(srcDir: string): esbuild.Plugin {
 }
 
 function losAliasSokvag(absolutSokvagUtanExtension: string): string {
-  if (existsSync(absolutSokvagUtanExtension)) {
+  // OBS: existsSync är sant även för en KATALOG (t.ex. "@/lib/vardering",
+  // som pekar mot src/lib/vardering/index.ts snarare än en fil med det
+  // namnet) — en bar existsSync-koll skulle då returnera katalogen själv,
+  // vilket esbuild inte kan läsa som en modul ("is a directory"). Kräver
+  // därför uttryckligen en FIL innan den bara sökvägen accepteras; annars
+  // faller upplösningen igenom till index.*-kontrollen nedan, precis som
+  // för en extensionslös fil.
+  if (existsSync(absolutSokvagUtanExtension) && statSync(absolutSokvagUtanExtension).isFile()) {
     return absolutSokvagUtanExtension;
   }
   for (const ext of RESOLVE_EXTENSIONS) {

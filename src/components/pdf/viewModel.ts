@@ -7,7 +7,14 @@
  * to re-decide what belongs on the report.
  */
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
-import { formatFigureVarde, formatSkapadDatum, formatVarde } from "@/lib/analysisView";
+import {
+  formatBudpremieText,
+  formatDataperiod,
+  formatFigureVarde,
+  formatSkapadDatum,
+  formatVarde,
+  OMRADESINDELNING_ATTRIBUTION,
+} from "@/lib/analysisView";
 import type { AnalysisResult, PageRef, Severity, Status } from "@/types/analysis";
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
@@ -67,6 +74,20 @@ export interface PdfKeyFigure {
   isSchablon: boolean;
 }
 
+export interface PdfVarderingsdrivare {
+  label: string;
+  effektProcentText: string;
+  positiv: boolean;
+}
+
+export interface PdfVarderingsunderlag {
+  omradeText: string;
+  intervallText: string | undefined;
+  drivare: PdfVarderingsdrivare[];
+  dataBasisText: string;
+  attributionText: string;
+}
+
 export interface PdfPrisanalys {
   utgangspris: string;
   prisPerM2: string;
@@ -78,6 +99,11 @@ export interface PdfPrisanalys {
       }
     | undefined;
   avvikelseText: string | undefined;
+  /** Present only when externVardering kom från Binfos värderingsmodell —
+   *  se Prisanalys.varderingsunderlag i src/types/analysis.ts. */
+  varderingsunderlag: PdfVarderingsunderlag | undefined;
+  /** Task 5: hur mycket bostäder i området sålts över/under utgångspriset. */
+  budpremieText: string | undefined;
   slutsats: string;
   konfidensNiva: string;
   konfidensSkal: string[];
@@ -176,6 +202,35 @@ function buildKeyFigures(analys: AnalysisResult): PdfKeyFigure[] {
     }));
 }
 
+/** Mirrors AnalysRapport.tsx's Prisrimlighet-sektion, se dess filkommentar
+ *  om varderingsunderlagets fält. */
+function buildVarderingsunderlag(
+  p: AnalysisResult["prisanalys"],
+): PdfVarderingsunderlag | undefined {
+  const u = p.varderingsunderlag;
+  if (!u) return undefined;
+
+  const intervallText =
+    p.externVardering?.range !== undefined
+      ? `Sannolikt mellan ${formatVarde(p.externVardering.range.low, "kr")} och ` +
+        `${formatVarde(p.externVardering.range.high, "kr")} (${u.intervallTackningProcent} %)`
+      : undefined;
+
+  return {
+    omradeText: u.omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)",
+    intervallText,
+    drivare: u.drivare.map((d) => ({
+      label: d.label,
+      effektProcentText: `${d.effektProcent >= 0 ? "+" : ""}${d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %`,
+      positiv: d.effektProcent >= 0,
+    })),
+    dataBasisText:
+      `Bygger på ${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar i Stockholm ` +
+      `${formatDataperiod(u.dataperiod)} · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
+    attributionText: OMRADESINDELNING_ATTRIBUTION,
+  };
+}
+
 function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
   const p = analys.prisanalys;
   const avvikelseText =
@@ -196,6 +251,8 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
         }
       : undefined,
     avvikelseText,
+    varderingsunderlag: buildVarderingsunderlag(p),
+    budpremieText: p.budpremie ? formatBudpremieText(p.budpremie) : undefined,
     slutsats: p.slutsats,
     konfidensNiva: KONFIDENS_LABEL[p.konfidens.niva],
     // Same condition AnalysRapport uses to show the "why" behind low confidence.

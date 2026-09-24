@@ -296,7 +296,8 @@ export const sampleAnalysis: AnalysisResult = {
       ],
       ref: {
         page: 5,
-        excerpt: "Föreningen har en aktuell underhållsplan som upprättades 2025 och sträcker sig fram till 2075.",
+        excerpt:
+          "Föreningen har en aktuell underhållsplan som upprättades 2025 och sträcker sig fram till 2075.",
       },
     },
     vasentligaHandelser: [
@@ -304,7 +305,8 @@ export const sampleAnalysis: AnalysisResult = {
         text: "Föreningen har lagt om ett lån på 8 942 000 kr från SEB till Swedbank med ränta 2,66 %, bunden på 3 år.",
         ref: {
           page: 7,
-          excerpt: "Vi har lagt om ett av våra större lån (8.942.000 SEK) och flyttat det från SEB till Swedbank",
+          excerpt:
+            "Vi har lagt om ett av våra större lån (8.942.000 SEK) och flyttat det från SEB till Swedbank",
         },
       },
       {
@@ -332,14 +334,16 @@ export const sampleAnalysis: AnalysisResult = {
         text: "Föreningens styrelserum har gjorts om till en övernattningslägenhet med fyra sovplatser, som tas i bruk 2026.",
         ref: {
           page: 8,
-          excerpt: "Föreningens styrelserum har gjorts om för att även fungera som en övernattningslägenhet",
+          excerpt:
+            "Föreningens styrelserum har gjorts om för att även fungera som en övernattningslägenhet",
         },
       },
       {
         text: "Avgiften höjdes med 2 % från 1 januari 2026 och tre lån till kommer att läggas om under 2026.",
         ref: {
           page: 20,
-          excerpt: "Avgiften höjdes med 2% från den 1 januari 2026. ... Tre lån till kommer att läggas om 2026.",
+          excerpt:
+            "Avgiften höjdes med 2% från den 1 januari 2026. ... Tre lån till kommer att läggas om 2026.",
         },
       },
     ],
@@ -391,26 +395,74 @@ export const sampleAnalysis: AnalysisResult = {
     },
   ],
 
+  // Producerat genom att faktiskt köra byggPrisanalys(input, new ModellPrisdatakalla())
+  // på input ovan (task 4g/5) — inte handskrivet. Sample-lägenhetens postnummer
+  // "123 45" är inte precist kartlagt till ett Stockholmsområde, så det här
+  // exemplet visar den Stockholmsövergripande fallback-vägen (omrade: null,
+  // konfidens 'lag') — se ml/artifacts/valuation-v2/MODEL_CARD.md.
   prisanalys: {
     utgangspris: { value: 3_200_000, unit: "kr", source: "anvandare" },
     prisPerM2: { value: 59_259, unit: "kr/m2", source: "berakning" },
     externVardering: {
-      value: 4_320_000,
+      value: 2_365_580,
       unit: "kr",
       source: "schablon",
       schablonBasis:
-        "Schablon: boarean multiplicerad med en platt 80 000 kr/m². Det är inte en riktig värdering — ingen oberoende värderingskälla är ansluten, och talet är inte justerat för läge, skick, våning eller byggår.",
-      leverantor: "Schablon — platt 80 000 kr/m², ej verklig värderingskälla",
+        "Binfos värderingsmodell (valuation-v2): en statistisk skattning för hela Stockholm (postnumret gick inte att koppla till ett specifikt område), byggd på 4991 försäljningar i Stockholm jan–aug 2026. Typiskt fel ±12,2 %. Det är en statistisk skattning, inte en besiktning av just den här lägenheten.",
+      range: { low: 1_815_344, high: 3_082_594 },
+      leverantor: "Binfo värderingsmodell valuation-v2",
     },
     senasteForsaljningarIForeningen: [],
-    avvikelseMotVardering: -25.9,
+    avvikelseMotVardering: 35.3,
     slutsats:
-      "Utgångspriset ligger 25,9 % under en schablonvärdering. Schablonen är ett platt kvadratmeterpris, inte en bedömning av just den här lägenheten — ingen oberoende priskälla är ansluten, så priset är ännu inte avstämt mot vare sig en riktig värdering eller jämförbara försäljningar.",
+      "Utgångspriset ligger 35,3 % över Binfos värderingsmodell för Stockholm (postnumret gick inte att koppla till ett specifikt område) och ligger utanför modellens 90-procentiga intervall. Värderingen speglar prisläget jan–aug 2026 och är en statistisk skattning — inte en besiktning av just den här lägenheten.",
     konfidens: {
       niva: "lag",
       skal: [
-        "Utgångspriset är endast jämfört med en schablon — ett platt kvadratmeterpris som inte tar hänsyn till läge, skick eller våning. Ingen oberoende priskälla är ansluten.",
+        "Värderingen är en statistisk modell (typiskt fel ±12,2 %), inte en besiktning av lägenheten.",
+        "Postnumret kunde inte kopplas till ett specifikt Stockholmsområde — värderingen bygger på en stadsövergripande modell med lägre precision än en områdesspecifik skattning.",
       ],
+    },
+    varderingsunderlag: {
+      modellVersion: "valuation-v2",
+      omrade: null,
+      intervallTackningProcent: 90,
+      dataperiod: { fran: "2026-01-01", till: "2026-08-31" },
+      antalForsaljningar: 4_991,
+      typisktFelProcent: 12.240541876501345,
+      drivare: [
+        {
+          label: "Ett rum till",
+          effektProcent: 5.4,
+          intervallProcent: { low: 4, high: 6.7 },
+          niva: "stad",
+        },
+        {
+          label: "En våning högre",
+          effektProcent: 1.7,
+          intervallProcent: { low: 1.4, high: 2 },
+          niva: "stad",
+        },
+        {
+          label: "10 år nyare byggnad",
+          effektProcent: -1.4,
+          intervallProcent: { low: -1.6, high: -1.2 },
+          niva: "stad",
+        },
+        {
+          label: "10 kvm större boarea",
+          effektProcent: 1.4,
+          intervallProcent: { low: 0.6, high: 2.1 },
+          niva: "stad",
+        },
+      ],
+    },
+    budpremie: {
+      omrade: null,
+      medianProcent: 4.78,
+      medelProcent: 6.41,
+      n: 4_051,
+      dataperiod: { fran: "2026-01-01", till: "2026-08-31" },
     },
   },
 
@@ -466,7 +518,8 @@ export const sampleAnalysis: AnalysisResult = {
     },
     {
       id: "fraga-kostnad-fuktskador",
-      fraga: "Vad är den uppskattade kostnaden för de två fuktskadorna, och täcks de av föreningens försäkring?",
+      fraga:
+        "Vad är den uppskattade kostnaden för de två fuktskadorna, och täcks de av föreningens försäkring?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:
@@ -478,7 +531,8 @@ export const sampleAnalysis: AnalysisResult = {
     },
     {
       id: "fraga-forstudie-avlopp-resultat",
-      fraga: "Vad indikerar förstudien om avloppet, och pekar den mot ett kommande stambyte inom de närmaste åren?",
+      fraga:
+        "Vad indikerar förstudien om avloppet, och pekar den mot ett kommande stambyte inom de närmaste åren?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:

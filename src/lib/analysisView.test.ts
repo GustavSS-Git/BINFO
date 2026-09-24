@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   costItemOsaker,
+  formatBudpremieText,
+  formatDataperiod,
   formatEnhet,
   formatFigureVarde,
   formatSkapadDatum,
   formatVarde,
   toppRodaFlaggor,
 } from "./analysisView";
-import type { FeeInclusion, Figure, RedFlag } from "@/types/analysis";
+import type { Budpremie, FeeInclusion, Figure, RedFlag } from "@/types/analysis";
 
 function flagga(id: string, severity: RedFlag["severity"]): RedFlag {
   return { id, titel: id, beskrivning: id, severity, harledsFran: [] };
@@ -66,6 +68,75 @@ describe("costItemOsaker", () => {
 describe("formatSkapadDatum", () => {
   it("formaterar en ISO 8601-tidsstämpel som ett kort svenskt datum", () => {
     expect(formatSkapadDatum("2026-09-12T16:26:31.734Z")).toBe("12 sep. 2026");
+  });
+});
+
+describe("formatDataperiod", () => {
+  it("formaterar en period inom samma år som 'kortmånad–kortmånad år'", () => {
+    expect(formatDataperiod({ fran: "2026-01-01", till: "2026-08-31" })).toBe("jan–aug 2026");
+  });
+
+  it("formaterar en period över ett årsskifte med båda åren utsatta", () => {
+    expect(formatDataperiod({ fran: "2025-11-01", till: "2026-02-28" })).toBe("nov 2025–feb 2026");
+  });
+
+  it("faller tillbaka till rådatumen för ett oväntat format hellre än att krascha", () => {
+    expect(formatDataperiod({ fran: "", till: "" })).toBe("–");
+  });
+});
+
+describe("formatBudpremieText", () => {
+  const period = { fran: "2026-01-01", till: "2026-08-31" };
+
+  it("använder området och medianen när omrade är känt", () => {
+    const budpremie: Budpremie = {
+      omrade: "Södermalm",
+      medianProcent: 3.7,
+      medelProcent: 5.57,
+      n: 448,
+      dataperiod: period,
+    };
+    expect(formatBudpremieText(budpremie)).toBe(
+      "Bostäder i Södermalm har sålts för 3,7 % över utgångspriset (median, n = 448, jan–aug 2026).",
+    );
+  });
+
+  it("säger 'under' för ett negativt värde", () => {
+    const budpremie: Budpremie = {
+      omrade: "Farsta-Vantör",
+      medianProcent: -2.1,
+      medelProcent: -1.4,
+      n: 120,
+      dataperiod: period,
+    };
+    expect(formatBudpremieText(budpremie)).toContain("under utgångspriset");
+    expect(formatBudpremieText(budpremie)).toContain("2,1 %");
+  });
+
+  it("säger 'i linje med' för ett värde nära noll", () => {
+    const budpremie: Budpremie = {
+      omrade: "Essingen",
+      medianProcent: 0.1,
+      medelProcent: 0.1,
+      n: 77,
+      dataperiod: period,
+    };
+    expect(formatBudpremieText(budpremie)).toContain("i linje med utgångspriset");
+  });
+
+  it("faller tillbaka till Stockholms median (samma mått som för ett område) när omrade är null", () => {
+    const budpremie: Budpremie = {
+      omrade: null,
+      medianProcent: 4.78,
+      medelProcent: 6.41,
+      n: 4051,
+      dataperiod: period,
+    };
+    const text = formatBudpremieText(budpremie);
+    expect(text).toBe(
+      "Bostäder i Stockholm har sålts för 4,8 % över utgångspriset (median för hela " +
+        "Stockholm, n = 4051, jan–aug 2026).",
+    );
   });
 });
 

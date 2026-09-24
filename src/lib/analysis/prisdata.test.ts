@@ -1,19 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   DemoPrisdatakalla,
-  SchablonPrisdatakalla,
+  ModellPrisdatakalla,
   TomPrisdatakalla,
   konfidensUtanPrisdata,
+  konfidensUtanforStockholm,
+  korBinfoVarderingsmodell,
   type Prisdataforfragan,
   type Prisdatakalla,
 } from "./prisdata";
 import type { Figure } from "@/types/analysis";
 
+/** Bas-förfrågan: 11857 är Södermalm i den riktiga kartläggningstabellen
+ *  (src/lib/vardering/data/postnummerOmrade.data.ts), så den här förfrågan
+ *  träffar den vanliga, kartlagda vägen genom Binfos värderingsmodell. */
 const forfragan: Prisdataforfragan = {
   orgnr: "769612-3456",
   boarea: 62,
   postnummer: "11857",
   ort: "Stockholm",
+  antalRum: 3,
+  manadsavgift: 4_200,
+  vaning: 3,
+  byggar: 1962,
+  hiss: "ja",
+  balkong: "nej",
 };
 
 const UTGANGSPRIS = 4_950_000;
@@ -130,56 +141,122 @@ describe("DemoPrisdatakalla", () => {
   });
 });
 
-describe("SchablonPrisdatakalla", () => {
-  const SCHABLON_LEVERANTOR = "Schablon — platt 80 000 kr/m², ej verklig värderingskälla";
-  const schablon = (boarea: number) => new SchablonPrisdatakalla({ boarea });
+describe("ModellPrisdatakalla", () => {
+  const modell = () => new ModellPrisdatakalla();
 
-  it("värderar till boarea × 80 000 kr", async () => {
-    expect((await schablon(62).hamtaVardering(forfragan))?.value).toBe(62 * 80_000);
-    expect((await schablon(40).hamtaVardering(forfragan))?.value).toBe(40 * 80_000);
+  describe("kartlagt postnummer (11857 -> Södermalm)", () => {
+    it("värderar med ett numeriskt value i kronor", async () => {
+      const vardering = await modell().hamtaVardering(forfragan);
+      expect(vardering).not.toBeNull();
+      expect(vardering?.unit).toBe("kr");
+      expect(typeof vardering?.value).toBe("number");
+      expect(Number.isInteger(vardering?.value)).toBe(true);
+    });
+
+    it("märker värderingen som schablon — aldrig 'extern'", async () => {
+      const figurer = await allaFigurer(modell());
+      expect(figurer.length).toBeGreaterThan(0);
+      for (const figur of figurer) {
+        expect(figur.source).toBe("schablon");
+        expect(figur.source).not.toBe("extern");
+      }
+    });
+
+    it("namnger leverantören som Binfos egen modell, inte en tredjepartsleverantör", async () => {
+      const vardering = await modell().hamtaVardering(forfragan);
+      expect(vardering?.leverantor).toMatch(/^Binfo värderingsmodell /);
+    });
+
+    it("ger en icke-tom schablonBasis som nämner modellversionen och att det inte är en besiktning", async () => {
+      const vardering = await modell().hamtaVardering(forfragan);
+      expect(vardering?.schablonBasis).toBeTruthy();
+      expect(vardering?.schablonBasis).toMatch(/statistisk skattning/i);
+      expect(vardering?.schablonBasis).toMatch(/inte en besiktning/i);
+    });
+
+    it("bär ett prediktionsintervall som spänner runt värdet", async () => {
+      const vardering = await modell().hamtaVardering(forfragan);
+      expect(vardering?.range).toBeDefined();
+      if (!vardering?.range || vardering.value === null) return;
+      expect(vardering.range.low).toBeLessThanOrEqual(vardering.value);
+      expect(vardering.range.high).toBeGreaterThanOrEqual(vardering.value);
+    });
+
+    it("returnerar inga försäljningar i föreningen — modellen ger bara en punktprediktion", async () => {
+      expect(await modell().hamtaForsaljningarIForeningen(forfragan)).toEqual([]);
+    });
+
+    it("returnerar ingen områdesmedian — modellen mäter inte en riktig medianstatistik", async () => {
+      expect(await modell().hamtaOmradeMedian(forfragan)).toBeNull();
+    });
   });
 
-  it("anger värderingen i kronor", async () => {
-    expect((await schablon(62).hamtaVardering(forfragan))?.unit).toBe("kr");
+  describe("okartlagt postnummer med känt Stockholmsprefix (12364, prefix 123 finns i tabellen)", () => {
+    const okartlagt: Prisdataforfragan = { ...forfragan, postnummer: "12364" };
+
+    it("värderar ändå, med hela Stockholm som fallback-område", async () => {
+      const vardering = await modell().hamtaVardering(okartlagt);
+      expect(vardering).not.toBeNull();
+      expect(typeof vardering?.value).toBe("number");
+    });
+
+    it("nämner i schablonBasis att området inte kunde kopplas till ett specifikt Stockholmsområde", async () => {
+      const vardering = await modell().hamtaVardering(okartlagt);
+      expect(vardering?.schablonBasis).toMatch(/inte att koppla till ett specifikt område/i);
+    });
   });
 
-  it("märker värderingen som schablon — aldrig 'extern'", async () => {
-    const figurer = await allaFigurer(schablon(62));
-    expect(figurer.length).toBeGreaterThan(0);
-    for (const figur of figurer) {
-      expect(figur.source).toBe("schablon");
-      expect(figur.source).not.toBe("extern");
-    }
+  describe("postnummer utanför Stockholm (prefix 999 finns inte i tabellen)", () => {
+    const utanforStockholm: Prisdataforfragan = { ...forfragan, postnummer: "99999" };
+
+    it("returnerar ingen värdering", async () => {
+      expect(await modell().hamtaVardering(utanforStockholm)).toBeNull();
+    });
+
+    it("producerar inga figurer alls för den här förfrågan", async () => {
+      const kalla = modell();
+      const vardering = await kalla.hamtaVardering(utanforStockholm);
+      const forsaljningar = await kalla.hamtaForsaljningarIForeningen(utanforStockholm);
+      const median = await kalla.hamtaOmradeMedian(utanforStockholm);
+      expect(vardering).toBeNull();
+      expect(forsaljningar).toEqual([]);
+      expect(median).toBeNull();
+    });
   });
 
-  it("anger leverantören exakt som produktbeslutet kräver, så att den namnger sig själv som schablon", async () => {
-    const vardering = await schablon(62).hamtaVardering(forfragan);
-    expect(vardering?.leverantor).toBe(SCHABLON_LEVERANTOR);
+  describe("tomt postnummer (anonymiserad rapport)", () => {
+    const tomtPostnummer: Prisdataforfragan = { ...forfragan, postnummer: "" };
+
+    it("returnerar ingen värdering", async () => {
+      expect(await modell().hamtaVardering(tomtPostnummer)).toBeNull();
+    });
+  });
+});
+
+describe("korBinfoVarderingsmodell", () => {
+  it("returnerar null för ett postnummer utanför modellens räckvidd", () => {
+    expect(korBinfoVarderingsmodell({ ...forfragan, postnummer: "99999" })).toBeNull();
   });
 
-  it("ger värderingen en icke-tom schablonBasis som säger att det inte är en riktig värdering", async () => {
-    const vardering = await schablon(62).hamtaVardering(forfragan);
-    expect(vardering?.schablonBasis).toBeTruthy();
-    expect(vardering?.schablonBasis).toMatch(/80 000 kr\/m²/);
-    expect(vardering?.schablonBasis).toMatch(/inte en (riktig|verklig) värdering/i);
+  it("returnerar null för ett tomt postnummer", () => {
+    expect(korBinfoVarderingsmodell({ ...forfragan, postnummer: "" })).toBeNull();
   });
 
-  it("avrundar värderingen till hela kronor — valuta har inga decimaler", async () => {
-    const vardering = await schablon(54.5).hamtaVardering(forfragan);
-    expect(Number.isInteger(vardering?.value)).toBe(true);
-    expect(vardering?.value).toBe(4_360_000);
-
-    const skev = await schablon(61.123456789).hamtaVardering(forfragan);
-    expect(Number.isInteger(skev?.value)).toBe(true);
-    expect(skev?.value).toBe(Math.round(61.123456789 * 80_000));
+  it("returnerar resultat, budpremie och drivare för ett kartlagt postnummer", () => {
+    const underlag = korBinfoVarderingsmodell(forfragan);
+    expect(underlag).not.toBeNull();
+    expect(underlag?.resultat.omrade).toBe("Södermalm");
+    expect(underlag?.budpremie.omrade === "Södermalm" || underlag?.budpremie.omrade === null).toBe(
+      true,
+    );
+    expect(Array.isArray(underlag?.drivare)).toBe(true);
   });
 
-  it("returnerar inga försäljningar i föreningen — schablonen omfattar bara värderingen", async () => {
-    expect(await schablon(62).hamtaForsaljningarIForeningen(forfragan)).toEqual([]);
-  });
-
-  it("returnerar ingen områdesmedian — schablonen omfattar bara värderingen", async () => {
-    expect(await schablon(62).hamtaOmradeMedian(forfragan)).toBeNull();
+  it("faller tillbaka till omrade: null för ett okartlagt men känt Stockholmsprefix", () => {
+    const underlag = korBinfoVarderingsmodell({ ...forfragan, postnummer: "12364" });
+    expect(underlag).not.toBeNull();
+    expect(underlag?.resultat.omrade).toBeNull();
+    expect(underlag?.budpremie.omrade).toBeNull();
   });
 });
 
@@ -188,7 +265,7 @@ describe("Prisdatakalla-gränssnittet", () => {
     const kallor: Prisdatakalla[] = [
       new TomPrisdatakalla(),
       new DemoPrisdatakalla({ utgangspris: UTGANGSPRIS, boarea: forfragan.boarea }),
-      new SchablonPrisdatakalla({ boarea: forfragan.boarea }),
+      new ModellPrisdatakalla(),
     ];
     for (const kalla of kallor) {
       await expect(kalla.hamtaVardering(forfragan)).resolves.not.toThrow();
@@ -208,5 +285,18 @@ describe("konfidensUtanPrisdata", () => {
     expect(skal).toBeDefined();
     expect(skal?.length).toBeGreaterThan(0);
     expect(skal?.[0]).toMatch(/priskälla|värderingskälla/i);
+  });
+});
+
+describe("konfidensUtanforStockholm", () => {
+  it("ger låg konfidens", () => {
+    expect(konfidensUtanforStockholm().niva).toBe("lag");
+  });
+
+  it("anger skälet på svenska och nämner Stockholms kommun ordagrant, för visning direkt för användaren", () => {
+    const skal = konfidensUtanforStockholm().skal;
+    expect(skal).toBeDefined();
+    expect(skal?.length).toBeGreaterThan(0);
+    expect(skal?.[0]).toMatch(/Stockholms kommun/);
   });
 });

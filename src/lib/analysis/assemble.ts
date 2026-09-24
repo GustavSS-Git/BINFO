@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type {
   AnalysisResult,
+  Budpremie,
   ExtractionResult,
   FeeInclusion,
   Figure,
@@ -9,11 +10,20 @@ import type {
   Konfidens,
   Prisanalys,
   PropertyInput,
+  Varderingsunderlag,
 } from "@/types/analysis";
+import { formatDataperiod } from "@/lib/analysisView";
 import { AnalysisResultSchema } from "./schema";
 import type { AnalysJudgement } from "./analyze";
 import { beraknaRantestress } from "./calc/rantestress";
-import { konfidensUtanPrisdata, type Prisdatakalla, type Prisdataforfragan } from "./prisdata";
+import {
+  konfidensUtanPrisdata,
+  konfidensUtanforStockholm,
+  korBinfoVarderingsmodell,
+  type ModellVarderingUnderlag,
+  type Prisdatakalla,
+  type Prisdataforfragan,
+} from "./prisdata";
 
 /**
  * Slutmonteringen: kombinerar pass 1:s extraktion, pass 2:s bedömning och de
@@ -212,6 +222,77 @@ function byggSlutsats(underlag: {
 }
 
 /**
+ * Konfidensen Prisanalys ska bära när externVardering kom från Binfos egen
+ * värderingsmodell (task 4g:s produktbeslut): aldrig 'hog' — modellens eget
+ * uppmätta typiska fel (8–18 % beroende på område, se
+ * ml/artifacts/valuation-v2/MODEL_CARD.md) gör det oärligt att kalla den
+ * hög konfidens — 'medel' när postnumret gick att koppla till ett specifikt
+ * Stockholmsområde, annars 'lag' (hela Stockholm som fallback-område ger
+ * märkbart lägre precision, se MODEL_CARD.mds per-område-MAPE).
+ */
+function konfidensForModell(resultat: ModellVarderingUnderlag["resultat"]): Konfidens {
+  const felText = resultat.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+  const skal: string[] = [
+    `Värderingen är en statistisk modell (typiskt fel ±${felText} %), inte en besiktning av lägenheten.`,
+  ];
+  if (resultat.omrade === null) {
+    skal.push(
+      "Postnumret kunde inte kopplas till ett specifikt Stockholmsområde — värderingen bygger " +
+        "på en stadsövergripande modell med lägre precision än en områdesspecifik skattning.",
+    );
+  }
+  return { niva: resultat.omrade !== null ? "medel" : "lag", skal };
+}
+
+/**
+ * Slutsatsen när externVardering kom från Binfos egen värderingsmodell.
+ * Säger uttryckligen om utgångspriset ligger inom eller utanför modellens
+ * 90-procentiga intervall (inte bara över/under punktskattningen), vilket
+ * prisläge värderingen speglar (träningsperioden, inte "idag" i någon
+ * strikt mening — se MODEL_CARD.md), och att det är en statistisk skattning,
+ * inte en besiktning av just den här lägenheten.
+ */
+function byggModellSlutsats(underlag: {
+  utgangspris: number;
+  resultat: ModellVarderingUnderlag["resultat"];
+  avvikelseMotVardering: number | undefined;
+  avvikelseMotForeningen: number | undefined;
+}): string {
+  const { utgangspris, resultat, avvikelseMotVardering, avvikelseMotForeningen } = underlag;
+  const omradeText =
+    resultat.omrade ?? "Stockholm (postnumret gick inte att koppla till ett specifikt område)";
+  const innanforIntervallet =
+    utgangspris >= resultat.intervall.low && utgangspris <= resultat.intervall.high;
+  const periodText = formatDataperiod(resultat.dataperiod);
+
+  const delar: string[] = [];
+  if (avvikelseMotVardering !== undefined) {
+    const riktning = avvikelseMotVardering >= 0 ? "över" : "under";
+    delar.push(
+      `Utgångspriset ligger ${procent(avvikelseMotVardering)} % ${riktning} Binfos värderingsmodell ` +
+        `för ${omradeText} och ligger ${innanforIntervallet ? "inom" : "utanför"} modellens ` +
+        `${resultat.intervallTackningProcent}-procentiga intervall.`,
+    );
+  } else {
+    delar.push(
+      `Binfos värderingsmodell för ${omradeText} kunde inte jämföras med utgångspriset i procent.`,
+    );
+  }
+  delar.push(
+    `Värderingen speglar prisläget ${periodText} och är en statistisk skattning — inte en ` +
+      `besiktning av just den här lägenheten.`,
+  );
+  if (avvikelseMotForeningen !== undefined) {
+    const riktning = avvikelseMotForeningen >= 0 ? "över" : "under";
+    delar.push(
+      `Kvadratmeterpriset ligger ${procent(avvikelseMotForeningen)} % ${riktning} snittet för de ` +
+        `senaste försäljningarna i föreningen.`,
+    );
+  }
+  return delar.join(" ");
+}
+
+/**
  * Bygger Prisanalys-blocket. avvikelseMotVardering/avvikelseMotForeningen
  * beräknas ENDAST när respektive underlag faktiskt bär ett numeriskt value —
  * DemoPrisdatakalla lämnar avsiktligt value: null på sina platshållarfigurer
@@ -236,6 +317,12 @@ export async function byggPrisanalys(
     postnummer: input.postnummer,
     ort: input.ort,
     adress: input.adress,
+    antalRum: input.antalRum,
+    manadsavgift: input.manadsavgift,
+    ...(input.vaning !== undefined ? { vaning: input.vaning } : {}),
+    ...(input.byggar !== undefined ? { byggar: input.byggar } : {}),
+    hiss: input.hiss,
+    balkong: input.balkong,
   };
 
   const [vardering, forsaljningar, omradeMedian] = await Promise.all([
@@ -297,26 +384,80 @@ export async function byggPrisanalys(
 
   const harOberoendeData = antalOberoendeKallor > 0;
 
-  const konfidens: Konfidens = !harOberoendeData
-    ? varderingArSchablon
-      ? {
-          niva: "lag",
-          skal: [
-            "Utgångspriset är endast jämfört med en schablon — ett platt kvadratmeterpris som " +
-              "inte tar hänsyn till läge, skick eller våning. Ingen oberoende priskälla är ansluten.",
-          ],
-        }
-      : konfidensUtanPrisdata()
-    : antalOberoendeKallor >= 2
-      ? { niva: "hog" }
-      : { niva: "medel", skal: ["Endast en oberoende prisreferens kunde hämtas."] };
+  // Kör Binfos egen värderingsmodell direkt ur `input` — oberoende av vad
+  // prisdatakalla faktiskt returnerade, men på exakt samma fält som
+  // ModellPrisdatakalla.hamtaVardering(forfragan) använder (forfragan är
+  // byggd ur precis de här input-fälten ovan), så de två körningarna aldrig
+  // kan säga olika saker. Null betyder "postnumret ligger utanför Binfos
+  // modells räckvidd" (task 4g:s omfångsregel), oavsett vilken prisdatakalla
+  // som faktiskt användes.
+  const modellRun = korBinfoVarderingsmodell(input);
+  const inomVarderingensRackvidd = modellRun !== null;
+  // Bara meningsfullt att koppla varderingsunderlag/budpremie till DEN HÄR
+  // externVardering:en när den faktiskt kom från en schablon med ett tal —
+  // se varderingArSchablon ovan. Utan det villkoret skulle en riktig
+  // 'extern' källa (eller en annan schablonkälla än Binfos egen, t.ex. i
+  // tester) felaktigt få Binfo-modellens underlag hängt på sig.
+  const modellUnderlag = varderingArSchablon ? modellRun : null;
 
-  const slutsats = byggSlutsats({
-    harOberoendeData,
-    varderingArSchablon,
-    avvikelseMotVardering,
-    avvikelseMotForeningen,
-  });
+  let konfidens: Konfidens;
+  let slutsats: string;
+  let varderingsunderlag: Varderingsunderlag | undefined;
+  let budpremie: Budpremie | undefined;
+
+  if (modellUnderlag) {
+    // Fall A: externVardering kom från Binfos egen värderingsmodell.
+    konfidens = konfidensForModell(modellUnderlag.resultat);
+    slutsats = byggModellSlutsats({
+      utgangspris: input.utgangspris,
+      resultat: modellUnderlag.resultat,
+      avvikelseMotVardering,
+      avvikelseMotForeningen,
+    });
+    varderingsunderlag = {
+      modellVersion: modellUnderlag.resultat.modellVersion,
+      omrade: modellUnderlag.resultat.omrade,
+      intervallTackningProcent: modellUnderlag.resultat.intervallTackningProcent,
+      dataperiod: modellUnderlag.resultat.dataperiod,
+      antalForsaljningar: modellUnderlag.resultat.antalForsaljningar,
+      typisktFelProcent: modellUnderlag.resultat.typisktFelProcent,
+      drivare: modellUnderlag.drivare,
+    };
+    budpremie = modellUnderlag.budpremie;
+  } else if (!inomVarderingensRackvidd && !harOberoendeData) {
+    // Fall B: postnumret ligger utanför Binfos modells räckvidd (utanför
+    // Stockholm, eller en anonymiserad rapport med tomt postnummer) och
+    // ingen annan oberoende prisdata finns heller.
+    konfidens = konfidensUtanforStockholm();
+    slutsats =
+      "Binfos värdering finns i dag bara för Stockholms kommun, så utgångspriset har inte " +
+      "kunnat stämmas av mot någon värdering. Prisbedömningen bygger enbart på det angivna " +
+      "utgångspriset.";
+  } else {
+    // Fall C: allt annat — en annan schablonkälla än Binfos modell, en
+    // riktig oberoende källa (source 'extern'), eller en blandning. Samma
+    // källoberoende logik som innan task 4g.
+    konfidens = !harOberoendeData
+      ? varderingArSchablon
+        ? {
+            niva: "lag",
+            skal: [
+              "Utgångspriset är endast jämfört med en schablon — ett platt kvadratmeterpris som " +
+                "inte tar hänsyn till läge, skick eller våning. Ingen oberoende priskälla är ansluten.",
+            ],
+          }
+        : konfidensUtanPrisdata()
+      : antalOberoendeKallor >= 2
+        ? { niva: "hog" }
+        : { niva: "medel", skal: ["Endast en oberoende prisreferens kunde hämtas."] };
+
+    slutsats = byggSlutsats({
+      harOberoendeData,
+      varderingArSchablon,
+      avvikelseMotVardering,
+      avvikelseMotForeningen,
+    });
+  }
 
   return {
     utgangspris,
@@ -328,6 +469,8 @@ export async function byggPrisanalys(
     ...(avvikelseMotForeningen !== undefined ? { avvikelseMotForeningen } : {}),
     slutsats,
     konfidens,
+    ...(varderingsunderlag ? { varderingsunderlag } : {}),
+    ...(budpremie ? { budpremie } : {}),
   };
 }
 

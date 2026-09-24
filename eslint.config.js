@@ -78,9 +78,11 @@ export default tseslint.config(
                 "@/lib/analysis/cli",
                 "@/lib/analysis/answerKey",
                 "@/lib/analysis/verifyAnswerKey",
+                "@/lib/vardering",
+                "@/lib/vardering/**",
               ],
               message:
-                "Client code may only reach src/server/ through @/server/analysFn's createServerFn wrappers — everything else in src/server/ does server-side work or holds secrets. Client code may also only import the pure src/lib/analysis/calc/* modules and benchmarks.ts; the rest of the analysis pipeline listed here must never reach the browser bundle.",
+                "Client code may only reach src/server/ through @/server/analysFn's createServerFn wrappers — everything else in src/server/ does server-side work or holds secrets. Client code may also only import the pure src/lib/analysis/calc/* modules and benchmarks.ts; the rest of the analysis pipeline and the valuation model (@/lib/vardering) listed here must never reach the browser bundle.",
             },
           ],
         },

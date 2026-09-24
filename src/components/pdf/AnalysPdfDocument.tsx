@@ -7,6 +7,7 @@ import {
   type PdfRedFlag,
   type PdfViewModel,
 } from "@/components/pdf/viewModel";
+import { VARDERINGSDRIVARE_CAVEAT } from "@/lib/analysisView";
 import type { AnalysisResult, Status } from "@/types/analysis";
 
 // Deliberately does NOT call registerPdfFonts() itself: react-pdf's Font
@@ -294,6 +295,17 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.mutedForeground,
     lineHeight: 1.4,
   },
+  varderingsunderlag: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: PDF_COLORS.border,
+  },
+  driverRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 2,
+  },
   table: {
     marginTop: 6,
   },
@@ -464,6 +476,8 @@ function Foreningsekonomi({ keyFigures }: { keyFigures: PdfKeyFigure[] }) {
 
 function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
   const p = vm.prisanalys;
+  const u = p.varderingsunderlag;
+  const varderingslabel = p.externVardering?.isSchablon ? "Binfos värdering" : "Extern värdering";
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Är priset rimligt?</Text>
@@ -477,10 +491,11 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
           <Text style={styles.priceValue}>{p.prisPerM2}</Text>
         </View>
         {p.externVardering ? (
-          <View style={[styles.priceRow, { borderBottomWidth: 0 }]}>
+          <View style={[styles.priceRow, u ? undefined : { borderBottomWidth: 0 }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.priceLabel}>
-                Extern värdering{p.externVardering.isSchablon ? " (schablon)" : ""}
+                {varderingslabel}
+                {p.externVardering.isSchablon ? " (schablon)" : ""}
               </Text>
               <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
                 {p.externVardering.leverantor}
@@ -488,9 +503,47 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </View>
             <View>
               <Text style={styles.priceValue}>{p.externVardering.value}</Text>
+              {u?.intervallText ? <Text style={styles.summaryLabel}>{u.intervallText}</Text> : null}
               {p.avvikelseText ? <Text style={styles.summaryLabel}>{p.avvikelseText}</Text> : null}
             </View>
           </View>
+        ) : (
+          <View style={[styles.priceRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.priceLabel}>Binfos värdering</Text>
+            <Text style={styles.summaryLabel}>
+              Inte tillgänglig — täcker i dag bara Stockholms kommun
+            </Text>
+          </View>
+        )}
+        {u ? (
+          <View style={styles.varderingsunderlag}>
+            <Text style={styles.priceLabel}>Område: {u.omradeText}</Text>
+            {u.drivare.length > 0 ? (
+              <View style={{ marginTop: 4 }}>
+                {u.drivare.map((d) => (
+                  <View key={d.label} style={styles.driverRow}>
+                    <Text style={styles.summaryLabel}>{d.label}</Text>
+                    <Text
+                      style={[
+                        styles.summaryLabel,
+                        { color: d.positiv ? PDF_COLORS.success : PDF_COLORS.danger },
+                      ]}
+                    >
+                      {d.effektProcentText}
+                    </Text>
+                  </View>
+                ))}
+                <Text style={[styles.confidenceNote, { marginTop: 2 }]}>
+                  {VARDERINGSDRIVARE_CAVEAT}
+                </Text>
+              </View>
+            ) : null}
+            <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.dataBasisText}</Text>
+            <Text style={styles.confidenceNote}>{u.attributionText}</Text>
+          </View>
+        ) : null}
+        {p.budpremieText ? (
+          <Text style={[styles.priceLabel, { marginTop: 8 }]}>{p.budpremieText}</Text>
         ) : null}
         <Text style={styles.conclusionBox}>{p.slutsats}</Text>
         {p.konfidensSkal.length > 0 ? (

@@ -34,7 +34,21 @@ describe("buildPdfViewModel — sample analysis", () => {
 
   it("labels the schablon-sourced extern värdering as an estimate, never as a fact", () => {
     expect(vm.prisanalys.externVardering?.isSchablon).toBe(true);
-    expect(vm.prisanalys.externVardering?.leverantor).toContain("Schablon");
+    expect(vm.prisanalys.externVardering?.leverantor).toContain("Binfo värderingsmodell");
+  });
+
+  it("carries Binfos värderingsunderlag (task 4g) — område, intervall, drivare, databasis, attribution", () => {
+    expect(vm.prisanalys.varderingsunderlag).toBeDefined();
+    const u = vm.prisanalys.varderingsunderlag;
+    expect(u?.omradeText).toContain("Stockholm");
+    expect(u?.intervallText).toMatch(/Sannolikt mellan/);
+    expect(u?.drivare.length).toBeGreaterThan(0);
+    expect(u?.dataBasisText).toMatch(/Bygger på \d/);
+    expect(u?.attributionText).toContain("OpenStreetMap");
+  });
+
+  it("carries the budpremie text (task 5)", () => {
+    expect(vm.prisanalys.budpremieText).toMatch(/Bostäder i/);
   });
 
   it("includes all four räntestress scenarios (0–3 percentage points), in order", () => {
@@ -115,6 +129,8 @@ describe("buildPdfViewModel — edge cases", () => {
     const vm = buildPdfViewModel(analys);
     expect(vm.prisanalys.externVardering).toBeUndefined();
     expect(vm.prisanalys.avvikelseText).toBeUndefined();
+    expect(vm.prisanalys.varderingsunderlag).toBeUndefined();
+    expect(vm.prisanalys.budpremieText).toBeUndefined();
   });
 
   it("returns an empty red flags list, rather than throwing, when there are none", () => {

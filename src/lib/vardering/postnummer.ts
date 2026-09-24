@@ -24,3 +24,21 @@ export function omradeForPostnummer(postnummer: string, map: PostnummerOmradeMap
   const key = normaliseraPostnummer(postnummer);
   return Object.prototype.hasOwnProperty.call(map, key) ? (map[key] ?? null) : null;
 }
+
+/**
+ * Whether postnummer's first 3 digits occur as a prefix of at least one key
+ * in the map — i.e. "this looks like a postnummer the mapping table knows
+ * about", even when the exact 5-digit code isn't itself mapped to a
+ * specific area. Used (task 4g's scope rule) to decide the Stockholm-wide
+ * model fallback for an unmapped-but-plausible postnummer, as opposed to no
+ * valuation at all for a postnummer clearly outside the table's coverage.
+ * Only a well-formed postnummer (exactly five digits after normalisation)
+ * can match — "", "115", "115-32" or "115a32" never do, so a garbled input
+ * is treated as out of scope rather than valued as Stockholm.
+ */
+export function harKantPrefix(postnummer: string, map: PostnummerOmradeMap): boolean {
+  const key = normaliseraPostnummer(postnummer);
+  if (!/^\d{5}$/.test(key)) return false;
+  const prefix = key.slice(0, 3);
+  return Object.keys(map).some((k) => k.startsWith(prefix));
+}

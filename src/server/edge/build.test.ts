@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -66,6 +66,27 @@ describe("byggEdgeBundle", () => {
     // substrängen "korNastaSteg" förekommer någonstans (den gör den även som
     // ett internt funktionsnamn, en referens i en switch, etc.).
     expect(code).toMatch(/export\s*\{\s*korNastaSteg\s*(as\s+\w+\s*)?,?\s*\}/);
+  });
+
+  it('löser en alias-import mot en katalogs index-fil (t.ex. "@/lib/vardering"), inte katalogen själv', async () => {
+    // Regressionstest: aliasPlugins losAliasSokvag accepterade tidigare den
+    // BARA katalogsökvägen (existsSync är sant även för kataloger), vilket
+    // fick esbuild att kasta "is a directory" i stället för att falla
+    // igenom till index.ts-kontrollen. src/lib/analysis/prisdata.ts (task
+    // 4g) importerar numera "@/lib/vardering" (en katalog med index.ts, inte
+    // en fil med det namnet) rakt av, vilket triggar exakt den vägen — den
+    // här testet isolerar den, utan att bero på att steg.ts råkar ha den
+    // importen i sin beroendegraf.
+    const tmpRoot = path.join(os.tmpdir(), `binfo-edge-build-alias-dir-test-${process.pid}`);
+    const tmpEntry = path.join(tmpRoot, "entry.ts");
+    await mkdir(tmpRoot, { recursive: true });
+    await writeFile(tmpEntry, 'export { vardera } from "@/lib/vardering";\n', "utf-8");
+    try {
+      const { code } = await byggEdgeBundle({ write: false, entryPoint: tmpEntry });
+      expect(code.length).toBeGreaterThan(0);
+    } finally {
+      await rm(tmpRoot, { recursive: true, force: true });
+    }
   });
 
   it("bundlar @supabase/supabase-js snarare än att lämna den som en import — säkerhetsnät", async () => {

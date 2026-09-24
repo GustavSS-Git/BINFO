@@ -1,4 +1,21 @@
-import type { Figure, Konfidens, Prisanalys } from "@/types/analysis";
+import {
+  budpremieForOmrade,
+  drivareForInput,
+  harKantPrefix,
+  omradeForPostnummer,
+  postnummerOmrade,
+  vardera,
+  type VarderingResultat,
+} from "@/lib/vardering";
+import { formatDataperiod } from "@/lib/analysisView";
+import type {
+  Budpremie,
+  Figure,
+  Konfidens,
+  Prisanalys,
+  Tristate,
+  Varderingsdrivare,
+} from "@/types/analysis";
 
 /**
  * Prisdatalagret — gränssnittet mellan analysen och en oberoende priskälla.
@@ -37,6 +54,18 @@ export interface Prisdataforfragan {
   postnummer: string;
   ort: string;
   adress?: string;
+
+  // Tillagda för task 4g: exakt de fält Binfos värderingsmodell (src/lib/
+  // vardering) behöver utöver boarea/postnummer ovan — se ModellPrisdatakalla
+  // nedan. En riktig extern källa kan också ha nytta av dem (t.ex. för att
+  // matcha rätt jämförelseobjekt), så de hör hemma i det delade
+  // förfrågningsobjektet, inte bara i modellens egna typer.
+  antalRum: number;
+  manadsavgift: number;
+  vaning?: number;
+  byggar?: number;
+  hiss: Tristate;
+  balkong: Tristate;
 }
 
 /**
@@ -57,15 +86,16 @@ export interface Prisdatakalla {
 }
 
 // ---------------------------------------------------------------------------
-// Tom källa — standardvalet i produktion
+// Tom källa — ingen prisdata alls
 // ---------------------------------------------------------------------------
 
 /**
- * Den ärliga standardimplementationen: ingen prisdata alls.
- *
- * Detta är vad produktion använder tills en riktig källa finns. Analysen ska
- * då säga rent ut att ingen oberoende prisreferens är ansluten — inte antyda
- * att priset är avstämt. Se konfidensUtanPrisdata() nedan.
+ * Den ärliga nollimplementationen: ingen prisdata alls. Produktion använder
+ * numera ModellPrisdatakalla (se nedan) i stället, men den här källan
+ * fyller fortfarande sin roll i tester och som ett explicit "koppla bort
+ * all prisdata"-läge: Analysen ska då säga rent ut att ingen oberoende
+ * prisreferens är ansluten — inte antyda att priset är avstämt. Se
+ * konfidensUtanPrisdata() nedan.
  */
 export class TomPrisdatakalla implements Prisdatakalla {
   async hamtaVardering(_forfragan: Prisdataforfragan): Promise<Vardering | null> {
@@ -198,82 +228,138 @@ export class DemoPrisdatakalla implements Prisdatakalla {
 }
 
 // ---------------------------------------------------------------------------
-// Schablonkälla — interimistisk platt värdering
+// Modellkälla — Binfos egen värderingsmodell (task 4g/5)
 // ---------------------------------------------------------------------------
 
 /**
- * Platt schablonvärdering i kr/m². Ett interimistiskt produktbeslut i väntan
- * på en riktig värderingskälla — inte ett hämtat marknadstal, inte ortsvis,
- * inte justerat för läge, skick, våning eller byggår.
+ * Vilka postnummer Binfos värderingsmodell (src/lib/vardering) täcker
+ * (produktbeslut, se task 4g-uppdraget):
+ *   - Precist kartlagt till ett område -> normal (områdesspecifik) körning.
+ *   - Inte kartlagt, men 3-siffersprefixet finns ändå med i kartläggnings-
+ *     tabellen (dvs. ett postnummer modellen känner igen, bara utan exakt
+ *     områdesmatchning) -> körs ändå, med hela Stockholm som fallback-område.
+ *   - Allt annat (postnummer utanför Stockholm, eller en anonymiserad
+ *     rapport vars postnummer är "") -> INGEN värdering. vardera() själv har
+ *     ingen avvisningslogik — den producerar en prediktion för vilken input
+ *     som helst — så det här är den enda platsen avgörandet görs.
  */
-// TODO: unverified placeholder
-const SCHABLON_KR_PER_M2 = 80_000;
+function arInomVarderingensRackvidd(postnummer: string): boolean {
+  return (
+    omradeForPostnummer(postnummer, postnummerOmrade) !== null ||
+    harKantPrefix(postnummer, postnummerOmrade)
+  );
+}
 
-/**
- * Samma tal i visningsform. Härleds ur konstanten så att de två aldrig kan
- * glida isär, men svensk lokal ger ett hårt mellanslag (U+00A0) och de
- * fastställda texterna nedan använder vanligt mellanslag — därför bytet.
- */
-const SCHABLON_KR_PER_M2_TEXT = SCHABLON_KR_PER_M2.toLocaleString("sv-SE").replace(/\u00a0/g, " ");
-
-/**
- * Leverantörssträngen namnger sig själv som schablon, ordagrant som
- * produktbeslutet kräver. Den visas för användaren tillsammans med talet, så
- * ingen kan läsa värderingen som en tredjepartsvärdering.
- */
-const SCHABLON_LEVERANTOR = `Schablon — platt ${SCHABLON_KR_PER_M2_TEXT} kr/m², ej verklig värderingskälla`;
-
-export interface SchablonPrisdataInput {
+/** Exakt de fält vardera()/budpremieForOmrade()/drivareForInput() behöver. */
+export interface ModellVarderingInput {
+  postnummer: string;
   boarea: number;
+  antalRum: number;
+  manadsavgift: number;
+  vaning?: number;
+  byggar?: number;
+  hiss: Tristate;
+  balkong: Tristate;
 }
 
 /**
- * Interimistisk värderingskälla: boarea × en platt kvadratmeterschablon.
- *
- * Till skillnad från DemoPrisdatakalla lämnar den ett numeriskt `value`, vilket
- * betyder att byggPrisanalys räknar fram avvikelseMotVardering ur den och att
- * prislagret faktiskt renderas. Det är avsiktligt, och det är försvarbart bara
- * därför att talet är högljutt märkt: `source: 'schablon'`, en schablonBasis
- * som säger rent ut att det inte är en riktig värdering, och en leverantör som
- * heter "Schablon". Den får aldrig märkas `'extern'` — den märkningen är
- * reserverad för en verklig integration som ännu inte finns.
- *
- * Ingen justeringslogik och ingen viktning: en literal konstant, inget mer.
- * Därför omfattar den bara värderingen — försäljningar i föreningen och
- * områdesmedian förblir tomma i stället för att hittas på ur samma konstant.
+ * Allt en fullständig körning av Binfos modell producerar för en lägenhet —
+ * mer än det Prisdatakalla-gränssnittet (bara en Vardering) kan bära.
+ * Exporterad så assembleraAnalys (assemble.ts) kan bygga
+ * Prisanalys.varderingsunderlag/.budpremie ur SAMMA rena, deterministiska
+ * körning som ModellPrisdatakalla.hamtaVardering gör — inte gissa fram dem
+ * ur den redan avrundade Figure:n.
  */
-export class SchablonPrisdatakalla implements Prisdatakalla {
-  private readonly boarea: number;
+export interface ModellVarderingUnderlag {
+  resultat: VarderingResultat;
+  budpremie: Budpremie;
+  drivare: Varderingsdrivare[];
+}
 
-  constructor(input: SchablonPrisdataInput) {
-    this.boarea = input.boarea;
-  }
+/**
+ * Kör Binfos värderingsmodell end-till-end för en lägenhet, eller null när
+ * postnumret ligger utanför modellens räckvidd (se
+ * arInomVarderingensRackvidd ovan). Ren funktion, inget nätverksanrop —
+ * vardera()/budpremieForOmrade()/drivareForInput() är alla rena
+ * uppslagningar mot data som redan laddats vid modulinit (src/lib/vardering).
+ */
+export function korBinfoVarderingsmodell(
+  input: ModellVarderingInput,
+): ModellVarderingUnderlag | null {
+  if (!arInomVarderingensRackvidd(input.postnummer)) return null;
 
-  async hamtaVardering(_forfragan: Prisdataforfragan): Promise<Vardering | null> {
+  const resultat = vardera({
+    postnummer: input.postnummer,
+    boarea: input.boarea,
+    antalRum: input.antalRum,
+    manadsavgift: input.manadsavgift,
+    ...(input.vaning !== undefined ? { vaning: input.vaning } : {}),
+    ...(input.byggar !== undefined ? { byggar: input.byggar } : {}),
+    hiss: input.hiss,
+    balkong: input.balkong,
+  });
+
+  return {
+    resultat,
+    budpremie: budpremieForOmrade(resultat.omrade),
+    drivare: drivareForInput({ hiss: input.hiss, balkong: input.balkong }, resultat.omrade),
+  };
+}
+
+/**
+ * Binfos egen värderingsmodell (src/lib/vardering) som Prisdatakalla.
+ * Ersätter den tidigare platta 80 000 kr/m²-schablonen. Märks fortfarande
+ * `source: 'schablon'` — inte `'extern'`, som är reserverad för en verklig
+ * tredjepartsintegration — men är till skillnad från den gamla schablonen en
+ * riktig statistisk modell: den tar hänsyn till läge (område), antal rum,
+ * våning, byggår, avgift, hiss och balkong, och bär ett uppmätt
+ * osäkerhetsintervall (se ml/artifacts/valuation-v2/MODEL_CARD.md).
+ *
+ * Kräver inget konstruktortillstånd (till skillnad från de äldre källorna
+ * ovan) — allt modellen behöver kommer med varje enskild förfrågan, se
+ * Prisdataforfragans utökade fält.
+ *
+ * Utanför Stockholm (eller för en anonymiserad förfrågan med tomt
+ * postnummer) returnerar hamtaVardering null — se
+ * arInomVarderingensRackvidd. Modellen känner varken enskilda försäljningar
+ * i en förening eller en riktig områdesmedian, så de två andra metoderna
+ * lämnar alltid tomt/null, av samma skäl som de äldre källorna ovan.
+ */
+export class ModellPrisdatakalla implements Prisdatakalla {
+  async hamtaVardering(forfragan: Prisdataforfragan): Promise<Vardering | null> {
+    const underlag = korBinfoVarderingsmodell(forfragan);
+    if (!underlag) return null;
+    const { resultat } = underlag;
+
+    const omradeText =
+      resultat.omrade ??
+      "hela Stockholm (postnumret gick inte att koppla till ett specifikt område)";
     return {
-      // Hela kronor — valuta bär inga decimaler i det här kontraktet.
-      value: Math.round(this.boarea * SCHABLON_KR_PER_M2),
+      value: resultat.varde,
       unit: "kr",
       source: "schablon",
       schablonBasis:
-        `Schablon: boarean multiplicerad med en platt ${SCHABLON_KR_PER_M2_TEXT} kr/m². ` +
-        "Det är inte en riktig värdering — ingen oberoende värderingskälla är ansluten, och talet är " +
-        "inte justerat för läge, skick, våning eller byggår.",
-      leverantor: SCHABLON_LEVERANTOR,
+        `Binfos värderingsmodell (${resultat.modellVersion}): en statistisk skattning för ${omradeText}, ` +
+        `byggd på ${resultat.antalForsaljningar} försäljningar i Stockholm ${formatDataperiod(resultat.dataperiod)}. ` +
+        `Typiskt fel ±${resultat.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %. ` +
+        "Det är en statistisk skattning, inte en besiktning av just den här lägenheten.",
+      range: resultat.intervall,
+      leverantor: `Binfo värderingsmodell ${resultat.modellVersion}`,
     };
   }
 
   async hamtaForsaljningarIForeningen(
     _forfragan: Prisdataforfragan,
   ): Promise<ForsaljningIForeningen[]> {
-    // Schablonen säger ingenting om enskilda försäljningar. Att härleda dem ur
-    // samma konstant vore påhittade jämförelseobjekt, inte data.
+    // Modellen producerar en punktprediktion för EN lägenhet, inte en lista
+    // över föreningens egna försäljningar — att hitta på sådana ur samma
+    // prediktion vore påhittade jämförelseobjekt.
     return [];
   }
 
   async hamtaOmradeMedian(_forfragan: Prisdataforfragan): Promise<OmradeMedian | null> {
-    // Samma skäl: en "områdesmedian" lika med schablonen vore ett påstående om
-    // marknaden som ingen har mätt.
+    // Samma skäl: modellen har inget mått på områdets faktiska medianpris,
+    // bara en prediktion för den här specifika lägenheten.
     return null;
   }
 }
@@ -293,6 +379,23 @@ export function konfidensUtanPrisdata(): Konfidens {
     skal: [
       "Ingen oberoende priskälla är ansluten. Utgångspriset har inte stämts av mot " +
         "någon värdering, mot försäljningar i föreningen eller mot områdets medianpris.",
+    ],
+  };
+}
+
+/**
+ * Konfidensen en Prisanalys ska bära när Binfos värderingsmodell inte täcker
+ * objektets postnummer (task 4g:s omfångsregel — se
+ * arInomVarderingensRackvidd ovan). Skiljs från konfidensUtanPrisdata()
+ * ovan: skälet är inte "ingen källa ansluten" utan specifikt att modellen
+ * bara täcker Stockholms kommun i dag, vilket köparen ska få veta ordagrant.
+ */
+export function konfidensUtanforStockholm(): Konfidens {
+  return {
+    niva: "lag",
+    skal: [
+      "Binfos värdering finns i dag bara för Stockholms kommun. Det här postnumret ligger " +
+        "utanför modellens täckning, så utgångspriset har inte kunnat stämmas av mot någon värdering.",
     ],
   };
 }

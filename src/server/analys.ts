@@ -27,7 +27,7 @@ import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { extractPdfText } from "@/lib/analysis/pdf";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
-import { SchablonPrisdatakalla } from "@/lib/analysis/prisdata";
+import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
 import type { Env } from "./env";
 import type { AnalysErrorCode, AnalysStage, AnalysStatus, Lager } from "./portar";
 import { lasPropertyInputFranRad } from "./lagratInput";
@@ -237,7 +237,7 @@ export async function hamtaResultat(lager: Lager, analysisId: string): Promise<A
   }
 
   const input = lasPropertyInputFranRad(rad);
-  const prisdatakalla = new SchablonPrisdatakalla({ boarea: input.boarea });
+  const prisdatakalla = new ModellPrisdatakalla();
 
   return assembleraAnalys({
     extraction,
@@ -329,7 +329,7 @@ export async function hamtaForhandsvisning(
   }
 
   const input = lasPropertyInputFranRad(rad);
-  const prisdatakalla = new SchablonPrisdatakalla({ boarea: input.boarea });
+  const prisdatakalla = new ModellPrisdatakalla();
 
   const fullResultat = await assembleraAnalys({
     extraction,

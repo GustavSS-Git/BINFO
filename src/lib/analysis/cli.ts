@@ -9,7 +9,7 @@ import { PropertyInputSchema } from "./schema";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
 import {
   DemoPrisdatakalla,
-  SchablonPrisdatakalla,
+  ModellPrisdatakalla,
   TomPrisdatakalla,
   type Prisdatakalla,
 } from "./prisdata";
@@ -64,23 +64,24 @@ class OgiltigInputfilError extends Error {
 }
 
 /**
- * Which price source the CLI wires in. There is no real one yet (see
- * PIPELINE.md / prisdata.ts). The default is SchablonPrisdatakalla — the
- * interim flat kr/m² valuation, loudly labelled `source: 'schablon'` with a
- * leverantor string that names itself a schablon — so the price layer renders.
- * TomPrisdatakalla (no price data at all) and DemoPrisdatakalla (valueless
- * placeholder figures) stay selectable. Chosen via PRISKALLA so nobody has to
- * edit code to switch.
+ * Which price source the CLI wires in. Default is ModellPrisdatakalla —
+ * Binfos egen värderingsmodell (src/lib/vardering), same as production
+ * (steg.ts/analys.ts). TomPrisdatakalla (no price data at all) and
+ * DemoPrisdatakalla (valueless placeholder figures) stay selectable for
+ * testing the price layer's other states. Chosen via PRISKALLA so nobody
+ * has to edit code to switch. "schablon" is kept as a backward-compatible
+ * alias for "modell" — PRISKALLA=schablon used to select the old flat
+ * 80 000 kr/m² placeholder, now removed; it selects the real model instead.
  */
 function valjPrisdatakalla(input: { utgangspris: number; boarea: number }): Prisdatakalla {
-  const val = (process.env["PRISKALLA"] ?? "schablon").toLowerCase();
+  const val = (process.env["PRISKALLA"] ?? "modell").toLowerCase();
   if (val === "tom") {
     return new TomPrisdatakalla();
   }
   if (val === "demo") {
     return new DemoPrisdatakalla(input);
   }
-  return new SchablonPrisdatakalla({ boarea: input.boarea });
+  return new ModellPrisdatakalla();
 }
 
 async function main() {
@@ -97,8 +98,8 @@ async function main() {
         "sammanställning) och ett fullständigt AnalysisResult skrivs ut. Filen får bara innehålla " +
         '"input" — okända fält avvisas, så ett stavfel tyst försvinner aldrig. Lånedata är inte ' +
         "längre del av pipelinen.\n\n" +
-        "Miljövariabeln PRISKALLA styr prisdatakällan: 'schablon' (förval, platt värdering " +
-        "80 000 kr/m², tydligt märkt som schablon), 'tom' (ingen extern prisdata alls) eller " +
+        "Miljövariabeln PRISKALLA styr prisdatakällan: 'modell' (förval, Binfos egen " +
+        "värderingsmodell, se src/lib/vardering), 'tom' (ingen extern prisdata alls) eller " +
         "'demo' (platshållarfigurer utan värde, se prisdata.ts).",
     );
     process.exitCode = 1;

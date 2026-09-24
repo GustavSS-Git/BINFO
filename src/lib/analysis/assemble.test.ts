@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { assembleraAnalys, byggPrisanalys } from "./assemble";
 import { extraktion } from "./__fixtures__/extraktion";
-import { DemoPrisdatakalla, SchablonPrisdatakalla, TomPrisdatakalla } from "./prisdata";
-import { konfidensUtanPrisdata } from "./prisdata";
+import { DemoPrisdatakalla, ModellPrisdatakalla, TomPrisdatakalla } from "./prisdata";
+import { konfidensUtanPrisdata, konfidensUtanforStockholm } from "./prisdata";
 import { SaknarRantekanslighetError } from "./calc/rantestress";
 import { AnalysisResultSchema } from "./schema";
 import type { AnalysJudgement } from "./analyze";
@@ -154,47 +154,84 @@ describe("assembleraAnalys", () => {
     expect(resultat.prisanalys.slutsats).toMatch(/ingen oberoende/i);
   });
 
-  describe("SchablonPrisdatakalla — en schablon får aldrig höja konfidensen", () => {
-    // En platt schablon på 80 000 kr/m² är ingen oberoende prisreferens: den
-    // vet ingenting om just den här lägenheten, om läget eller om skicket.
-    // Att låta den lyfta konfidensen från 'lag' till 'medel' — och kalla sig
-    // "oberoende prisreferens" i skälet — vore precis det som CLAUDE.md
-    // förbjuder: en gissning som ser ut som ett faktum.
-    const schablonkalla = () => new SchablonPrisdatakalla({ boarea: inputKomplett.boarea });
+  describe("ModellPrisdatakalla — task 4g/5, Binfos egen värderingsmodell", () => {
+    const modellkalla = () => new ModellPrisdatakalla();
 
-    it("håller konfidensen kvar på 'lag' trots att värderingen har ett värde", async () => {
-      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+    it("ger 'medel' konfidens för ett kartlagt Stockholmsområde, aldrig 'hog'", async () => {
+      // inputKomplett.postnummer = "11857" -> Södermalm i den riktiga
+      // kartläggningstabellen (src/lib/vardering/data/postnummerOmrade.data.ts).
+      const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
 
       expect(prisanalys.externVardering?.value).not.toBeNull();
-      expect(prisanalys.konfidens.niva).toBe("lag");
+      expect(prisanalys.externVardering?.source).toBe("schablon");
+      expect(prisanalys.konfidens.niva).toBe("medel");
+      expect(prisanalys.varderingsunderlag?.omrade).toBe("Södermalm");
+      expect(prisanalys.budpremie).toBeDefined();
     });
 
-    it("beskriver aldrig schablonen som en oberoende prisreferens", async () => {
-      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+    it("beskriver aldrig modellen som en tredjepartsvärdering", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
 
-      const skal = (prisanalys.konfidens.skal ?? []).join(" ");
-      expect(skal).not.toMatch(/oberoende prisreferens kunde hämtas/i);
-      expect(`${skal} ${prisanalys.slutsats}`).toMatch(/schablon/i);
-    });
-
-    it("säger i slutsatsen att jämförelsen görs mot en schablon, inte mot en värdering", async () => {
-      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
-
-      expect(prisanalys.slutsats).toMatch(/schablon/i);
-      // Får inte påstå att priset stämts av mot en riktig värdering.
+      expect(prisanalys.externVardering?.leverantor).toMatch(/^Binfo värderingsmodell /);
+      expect(prisanalys.slutsats).toMatch(/Binfos värderingsmodell/);
+      // Får inte påstå att priset stämts av mot en tredjepartsvärdering.
       expect(prisanalys.slutsats).not.toMatch(/extern värdering/i);
     });
 
-    it("räknar ändå fram avvikelsen mot schablonen — det är det talet som ska visas", async () => {
-      const prisanalys = await byggPrisanalys(inputKomplett, schablonkalla());
+    it("säger i slutsatsen om utgångspriset ligger inom eller utanför modellens intervall", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
 
-      // utgangspris 4 950 000 mot schablon 62 m² × 80 000 = 4 960 000
-      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-0.2, 1);
+      expect(prisanalys.slutsats).toMatch(/(inom|utanför) modellens 90-procentiga intervall/);
     });
 
-    it("en riktig extern källa höjer däremot konfidensen", async () => {
-      // Samma form som schablonen, men source 'extern' — bevisar att det är
+    it("räknar fram avvikelsen mot modellens punktskattning", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
+
+      // utgångspris 4 950 000 mot modellens punktskattning för 11857 (Södermalm),
+      // ett deterministiskt tal ur den tränade modellen (~6 597 964 kr).
+      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-25.0, 0);
+    });
+
+    it("faller tillbaka till 'lag' konfidens och Stockholmsövergripande område för ett okartlagt men känt Stockholmsprefix", async () => {
+      // 12364 delar 3-siffersprefixet 123 med kartlagda koder (t.ex. 12322 ->
+      // Farsta-Vantör) men är inte självt kartlagt.
+      const prisanalys = await byggPrisanalys(
+        { ...inputKomplett, postnummer: "12364" },
+        modellkalla(),
+      );
+
+      expect(prisanalys.externVardering?.value).not.toBeNull();
+      expect(prisanalys.konfidens.niva).toBe("lag");
+      expect(prisanalys.varderingsunderlag?.omrade).toBeNull();
+      expect(prisanalys.budpremie?.omrade).toBeNull();
+      expect(prisanalys.konfidens.skal?.join(" ")).toMatch(/inte kopplas till ett specifikt/i);
+    });
+
+    it("ger ingen värdering alls, och en Stockholms-specifik lågkonfidensförklaring, utanför Stockholm", async () => {
+      const prisanalys = await byggPrisanalys(
+        { ...inputKomplett, postnummer: "99999" },
+        modellkalla(),
+      );
+
+      expect("externVardering" in prisanalys).toBe(false);
+      expect("varderingsunderlag" in prisanalys).toBe(false);
+      expect("budpremie" in prisanalys).toBe(false);
+      expect(prisanalys.konfidens).toEqual(konfidensUtanforStockholm());
+      expect(prisanalys.slutsats).toMatch(/Stockholms kommun/);
+    });
+
+    it("ger samma 'utanför Stockholm'-besked för ett tomt postnummer (anonymiserad rapport)", async () => {
+      const prisanalys = await byggPrisanalys({ ...inputKomplett, postnummer: "" }, modellkalla());
+
+      expect("externVardering" in prisanalys).toBe(false);
+      expect(prisanalys.konfidens).toEqual(konfidensUtanforStockholm());
+    });
+
+    it("en riktig extern källa höjer däremot konfidensen (utan att koppla på något varderingsunderlag)", async () => {
+      // Samma form som modellen, men source 'extern' — bevisar att det är
       // källans proveniens som styr konfidensen, inte att ett värde finns.
+      // Postnumret (11857) ligger inom modellens räckvidd, men eftersom
+      // källan inte är en schablon kopplas inget varderingsunderlag på.
       const riktigKalla = {
         hamtaVardering: async () => ({
           value: 5_000_000,
@@ -209,6 +246,7 @@ describe("assembleraAnalys", () => {
       const prisanalys = await byggPrisanalys(inputKomplett, riktigKalla);
 
       expect(prisanalys.konfidens.niva).toBe("medel");
+      expect("varderingsunderlag" in prisanalys).toBe(false);
     });
   });
 
