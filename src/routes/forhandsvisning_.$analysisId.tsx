@@ -119,7 +119,6 @@ function ForhandsvisningInnehall({ analysisId, loaderData }: { analysisId: strin
 
   const forhandsvisning = forhandsvisningQuery.data;
   const visarToppFlaggor = forhandsvisning.gratisSektioner.includes("rodaFlaggor_topp2");
-  const visarDatakvalitet = forhandsvisning.gratisSektioner.includes("datakvalitet");
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-14">
@@ -136,8 +135,6 @@ function ForhandsvisningInnehall({ analysisId, loaderData }: { analysisId: strin
           </div>
         </div>
       </Card>
-
-      {visarDatakvalitet ? <Datakvalitetsrad forhandsvisning={forhandsvisning} /> : null}
 
       {visarToppFlaggor && forhandsvisning.rodaFlaggor.length > 0 ? (
         <div className="mb-6 grid gap-5 md:grid-cols-2">
@@ -220,27 +217,6 @@ const LASTA_INSIKTER = [
     text: "Alla sju lagstadgade nyckeltal, förklarade i vanlig svenska och jämförda mot riktvärden.",
   },
 ];
-
-/** Minimal, gratis visning av datakvalitet — en rad plus en stapel, samma
- *  mönster som säkerhetsmätaren i den fullständiga analysen, men utan
- *  interaktion. */
-function Datakvalitetsrad({ forhandsvisning }: { forhandsvisning: Forhandsvisning }) {
-  const { uppgifterKanda, uppgifterTotalt } = forhandsvisning.datakvalitet;
-  const andel = uppgifterTotalt > 0 ? uppgifterKanda / uppgifterTotalt : 1;
-  return (
-    <div className="mb-6 rounded-lg border border-border bg-card/60 px-5 py-4">
-      <span className="text-sm text-muted-foreground">
-        Analysens säkerhet: {uppgifterKanda} av {uppgifterTotalt} uppgifter kända
-      </span>
-      <div className="mt-3 h-1 w-full rounded-full bg-secondary">
-        <div
-          className="h-1 rounded-full bg-primary transition-[width]"
-          style={{ width: `${Math.round(andel * 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 function LockIcon() {
   return (
