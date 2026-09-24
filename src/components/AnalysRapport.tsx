@@ -88,7 +88,9 @@ const severityLabel: Record<Severity, string> = {
 };
 
 function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
-  const keyFigures = analys.forening.keyFigures.filter((kf) => visasIHuvudanalys(kf.id));
+  const keyFigures = analys.forening.keyFigures.filter(
+    (kf) => visasIHuvudanalys(kf.id) && kf.status !== "okant",
+  );
 
   return (
     <section className="mb-10">
