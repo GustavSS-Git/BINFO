@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import type { ExtractionResult, KeyFigure, KeyFigureId } from "@/types/analysis";
 import { estimateCostSek, KostnadsgransOverskriden, SONNET_5_PRISSATTNING } from "./costGuard";
+import { ModelTruncatedError } from "./extract";
 import {
   ScannedPdfError,
   runExtraction,
@@ -174,6 +175,20 @@ describe("runGrounding", () => {
     expect(result.spentSek).toBeGreaterThan(0);
     expect(result.pdfSaknarTextlager).toBe(false);
   });
+
+  it("kastar ModelTruncatedError när svaret klipptes av (stop_reason max_tokens) — inte en tyst, ofullständig groundingText", async () => {
+    const data = new Uint8Array(await fixture("med-text.pdf"));
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+    client.messages.create.mockResolvedValue({
+      ...groundingApiResponse(),
+      stop_reason: "max_tokens",
+    });
+
+    await expect(runGrounding(data, { maxCostSek: 5, client })).rejects.toThrow(
+      ModelTruncatedError,
+    );
+  });
 });
 
 describe("runStructuredExtraction", () => {
@@ -219,6 +234,101 @@ describe("runStructuredExtraction", () => {
     });
 
     expect(extraction.datakvalitet.pdfSaknarTextlager).toBe(false);
+  });
+
+  it("kastar ModelTruncatedError när svaret klipptes av (stop_reason max_tokens) i stället för att gå via en meningslös retry", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 16000 },
+      content: [{ type: "text", text: '{"schemaVersion": "1.0.0"' }],
+      stop_reason: "max_tokens",
+    });
+
+    await expect(
+      runStructuredExtraction("Fynd: Brf Testgården, sida 3.", { maxCostSek: 5, client }),
+    ).rejects.toThrow(ModelTruncatedError);
+    // Ingen retry — ett avklippt svar från samma prompt och samma tak skulle
+    // med största sannolikhet klippas av likadant igen.
+    expect(client.messages.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("tolkar tryckt-fältet deterministiskt och låter det vinna över modellens egen value (Volontären-fallet: 'neg')", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    const modellsSvar: ExtractionResult = {
+      ...validExtractionResult,
+      forening: {
+        ...validExtractionResult.forening,
+        keyFigures: raaNyckeltal().map((kf) =>
+          kf.id === "sparande_per_m2_totalyta"
+            ? {
+                ...kf,
+                figure: {
+                  ...kf.figure,
+                  value: -50, // modellens egen (felaktiga) gissning
+                  tryckt: "neg",
+                  source: "arsredovisning" as const,
+                  ref: { page: 4, excerpt: "Sparande per kvm, kr neg neg neg" },
+                },
+              }
+            : kf,
+        ),
+      },
+    };
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(modellsSvar) }],
+    });
+
+    const { extraction } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    const sparande = extraction.forening.keyFigures.find(
+      (kf) => kf.id === "sparande_per_m2_totalyta",
+    );
+    expect(sparande?.figure.value).toBeNull();
+    expect(sparande?.figure.tecken).toBe("negativ");
+    expect(sparande?.status).toBe("svag"); // gradering via tecken, Q1-beslutet
+    expect(extraction.datakvalitet.extraktionKonfidens.skal).toBeDefined();
+    expect(extraction.datakvalitet.extraktionKonfidens.skal!.join(" ")).toContain("neg");
+  });
+
+  it("noterar en implausibel negativ läsning på ett 'lägre är bättre'-nyckeltal i datakvalitet, graderar 'okant' i stället för 'god'", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    const modellsSvar: ExtractionResult = {
+      ...validExtractionResult,
+      forening: {
+        ...validExtractionResult.forening,
+        keyFigures: raaNyckeltal().map((kf) =>
+          kf.id === "rantekanslighet"
+            ? {
+                ...kf,
+                figure: {
+                  ...kf.figure,
+                  value: -5,
+                  source: "arsredovisning" as const,
+                  ref: { page: 8, excerpt: "Räntekänslighet -5 %" },
+                },
+              }
+            : kf,
+        ),
+      },
+    };
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(modellsSvar) }],
+    });
+
+    const { extraction } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    const rantekanslighet = extraction.forening.keyFigures.find(
+      (kf) => kf.id === "rantekanslighet",
+    );
+    expect(rantekanslighet?.status).toBe("okant");
+    expect(extraction.datakvalitet.extraktionKonfidens.skal!.join(" ")).toContain(
+      "rantekanslighet",
+    );
   });
 });
 

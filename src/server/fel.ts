@@ -18,7 +18,7 @@
 import type { AnalysErrorCode } from "./portar";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
-import { ModelValidationError } from "@/lib/analysis/extract";
+import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
 
@@ -76,7 +76,13 @@ export function tolkaFel(error: unknown): FelResultat {
     };
   }
 
-  if (error instanceof ModelValidationError || error instanceof AssemblyValidationError) {
+  if (
+    error instanceof ModelValidationError ||
+    error instanceof AssemblyValidationError ||
+    // Svaret klipptes vid max_tokens: för köparen samma sak som ett ogiltigt
+    // svar ("försök igen"). Meddelandet nämner interna tak — skickas inte vidare.
+    error instanceof ModelTruncatedError
+  ) {
     // BESLUT: `ModelValidationError` (basklass för `ExtractionValidationError`
     // och `AnalysValidationError`) och `AssemblyValidationError` bär båda på
     // interna detaljer i sitt `.message` — Zod-issues, en förhandsvisning av

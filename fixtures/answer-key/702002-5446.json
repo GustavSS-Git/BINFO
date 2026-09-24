@@ -1,0 +1,44 @@
+{
+  "orgnr": "702002-5446",
+  "namn": "Bostadsföreningen Volontären 12 UPA",
+  "kalla": {
+    "fil": "A_rsredovisning_2023_BF_Volonta_ren_12_u_p_a (1).pdf",
+    "forvaltare": "TL Ekonomi",
+    "verifieradMot": "UTKAST — ej verifierad av ägaren. Lästa lokalt ur PDF:ens textlager (extractPdfText, ingen modellkörning, inget API-anrop). Se \"verifiering\" nedan för sida och exakt tryckt text per fält; ägaren behöver stämma av mot originalet innan detta räknas som facit."
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 404,
+    "arsavgift_andel_av_rorelseintakter": 69,
+    "sparande_per_m2_totalyta": { "tecken": "negativ" },
+    "rantekanslighet": 6,
+    "energikostnad_per_m2_totalyta": 251
+  },
+  "verifiering": {
+    "arsavgift_per_m2_brf_yta": {
+      "sida": 4,
+      "tryckt": "Årsavgift kvm upplåten bostadsrätt, kr 283 311 404 — flerårsöversiktens tre kolumner täcker 2021/2022/2023; sista kolumnen (404) är räkenskapsåret 2023."
+    },
+    "arsavgift_andel_av_rorelseintakter": {
+      "sida": 4,
+      "tryckt": "Årsavgiftens andel av totala rörelseintäkterna, % 64 66 69 — sista kolumnen (69) är 2023."
+    },
+    "sparande_per_m2_totalyta": {
+      "sida": 4,
+      "tryckt": "Sparande per kvm, kr neg neg neg — alla tre redovisade år (2021–2023) anges som \"neg\", ingen siffra tryckt. tecken \"negativ\" satt, value lämnas null (går inte att läsa ut en magnitud)."
+    },
+    "rantekanslighet": {
+      "sida": 4,
+      "tryckt": "Räntekänslighet, % 6 7 6 — sista kolumnen (6) är 2023."
+    },
+    "energikostnad_per_m2_totalyta": {
+      "sida": 4,
+      "tryckt": "Energikostnad per kvm, kr 208 226 251 — sista kolumnen (251) är 2023."
+    },
+    "skuldsattning_per_m2_totalyta": {
+      "anmarkning": "Går INTE att avgöra säkert — lämnat helt utanför \"nyckeltal\" (varken null-med-anmärkning i kontraktet, bara utelämnat här). Rapporten (sida 4) anger endast \"Lån per kvm bostadsyta kr\" (2023: 2 284) utan att skilja total- och bostadsrättsyta, och sida 3 nämner \"Den totala boytan är ca 1.407 kvm\" SAMT en uthyrd lokal (kontor) på 130,5 kvm (sida 3, \"Föreningens lokaler\") — så det är oklart om \"bostadsyta\" i tabellen redan är nettot av lokalen eller inte, och alltså oklart vilket av de två skuldsättningsmåtten (om något) 2 284 kr/kvm motsvarar. En gissning skulle bryta mot regeln att aldrig gissa en siffra som inte entydigt går att läsa ut."
+    },
+    "skuldsattning_per_m2_brf_yta": {
+      "anmarkning": "Samma osäkerhet som skuldsattning_per_m2_totalyta ovan — se den anmärkningen. Lämnat utanför \"nyckeltal\"."
+    }
+  }
+}

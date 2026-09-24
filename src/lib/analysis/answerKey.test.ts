@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jamforTristate, jamforVarde } from "./answerKey";
+import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
 
 describe("jamforVarde", () => {
   it("godkänner exakt likhet vid tolerans 'exakt'", () => {
@@ -76,5 +76,27 @@ describe("jamforTristate", () => {
     const nejMotNej = jamforTristate("el", "nej", "nej");
     expect(okantMotNej.godkand).toBe(false);
     expect(nejMotNej.godkand).toBe(true);
+  });
+});
+
+describe("jamforTecken", () => {
+  it("godkänner när tecknet stämmer och value är null (Volontären: 'neg')", () => {
+    const r = jamforTecken("sparande_per_m2_totalyta", null, "negativ", "negativ");
+    expect(r.godkand).toBe(true);
+  });
+
+  it("underkänner ett motsatt tecken", () => {
+    const r = jamforTecken("sparande_per_m2_totalyta", null, "positiv", "negativ");
+    expect(r.godkand).toBe(false);
+  });
+
+  it("underkänner när tecken saknas helt (undefined)", () => {
+    const r = jamforTecken("sparande_per_m2_totalyta", null, undefined, "negativ");
+    expect(r.godkand).toBe(false);
+  });
+
+  it("underkänner ett faktiskt tal — facit ger ingen magnitud att jämföra mot", () => {
+    const r = jamforTecken("sparande_per_m2_totalyta", -50, "negativ", "negativ");
+    expect(r.godkand).toBe(false);
   });
 });

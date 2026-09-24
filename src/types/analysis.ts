@@ -49,6 +49,14 @@ export interface Figure {
   schablonBasis?: string;
   /** Plausible range when the value is uncertain. Frontend renders a span. */
   range?: { low: number; high: number };
+  /**
+   * Sign known even when the amount is not — e.g. the report prints "neg" or
+   * "negativ" for sparande. `value` is then null, but the figure is NOT
+   * unknown: grading uses the sign. Only set from the report's own text.
+   */
+  tecken?: 'negativ' | 'positiv';
+  /** The value exactly as printed in the report when it was not a plain number (e.g. "neg"). */
+  tryckt?: string;
 }
 
 export type Status = 'god' | 'acceptabel' | 'svag' | 'kritisk' | 'okant';

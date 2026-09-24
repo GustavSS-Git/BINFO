@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { BENCHMARKS, bedomStatus, berikaNyckeltal, visasIHuvudanalys } from "./benchmarks";
+import {
+  BENCHMARKS,
+  bedomStatus,
+  berikaNyckeltal,
+  implausibelNegativAnmarkning,
+  visasIHuvudanalys,
+} from "./benchmarks";
 import { KeyFigureIdSchema } from "./schema";
 import type { KeyFigure, KeyFigureId, Status } from "@/types/analysis";
 
@@ -400,5 +406,157 @@ describe("berikaNyckeltal", () => {
     berikaNyckeltal([input]);
     expect(input.status).toBe("okant");
     expect(input.benchmark).toBeUndefined();
+  });
+});
+
+describe("bedomStatus — tecken (Q1: negativt sparande graderas 'svag', inte 'kritisk')", () => {
+  const ALLA_SJU: KeyFigureId[] = [
+    "arsavgift_per_m2_brf_yta",
+    "arsavgift_andel_av_rorelseintakter",
+    "skuldsattning_per_m2_totalyta",
+    "skuldsattning_per_m2_brf_yta",
+    "sparande_per_m2_totalyta",
+    "rantekanslighet",
+    "energikostnad_per_m2_totalyta",
+  ];
+
+  const LAGRE_BATTRE: KeyFigureId[] = [
+    "arsavgift_per_m2_brf_yta",
+    "skuldsattning_per_m2_totalyta",
+    "skuldsattning_per_m2_brf_yta",
+    "rantekanslighet",
+    "energikostnad_per_m2_totalyta",
+  ];
+
+  it("ett positivt tal graderas normalt via banden, för varje nyckeltal", () => {
+    for (const id of ALLA_SJU) {
+      const r = bedomStatus(id, 1);
+      // Endast det informativa nyckeltalet ger 'okant' på ett positivt tal.
+      if (BENCHMARKS[id].riktning === "informativ") {
+        expect(r.status, id).toBe("okant");
+      } else {
+        expect(r.status, id).not.toBe("okant");
+      }
+    }
+  });
+
+  it("noll graderas normalt (aldrig 'okant' på grund av tecken-regeln)", () => {
+    for (const id of ALLA_SJU) {
+      const r = bedomStatus(id, 0);
+      if (BENCHMARKS[id].riktning === "informativ") {
+        expect(r.status, id).toBe("okant");
+      } else if (id === "sparande_per_m2_totalyta") {
+        expect(r.status, id).toBe("svag"); // beslutad läsning, se ovan
+      } else {
+        expect(r.status, id).not.toBe("okant");
+      }
+    }
+  });
+
+  it("ett negativt tal på ett 'lägre är bättre'-nyckeltal graderas ALDRIG 'god' — 'okant' i stället", () => {
+    for (const id of LAGRE_BATTRE) {
+      const r = bedomStatus(id, -1);
+      expect(r.status, id).toBe("okant");
+      expect(r.benchmark, id).toBeUndefined();
+    }
+  });
+
+  it("sparande med ett negativt tal graderas 'svag' (produktbeslut Q1) — inte 'kritisk', inte 'okant'", () => {
+    expect(bedomStatus("sparande_per_m2_totalyta", -1).status).toBe("svag");
+    expect(bedomStatus("sparande_per_m2_totalyta", -100000).status).toBe("svag");
+  });
+
+  it("tecken 'negativ' med value null: 'lägre är bättre' blir 'okant', sparande blir 'svag'", () => {
+    for (const id of LAGRE_BATTRE) {
+      expect(bedomStatus(id, null, "negativ").status, id).toBe("okant");
+    }
+    expect(bedomStatus("sparande_per_m2_totalyta", null, "negativ").status).toBe("svag");
+  });
+
+  it("tecken 'positiv' med value null: sparande blir 'god' (bandets tröskel är exakt noll — ett bart tecken räcker), övriga förblir 'okant'", () => {
+    expect(bedomStatus("sparande_per_m2_totalyta", null, "positiv").status).toBe("god");
+    for (const id of LAGRE_BATTRE) {
+      expect(bedomStatus(id, null, "positiv").status, id).toBe("okant");
+    }
+  });
+
+  it("value null utan tecken förblir 'okant' för alla sju, precis som tidigare", () => {
+    for (const id of ALLA_SJU) {
+      expect(bedomStatus(id, null).status, id).toBe("okant");
+    }
+  });
+
+  it("sparande med tecken 'positiv' får inget benchmark (sparande har ingen referenspunkt)", () => {
+    expect(bedomStatus("sparande_per_m2_totalyta", null, "positiv").benchmark).toBeUndefined();
+  });
+});
+
+describe("implausibelNegativAnmarkning", () => {
+  it("returnerar en anmärkning för ett negativt tal på ett 'lägre är bättre'-nyckeltal", () => {
+    const anmarkning = implausibelNegativAnmarkning({
+      id: "skuldsattning_per_m2_totalyta",
+      label: "Skuldsättning per m² totalyta",
+      figure: { value: -100 },
+    });
+    expect(anmarkning).toBeDefined();
+    expect(anmarkning).toContain("Skuldsättning per m² totalyta");
+    expect(anmarkning).toContain("okant");
+  });
+
+  it("returnerar en anmärkning för tecken 'negativ' utan värde, på ett 'lägre är bättre'-nyckeltal", () => {
+    const anmarkning = implausibelNegativAnmarkning({
+      id: "rantekanslighet",
+      label: "Räntekänslighet",
+      figure: { value: null, tecken: "negativ" },
+    });
+    expect(anmarkning).toBeDefined();
+  });
+
+  it("returnerar undefined för ett negativt sparande — förbehållet gäller inte 'högre är bättre'", () => {
+    const anmarkning = implausibelNegativAnmarkning({
+      id: "sparande_per_m2_totalyta",
+      label: "Sparande per m² totalyta",
+      figure: { value: -50 },
+    });
+    expect(anmarkning).toBeUndefined();
+  });
+
+  it("returnerar undefined för ett vanligt positivt tal", () => {
+    const anmarkning = implausibelNegativAnmarkning({
+      id: "rantekanslighet",
+      label: "Räntekänslighet",
+      figure: { value: 5 },
+    });
+    expect(anmarkning).toBeUndefined();
+  });
+
+  it("returnerar undefined för value null utan tecken", () => {
+    const anmarkning = implausibelNegativAnmarkning({
+      id: "rantekanslighet",
+      label: "Räntekänslighet",
+      figure: { value: null },
+    });
+    expect(anmarkning).toBeUndefined();
+  });
+});
+
+describe("berikaNyckeltal — för med tecken vidare till bedomStatus", () => {
+  it("en figur med tecken 'negativ' och value null graderas via tecknet, inte som 'okant' rakt av", () => {
+    const kf: KeyFigure = {
+      id: "sparande_per_m2_totalyta",
+      label: "Sparande per m² totalyta",
+      figure: {
+        value: null,
+        unit: "kr/m2",
+        source: "arsredovisning",
+        ref: { page: 4, excerpt: "Sparande per kvm, kr neg" },
+        tecken: "negativ",
+        tryckt: "neg",
+      },
+      status: "okant",
+      forklaring: "Test.",
+    };
+    const [berikad] = berikaNyckeltal([kf]);
+    expect(berikad!.status).toBe("svag");
   });
 });

@@ -109,6 +109,19 @@ export function formatVarde(value: number | null, unit: Figure["unit"]): string 
   }
 }
 
+/**
+ * Renders a Figure's value the way the buyer should see it, including the
+ * case where the report printed a sign without a magnitude (e.g. "neg" for
+ * sparande — `value` is then null but `tecken` is set). A bare
+ * "Uppgift saknas" would be wrong there: the report DOES say something
+ * ("negativt"), it just doesn't give a number — so this shows the sign in
+ * Swedish plus the report's own verbatim text via `tryckt`, never inventing
+ * a number.
+ */
 export function formatFigureVarde(figure: Figure): string {
+  if (figure.value === null && figure.tecken !== undefined) {
+    const tecken = figure.tecken === "negativ" ? "Negativt" : "Positivt";
+    return figure.tryckt ? `${tecken} ("${figure.tryckt}" i årsredovisningen)` : tecken;
+  }
   return formatVarde(figure.value, figure.unit);
 }

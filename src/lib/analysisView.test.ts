@@ -135,8 +135,50 @@ describe("formatFigureVarde", () => {
     expect(formatFigureVarde(figure)).toBe("9,09 %");
   });
 
-  it("visar 'Uppgift saknas' för en figur utan värde", () => {
+  it("visar 'Uppgift saknas' för en figur utan värde och utan tecken", () => {
     const figure: Figure = { value: null, unit: "kr", source: "arsredovisning" };
     expect(formatFigureVarde(figure)).toBe("Uppgift saknas");
+  });
+
+  it("visar tecken negativ plus det tryckta värdet i stället för 'Uppgift saknas' (t.ex. 'neg' i rapporten)", () => {
+    const figure: Figure = {
+      value: null,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      tecken: "negativ",
+      tryckt: "neg",
+    };
+    expect(formatFigureVarde(figure)).toBe('Negativt ("neg" i årsredovisningen)');
+  });
+
+  it("visar tecken positiv plus det tryckta värdet", () => {
+    const figure: Figure = {
+      value: null,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      tecken: "positiv",
+      tryckt: "pos",
+    };
+    expect(formatFigureVarde(figure)).toBe('Positivt ("pos" i årsredovisningen)');
+  });
+
+  it("visar bara tecknet, utan citat, om tryckt saknas", () => {
+    const figure: Figure = {
+      value: null,
+      unit: "kr/m2",
+      source: "berakning",
+      tecken: "negativ",
+    };
+    expect(formatFigureVarde(figure)).toBe("Negativt");
+  });
+
+  it("en figur med ett faktiskt negativt tal formateras som vanligt (tecken påverkar bara null-fallet)", () => {
+    const figure: Figure = {
+      value: -50,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      tecken: "negativ",
+    };
+    expect(formatFigureVarde(figure)).toBe(formatVarde(-50, "kr/m2"));
   });
 });

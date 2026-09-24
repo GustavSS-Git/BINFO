@@ -30,7 +30,7 @@ import type { AnalysJudgement } from "@/lib/analysis/analyze";
 import { analysera } from "@/lib/analysis/analyze";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
 import { enforceCostLimit, estimateCostSek, SONNET_5_PRISSATTNING } from "@/lib/analysis/costGuard";
-import type { ModelCaller } from "@/lib/analysis/extract";
+import { ModelTruncatedError, type ModelCaller } from "@/lib/analysis/extract";
 import { SchablonPrisdatakalla } from "@/lib/analysis/prisdata";
 import {
   parseModelJson,
@@ -293,7 +293,7 @@ async function korBedomningssteg(
 
     if (!judgement) {
       const client = resolveClient(options?.client, env.anthropicApiKey);
-      const maxOutputTokens = 8000; // Matchar RunAnalysOptions default i analyze.ts.
+      const maxOutputTokens = 16000; // Matchar RunAnalysOptions default i analyze.ts.
 
       const callModel: ModelCaller = async (system, user) => {
         const messages = [{ role: "user" as const, content: user }];
@@ -316,6 +316,11 @@ async function korBedomningssteg(
           response.usage.output_tokens,
           SONNET_5_PRISSATTNING,
         );
+
+        // Diagnose a cut-off response immediately — see ModelTruncatedError.
+        if (response.stop_reason === "max_tokens") {
+          throw new ModelTruncatedError("Bedömningen", maxOutputTokens);
+        }
 
         return parseModelJson(response.content);
       };

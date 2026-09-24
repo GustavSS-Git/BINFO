@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult, ExtractionResult, Fraga, PageRef } from "@/types/analysis";
-import { ModelValidationError, validateWithRetry, type ModelCaller } from "./extract";
+import {
+  ModelTruncatedError,
+  ModelValidationError,
+  validateWithRetry,
+  type ModelCaller,
+} from "./extract";
 import { buildAnalysSystemPrompt, buildAnalysUserPrompt } from "./prompts";
 import { buildAnalysJudgementSchema } from "./schema";
 import { parseModelJson } from "./runExtraction";
@@ -133,7 +138,12 @@ export async function runAnalys(
     model = "claude-sonnet-5",
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
-    maxOutputTokens = 8000,
+    // 16000, not the earlier 8000: a live run against "Volontären" hit
+    // stop_reason "max_tokens" on both attempts (Sonnet 5's adaptive
+    // thinking alone used ~7k of the 8000-token cap, leaving no room for the
+    // JSON answer) — see ModelTruncatedError below, and the max_tokens
+    // finding in the task report.
+    maxOutputTokens = 16000,
   } = options;
 
   const client = apiKey ? new Anthropic({ apiKey }) : new Anthropic();
@@ -151,6 +161,13 @@ export async function runAnalys(
       messages,
     });
     spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
+
+    // A truncated response is a capacity problem, not a shape problem —
+    // diagnose it as one immediately rather than let it surface later as an
+    // opaque JSON-parse/validation failure after a wasted retry.
+    if (response.stop_reason === "max_tokens") {
+      throw new ModelTruncatedError("Bedömningen", maxOutputTokens);
+    }
 
     return parseModelJson(response.content);
   };

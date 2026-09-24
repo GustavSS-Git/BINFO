@@ -69,6 +69,13 @@ describe("buildExtractionSystemPrompt", () => {
     expect(prompt).toMatch(/kommandeAtgarder.*array/i);
   });
 
+  it("instruerar modellen att kopiera en icke-numerisk cell (t.ex. 'neg') ordagrant till figure.tryckt, och att aldrig sätta tecken själv", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("tryckt");
+    expect(prompt).toMatch(/neg/);
+    expect(prompt).toMatch(/aldrig.*tecken|tecken.*aldrig/is);
+  });
+
   it("instruerar att ref är valfritt (utelämnas, inte null) när ingen exakt sida hittas", () => {
     const prompt = buildExtractionSystemPrompt();
     expect(prompt).toMatch(/ref.*valfritt/i);
@@ -345,6 +352,6 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("827ffd5ac4435d6d2abafa50a910912172ccec24523b256937fe1deb3a982ae5");
+    expect(hash).toBe("ee9d0fc3f2badd829fd28432a1b4ec11bf0b7cc8b43bfb4da2ca5463f4ef632b");
   });
 });

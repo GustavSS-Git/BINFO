@@ -2,7 +2,7 @@ import { z } from "zod";
 import { describe, expect, it } from "vitest";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
-import { ExtractionValidationError } from "@/lib/analysis/extract";
+import { ExtractionValidationError, ModelTruncatedError } from "@/lib/analysis/extract";
 import { AnalysValidationError } from "@/lib/analysis/analyze";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
@@ -19,6 +19,13 @@ function dummyZodError(): z.ZodError {
 }
 
 describe("tolkaFel", () => {
+  it("mappar ModelTruncatedError till validation utan att läcka intern detalj", () => {
+    const res = tolkaFel(new ModelTruncatedError("bedomning", 16000));
+    expect(res.errorCode).toBe("validation");
+    expect(res.message).not.toContain("max_tokens");
+    expect(res.message).not.toContain("16000");
+  });
+
   it("mappar ScannedPdfError till scanned_pdf med sitt eget köparsäkra meddelande", () => {
     const error = new ScannedPdfError();
     const resultat = tolkaFel(error);

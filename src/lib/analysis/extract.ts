@@ -37,6 +37,31 @@ export class ExtractionValidationError extends ModelValidationError {
   }
 }
 
+/**
+ * Thrown the moment a call's own `stop_reason` says "max_tokens" — a
+ * response cut off mid-JSON is a capacity problem, not a shape problem, and
+ * deserves its own diagnosis rather than surfacing as an opaque
+ * `ModelValidationError` ("Expected object, received string") after a
+ * wasted retry that would almost certainly be truncated the same way again.
+ * Raised from inside the `ModelCaller` closure that owns the raw API
+ * response (runExtraction.ts, analyze.ts, steg.ts) — before the text is
+ * even handed to JSON.parse — so it propagates straight out of
+ * `validateWithRetry`/`extractWithRetry` without consuming the one retry.
+ */
+export class ModelTruncatedError extends Error {
+  constructor(
+    public readonly steg: string,
+    public readonly maxTokens: number,
+  ) {
+    super(
+      `${steg}: modellsvaret klipptes av innan det var klart (stop_reason: "max_tokens", tak ${maxTokens} tokens). ` +
+        `Det är inte ett valideringsfel — svaret rymdes helt enkelt inte inom taket (ofta för att Sonnet 5:s ` +
+        `adaptiva resonemang åt en stor del av det). Höj max_tokens för detta steg.`,
+    );
+    this.name = "ModelTruncatedError";
+  }
+}
+
 /** Builds the error thrown once the last attempt has also failed validation. */
 export type ValidationErrorFactory = (
   zodError: z.ZodError,

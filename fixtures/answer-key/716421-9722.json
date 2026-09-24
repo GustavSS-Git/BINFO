@@ -1,0 +1,48 @@
+{
+  "orgnr": "716421-9722",
+  "namn": "Bostadsrättsföreningen Beckasinen 14",
+  "kalla": {
+    "fil": "_F_ORG_T816_7800.pdf",
+    "forvaltare": "okänd (ej angiven i den lokalt lästa texten)",
+    "verifieradMot": "UTKAST — ej verifierad av ägaren. Lästa lokalt ur PDF:ens textlager (extractPdfText, ingen modellkörning, inget API-anrop). Se \"verifiering\" nedan för sida och exakt tryckt text per fält; ägaren behöver stämma av mot originalet innan detta räknas som facit."
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 532,
+    "arsavgift_andel_av_rorelseintakter": 76,
+    "skuldsattning_per_m2_totalyta": 3161,
+    "skuldsattning_per_m2_brf_yta": 3161,
+    "sparande_per_m2_totalyta": 89,
+    "rantekanslighet": 6,
+    "energikostnad_per_m2_totalyta": 186
+  },
+  "verifiering": {
+    "arsavgift_per_m2_brf_yta": {
+      "sida": 5,
+      "tryckt": "FLERÅRSÖVERSIKT, kolumner 2024 2023 2022 2021 2020: \"Årsavgifter, kr/kvm 532 492 478 478 478\" — räkenskapsåret för rapporten är 2024 (se sida 2: \"årsredovisning för räkenskapsåret 2024\"), alltså första kolumnen (532)."
+    },
+    "arsavgift_andel_av_rorelseintakter": {
+      "sida": 5,
+      "tryckt": "\"Årsavgifter/totala intäkter, % 76 77 0 0 0\" — första kolumnen (76) är 2024. Rapporten anger själv (sida 5) att 0 betyder \"inte beräknats\" för äldre år (\"Perioden 2022-2020 har inte beräknats, därav 0\"), inte ett faktiskt värde noll."
+    },
+    "skuldsattning_per_m2_totalyta": {
+      "sida": 5,
+      "tryckt": "\"Skuldsättning, kr/kvm 3 161 3 205 3 399 3 517 0\", definierad i rapporten (sida 5) som \"Totala räntebärande skulder (banklån) per kvadratmeter total yta (boyta och lokalyta)\" — första kolumnen (3161) är 2024."
+    },
+    "skuldsattning_per_m2_brf_yta": {
+      "sida": 5,
+      "tryckt": "\"Skuldsättning bostadsrättsyta, kr/kvm 3 161 3 205 0 0 0\", definierad i rapporten (sida 5) som \"per kvadratmeter bostadsrättsyta\" — första kolumnen (3161) är 2024. Samma tryckta värde som totalyte-varianten för både 2024 och 2023, vilket är rimligt om föreningens bostadsrättsyta och totalyta sammanfaller (ingen uthyrd lokalyta nämnd i den lokalt lästa texten)."
+    },
+    "sparande_per_m2_totalyta": {
+      "sida": 5,
+      "tryckt": "\"Sparande, kr/kvm 89 145 232 172 0\" — första kolumnen (89) är 2024."
+    },
+    "rantekanslighet": {
+      "sida": 5,
+      "tryckt": "\"Räntekänslighet, % 6 7 7 12 0\" — första kolumnen (6) är 2024."
+    },
+    "energikostnad_per_m2_totalyta": {
+      "sida": 5,
+      "tryckt": "\"Energikostnad, kr/kvm 186 164 167 166 0\" — första kolumnen (186) är 2024."
+    }
+  }
+}

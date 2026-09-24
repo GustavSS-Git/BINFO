@@ -207,10 +207,83 @@ function uppfyller(band: Band, varde: number): boolean {
   }
 }
 
-export function bedomStatus(id: KeyFigureId, varde: number | null): StatusResultat {
+/** A reference point is attached only where BENCHMARKS.md cites one. No
+ *  value, no benchmark object — a guessed population figure would look like
+ *  a fact. */
+function medReferenspunkt(benchmark: Benchmark, status: Status): StatusResultat {
+  if (benchmark.value === undefined || benchmark.label === undefined) {
+    return { status };
+  }
+  return {
+    status,
+    benchmark: { value: benchmark.value, label: benchmark.label, source: benchmark.source },
+  };
+}
+
+/**
+ * Grades a key figure. `varde` is the number itself when known; `tecken` is
+ * the sign the report printed even when the magnitude wasn't (e.g. "neg" for
+ * sparande) — see `Figure.tecken` in src/types/analysis.ts. Both can be
+ * passed together for a numeric figure (tecken must then already agree with
+ * `varde`'s own sign, enforced by schema.ts) or `tecken` alone with
+ * `varde: null`.
+ *
+ * Two rules beyond the ordinary band lookup, both product decisions:
+ *
+ *   1. A "lower is better" figure (riktning 'lagre_battre') can never be
+ *      graded "god" from a negative reading — numeric or sign-only. Every
+ *      band's threshold for those figures is a positive number (e.g.
+ *      "< 500 kr/m²"), so a raw comparison would happily call a negative
+ *      value "god" (a negative number satisfies "< 500" too), which is
+ *      backwards: you cannot have a negative debt, fee or energy cost, so a
+ *      negative reading means something is wrong with the underlying data,
+ *      not that it is excellent. Graded "okant" instead, and the caller
+ *      (runExtraction.ts) records why in datakvalitet.
+ *
+ *   2. A sign-only reading (varde null, tecken set) on a "higher is better"
+ *      figure (today: only sparande) CAN be graded, because that figure's
+ *      best band's own threshold sits exactly at zero ("> 0" is "god") — a
+ *      bare sign is then enough to know which side of that one threshold
+ *      the true number falls on, without claiming to know its magnitude.
+ *      This does not generalize to the "lower is better" figures: their
+ *      bands have several positive thresholds, so a sign alone can't say
+ *      which band a POSITIVE reading of unknown magnitude would land in —
+ *      those stay "okant" (rule 1 above already covers the negative case).
+ */
+export function bedomStatus(
+  id: KeyFigureId,
+  varde: number | null,
+  tecken?: "negativ" | "positiv",
+): StatusResultat {
   const benchmark = BENCHMARKS[id];
 
-  if (varde === null || benchmark.riktning === "informativ" || !benchmark.band) {
+  if (benchmark.riktning === "informativ" || !benchmark.band) {
+    return { status: "okant" };
+  }
+
+  const negativLasning = tecken === "negativ" || (varde !== null && varde < 0);
+  if (benchmark.riktning === "lagre_battre" && negativLasning) {
+    return { status: "okant" };
+  }
+
+  if (varde === null) {
+    if (tecken === undefined) return { status: "okant" };
+
+    if (benchmark.riktning === "hogre_battre") {
+      const bastaBandet = benchmark.band[0];
+      const bastaBandetHarNolltroskel =
+        bastaBandet !== undefined &&
+        "jamforelse" in bastaBandet &&
+        (bastaBandet.jamforelse === ">" || bastaBandet.jamforelse === ">=") &&
+        bastaBandet.grans === 0;
+      if (bastaBandetHarNolltroskel) {
+        const sistaBandet = benchmark.band[benchmark.band.length - 1]!;
+        return medReferenspunkt(
+          benchmark,
+          tecken === "positiv" ? bastaBandet.status : sistaBandet.status,
+        );
+      }
+    }
     return { status: "okant" };
   }
 
@@ -218,17 +291,29 @@ export function bedomStatus(id: KeyFigureId, varde: number | null): StatusResult
   // overlapping endpoints in BENCHMARKS.md make the order load-bearing.
   const traff = benchmark.band.find((band) => uppfyller(band, varde));
   const status: Status = traff ? traff.status : "okant";
+  return medReferenspunkt(benchmark, status);
+}
 
-  // A reference point is shown only where BENCHMARKS.md cites one. No value,
-  // no benchmark object — a guessed population figure would look like a fact.
-  if (benchmark.value === undefined || benchmark.label === undefined) {
-    return { status };
-  }
+/**
+ * Swedish note for `datakvalitet.extraktionKonfidens.skal` when a figure hit
+ * the "implausible negative" rule inside `bedomStatus` above — so the
+ * downgrade to "okant" isn't silent. `undefined` when the rule didn't fire.
+ */
+export function implausibelNegativAnmarkning(kf: {
+  id: KeyFigureId;
+  label: string;
+  figure: { value: number | null; tecken?: "negativ" | "positiv" };
+}): string | undefined {
+  const benchmark = BENCHMARKS[kf.id];
+  const negativLasning =
+    kf.figure.tecken === "negativ" || (kf.figure.value !== null && kf.figure.value < 0);
+  if (benchmark.riktning !== "lagre_battre" || !negativLasning) return undefined;
 
-  return {
-    status,
-    benchmark: { value: benchmark.value, label: benchmark.label, source: benchmark.source },
-  };
+  return (
+    `${kf.label}: värdet är negativt, vilket är orimligt för ett nyckeltal där lägre är bättre ` +
+    `(det går inte att ha en negativ skuld, avgift eller energikostnad) — graderat "okant" i ` +
+    `stället för att felaktigt räknas som "god".`
+  );
 }
 
 /** Replaces status/benchmark on every key figure with the deterministic
@@ -236,7 +321,7 @@ export function bedomStatus(id: KeyFigureId, varde: number | null): StatusResult
  *  benchmark, rather than merging with it. Does not mutate the input. */
 export function berikaNyckeltal(keyFigures: KeyFigure[]): KeyFigure[] {
   return keyFigures.map((kf) => {
-    const { status, benchmark } = bedomStatus(kf.id, kf.figure.value);
+    const { status, benchmark } = bedomStatus(kf.id, kf.figure.value, kf.figure.tecken);
     const { benchmark: _gammaltBenchmark, ...utanBenchmark } = kf;
     return benchmark ? { ...utanBenchmark, status, benchmark } : { ...utanBenchmark, status };
   });

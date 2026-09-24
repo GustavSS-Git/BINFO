@@ -201,6 +201,57 @@ describe("FigureSchema", () => {
     const extraFalt = { ...beraknad, konfidensprocent: 99 };
     expect(FigureSchema.safeParse(extraFalt).success).toBe(false);
   });
+
+  describe("tecken och tryckt", () => {
+    it("accepterar tecken 'negativ' tillsammans med value null", () => {
+      const figur: Figure = { value: null, unit: "kr/m2", source: "berakning", tecken: "negativ" };
+      expect(FigureSchema.safeParse(figur).success).toBe(true);
+    });
+
+    it("accepterar tryckt utan tecken (en ren transkription, t.ex. '(123)' innan tolkning)", () => {
+      const figur: Figure = { value: null, unit: "kr/m2", source: "berakning", tryckt: "neg" };
+      expect(FigureSchema.safeParse(figur).success).toBe(true);
+    });
+
+    it("accepterar tecken som stämmer med value:s eget tecken", () => {
+      const negativ: Figure = { value: -50, unit: "kr/m2", source: "berakning", tecken: "negativ" };
+      expect(FigureSchema.safeParse(negativ).success).toBe(true);
+
+      const positiv: Figure = { value: 50, unit: "kr/m2", source: "berakning", tecken: "positiv" };
+      expect(FigureSchema.safeParse(positiv).success).toBe(true);
+    });
+
+    it("avvisar tecken som motsäger value:s eget tecken", () => {
+      const motsagelse: Figure = {
+        value: 42,
+        unit: "kr/m2",
+        source: "berakning",
+        tecken: "negativ",
+      };
+      expect(FigureSchema.safeParse(motsagelse).success).toBe(false);
+    });
+
+    it("avvisar tecken satt tillsammans med value 0 — noll har inget tecken", () => {
+      const noll: Figure = { value: 0, unit: "kr/m2", source: "berakning", tecken: "positiv" };
+      expect(FigureSchema.safeParse(noll).success).toBe(false);
+    });
+
+    it("en figur med source 'arsredovisning' kräver fortfarande sin PageRef, oavsett tryckt/tecken", () => {
+      const utanRef: Figure = {
+        value: null,
+        unit: "kr/m2",
+        source: "arsredovisning",
+        tecken: "negativ",
+      };
+      expect(FigureSchema.safeParse(utanRef).success).toBe(false);
+
+      const medRef: Figure = {
+        ...utanRef,
+        ref: { page: 4, excerpt: "Sparande per kvm, kr neg" },
+      };
+      expect(FigureSchema.safeParse(medRef).success).toBe(true);
+    });
+  });
 });
 
 describe("FigureMedLeverantorSchema", () => {

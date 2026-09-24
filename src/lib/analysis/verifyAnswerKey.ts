@@ -1,9 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { APIConnectionError } from "@anthropic-ai/sdk";
-import { jamforTristate, jamforVarde } from "./answerKey";
+import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
-import { runExtraction, type RunExtractionOptions } from "./runExtraction";
+import { ScannedPdfError, runExtraction, type RunExtractionOptions } from "./runExtraction";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
 
 /**
@@ -16,13 +16,53 @@ import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
  * Real annual reports are never committed (see .gitignore) — this reads
  * them from a local directory you point it at.
  */
+
+/**
+ * A nyckeltal's expected value. Usually a plain number. When the report
+ * itself only prints a sign (e.g. "neg" for sparande, no magnitude — see
+ * Volontären), the answer key states that sign instead — there is no
+ * number to compare exactly or approximately against, only whether the
+ * extraction correctly read the sign (see `jamforTecken` in answerKey.ts).
+ */
+type NyckeltalForvantatVarde = number | { tecken: "negativ" | "positiv" };
+
+/**
+ * Per-field provenance for a fixture that hasn't been verified by the
+ * product owner yet (see `arUtkast` below) — page and verbatim printed
+ * text, or an explanation of why the value couldn't be read at all
+ * (garbled text layer, ambiguous area basis, etc). Not consumed by the
+ * comparison logic below; it exists purely for a human to check the draft
+ * against the original PDF.
+ */
+type Verifieringspost = { sida: number; tryckt: string } | { anmarkning: string };
+
 interface AnswerKeyFixture {
   orgnr: string;
   namn: string;
   kalla: { fil: string; forvaltare: string; verifieradMot: string };
-  nyckeltal: Record<string, number>;
+  nyckeltal: Record<string, NyckeltalForvantatVarde>;
+  verifiering?: Record<string, Verifieringspost>;
   lanebok?: { totalSkuld?: number; snittranta?: number };
   avgiftInkluderar?: Partial<FeeInclusion>;
+  /**
+   * True for a fixture whose PDF is expected to be REFUSED before any API
+   * spend — today only a scanned PDF with no text layer (ScannedPdfError).
+   * Success for this fixture means the refusal happened, not that any
+   * nyckeltal matched; `nyckeltal` is expected to be empty.
+   */
+  forvantatRefuserad?: boolean;
+}
+
+/**
+ * A fixture whose source comment (`kalla.verifieradMot`) says "UTKAST" —
+ * the convention this task introduces for a draft answer key read locally
+ * from the PDF's text layer (no model call), not yet checked by the
+ * product owner against the original report. Reported in its own section
+ * below rather than folded into the main pass/fail tally, since a mismatch
+ * on a draft fixture might just as well mean the draft itself is wrong.
+ */
+function arUtkast(fixture: AnswerKeyFixture): boolean {
+  return fixture.kalla.verifieradMot.toUpperCase().includes("UTKAST");
 }
 
 try {
@@ -68,6 +108,17 @@ async function loadFixtures(): Promise<AnswerKeyFixture[]> {
   );
 }
 
+/** Running tally kept separately for verified vs. draft ("UTKAST") fixtures
+ *  — see `arUtkast`'s doc comment for why they're never mixed together. */
+interface Rakning {
+  totalFalt: number;
+  godkanda: number;
+}
+
+function nyRakning(): Rakning {
+  return { totalFalt: 0, godkanda: 0 };
+}
+
 async function main() {
   const pdfDir = process.argv[2];
   if (!pdfDir) {
@@ -83,15 +134,21 @@ async function main() {
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
   const fixtures = await loadFixtures();
 
-  let totalFalt = 0;
-  let godkanda = 0;
+  const verifierad = nyRakning();
+  const utkast = nyRakning();
   let hoppadeOver = 0;
   let misslyckade = 0;
+  const utkastRapporter: string[] = [];
+  const refuseringsFel: string[] = [];
 
   for (const fixture of fixtures) {
+    const rakning = arUtkast(fixture) ? utkast : verifierad;
+    if (arUtkast(fixture)) utkastRapporter.push(fixture.namn);
+
     const pdfPath = path.join(pdfDir, fixture.kalla.fil);
     console.log(
-      `\n${"=".repeat(70)}\n${fixture.namn} (${fixture.kalla.forvaltare})\n${"=".repeat(70)}`,
+      `\n${"=".repeat(70)}\n${fixture.namn} (${fixture.kalla.forvaltare})` +
+        `${arUtkast(fixture) ? "  [UTKAST — ej verifierad]" : ""}\n${"=".repeat(70)}`,
     );
 
     let pdfBytes: Uint8Array;
@@ -100,6 +157,29 @@ async function main() {
     } catch {
       console.log(`  HOPPAR ÖVER — hittar inte ${pdfPath}`);
       hoppadeOver++;
+      continue;
+    }
+
+    // --- Fixtures expected to be REFUSED before any API spend (scanned PDF) ---
+    if (fixture.forvantatRefuserad) {
+      try {
+        await korMedEttOmforsok(pdfBytes, { model, maxCostSek });
+        console.log(
+          `  ✗ FÖRVÄNTAD REFUSERING UTEBLEV — extraktionen lyckades, men skulle ha kastat ScannedPdfError`,
+        );
+        refuseringsFel.push(fixture.namn);
+        rakning.totalFalt++;
+      } catch (error) {
+        if (error instanceof ScannedPdfError) {
+          console.log(`  ✓ Förväntad refusering — ${error.message}`);
+          rakning.totalFalt++;
+          rakning.godkanda++;
+        } else {
+          console.log(`  ✗ Fel typ av fel — förväntade ScannedPdfError, fick: ${felText(error)}`);
+          refuseringsFel.push(fixture.namn);
+          rakning.totalFalt++;
+        }
+      }
       continue;
     }
 
@@ -117,27 +197,49 @@ async function main() {
 
     for (const [id, forvantat] of Object.entries(fixture.nyckeltal)) {
       const kf = extraction.forening.keyFigures.find((k) => k.id === id);
-      const r = jamforVarde(id, kf?.figure.value ?? null, forvantat, "exakt");
-      totalFalt++;
-      if (r.godkand) godkanda++;
-      console.log(
-        `  ${r.godkand ? "✓" : "✗"} ${id}: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
-      );
 
-      // Status är nu deterministisk (benchmarks.ts) — det finns inget för
-      // modellen att "träffa fel" på, så det förväntade värdet härleds här
-      // från samma funktion produktionskoden använder, istället för att
-      // dupliceras för hand i varje fixture (vilket skulle bli inaktuellt
-      // så fort en tröskel ändras). Det som faktiskt testas är att
-      // berikning verkligen körs igenom den riktiga pipelinen — en
-      // sammankopplingsbugg, inte ett gissningsfel.
-      const forvantadStatus = bedomStatus(id as KeyFigureId, forvantat).status;
-      const statusGodkand = kf?.status === forvantadStatus;
-      totalFalt++;
-      if (statusGodkand) godkanda++;
-      console.log(
-        `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
-      );
+      if (typeof forvantat === "number") {
+        const r = jamforVarde(id, kf?.figure.value ?? null, forvantat, "exakt");
+        rakning.totalFalt++;
+        if (r.godkand) rakning.godkanda++;
+        console.log(
+          `  ${r.godkand ? "✓" : "✗"} ${id}: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}` +
+            (kf?.figure.tryckt ? ` (tryckt: "${kf.figure.tryckt}")` : ""),
+        );
+
+        // Status är nu deterministisk (benchmarks.ts) — det finns inget för
+        // modellen att "träffa fel" på, så det förväntade värdet härleds här
+        // från samma funktion produktionskoden använder, istället för att
+        // dupliceras för hand i varje fixture (vilket skulle bli inaktuellt
+        // så fort en tröskel ändras). Det som faktiskt testas är att
+        // berikning verkligen körs igenom den riktiga pipelinen — en
+        // sammankopplingsbugg, inte ett gissningsfel.
+        const forvantadStatus = bedomStatus(id as KeyFigureId, forvantat).status;
+        const statusGodkand = kf?.status === forvantadStatus;
+        rakning.totalFalt++;
+        if (statusGodkand) rakning.godkanda++;
+        console.log(
+          `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
+        );
+      } else {
+        // Sign-only expectation (e.g. "neg") — see jamforTecken's doc comment.
+        const r = jamforTecken(id, kf?.figure.value ?? null, kf?.figure.tecken, forvantat.tecken);
+        rakning.totalFalt++;
+        if (r.godkand) rakning.godkanda++;
+        console.log(
+          `  ${r.godkand ? "✓" : "✗"} ${id}.tecken: förväntat "${forvantat.tecken}", fick ` +
+            `${kf?.figure.tecken ? `"${kf.figure.tecken}"` : "inget tecken"}` +
+            ` (value: ${kf?.figure.value ?? "null"}${kf?.figure.tryckt ? `, tryckt: "${kf.figure.tryckt}"` : ""})`,
+        );
+
+        const forvantadStatus = bedomStatus(id as KeyFigureId, null, forvantat.tecken).status;
+        const statusGodkand = kf?.status === forvantadStatus;
+        rakning.totalFalt++;
+        if (statusGodkand) rakning.godkanda++;
+        console.log(
+          `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
+        );
+      }
     }
 
     if (fixture.lanebok?.totalSkuld !== undefined) {
@@ -147,8 +249,8 @@ async function main() {
         fixture.lanebok.totalSkuld,
         "exakt",
       );
-      totalFalt++;
-      if (r.godkand) godkanda++;
+      rakning.totalFalt++;
+      if (r.godkand) rakning.godkanda++;
       console.log(
         `  ${r.godkand ? "✓" : "✗"} lanebok.totalSkuld: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
       );
@@ -161,8 +263,8 @@ async function main() {
         fixture.lanebok.snittranta,
         "ungefar",
       );
-      totalFalt++;
-      if (r.godkand) godkanda++;
+      rakning.totalFalt++;
+      if (r.godkand) rakning.godkanda++;
       const avvikelse =
         r.avvikelseProcent !== undefined ? ` (${r.avvikelseProcent.toFixed(2)}% avvikelse)` : "";
       console.log(
@@ -178,8 +280,8 @@ async function main() {
           faktisktInkluderar?.[post as keyof FeeInclusion],
           forvantat,
         );
-        totalFalt++;
-        if (r.godkand) godkanda++;
+        rakning.totalFalt++;
+        if (r.godkand) rakning.godkanda++;
         console.log(
           `  ${r.godkand ? "✓" : "✗"} avgiftInkluderar.${post}: förväntat "${r.forvantat}", fick "${r.faktiskt ?? "saknas"}"`,
         );
@@ -190,14 +292,29 @@ async function main() {
   }
 
   console.log(`\n${"=".repeat(70)}`);
+  console.log("VERIFIERADE FIXTURER (facit avstämt mot originalrapporten):");
   console.log(
-    `${godkanda}/${totalFalt} fält godkända.` +
+    `  ${verifierad.godkanda}/${verifierad.totalFalt} fält godkända.` +
       (hoppadeOver > 0 ? ` ${hoppadeOver} rapport(er) överhoppade (PDF saknas).` : "") +
       (misslyckade > 0
         ? ` ${misslyckade} rapport(er) misslyckades (körningen gick inte att slutföra).`
+        : "") +
+      (refuseringsFel.length > 0
+        ? ` ${refuseringsFel.length} förväntad refusering uteblev: ${refuseringsFel.join(", ")}.`
         : ""),
   );
-  process.exitCode = godkanda === totalFalt && hoppadeOver === 0 && misslyckade === 0 ? 0 : 1;
+
+  if (utkastRapporter.length > 0) {
+    console.log(
+      `\nUTKAST — INTE verifierade mot originalrapporten av produktägaren (rapporteras separat, räknas INTE in ovan):`,
+    );
+    console.log(`  Rapporter: ${utkastRapporter.join(", ")}`);
+    console.log(`  ${utkast.godkanda}/${utkast.totalFalt} fält godkända (utkast).`);
+  }
+
+  const allaGodkanda = verifierad.godkanda === verifierad.totalFalt;
+  process.exitCode =
+    allaGodkanda && hoppadeOver === 0 && misslyckade === 0 && refuseringsFel.length === 0 ? 0 : 1;
 }
 
 main().catch((error: unknown) => {

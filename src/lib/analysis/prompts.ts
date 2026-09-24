@@ -8,7 +8,7 @@ import { BENCHMARKS } from "./benchmarks";
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "1";
+export const PROMPT_VERSION = "2";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -145,6 +145,13 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
         "figure": { "value": 670, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 8, "excerpt": "Årsavgift kr/kvm upplåten med bostadsrätt 670" } },
         "status": "okant",
         "forklaring": "Vad du betalar per kvadratmeter och år i avgift."
+      },
+      {
+        "id": "sparande_per_m2_totalyta",
+        "label": "Sparande per m² totalyta",
+        "figure": { "value": null, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 4, "excerpt": "Sparande per kvm, kr neg neg neg" }, "tryckt": "neg" },
+        "status": "okant",
+        "forklaring": "Hur mycket föreningen sparar per kvadratmeter totalyta och år."
       }
     ],
     "lanebok": {
@@ -188,6 +195,7 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - avgiftInkluderarEnligtForening: sätt "ja"/"nej" per post (varme/vatten/el/bredband/tv) ENDAST när rapporten uttryckligen säger det (t.ex. "i årsavgiften ingår värme och vatten" eller "elkostnader ingår inte i avgiften"). Dra ALDRIG slutsatsen "nej" bara för att en post inte nämns, och gissa aldrig utifrån vad som är vanligt i svenska bostadsrättsföreningar i allmänhet — det räknas som att gissa, inte att läsa. Sätt "okant" för varje post rapporten inte uttryckligen tar ställning till. Utelämna hela fältet om rapporten inte säger något alls om vad som ingår i avgiften.
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
 - Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta i sig själva, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
+- Om cellen för ett nyckeltal INTE är ett rent tal — t.ex. "neg", "negativ", "(123)", "−4,2", "-", eller en kolumn märkt "tkr" — kopiera det exakt som det står i rapporten (tecken, mellanslag och allt) till figure.tryckt. Sätt figure.value till din bästa läsning av talet om du kan utläsa ett (annars null); ett senare, deterministiskt steg tolkar tryckt på nytt och den tolkningen vinner ALLTID över value när tryckt är satt, så en ofullständig gissning i value kostar ingenting — men hitta aldrig på en siffra som inte alls går att utläsa ur cellen. Sätt ALDRIG fältet "tecken" själv — det sätts uteslutande i det deterministiska steget, aldrig av dig. Är cellen redan ett rent tal (t.ex. "670" eller "-1 200"): utelämna tryckt helt, precis som idag.
 - Tristate-fält (akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.
 - forklaring: enkelt, rakt språk utan facktermer — en mening om vad talet betyder för köparen.
 - datakvalitet.pdfSaknarTextlager: sätt alltid till false (styrs separat av anroparen).

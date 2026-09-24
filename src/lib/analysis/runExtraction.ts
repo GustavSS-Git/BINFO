@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractionResult } from "@/types/analysis";
-import { berikaNyckeltal } from "./benchmarks";
+import { berikaNyckeltal, implausibelNegativAnmarkning } from "./benchmarks";
 import { extractPdfText } from "./pdf";
-import { extractWithRetry, type ModelCaller } from "./extract";
+import { ModelTruncatedError, extractWithRetry, type ModelCaller } from "./extract";
+import { tolkaNyckeltal } from "./tolkaVarde";
 import {
   buildExtractionSystemPrompt,
   buildExtractionUserPrompt,
@@ -53,6 +54,11 @@ export interface AnthropicClientLike {
     }): Promise<{
       usage: { input_tokens: number; output_tokens: number };
       content: Array<{ type: string; text?: string; citations?: unknown }>;
+      /** "max_tokens" means the response was cut off before it finished —
+       *  see ModelTruncatedError. Optional because test doubles built before
+       *  this field existed still omit it; treated the same as any other
+       *  non-"max_tokens" value (i.e. not truncated). */
+      stop_reason?: string | null;
     }>;
   };
 }
@@ -193,7 +199,14 @@ export async function runGrounding(
     model = "claude-sonnet-5",
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
-    maxOutputTokensGrounding = 8000,
+    // 16000, not the earlier 8000 — a baseline run already saw grounding's
+    // output reach 6099 of that 8000-token cap (largely Sonnet 5's adaptive
+    // thinking, which counts as output). A truncated grounding response
+    // wouldn't even fail loudly on its own — it's free text, not JSON, so a
+    // cut-off answer just silently produces a weaker groundingText instead
+    // of an error. The explicit stop_reason check below exists for exactly
+    // this call.
+    maxOutputTokensGrounding = 16000,
   } = options;
 
   // Step 0 — cheap local check, no API spend. A scanned PDF must fail
@@ -247,6 +260,14 @@ export async function runGrounding(
     pricing,
   );
 
+  // Grounding's output is free text, not JSON — a truncated response would
+  // otherwise pass through silently as a merely-shorter groundingText
+  // instead of an error, and extraction downstream would just see fewer
+  // findings than the report actually contains.
+  if (groundingResponse.stop_reason === "max_tokens") {
+    throw new ModelTruncatedError("Grundningen", maxOutputTokensGrounding);
+  }
+
   const findings = extractGroundingFindings(groundingResponse.content as GroundingTextBlock[]);
   const groundingText = formatGroundingForExtraction(findings);
 
@@ -273,7 +294,11 @@ export async function runStructuredExtraction(
     model = "claude-sonnet-5",
     maxCostSek,
     pricing = SONNET_5_PRISSATTNING,
-    maxOutputTokensExtraction = 12000,
+    // 16000, not the earlier 12000 — a baseline run already saw extraction's
+    // output reach 10101 of that 12000-token cap, close enough that a
+    // slightly denser report tips it into the same truncation Volontären
+    // hit in judging (see analyze.ts).
+    maxOutputTokensExtraction = 16000,
     pdfSaknarTextlager = false,
   } = options;
 
@@ -296,6 +321,13 @@ export async function runStructuredExtraction(
     });
     spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
 
+    // Diagnose a cut-off response immediately (see ModelTruncatedError) —
+    // otherwise it's just malformed JSON to parseModelJson below, and the
+    // retry would very likely hit the same truncation again for no benefit.
+    if (response.stop_reason === "max_tokens") {
+      throw new ModelTruncatedError("Extraktionen", maxOutputTokensExtraction);
+    }
+
     const raw = parseModelJson(response.content);
     // pdfSaknarTextlager is already known deterministically from grounding's
     // step 0 — never trust the model's own claim about it, override unconditionally.
@@ -310,14 +342,56 @@ export async function runStructuredExtraction(
 
   const extraction = await extractWithRetry(extractionSystem, extractionUser, callModel);
 
-  // Pass 1's prompt now always emits status: "okant" (see buildExtractionSystemPrompt) —
-  // the model isn't asked to judge, only to find and cite. This is where the judgement
-  // actually happens: deterministic, benchmark-backed, and consistent across reports.
+  // Deterministic reconciliation, in order:
+  //   1. tolkaNyckeltal — for any figure whose printed cell was not a plain
+  //      number (figure.tryckt set), the deterministic parser's reading of
+  //      that verbatim text OVERRIDES whatever number the model itself put
+  //      in figure.value. A regex over the report's own text is strictly
+  //      more trustworthy than the model's own arithmetic on it.
+  //   2. berikaNyckeltal — pass 1's prompt always emits status: "okant" (see
+  //      buildExtractionSystemPrompt); the model isn't asked to judge, only
+  //      to find and cite. This is where the judgement actually happens:
+  //      deterministic, benchmark-backed, and now sign-aware (a figure whose
+  //      only known fact is its tecken can still be graded — see
+  //      benchmarks.ts's bedomStatus).
+  // Any disagreement either step surfaces (the model's number vs. the
+  // printed text, or an implausible negative reading on a "lower is
+  // better" figure) is recorded in datakvalitet.extraktionKonfidens.skal —
+  // there is no dedicated field for it in the contract, and this is an
+  // existing one built for exactly "why confidence is reduced".
+  const { keyFigures: tolkadeNyckeltal, avvikelser: tolkningsAvvikelser } = tolkaNyckeltal(
+    extraction.forening.keyFigures,
+  );
+  const gradeadeNyckeltal = berikaNyckeltal(tolkadeNyckeltal);
+  const implausibelaAnmarkningar = gradeadeNyckeltal
+    .map((kf) => implausibelNegativAnmarkning(kf))
+    .filter((s): s is string => s !== undefined);
+  const anmarkningar = [...tolkningsAvvikelser, ...implausibelaAnmarkningar];
+
+  const extraktionKonfidens =
+    anmarkningar.length > 0
+      ? {
+          // A disagreement between the model and the printed text (or an
+          // implausible negative reading) is exactly the kind of thing that
+          // should visibly lower confidence — but never RAISE it back to
+          // "hog" if something else already lowered it further ("lag").
+          niva:
+            extraction.datakvalitet.extraktionKonfidens.niva === "hog"
+              ? ("medel" as const)
+              : extraction.datakvalitet.extraktionKonfidens.niva,
+          skal: [...(extraction.datakvalitet.extraktionKonfidens.skal ?? []), ...anmarkningar],
+        }
+      : extraction.datakvalitet.extraktionKonfidens;
+
   const enrichedExtraction: ExtractionResult = {
     ...extraction,
     forening: {
       ...extraction.forening,
-      keyFigures: berikaNyckeltal(extraction.forening.keyFigures),
+      keyFigures: gradeadeNyckeltal,
+    },
+    datakvalitet: {
+      ...extraction.datakvalitet,
+      extraktionKonfidens,
     },
   };
 

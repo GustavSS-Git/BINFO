@@ -69,6 +69,15 @@ const FigureObjectSchema = z
     ref: PageRefSchema.optional(),
     schablonBasis: z.string().optional(),
     range: z.object({ low: z.number(), high: z.number() }).strict().optional(),
+    /** Sign known even when the amount is not — e.g. the report prints
+     *  "neg" for sparande. Only ever set by tolkaVarde.ts's deterministic
+     *  parser, never by the model directly (the extraction prompt asks the
+     *  model for `tryckt` instead) — but validated here regardless, since
+     *  model output (and anything derived from it) is untrusted input. */
+    tecken: z.enum(["negativ", "positiv"]).optional(),
+    /** The value exactly as printed in the report when it was not a plain
+     *  number, e.g. "neg", "(123)", "− 4,2". */
+    tryckt: z.string().optional(),
   })
   .strict();
 
@@ -97,6 +106,19 @@ function refineFigure(figure: z.infer<typeof FigureObjectSchema>, ctx: z.Refinem
       message:
         "En figur med source 'schablon' måste ha schablonBasis — en gissning får aldrig se ut som ett faktum.",
     });
+  }
+  // tecken only ever stands in for a missing magnitude (value null) or must
+  // agree with the sign value already carries — never a silent contradiction
+  // like { value: 42, tecken: "negativ" }.
+  if (figure.tecken !== undefined && figure.value !== null) {
+    const tecknetAvVarde = figure.value > 0 ? "positiv" : figure.value < 0 ? "negativ" : undefined;
+    if (tecknetAvVarde === undefined || tecknetAvVarde !== figure.tecken) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tecken"],
+        message: `tecken ('${figure.tecken}') matchar inte value:s eget tecken (${figure.value}) — de får aldrig motsäga varandra.`,
+      });
+    }
   }
 }
 

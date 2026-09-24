@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { ExtractionValidationError } from "./extract";
+import { ExtractionValidationError, ModelTruncatedError } from "./extract";
 import { KostnadsgransOverskriden } from "./costGuard";
 import { ScannedPdfError, runExtraction } from "./runExtraction";
 import { AnalysValidationError, runAnalys } from "./analyze";
@@ -143,7 +143,8 @@ main().catch((error: unknown) => {
     error instanceof AnalysValidationError ||
     error instanceof AssemblyValidationError ||
     error instanceof SaknarRantekanslighetError ||
-    error instanceof OgiltigInputfilError
+    error instanceof OgiltigInputfilError ||
+    error instanceof ModelTruncatedError
   ) {
     console.error(`FEL: ${error.message}`);
   } else {
