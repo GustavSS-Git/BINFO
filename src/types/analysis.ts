@@ -239,6 +239,55 @@ export interface Prisanalys {
   /** One or two sentences. States the gap and whether it looks justified. */
   slutsats: string;
   konfidens: Konfidens;
+  /** What Binfo's own valuation model rests on. Present only when
+   *  externVardering comes from that model (source 'schablon', range = the
+   *  prediction interval). */
+  varderingsunderlag?: Varderingsunderlag;
+  /** How far above/below utgångspris comparable homes have sold. */
+  budpremie?: Budpremie;
+}
+
+/** A calendar period, ISO dates (YYYY-MM-DD). */
+export interface Dataperiod {
+  fran: string;
+  till: string;
+}
+
+export interface Varderingsdrivare {
+  /** Plain Swedish, e.g. "Ingen hiss". */
+  label: string;
+  /** Average effect on price, all else equal, in percent (signed). */
+  effektProcent: number;
+  /** 95 % confidence interval of the effect, in percent. */
+  intervallProcent: { low: number; high: number };
+  /** 'omrade' only where the data supports an area-specific effect. */
+  niva: 'stad' | 'omrade';
+}
+
+export interface Varderingsunderlag {
+  modellVersion: string;
+  /** The area the postnummer maps to; null = no match, Stockholm-wide model. */
+  omrade: string | null;
+  /** Nominal coverage of externVardering.range, percent (e.g. 90). */
+  intervallTackningProcent: number;
+  /** Price level the estimate represents (the training period). */
+  dataperiod: Dataperiod;
+  /** Number of sales the model was trained on. */
+  antalForsaljningar: number;
+  /** Typical error (MAPE, percent) for this area, or overall. */
+  typisktFelProcent: number;
+  /** Average effects relevant to this apartment's attributes. */
+  drivare: Varderingsdrivare[];
+}
+
+export interface Budpremie {
+  /** The area the statistic describes; null = Stockholm average (fallback). */
+  omrade: string | null;
+  /** Signed percent: positive means sold above utgångspris. */
+  medianProcent: number;
+  medelProcent: number;
+  n: number;
+  dataperiod: Dataperiod;
 }
 
 /** Layer 3 — forward risk, expressed in kronor per month for THIS apartment,
