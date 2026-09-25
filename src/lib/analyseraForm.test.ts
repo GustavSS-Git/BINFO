@@ -147,6 +147,17 @@ describe("validateraAnalyseraForm", () => {
     expect(fel.utgangspris).not.toBeNull();
   });
 
+  it("kräver ett svenskt postnummer (fem siffror, valfritt mellanslag)", () => {
+    for (const ok of ["116 25", "11625", " 116 25 "]) {
+      expect(validateraAnalyseraForm(tomtFormulär({ postnummer: ok })).postnummer).toBeNull();
+    }
+    for (const fel of ["abc", "1", "999999999", "116-25", "1162"]) {
+      expect(validateraAnalyseraForm(tomtFormulär({ postnummer: fel })).postnummer).toBe(
+        "Ange ett postnummer med fem siffror, t.ex. 116 25.",
+      );
+    }
+  });
+
   it("godkänner ett komplett, giltigt formulär", () => {
     const fel = validateraAnalyseraForm(
       tomtFormulär({

@@ -116,7 +116,12 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
-    postnummer: f.postnummer.trim() === "" ? "Ange postnummer." : null,
+    postnummer:
+      f.postnummer.trim() === ""
+        ? "Ange postnummer."
+        : /^\d{3} ?\d{2}$/.test(f.postnummer.trim())
+          ? null
+          : "Ange ett postnummer med fem siffror, t.ex. 116 25.",
     ort: f.ort.trim() === "" ? "Ange ort." : null,
   };
 }
