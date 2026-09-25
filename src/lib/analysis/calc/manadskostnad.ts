@@ -51,7 +51,7 @@ export function beraknaManadskostnad(input: PropertyInput, lan: LaneUnderlag): M
   const s = schabloner(input.boarea, input.antalPersoner);
 
   // Hushållsel/värme/vatten/bredband kan vara täckta av avgiften — samma
-  // fem schabloner som src/data/schabloner.ts, nu Figure-inpackade med
+  // fem schabloner som i calc/schabloner.ts, Figure-inpackade med
   // proveniens. Hemförsäkring är aldrig en avgiftspost. Notera: FeeInclusion
   // har ett "tv"-fält (rapporterna kan uttala sig om det, se
   // avgiftInkluderarEnligtForening), men varken schabloner.ts eller

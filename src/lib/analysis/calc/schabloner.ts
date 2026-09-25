@@ -2,7 +2,7 @@ import type { Figure } from "@/types/analysis";
 
 /**
  * Schabloner för boendekostnader — samma formler som redan används i
- * src/data/schabloner.ts (mock-lagret), men här paketerade som Figure så
+ * den tidigare src/data/schabloner.ts (borttagen), men här paketerade som Figure så
  * att source/schablonBasis följer med talet in i analysen istället för att
  * bara vara ett bart nummer i UI:t.
  *

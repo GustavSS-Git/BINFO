@@ -108,7 +108,7 @@ function Bolanekalkyl() {
   // Egna värden som ersätter schablonerna när användaren redigerar en rad.
   const [egna, setEgna] = useState<Partial<Record<CostItemId, number>>>({});
 
-  // Boarean styr schablonerna för el/värme/vatten (src/data/schabloner.ts).
+  // Boarean styr schablonerna för el/värme/vatten (src/lib/analysis/calc/schabloner.ts).
   // Delad "uppgifter"-butik, samma som /analysera skriver till — så en
   // förifylld boarea från analysen ersätter mockdatans generiska default en
   // gång vid mount, precis som lånebeloppet ovan.

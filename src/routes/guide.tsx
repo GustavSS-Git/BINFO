@@ -10,7 +10,8 @@ export const Route = createFileRoute("/guide")({
       { title: "Guide: hela bostadsköpet steg för steg — Binfo" },
       {
         name: "description",
-        content: "Från lånelöfte till tillträde: varje steg i det svenska bostadsköpet med varningar och tips.",
+        content:
+          "Från lånelöfte till tillträde: varje steg i det svenska bostadsköpet med varningar och tips.",
       },
       { property: "og:title", content: "Guide: hela bostadsköpet steg för steg — Binfo" },
       {
@@ -67,7 +68,9 @@ const steg: Steg[] = [
     sammanfattning: "Lägg upp bevakningar på Hemnet och Booli och lär dig ditt område.",
     beskrivning:
       "Bevaka Hemnet och Booli i de områden du är intresserad av. Sätt upp sparade sökningar med dina kriterier så att du ser objekten tidigt. Följ slutpriserna, inte bara annonserna, så att du vet vad som är en rimlig nivå när rätt bostad dyker upp.",
-    flaggor: ["Utgångspriset är ett marknadsföringsverktyg, inte en värdering. Jämför alltid mot faktiska slutpriser."],
+    flaggor: [
+      "Utgångspriset är ett marknadsföringsverktyg, inte en värdering. Jämför alltid mot faktiska slutpriser.",
+    ],
     tips: [
       "Bevaka även 'kommande objekt' och sålda objekt i samma förening.",
       "Spara annonsen och objektbeskrivningen. De kan behövas om något visar sig inte stämma.",
@@ -103,7 +106,8 @@ const steg: Steg[] = [
     tips: [
       "Be om de två senaste årsredovisningarna så att du ser utvecklingen",
       <>
-        Ta hjälp av Binfos analysverktyg som granskar föreningen, ger den ett betyg och flaggar saker du borde veta:{" "}
+        Ta hjälp av Binfos analysverktyg som granskar föreningen, ger den ett betyg och flaggar
+        saker du borde veta:{" "}
         <a href="/analysera" className="font-medium text-primary underline underline-offset-2">
           Analysera föreningen här
         </a>
@@ -199,7 +203,10 @@ const steg: Steg[] = [
     sammanfattning: "Styrelsen prövar och godkänner dig som medlem.",
     beskrivning:
       "Efter kontraktet ansöker du om medlemskap. Styrelsen prövar ansökan enligt stadgarna och bostadsrättslagen,vanligtvis inom några veckor. U",
-    flaggor: ["Nekas du medlemskap blir köpet ogiltigt.", "Köper ni tillsammans ska ni båda ansöka om medlemskap"],
+    flaggor: [
+      "Nekas du medlemskap blir köpet ogiltigt.",
+      "Köper ni tillsammans ska ni båda ansöka om medlemskap",
+    ],
     tips: ["Skicka in ansökan i god tid före tillträdet."],
     only: "brf",
   },
@@ -209,8 +216,12 @@ const steg: Steg[] = [
     sammanfattning: "Ansök om lagfart hos Lantmäteriet och ordna pantbrev.",
     beskrivning:
       "Lagfart söks inom tre månader från tillträdet och kostar 1,5 % av köpeskillingen i stämpelskatt plus expeditionsavgift. Nya pantbrev kostar 2 % av beloppet.",
-    flaggor: ["Stämpelskatt och pantbrevskostnader är stora belopp som ofta glöms bort i kalkylen."],
-    tips: ["Kontrollera vilka befintliga pantbrev som redan finns i fastigheten — de kan återanvändas."],
+    flaggor: [
+      "Stämpelskatt och pantbrevskostnader är stora belopp som ofta glöms bort i kalkylen.",
+    ],
+    tips: [
+      "Kontrollera vilka befintliga pantbrev som redan finns i fastigheten — de kan återanvändas.",
+    ],
     only: "hus",
   },
   {
@@ -247,7 +258,8 @@ function Guide() {
   const antalKlara = klara.filter((id) => synliga.some((s) => s.id === id)).length;
   const progress = Math.round((antalKlara / synliga.length) * 100);
 
-  const toggleKlar = (id: string) => setKlara((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]));
+  const toggleKlar = (id: string) =>
+    setKlara((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]));
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-14">
@@ -276,7 +288,10 @@ function Guide() {
       </div>
 
       <div className="mb-10 h-2 w-full overflow-hidden rounded-full bg-secondary">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${progress}%` }}
+        />
       </div>
 
       <div className="space-y-14">
@@ -288,7 +303,10 @@ function Guide() {
               </h2>
             </div>
 
-            <ol className="relative space-y-4 border-l border-border pl-6 md:pl-8" start={grupp.start + 1}>
+            <ol
+              className="relative space-y-4 border-l border-border pl-6 md:pl-8"
+              start={grupp.start + 1}
+            >
               {synliga.slice(grupp.start, grupp.slut).map((s, index) => {
                 const stegnummer = grupp.start + index + 1;
                 const isOpen = open === s.id;

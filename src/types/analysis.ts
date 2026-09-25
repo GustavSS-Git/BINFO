@@ -20,15 +20,15 @@
 /** Three-state answer. `okant` is the default for anything the user has not
  *  explicitly answered. It must survive all the way into the analysis, because
  *  "no balcony" and "we don't know about a balcony" price differently. */
-export type Tristate = 'ja' | 'nej' | 'okant';
+export type Tristate = "ja" | "nej" | "okant";
 
 /** Where a number came from. Drives how it renders and how much it is trusted. */
 export type ValueSource =
-  | 'arsredovisning' // extracted from the annual report — authoritative
-  | 'anvandare'      // typed in by the user — authoritative
-  | 'berakning'      // derived from other authoritative values
-  | 'schablon'       // system estimate — MUST render visually distinct
-  | 'extern';        // third-party data (valuation, comparable sales)
+  | "arsredovisning" // extracted from the annual report — authoritative
+  | "anvandare" // typed in by the user — authoritative
+  | "berakning" // derived from other authoritative values
+  | "schablon" // system estimate — MUST render visually distinct
+  | "extern"; // third-party data (valuation, comparable sales)
 
 /** Location in the source PDF. Required for anything extracted, so the user
  *  can verify the figure themselves. An uncited number is not shippable. */
@@ -42,7 +42,7 @@ export interface PageRef {
 /** A number plus everything needed to display and trust it. */
 export interface Figure {
   value: number | null;
-  unit: 'kr' | 'kr/man' | 'kr/m2' | 'kr/m2/ar' | 'procent' | 'm2' | 'ar' | 'antal' | 'gånger';
+  unit: "kr" | "kr/man" | "kr/m2" | "kr/m2/ar" | "procent" | "m2" | "ar" | "antal" | "gånger";
   source: ValueSource;
   ref?: PageRef;
   /** Set when source is 'schablon' — how the estimate was produced, shown on hover. */
@@ -54,21 +54,21 @@ export interface Figure {
    * "negativ" for sparande. `value` is then null, but the figure is NOT
    * unknown: grading uses the sign. Only set from the report's own text.
    */
-  tecken?: 'negativ' | 'positiv';
+  tecken?: "negativ" | "positiv";
   /** The value exactly as printed in the report when it was not a plain number (e.g. "neg"). */
   tryckt?: string;
 }
 
-export type Status = 'god' | 'acceptabel' | 'svag' | 'kritisk' | 'okant';
+export type Status = "god" | "acceptabel" | "svag" | "kritisk" | "okant";
 
 /** Overall grade. Deliberately coarse — false precision is worse than none. */
-export type Grade = 'A' | 'B' | 'C' | 'D' | 'E';
+export type Grade = "A" | "B" | "C" | "D" | "E";
 
 // ---------------------------------------------------------------------------
 // Input
 // ---------------------------------------------------------------------------
 
-export type PropertyKind = 'bostadsratt' | 'hus';
+export type PropertyKind = "bostadsratt" | "hus";
 
 /** Whether a cost is covered by the monthly fee. Drives the cost model:
  *  `okant` forces the total to render as a range rather than a point. */
@@ -121,13 +121,13 @@ export interface PropertyInput {
 // ---------------------------------------------------------------------------
 
 export type KeyFigureId =
-  | 'arsavgift_per_m2_brf_yta'
-  | 'arsavgift_andel_av_rorelseintakter'
-  | 'skuldsattning_per_m2_totalyta'
-  | 'skuldsattning_per_m2_brf_yta'
-  | 'sparande_per_m2_totalyta'
-  | 'rantekanslighet'
-  | 'energikostnad_per_m2_totalyta';
+  | "arsavgift_per_m2_brf_yta"
+  | "arsavgift_andel_av_rorelseintakter"
+  | "skuldsattning_per_m2_totalyta"
+  | "skuldsattning_per_m2_brf_yta"
+  | "sparande_per_m2_totalyta"
+  | "rantekanslighet"
+  | "energikostnad_per_m2_totalyta";
 
 export interface KeyFigure {
   id: KeyFigureId;
@@ -150,12 +150,12 @@ export interface KeyFigure {
 export interface Forening {
   namn: string;
   orgnr: string;
-  akta: Tristate;                 // äkta vs oäkta — tax consequences for the buyer
+  akta: Tristate; // äkta vs oäkta — tax consequences for the buyer
   byggar?: Figure;
   antalLagenheter?: Figure;
   totalyta?: Figure;
-  rakenskapsar: number;           // which financial year the report covers
-  keyFigures: KeyFigure[];        // all seven, even when value is null
+  rakenskapsar: number; // which financial year the report covers
+  keyFigures: KeyFigure[]; // all seven, even when value is null
 
   /** What the annual report itself states is covered by the fee, per item.
    *  `okant` when the report doesn't address that item. This is the
@@ -171,7 +171,9 @@ export interface Forening {
   avgiftInkluderarKallor?: Partial<Record<keyof FeeInclusion, PageRef>>;
   /** Individual metering (IMD) per consumption item, only where the report
    *  says so ('ja'/'nej'); absent = the report doesn't address it. */
-  individuellMatning?: Partial<Record<'el' | 'vatten' | 'varme', { matning: Tristate; ref: PageRef }>>;
+  individuellMatning?: Partial<
+    Record<"el" | "vatten" | "varme", { matning: Tristate; ref: PageRef }>
+  >;
 
   /** Counts the report states, each cited like any other extracted figure. */
   antalMedlemmar?: Figure;
@@ -215,7 +217,7 @@ export interface Forening {
 // Analysis layers 2–4 (the differentiated product)
 // ---------------------------------------------------------------------------
 
-export type Severity = 'hog' | 'medel' | 'lag';
+export type Severity = "hog" | "medel" | "lag";
 
 export interface RedFlag {
   id: string;
@@ -272,7 +274,7 @@ export interface Varderingsdrivare {
   /** 95 % confidence interval of the effect, in percent. */
   intervallProcent: { low: number; high: number };
   /** 'omrade' only where the data supports an area-specific effect. */
-  niva: 'stad' | 'omrade';
+  niva: "stad" | "omrade";
 }
 
 export interface Varderingsunderlag {
@@ -325,20 +327,20 @@ export interface Rantestress {
 // ---------------------------------------------------------------------------
 
 export type CostItemId =
-  | 'rantekostnad'
-  | 'amortering'
-  | 'ranteavdrag'      // negative
-  | 'manadsavgift'
-  | 'hushallsel'
-  | 'varme'
-  | 'vatten'
-  | 'bredband'
-  | 'hemforsakring';
+  | "rantekostnad"
+  | "amortering"
+  | "ranteavdrag" // negative
+  | "manadsavgift"
+  | "hushallsel"
+  | "varme"
+  | "vatten"
+  | "bredband"
+  | "hemforsakring";
 
 export interface CostItem {
   id: CostItemId;
   label: string;
-  figure: Figure;      // source 'schablon' renders visually distinct
+  figure: Figure; // source 'schablon' renders visually distinct
   /** True when the user overrode the schablon with their own figure. */
   overriddenByUser: boolean;
   /** True when this item is excluded because the fee covers it. */
@@ -353,8 +355,8 @@ export interface CostItem {
  *   (typically 5–6x) but it must never drive `tillampadAmorteringstakt`.
  */
 export interface Amorteringsunderlag {
-  belaningsgrad: number;              // percent
-  skuldkvot: number;                  // loan / gross annual income
+  belaningsgrad: number; // percent
+  skuldkvot: number; // loan / gross annual income
   tillampadAmorteringstakt: 0 | 1 | 2; // percent per year — never 3
   /** Set when skuldkvot exceeds typical bank internal limits. Informational. */
   overBankernasTypiskaTak: boolean;
@@ -392,8 +394,8 @@ export interface Fraga {
   /** 'analys' = derived from something concerning in the accounts.
    *  'saknad_uppgift' = auto-generated from a Tristate left at 'okant'.
    *  These render in separate groups. */
-  ursprung: 'analys' | 'saknad_uppgift';
-  riktadTill: 'styrelsen' | 'maklaren' | 'banken';
+  ursprung: "analys" | "saknad_uppgift";
+  riktadTill: "styrelsen" | "maklaren" | "banken";
   varfor: string;
   ref?: PageRef;
 }
@@ -403,7 +405,7 @@ export interface Fraga {
 // ---------------------------------------------------------------------------
 
 export interface Konfidens {
-  niva: 'hog' | 'medel' | 'lag';
+  niva: "hog" | "medel" | "lag";
   /** Why confidence is reduced. Shown to the user verbatim. */
   skal?: string[];
 }
@@ -425,7 +427,7 @@ export interface Datakvalitet {
 
 export interface AnalysisResult {
   /** Bump on any breaking change to this contract. */
-  schemaVersion: '1.0.0';
+  schemaVersion: "1.0.0";
   analysisId: string;
   skapad: string; // ISO 8601
 
@@ -444,7 +446,7 @@ export interface AnalysisResult {
 
   /** Which parts are visible before payment. Everything else is blurred.
    *  The free tier must be genuinely useful and visibly incomplete. */
-  gratisSektioner: Array<'betyg' | 'rodaFlaggor_topp2' | 'datakvalitet'>;
+  gratisSektioner: Array<"betyg" | "rodaFlaggor_topp2" | "datakvalitet">;
 }
 
 /**
@@ -488,10 +490,7 @@ export interface Forhandsvisning {
  *  applied. Keeping this separate is what makes extraction independently
  *  testable against a manual answer key. */
 export interface ExtractionResult {
-  schemaVersion: '1.0.0';
+  schemaVersion: "1.0.0";
   forening: Forening;
-  datakvalitet: Pick<
-    Datakvalitet,
-    'pdfSaknarTextlager' | 'extraktionKonfidens' | 'saknadeFalt'
-  >;
+  datakvalitet: Pick<Datakvalitet, "pdfSaknarTextlager" | "extraktionKonfidens" | "saknadeFalt">;
 }

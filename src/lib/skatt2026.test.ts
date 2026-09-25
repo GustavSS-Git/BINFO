@@ -43,7 +43,9 @@ describe("kontrollvärden per låntagare", () => {
 describe("hushåll", () => {
   it("fall B: 540 000 + 420 000 kr, räntan delas lika", () => {
     const h = beraknaHushallSkatt([540_000, 420_000], ARSRANTA);
-    expect(Math.abs(h.slutligSkattUtanRanteavdragPerAr - (110_274 + 77_985))).toBeLessThanOrEqual(2);
+    expect(Math.abs(h.slutligSkattUtanRanteavdragPerAr - (110_274 + 77_985))).toBeLessThanOrEqual(
+      2,
+    );
     expect(Math.abs(h.nettoinkomstPerManad - 64_312)).toBeLessThanOrEqual(2);
     expect(Math.abs(h.ranteavdragPerAr - 40_096)).toBeLessThanOrEqual(2);
     expect(h.ranteavdragForloratPerAr).toBe(0);

@@ -37,9 +37,9 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-5 text-sm text-muted-foreground">
         <p className="font-display text-lg text-foreground">Binfo</p>
         <p className="mt-2 max-w-xl">
-          Oberoende stöd för bostadsköpare, från lånelöfte till tillträde. Binfo är inte kopplat till mäklare, bank
-          eller förening. Analyserna är beslutsstöd, inte finansiell rådgivning. Slutgiltiga ansvaret ligger hos du som
-          köpare.
+          Oberoende stöd för bostadsköpare, från lånelöfte till tillträde. Binfo är inte kopplat
+          till mäklare, bank eller förening. Analyserna är beslutsstöd, inte finansiell rådgivning.
+          Slutgiltiga ansvaret ligger hos du som köpare.
         </p>
       </div>
     </footer>

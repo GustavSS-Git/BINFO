@@ -145,7 +145,13 @@ export function StatusDot({
   );
 }
 
-export function StatusLabel({ status, className }: { status: Status | AnalysStatus; className?: string }) {
+export function StatusLabel({
+  status,
+  className,
+}: {
+  status: Status | AnalysStatus;
+  className?: string;
+}) {
   return (
     <span className={cn("block text-xs font-semibold", statusTextColors[status], className)}>
       {statusLabels[status]}

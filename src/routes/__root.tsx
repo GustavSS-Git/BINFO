@@ -81,8 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Binfo — oberoende riskkontroll för bostadsköpare" },
       {
         name: "description",
-        content:
-          "Binfo granskar föreningens ekonomi, priset och räntekänsligheten innan du budar.",
+        content: "Binfo granskar föreningens ekonomi, priset och räntekänsligheten innan du budar.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

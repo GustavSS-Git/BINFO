@@ -29,7 +29,7 @@ BRF, Allabrf) already grade the *cooperative*; Binfo's point is grading the
 | `src/lib/analysis/` | Extraction + analysis pipeline, `calc/` (pure calculators), `benchmarks.ts`, `prisdata.ts` (price source) |
 | `src/server/` | Server-only: job state machine (`steg.ts`), caches, spend guard, env, Supabase access. `analysFn.ts` is the only client-importable file. |
 | `src/types/analysis.ts` | **The contract** for an analysis result, shared by client and server |
-| `src/data/` | `sampleAnalysis.ts` (static demo on `/exempel`), `mockData.ts` (calculator defaults), `schabloner.ts` (cost schablons) |
+| `src/data/` | `sampleAnalysis.ts` (static demo on `/exempel`), `mockData.ts` (calculator defaults). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`. |
 | `supabase/` | SQL migrations and the Edge Function `analys-steg` |
 | `fixtures/answer-key/` | Hand-verified nyckeltal per test report |
 | `annual reports examples/` | Real test PDFs — gitignored, never commit |

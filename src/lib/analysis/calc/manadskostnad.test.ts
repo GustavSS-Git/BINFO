@@ -72,7 +72,7 @@ describe("beraknaManadskostnad", () => {
     const input = propertyInput();
     const m = beraknaManadskostnad(input, lan);
 
-    const arsranta = (lan.lanebelopp * (lan.ranta / 100));
+    const arsranta = lan.lanebelopp * (lan.ranta / 100);
     const forvantatAvdrag = ranteavdrag(arsranta, lan.antalLantagare);
 
     expect(m.ranteavdragPerAr.value).toBeCloseTo(forvantatAvdrag, 0);
@@ -125,7 +125,9 @@ describe("beraknaManadskostnad", () => {
       antalLantagare: 2,
     };
     const m = beraknaManadskostnad(
-      propertyInput({ avgiftInkluderar: inclusion({ varme: "ja", vatten: "ja", el: "ja", bredband: "ja" }) }),
+      propertyInput({
+        avgiftInkluderar: inclusion({ varme: "ja", vatten: "ja", el: "ja", bredband: "ja" }),
+      }),
       lan,
     );
     const forsakring = m.poster.find((p) => p.id === "hemforsakring")!;

@@ -87,7 +87,13 @@ function ForhandsvisningSida() {
 /** Renderas bara när `AnalysStatusVakt` redan konstaterat att jobbet är
  *  klart — hämtar (om den inte redan kom med SSR-svaret) den smala
  *  förhandsvisnings-projektionen och visar den. */
-function ForhandsvisningInnehall({ analysisId, loaderData }: { analysisId: string; loaderData: LoaderData }) {
+function ForhandsvisningInnehall({
+  analysisId,
+  loaderData,
+}: {
+  analysisId: string;
+  loaderData: LoaderData;
+}) {
   const navigate = useNavigate();
 
   // Samma statuspollning som grinden ovan redan startade — TanStack Query
@@ -143,8 +149,12 @@ function ForhandsvisningInnehall({ analysisId, loaderData }: { analysisId: strin
             <span className="font-display text-4xl text-primary">{forhandsvisning.betyg}</span>
           </div>
           <div className="flex-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sammanvägt riskbetyg</p>
-            <p className="mt-2 max-w-xl text-base text-foreground">{forhandsvisning.betygMotivering}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Sammanvägt riskbetyg
+            </p>
+            <p className="mt-2 max-w-xl text-base text-foreground">
+              {forhandsvisning.betygMotivering}
+            </p>
           </div>
         </div>
       </Card>
@@ -180,7 +190,8 @@ function ForhandsvisningInnehall({ analysisId, loaderData }: { analysisId: strin
       <Card className="bg-primary text-primary-foreground">
         <h2 className="font-display text-2xl md:text-3xl">Se hela analysen</h2>
         <p className="mt-3 max-w-xl text-sm text-primary-foreground/80">
-          Viktiga nyckeltal med förklaringar, prisbedömning, räntestresstest och frågor att ställa till styrelsen.
+          Viktiga nyckeltal med förklaringar, prisbedömning, räntestresstest och frågor att ställa
+          till styrelsen.
         </p>
         <Button
           variant="secondary"
@@ -233,7 +244,14 @@ const LASTA_INSIKTER = [
 
 function LockIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <rect x="4" y="10" width="16" height="10" rx="2" />
       <path d="M8 10V7a4 4 0 1 1 8 0v3" />
     </svg>

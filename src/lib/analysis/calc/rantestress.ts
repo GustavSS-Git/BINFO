@@ -34,9 +34,7 @@ export function rantestressScenario(
   okningProcentenheter: number,
 ): RantestressResultat {
   const avgiftsokningProcent = rantekanslighetProcent * okningProcentenheter;
-  const nyManadsavgift = Math.round(
-    nuvarandeManadsavgift * (1 + avgiftsokningProcent / 100),
-  );
+  const nyManadsavgift = Math.round(nuvarandeManadsavgift * (1 + avgiftsokningProcent / 100));
   return {
     nyManadsavgift,
     avgiftsokningKrPerManad: nyManadsavgift - nuvarandeManadsavgift,
