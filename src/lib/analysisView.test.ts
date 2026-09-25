@@ -3,6 +3,7 @@ import {
   costItemOsaker,
   formatBudpremieText,
   formatDataperiod,
+  formatDrivareLabel,
   formatEnhet,
   formatFigureVarde,
   formatSkapadDatum,
@@ -251,5 +252,16 @@ describe("formatFigureVarde", () => {
       tecken: "negativ",
     };
     expect(formatFigureVarde(figure)).toBe(formatVarde(-50, "kr/m2"));
+  });
+});
+
+describe("formatDrivareLabel", () => {
+  it("names the area for an area-specific driver, not for a Stockholm-wide one", () => {
+    expect(formatDrivareLabel({ label: "Ingen hiss", niva: "omrade" }, "Östermalm")).toBe(
+      "Ingen hiss (Östermalm)",
+    );
+    expect(formatDrivareLabel({ label: "Ingen hiss", niva: "stad" }, "Södermalm")).toBe(
+      "Ingen hiss",
+    );
   });
 });

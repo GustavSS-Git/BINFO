@@ -186,8 +186,17 @@ export const OMRADESINDELNING_ATTRIBUTION =
   "stad och GeoNames (CC BY 4.0).";
 
 export const VARDERINGSDRIVARE_CAVEAT =
-  "Det här är genomsnittliga effekter för Stockholm (eller angivet område), inte en beräkning " +
-  "för just din lägenhet.";
+  "Det här är genomsnittliga effekter för hela Stockholm (eller för området, där det står " +
+  "inom parentes), inte en beräkning för just din lägenhet.";
+
+/** Driver label; area-specific effects name their area so a buyer can tell
+ *  them from the Stockholm-wide averages. */
+export function formatDrivareLabel(
+  d: { label: string; niva: "stad" | "omrade" },
+  omrade: string | null,
+): string {
+  return d.niva === "omrade" && omrade !== null ? `${d.label} (${omrade})` : d.label;
+}
 
 /** "över" / "under" / "i linje med" — ±0,5 procentenheter räknas som "i
  *  linje med" hellre än att låtsas veta en riktning på ren mätbrus. */

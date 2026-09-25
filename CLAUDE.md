@@ -95,6 +95,11 @@ npm run build:edge / deploy:edge           # bundle / deploy the analys-steg Edg
   it directly — no separate model.
 - Lagfart/pantbrev: houses only. Board approval of membership: bostadsrätter only.
 - Nyckeltal thresholds are product decisions in `BENCHMARKS.md`, mirrored in `benchmarks.ts`.
+- A debt-per-m² figure with an unclear basis (e.g. "Lån per kvm bostadsyta") is
+  reported as skuldsättning per m² bostadsrättsyta — a number beats none here.
+- Never present a statistical association as causation: an effect whose sign
+  contradicts the obvious direction (e.g. "no lift" raising price) is replaced by
+  the broader estimate or omitted.
 
 ## Conventions
 

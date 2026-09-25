@@ -9,9 +9,12 @@
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 404,
     "arsavgift_andel_av_rorelseintakter": 69,
-    "sparande_per_m2_totalyta": { "tecken": "negativ" },
+    "sparande_per_m2_totalyta": {
+      "tecken": "negativ"
+    },
     "rantekanslighet": 6,
-    "energikostnad_per_m2_totalyta": 251
+    "energikostnad_per_m2_totalyta": 251,
+    "skuldsattning_per_m2_brf_yta": 2284
   },
   "verifiering": {
     "arsavgift_per_m2_brf_yta": {
@@ -34,11 +37,9 @@
       "sida": 4,
       "tryckt": "Energikostnad per kvm, kr 208 226 251 — sista kolumnen (251) är 2023."
     },
-    "skuldsattning_per_m2_totalyta": {
-      "anmarkning": "Går INTE att avgöra säkert — lämnat helt utanför \"nyckeltal\" (varken null-med-anmärkning i kontraktet, bara utelämnat här). Rapporten (sida 4) anger endast \"Lån per kvm bostadsyta kr\" (2023: 2 284) utan att skilja total- och bostadsrättsyta, och sida 3 nämner \"Den totala boytan är ca 1.407 kvm\" SAMT en uthyrd lokal (kontor) på 130,5 kvm (sida 3, \"Föreningens lokaler\") — så det är oklart om \"bostadsyta\" i tabellen redan är nettot av lokalen eller inte, och alltså oklart vilket av de två skuldsättningsmåtten (om något) 2 284 kr/kvm motsvarar. En gissning skulle bryta mot regeln att aldrig gissa en siffra som inte entydigt går att läsa ut."
-    },
     "skuldsattning_per_m2_brf_yta": {
-      "anmarkning": "Samma osäkerhet som skuldsattning_per_m2_totalyta ovan — se den anmärkningen. Lämnat utanför \"nyckeltal\"."
+      "sida": 4,
+      "tryckt": "Lån per kvm bostadsyta, kr 2 284 (2023). Bekräftat av ägaren 2026-09-25: \"bostadsyta\" = bostadsrättsyta här; vid otydlig bas redovisas talet som skuldsättning per m² bostadsrättsyta. Totalyta lämnas utan facit."
     }
   },
   "ovrigInfo": {

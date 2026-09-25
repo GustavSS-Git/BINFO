@@ -38,6 +38,16 @@ describe("drivareForInput", () => {
     expect(result[0]?.label).toBe("Ingen hiss");
   });
 
+  it("never shows an area effect whose sign contradicts the city-wide one (Södermalm: no lift +3.8 %)", () => {
+    // Owner decision 2026-09-25: a missing lift is obviously a negative; a
+    // positive area estimate is correlation (building type), not causation.
+    const drivare = drivareForInput({ hiss: "nej", balkong: "ja" }, "Södermalm");
+    const hiss = drivare.find((d) => d.label === "Ingen hiss");
+    expect(hiss).toBeDefined();
+    expect(hiss!.niva).toBe("stad");
+    expect(hiss!.effektProcent).toBeLessThan(0);
+  });
+
   it("falls back to the city-wide elevator=nej effect for a null (unmapped) omrade", () => {
     const result = drivareForInput({ hiss: "nej", balkong: "ja" }, null);
     expect(result[0]?.niva).toBe("stad");

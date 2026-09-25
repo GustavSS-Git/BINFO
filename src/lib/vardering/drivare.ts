@@ -25,6 +25,10 @@
  *      itself) and hiss 'okant' shows nothing (rule 2). Same pattern for
  *      balkong / `balcony=nej` — today only a (non-significant) city-wide
  *      `balcony=nej` effect exists, so it drops out under rule 1.
+ *   7. (see categoricalDriver) An area-specific effect whose sign
+ *      contradicts the city-wide effect is never shown; the city-wide
+ *      figure is used instead. Owner decision: no correlation presented as
+ *      causation.
  *   5. The continuous effects (rooms+1, floor+1, build_year+10, boarea+10)
  *      are always included as general, city-wide, unscaled "all else equal"
  *      information (never adjusted to this apartment's actual room count /
@@ -82,7 +86,15 @@ function categoricalDriver(
       ? candidates.find((e) => e.niva === "omrade" && e.omrade === omrade)
       : undefined;
   const cityWide = candidates.find((e) => e.niva === "stad");
-  const chosen = areaSpecific ?? cityWide;
+  // Rule 7 (owner decision 2026-09-25, "no correlation as causation"): an
+  // area estimate whose sign contradicts the city-wide one is almost surely
+  // confounded (e.g. Södermalm's lift-less turn-of-the-century buildings
+  // selling higher) — show the city-wide figure instead.
+  const motsagerStaden =
+    areaSpecific !== undefined &&
+    cityWide !== undefined &&
+    Math.sign(areaSpecific.effektProcent) !== Math.sign(cityWide.effektProcent);
+  const chosen = (motsagerStaden ? undefined : areaSpecific) ?? cityWide;
   return chosen ? toDrivare(chosen) : null;
 }
 

@@ -8,6 +8,7 @@
  */
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
+  formatDrivareLabel,
   formatBudpremieText,
   formatDataperiod,
   formatFigureVarde,
@@ -264,7 +265,7 @@ function buildVarderingsunderlag(
     omradeText: u.omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)",
     intervallText,
     drivare: u.drivare.map((d) => ({
-      label: d.label,
+      label: formatDrivareLabel(d, u.omrade),
       effektProcentText: `${d.effektProcent >= 0 ? "+" : ""}${d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %`,
       positiv: d.effektProcent >= 0,
     })),

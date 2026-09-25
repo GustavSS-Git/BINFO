@@ -382,6 +382,15 @@ describe("buildAnalysUserPrompt", () => {
   });
 });
 
+describe("tvetydig skuldsättningsbas (ägarbeslut 2026-09-25)", () => {
+  it("grundning och extraktion lägger en otydlig skuld per kvm under bostadsrättsyta", () => {
+    for (const prompt of [buildGroundingSystemPrompt(), buildExtractionSystemPrompt()]) {
+      expect(prompt).toContain("Lån per kvm bostadsyta");
+      expect(prompt).toContain("skuldsattning_per_m2_brf_yta");
+    }
+  });
+});
+
 describe("PROMPT_VERSION", () => {
   it("exporteras som en icke-tom sträng", () => {
     expect(typeof PROMPT_VERSION).toBe("string");
@@ -404,6 +413,6 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("6ef49ebfebb6e3715854067290d4a1216b6c1948547d6bcf0234491978b89171");
+    expect(hash).toBe("a7206daaf54c1b1ed1e8049461a583f974cef1ee2e4191b004cb00e5f152e93c");
   });
 });

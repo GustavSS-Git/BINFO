@@ -4,6 +4,7 @@ import { Card, Button, Badge, StatusLabel, SectionTitle, Tag } from "@/component
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
+  formatDrivareLabel,
   formatBudpremieText,
   formatDataperiod,
   formatFigureVarde,
@@ -438,7 +439,7 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                 <ul className="mt-1 space-y-1 text-sm text-foreground">
                   {u.drivare.map((d) => (
                     <li key={d.label} className="flex items-center justify-between gap-2">
-                      <span>{d.label}</span>
+                      <span>{formatDrivareLabel(d, u.omrade)}</span>
                       <span className={d.effektProcent >= 0 ? "text-success" : "text-danger"}>
                         {d.effektProcent >= 0 ? "+" : ""}
                         {d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %
