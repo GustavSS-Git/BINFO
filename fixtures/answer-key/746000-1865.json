@@ -24,8 +24,14 @@
   },
   "ovrigInfo": {
     "antalMedlemmar": 22,
-    "avgiftInkluderarKallor": { "varme": 13, "vatten": 13, "tv": 13, "el": 7 }
+    "avgiftInkluderarKallor": {
+      "varme": 13,
+      "vatten": 13,
+      "tv": 13,
+      "el": 7
+    }
   },
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 6,
@@ -35,7 +41,10 @@
       "sida": 13,
       "tryckt": "I årsavgiften ingår kostnader för kabel-tv, vatten och värme."
     },
-    "avgiftInkluderarKallor.vatten": { "sida": 13, "tryckt": "Samma mening som varme ovan." },
+    "avgiftInkluderarKallor.vatten": {
+      "sida": 13,
+      "tryckt": "Samma mening som varme ovan."
+    },
     "avgiftInkluderarKallor.tv": {
       "sida": 13,
       "tryckt": "Samma mening som varme ovan (\"kabel-tv\" = tv)."

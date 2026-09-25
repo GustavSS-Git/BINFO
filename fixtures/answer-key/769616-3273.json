@@ -26,8 +26,15 @@
     "antalMedlemmar": 42,
     "antalHyresratter": 3,
     "antalLokaler": 4,
-    "avgiftInkluderarKallor": { "varme": 14, "vatten": 14, "bredband": 14, "tv": 14, "el": 8 }
+    "avgiftInkluderarKallor": {
+      "varme": 14,
+      "vatten": 14,
+      "bredband": 14,
+      "tv": 14,
+      "el": 8
+    }
   },
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 7,
@@ -39,13 +46,16 @@
     },
     "antalLokaler": {
       "sida": 4,
-      "tryckt": "Samma mening som antalHyresratter ovan — \"4 lokaler om 515 kvm\". OBS diskrepans: sida 7 räknar separat \"2 butikslokaler (463 kvm)\" plus ett nodrum för stadsnätet och reklamplatser — oklart om nodrum/reklamplatser är de återstående 2 av de 4 lokalerna på sida 4, eller om siffrorna kommer från olika årgångar/definitioner. Draft-värdet 4 följer den explicita \"N lokaler\"-formuleringen (sida 4); ägaren bör stämma av mot originalet."
+      "tryckt": "Samma mening som antalHyresratter ovan — \"4 lokaler om 515 kvm\". OBS diskrepans: sida 7 räknar separat \"2 butikslokaler (463 kvm)\" plus ett nodrum för stadsnätet och reklamplatser — oklart om nodrum/reklamplatser är de återstående 2 av de 4 lokalerna på sida 4, eller om siffrorna kommer från olika årgångar/definitioner. Ägarbeslut 2026-09-25: 4 gäller, enligt den explicita \"4 lokaler\"-formuleringen i rapportens inledande sammanfattning (sida 4) — sida 7:s mer detaljerade uppräkning läses som en delmängd/specificering av samma fyra, inte som en motsägelse."
     },
     "avgiftInkluderarKallor.varme": {
       "sida": 14,
       "tryckt": "I årsavgiften ingår kostnader för bredband, kabel-tv, vatten och värme."
     },
-    "avgiftInkluderarKallor.vatten": { "sida": 14, "tryckt": "Samma mening som varme ovan." },
+    "avgiftInkluderarKallor.vatten": {
+      "sida": 14,
+      "tryckt": "Samma mening som varme ovan."
+    },
     "avgiftInkluderarKallor.bredband": {
       "sida": 14,
       "tryckt": "Samma mening som varme ovan. Sida 7 ger en ytterligare, mer specifik källa (\"bredband (Bahnhof 1000MB) och TV (Allente Basic) nu ingår i avgiften\") efter en nyinvestering under året."

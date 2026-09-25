@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "_F_ORG_T816_7800.pdf",
     "forvaltare": "okänd (ej angiven i den lokalt lästa texten)",
-    "verifieradMot": "UTKAST — ej verifierad av ägaren. Lästa lokalt ur PDF:ens textlager (extractPdfText, ingen modellkörning, inget API-anrop). Se \"verifiering\" nedan för sida och exakt tryckt text per fält; ägaren behöver stämma av mot originalet innan detta räknas som facit."
+    "verifieradMot": "Verifierad av ägaren 2026-09-25 mot originalets sidor (se verifiering)."
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 532,
@@ -47,8 +47,13 @@
   },
   "ovrigInfo": {
     "antalMedlemmar": 60,
-    "avgiftInkluderarKallor": { "vatten": 12, "varme": 12, "bredband": 12 }
+    "avgiftInkluderarKallor": {
+      "vatten": 12,
+      "varme": 12,
+      "bredband": 12
+    }
   },
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 4,

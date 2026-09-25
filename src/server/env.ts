@@ -60,8 +60,12 @@ export interface Env {
 }
 
 /** Shipped default for all three `ANTHROPIC_EFFORT_*` env vars — see
- *  `Env.effortGrounding`'s doc comment. */
-const STANDARD_EFFORT: ModelEffort = "medium";
+ *  `Env.effortGrounding`'s doc comment. Exported so the local dev CLIs
+ *  (cli.ts, verifyAnswerKey.ts — never bundled for the client, so importing
+ *  from `src/server/` here is safe) default to the exact same "medium"
+ *  Sonnet 5 uses in production, instead of silently reverting to adaptive
+ *  thinking the moment nobody sets an `ANTHROPIC_EFFORT*` var by hand. */
+export const STANDARD_EFFORT: ModelEffort = "medium";
 
 /**
  * Kastas när en nyckel med `VITE_`-prefix hittas bland miljövariablerna som

@@ -5,12 +5,16 @@ import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
 import {
   ScannedPdfError,
-  runExtraction,
+  runGrounding,
+  runStructuredExtraction,
   type ModelEffort,
-  type RunExtractionOptions,
 } from "./runExtraction";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
+// Never bundled for the client — this file is a Node CLI run via `tsx`, not
+// part of the Vite/TanStack client graph — so importing STANDARD_EFFORT
+// from src/server/ here is safe (see cli.ts, which does the same).
+import { STANDARD_EFFORT } from "@/server/env";
 
 /**
  * PIPELINE.md step 5's harness: runs pass 1 against every fixture in
@@ -46,16 +50,23 @@ type Verifieringspost = { sida: number; tryckt: string } | { anmarkning: string 
  * Task 1.5's new "Övrig info" fields (Forening.antalMedlemmar,
  * .antalHyresratter, .antalLokaler, .avgiftInkluderarKallor,
  * .individuellMatning — see src/types/analysis.ts). Kept in its own block,
- * scored in its own always-draft tally (see `ovrigInfoUtkast` below), and
- * deliberately NOT folded into `nyckeltal`/`verifiering` above: those two
- * fields describe a fixture's PRE-EXISTING, per-file verification status
- * (arUtkast reads `kalla.verifieradMot` for the WHOLE fixture), and several
- * of these fixtures already have verified nyckeltal — this task must not
- * alter that verified status just because it adds new, not-yet-verified
- * fields alongside it. `avgiftInkluderarKallor` only carries the expected
- * PAGE per post (not the excerpt) — comparing a page number is enough to
- * catch a wrong or missing citation; the excerpt is for the human verifier
- * in `ovrigInfoVerifiering` below, not for the automated comparison.
+ * scored separately from `nyckeltal`/`verifiering` above, since a fixture's
+ * PRE-EXISTING per-file verification status (arUtkast, from
+ * `kalla.verifieradMot`) predates these fields and must never be implicitly
+ * upgraded just because ovrigInfo values were added alongside it.
+ *
+ * As of task 1.6 (2026-09-25) the product owner read every fixture's
+ * ovrigInfo values against the original PDFs — see each fixture's
+ * `ovrigInfoVerifiering` notes — so a fixture now opts these values INTO the
+ * fixture's normal verified/draft tally (same `rakning` as `nyckeltal`) via
+ * `ovrigInfoVerifierad: true`. A fixture without that flag still scores its
+ * ovrigInfo in the separate, always-draft tally below, exactly as before —
+ * this keeps the door open for a future fixture whose nyckeltal are verified
+ * but whose ovrigInfo isn't yet. `avgiftInkluderarKallor` only carries the
+ * expected PAGE per post (not the excerpt) — comparing a page number is
+ * enough to catch a wrong or missing citation; the excerpt is for the human
+ * verifier in `ovrigInfoVerifiering` below, not for the automated
+ * comparison.
  */
 interface OvrigInfoForvantat {
   antalMedlemmar?: number;
@@ -86,6 +97,13 @@ interface AnswerKeyFixture {
    *  purpose as `verifiering` above, but keyed to `ovrigInfo`'s fields
    *  (including dotted keys like "avgiftInkluderarKallor.el"). */
   ovrigInfoVerifiering?: Record<string, Verifieringspost>;
+  /**
+   * True once the product owner has read this fixture's `ovrigInfo` values
+   * against the original PDF (see `ovrigInfoVerifiering` for the per-field
+   * evidence) — see this interface's doc comment above for what that
+   * changes about how `ovrigInfo` is scored. Absent/false means still draft.
+   */
+  ovrigInfoVerifierad?: boolean;
 }
 
 /**
@@ -110,17 +128,23 @@ const ANSWER_KEY_DIR = "fixtures/answer-key";
 
 const GILTIGA_EFFORT: ModelEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
-/** ANTHROPIC_EFFORT — one setting for the whole run (this CLI runs
- *  runExtraction, i.e. grounding+extraction combined, never judging), for
- *  effort sweeps against the regression set (task 1.2). Unset means Sonnet
- *  5's own adaptive-thinking default, unchanged from before this option
- *  existed. */
-function lasEffort(): ModelEffort | undefined {
-  const rå = process.env["ANTHROPIC_EFFORT"];
-  if (!rå) return undefined;
+/**
+ * Per-stage effort override (ANTHROPIC_EFFORT_GROUNDING / _EXTRACTION),
+ * falling back to a generic ANTHROPIC_EFFORT if the stage-specific variable
+ * isn't set, and — as of task 1.6 — to STANDARD_EFFORT ("medium", imported
+ * from src/server/env.ts) if neither is, exactly matching production's
+ * default (never judging — this CLI only runs grounding+extraction). Before
+ * task 1.6 an unset var meant `undefined` (Sonnet 5's own adaptive-thinking
+ * default) and both stages shared one ANTHROPIC_EFFORT setting via the
+ * combined runExtraction; that made this harness's timings incomparable to
+ * production's per-stage numbers. Same fallback chain as cli.ts's lasEffort.
+ */
+function lasEffort(stageVar: string): ModelEffort {
+  const rå = process.env[stageVar] || process.env["ANTHROPIC_EFFORT"];
+  if (!rå) return STANDARD_EFFORT;
   if (!GILTIGA_EFFORT.includes(rå as ModelEffort)) {
     throw new Error(
-      `ANTHROPIC_EFFORT måste vara en av ${GILTIGA_EFFORT.join(", ")}, fick "${rå}".`,
+      `${stageVar} (eller ANTHROPIC_EFFORT) måste vara en av ${GILTIGA_EFFORT.join(", ")}, fick "${rå}".`,
     );
   }
   return rå as ModelEffort;
@@ -143,14 +167,19 @@ function arAnslutningsfel(error: unknown): boolean {
   );
 }
 
-/** Ett (1) omförsök vid anslutningsfel — medvetet ingen backoff-strategi. */
-async function korMedEttOmforsok(pdfBytes: Uint8Array, options: RunExtractionOptions) {
+/**
+ * Ett (1) omförsök vid anslutningsfel — medvetet ingen backoff-strategi.
+ * Generisk över anropet (i stället för att vara hårdkodad mot
+ * `runExtraction`) sedan task 1.6 delade upp grundning och extraktion i två
+ * separata anrop, vart och ett med sitt eget effort — se `lasEffort` ovan.
+ */
+async function korMedEttOmforsok<T>(anrop: () => Promise<T>): Promise<T> {
   try {
-    return await runExtraction(pdfBytes, options);
+    return await anrop();
   } catch (error) {
     if (!arAnslutningsfel(error)) throw error;
     console.log(`  Anslutningsfel (${felText(error)}) — gör ett omförsök...`);
-    return await runExtraction(pdfBytes, options);
+    return await anrop();
   }
 }
 
@@ -185,16 +214,20 @@ async function main() {
 
   const model = process.env["ANTHROPIC_MODEL"] || "claude-sonnet-5";
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
-  const effort = lasEffort();
+  const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
+  const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
   const fixtures = await loadFixtures();
 
   const verifierad = nyRakning();
   const utkast = nyRakning();
-  // Task 1.5's new "Övrig info"-fält — alltid ett eget, alltid-utkast-läge
-  // (se OvrigInfoForvantat's filkommentar), oavsett om samma fixtures
-  // nyckeltal redan är verifierade.
+  // Task 1.5's "Övrig info"-fält för fixturer som INTE (ännu) satt
+  // ovrigInfoVerifierad: true — eget, alltid-utkast-läge (se
+  // OvrigInfoForvantat's filkommentar), oavsett om samma fixtures nyckeltal
+  // redan är verifierade. En fixture med ovrigInfoVerifierad: true räknas
+  // istället in i samma rakning (verifierad/utkast) som nyckeltal — se loopen.
   const ovrigInfo = nyRakning();
   const ovrigInfoRapporter: string[] = [];
+  const ovrigInfoVerifieradeRapporter: string[] = [];
   let hoppadeOver = 0;
   let misslyckade = 0;
   const utkastRapporter: string[] = [];
@@ -227,8 +260,11 @@ async function main() {
         // No wall-clock/cost tracking here on purpose: a refusal is a local,
         // pre-flight check (extractPdfText's text-layer detection) that
         // fires before any Anthropic call is made — there is nothing to
-        // measure.
-        await korMedEttOmforsok(pdfBytes, { model, maxCostSek, ...(effort ? { effort } : {}) });
+        // measure. runGrounding alone is enough to trigger it (it's step 0
+        // of that call, before structured extraction ever starts).
+        await korMedEttOmforsok(() =>
+          runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding }),
+        );
         console.log(
           `  ✗ FÖRVÄNTAD REFUSERING UTEBLEV — extraktionen lyckades, men skulle ha kastat ScannedPdfError`,
         );
@@ -250,16 +286,30 @@ async function main() {
 
     // En rapport som kraschar får inte sänka hela körningen — de övriga
     // fixturerna ska fortfarande köras och rapporteras.
-    let extraction: Awaited<ReturnType<typeof runExtraction>>["extraction"];
+    //
+    // Två separata anrop, vart och ett med sitt eget effort — se lasEffort
+    // ovan och cli.ts, som gör samma uppdelning för samma skäl (matchar
+    // produktionens steg.ts, som kör grundning och extraktion i två skilda
+    // Edge Function-invokeringar).
+    let extraction: Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"];
     let spentSek: number;
     let calls: ModelCallMetrics[];
     const wallStart = performance.now();
     try {
-      ({ extraction, spentSek, calls } = await korMedEttOmforsok(pdfBytes, {
-        model,
-        maxCostSek,
-        ...(effort ? { effort } : {}),
-      }));
+      const grundning = await korMedEttOmforsok(() =>
+        runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding }),
+      );
+      const strukturerad = await korMedEttOmforsok(() =>
+        runStructuredExtraction(grundning.groundingText, {
+          model,
+          maxCostSek: maxCostSek - grundning.spentSek,
+          effort: effortExtraction,
+          pdfSaknarTextlager: grundning.pdfSaknarTextlager,
+        }),
+      );
+      extraction = strukturerad.extraction;
+      spentSek = grundning.spentSek + strukturerad.spentSek;
+      calls = [...grundning.calls, ...strukturerad.calls];
     } catch (error) {
       console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
       misslyckade++;
@@ -363,7 +413,15 @@ async function main() {
     }
 
     if (fixture.ovrigInfo) {
-      ovrigInfoRapporter.push(fixture.namn);
+      // See OvrigInfoForvantat's doc comment: a fixture whose owner has read
+      // ovrigInfo against the original PDF (ovrigInfoVerifierad: true) scores
+      // into the SAME tally as its nyckeltal (verified or draft, whichever
+      // the fixture already is) — everyone else still scores into the
+      // separate, always-draft `ovrigInfo` tally, unchanged from before.
+      const rakningOvrig = fixture.ovrigInfoVerifierad ? rakning : ovrigInfo;
+      (fixture.ovrigInfoVerifierad ? ovrigInfoVerifieradeRapporter : ovrigInfoRapporter).push(
+        fixture.namn,
+      );
       const forening = extraction.forening;
       const oi = fixture.ovrigInfo;
 
@@ -374,8 +432,8 @@ async function main() {
           oi.antalMedlemmar,
           "exakt",
         );
-        ovrigInfo.totalFalt++;
-        if (r.godkand) ovrigInfo.godkanda++;
+        rakningOvrig.totalFalt++;
+        if (r.godkand) rakningOvrig.godkanda++;
         console.log(
           `  ${r.godkand ? "✓" : "✗"} antalMedlemmar: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
         );
@@ -387,8 +445,8 @@ async function main() {
           oi.antalHyresratter,
           "exakt",
         );
-        ovrigInfo.totalFalt++;
-        if (r.godkand) ovrigInfo.godkanda++;
+        rakningOvrig.totalFalt++;
+        if (r.godkand) rakningOvrig.godkanda++;
         console.log(
           `  ${r.godkand ? "✓" : "✗"} antalHyresratter: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
         );
@@ -400,8 +458,8 @@ async function main() {
           oi.antalLokaler,
           "exakt",
         );
-        ovrigInfo.totalFalt++;
-        if (r.godkand) ovrigInfo.godkanda++;
+        rakningOvrig.totalFalt++;
+        if (r.godkand) rakningOvrig.godkanda++;
         console.log(
           `  ${r.godkand ? "✓" : "✗"} antalLokaler: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
         );
@@ -416,8 +474,8 @@ async function main() {
             forvantadSida,
             "exakt",
           );
-          ovrigInfo.totalFalt++;
-          if (r.godkand) ovrigInfo.godkanda++;
+          rakningOvrig.totalFalt++;
+          if (r.godkand) rakningOvrig.godkanda++;
           console.log(
             `  ${r.godkand ? "✓" : "✗"} avgiftInkluderarKallor.${post}: förväntad sida ${r.forvantat}, fick ${r.faktiskt ?? "saknas"}`,
           );
@@ -428,8 +486,8 @@ async function main() {
           const faktiskMatning =
             forening.individuellMatning?.[post as "el" | "vatten" | "varme"]?.matning;
           const r = jamforTristate(`individuellMatning.${post}`, faktiskMatning, forvantatMatning);
-          ovrigInfo.totalFalt++;
-          if (r.godkand) ovrigInfo.godkanda++;
+          rakningOvrig.totalFalt++;
+          if (r.godkand) rakningOvrig.godkanda++;
           console.log(
             `  ${r.godkand ? "✓" : "✗"} individuellMatning.${post}: förväntat "${r.forvantat}", fick "${r.faktiskt ?? "saknas"}"`,
           );
@@ -472,9 +530,18 @@ async function main() {
     console.log(`  ${utkast.godkanda}/${utkast.totalFalt} fält godkända (utkast).`);
   }
 
+  if (ovrigInfoVerifieradeRapporter.length > 0) {
+    console.log(
+      `\nÖVRIG INFO (task 1.5), VERIFIERAD — produktägaren har läst dessa fält mot originalrapporten ` +
+        `(ovrigInfoVerifierad: true), räknas in i tabellen ovan (VERIFIERADE eller UTKAST beroende på ` +
+        `fixturens övriga status, se resp. rapport ovan):`,
+    );
+    console.log(`  Rapporter: ${ovrigInfoVerifieradeRapporter.join(", ")}`);
+  }
+
   if (ovrigInfoRapporter.length > 0) {
     console.log(
-      `\nÖVRIG INFO (task 1.5) — nya fält, alltid UTKAST oavsett fixturens övriga verifieringsstatus, INTE lästa av produktägaren än (räknas INTE in ovan):`,
+      `\nÖVRIG INFO (task 1.5), UTKAST — INTE lästa av produktägaren än (ingen ovrigInfoVerifierad: true), räknas INTE in ovan:`,
     );
     console.log(`  Rapporter: ${ovrigInfoRapporter.join(", ")}`);
     console.log(`  ${ovrigInfo.godkanda}/${ovrigInfo.totalFalt} fält godkända (utkast).`);

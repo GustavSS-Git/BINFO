@@ -2,8 +2,19 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { ExtractionValidationError, ModelTruncatedError } from "./extract";
 import { KostnadsgransOverskriden } from "./costGuard";
-import { ScannedPdfError, runExtraction, type ModelEffort } from "./runExtraction";
+import {
+  ScannedPdfError,
+  runGrounding,
+  runStructuredExtraction,
+  type ModelEffort,
+} from "./runExtraction";
 import { AnalysValidationError, runAnalys } from "./analyze";
+// Never bundled for the client (this file is a Node CLI run via `tsx`, not
+// part of the Vite/TanStack client graph) — importing STANDARD_EFFORT from
+// src/server/ here is safe, and keeps this CLI's default in lockstep with
+// production's (see env.ts's Env.effortGrounding doc comment) instead of
+// letting the two silently drift apart.
+import { STANDARD_EFFORT } from "@/server/env";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
 import { PropertyInputSchema } from "./schema";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
@@ -37,16 +48,21 @@ const PropertyInputFileSchema = z
 const GILTIGA_EFFORT: ModelEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
 /**
- * Reads an optional per-stage effort override for experimentation (task
- * 1.2's effort sweeps), falling back to a generic ANTHROPIC_EFFORT if the
- * stage-specific variable isn't set, and to `undefined` (Sonnet 5's own
- * adaptive-thinking default) if neither is. Not documented in .env.example —
- * these are dev-only knobs for `npm run extract`/`npm run verify-extraction`,
- * not production configuration (see steg.ts for the production equivalent).
+ * Reads a per-stage effort override for experimentation (task 1.2's effort
+ * sweeps), falling back to a generic ANTHROPIC_EFFORT if the stage-specific
+ * variable isn't set, and — as of task 1.6 — to STANDARD_EFFORT ("medium",
+ * imported from src/server/env.ts) if neither is, exactly matching
+ * production's default (see steg.ts / env.ts's Env.effortGrounding doc
+ * comment). Before task 1.6 an unset var meant `undefined` (Sonnet 5's own
+ * adaptive-thinking default); that made a plain `npm run extract` /
+ * `npm run verify-extraction` run incomparable to a production run, since
+ * production always sets an explicit effort. The env vars remain pure
+ * overrides — set one to deliberately try a different depth. Not documented
+ * in .env.example — these are dev-only knobs, not production configuration.
  */
-function lasEffort(stageVar: string): ModelEffort | undefined {
+function lasEffort(stageVar: string): ModelEffort {
   const rå = process.env[stageVar] || process.env["ANTHROPIC_EFFORT"];
-  if (!rå) return undefined;
+  if (!rå) return STANDARD_EFFORT;
   if (!GILTIGA_EFFORT.includes(rå as ModelEffort)) {
     throw new Error(
       `${stageVar} (eller ANTHROPIC_EFFORT) måste vara en av ${GILTIGA_EFFORT.join(", ")}, fick "${rå}".`,
@@ -119,25 +135,34 @@ async function main() {
   const wallClockStart = performance.now();
   const allCalls: ModelCallMetrics[] = [];
 
+  // Two calls, each with its own effort — mirrors production exactly
+  // (steg.ts calls runGrounding/runStructuredExtraction separately, one per
+  // Edge Function invocation). Before task 1.6 this CLI called the combined
+  // `runExtraction` with a single effort for both stages, which is why a
+  // local `npm run extract` run's timings weren't directly comparable to
+  // production's per-stage numbers.
+  const {
+    groundingText,
+    spentSek: spentGrounding,
+    pdfSaknarTextlager,
+    calls: groundingCalls,
+  } = await runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding });
+  allCalls.push(...groundingCalls);
+
+  console.error(`Grundning klar (${spentGrounding.toFixed(2)} kr). Kör extraktion...`);
+
   const {
     extraction,
-    spentSek: spentExtraktion,
+    spentSek: spentStructured,
     calls: extraktionCalls,
-  } = await runExtraction(pdfBytes, {
+  } = await runStructuredExtraction(groundingText, {
     model,
-    maxCostSek,
-    // runExtraction is grounding+extraction combined — the effort split
-    // per stage only matters once the two calls are made separately
-    // (runGrounding/runStructuredExtraction, as steg.ts does); this CLI
-    // path uses the grounding setting for both when only one is given, so
-    // a single ANTHROPIC_EFFORT still does something useful here.
-    ...(effortGrounding
-      ? { effort: effortGrounding }
-      : effortExtraction
-        ? { effort: effortExtraction }
-        : {}),
+    maxCostSek: maxCostSek - spentGrounding,
+    effort: effortExtraction,
+    pdfSaknarTextlager,
   });
   allCalls.push(...extraktionCalls);
+  const spentExtraktion = spentGrounding + spentStructured;
 
   if (!inputPath) {
     console.log(JSON.stringify(extraction, null, 2));
@@ -167,7 +192,7 @@ async function main() {
   const { analys, calls: analysCalls } = await runAnalys(extraction, {
     model,
     maxCostSek: maxCostSek - spentExtraktion,
-    ...(effortJudging ? { effort: effortJudging } : {}),
+    effort: effortJudging,
   });
   allCalls.push(...analysCalls);
 

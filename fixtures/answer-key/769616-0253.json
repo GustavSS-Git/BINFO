@@ -25,9 +25,18 @@
   "ovrigInfo": {
     "antalMedlemmar": 72,
     "antalLokaler": 6,
-    "avgiftInkluderarKallor": { "varme": 15, "vatten": 15, "el": 15, "bredband": 15, "tv": 15 },
-    "individuellMatning": { "el": "ja" }
+    "avgiftInkluderarKallor": {
+      "varme": 15,
+      "vatten": 15,
+      "el": 15,
+      "bredband": 15,
+      "tv": 15
+    },
+    "individuellMatning": {
+      "el": "ja"
+    }
   },
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 8,
@@ -41,8 +50,14 @@
       "sida": 15,
       "tryckt": "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme."
     },
-    "avgiftInkluderarKallor.vatten": { "sida": 15, "tryckt": "Samma mening som varme ovan." },
-    "avgiftInkluderarKallor.bredband": { "sida": 15, "tryckt": "Samma mening som varme ovan." },
+    "avgiftInkluderarKallor.vatten": {
+      "sida": 15,
+      "tryckt": "Samma mening som varme ovan."
+    },
+    "avgiftInkluderarKallor.bredband": {
+      "sida": 15,
+      "tryckt": "Samma mening som varme ovan."
+    },
     "avgiftInkluderarKallor.tv": {
       "sida": 15,
       "tryckt": "Samma mening som varme ovan (\"kabel-tv\" = tv)."

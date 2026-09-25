@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "A_rsredovisning_2023_BF_Volonta_ren_12_u_p_a (1).pdf",
     "forvaltare": "TL Ekonomi",
-    "verifieradMot": "UTKAST — ej verifierad av ägaren. Lästa lokalt ur PDF:ens textlager (extractPdfText, ingen modellkörning, inget API-anrop). Se \"verifiering\" nedan för sida och exakt tryckt text per fält; ägaren behöver stämma av mot originalet innan detta räknas som facit."
+    "verifieradMot": "Verifierad av ägaren 2026-09-25 mot originalets sidor (se verifiering)."
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 404,
@@ -46,6 +46,7 @@
     "antalMedlemmar": 43,
     "antalLokaler": 1
   },
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 2,

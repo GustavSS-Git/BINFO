@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "test_rapport.pdf",
     "forvaltare": "SBC (avtal med leverantörer, sida 7)",
-    "verifieradMot": "UTKAST — ej verifierad av ägaren, och nyckeltalen går INTE att läsa ut lokalt. Den här PDF:ens textlager är garblat i just flerårsöversiktens tabell (varje siffra kommer som ett eget whitespace-separerat token utan tillförlitlig kolumnordning — se pdf.ts:bedomTextkvalitet, som ger detta dokumentet 0,78 mot 0,05–0,35 för de övriga nio, tydligt urskiljande men inte siffermässigt läsbart). \"nyckeltal\" innehåller därför inga siffervärden alls — bara identitet och avgiftsinkludering, som går att läsa ur löpande text på andra sidor. Se \"verifiering\" för exakt tryckt (garblad) text och varför den inte går att tolka med säkerhet."
+    "verifieradMot": "Verifierad av ägaren 2026-09-25 mot originalets sidor (se verifiering) — men bara för det som går att verifiera. Den här PDF:ens textlager är garblat i just flerårsöversiktens tabell (varje siffra kommer som ett eget whitespace-separerat token utan tillförlitlig kolumnordning — se pdf.ts:bedomTextkvalitet, som ger detta dokumentet 0,78 mot 0,05–0,35 för de övriga nio, tydligt urskiljande men inte siffermässigt läsbart), så \"nyckeltal\" innehåller fortfarande inga siffervärden alls — bara identitet och avgiftsinkludering, som går att läsa ur löpande text på andra sidor och som ägaren har stämt av."
   },
   "nyckeltal": {},
   "verifiering": {
@@ -56,8 +56,14 @@
     "antalMedlemmar": 227,
     "antalHyresratter": 14,
     "antalLokaler": 15,
-    "avgiftInkluderarKallor": { "bredband": 14, "vatten": 14, "varme": 14, "el": 8 }
+    "avgiftInkluderarKallor": {
+      "bredband": 14,
+      "vatten": 14,
+      "varme": 14,
+      "el": 8
+    }
   },
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 7,
@@ -75,8 +81,14 @@
       "sida": 14,
       "tryckt": "Samma citat som avgiftInkluderar.bredband ovan (\"1 årsavgiften ingår kostnaderför bredband, vatten och värme.\")."
     },
-    "avgiftInkluderarKallor.vatten": { "sida": 14, "tryckt": "Samma mening som bredband ovan." },
-    "avgiftInkluderarKallor.varme": { "sida": 14, "tryckt": "Samma mening som bredband ovan." },
+    "avgiftInkluderarKallor.vatten": {
+      "sida": 14,
+      "tryckt": "Samma mening som bredband ovan."
+    },
+    "avgiftInkluderarKallor.varme": {
+      "sida": 14,
+      "tryckt": "Samma mening som bredband ovan."
+    },
     "avgiftInkluderarKallor.el": {
       "sida": 8,
       "tryckt": "Samma citat som avgiftInkluderar.el ovan."
