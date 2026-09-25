@@ -7,6 +7,17 @@ function inclusion(overrides: Partial<FeeInclusion> = {}): FeeInclusion {
 }
 
 describe("parseBolanekalkylSearch", () => {
+  it("tolkar prisUppskattning som routern faktiskt levererar den (JSON-tolkad boolean/tal)", () => {
+    // TanStack Routers parseSearch JSON-tolkar värdena: "?prisUppskattning=1"
+    // blir talet 1 och "=true" blir true — aldrig strängar. Samma sak när
+    // rapporten navigerar med ett search-objekt.
+    expect(parseBolanekalkylSearch({ prisUppskattning: true }).prisUppskattning).toBe(true);
+    expect(parseBolanekalkylSearch({ prisUppskattning: 1 }).prisUppskattning).toBe(true);
+    expect(parseBolanekalkylSearch({ prisUppskattning: false }).prisUppskattning).toBe(false);
+    expect(parseBolanekalkylSearch({ prisUppskattning: 0 }).prisUppskattning).toBe(false);
+    expect(parseBolanekalkylSearch({ prisUppskattning: 2 }).prisUppskattning).toBeUndefined();
+  });
+
   it("returnerar alla nycklar som undefined när inga sökparametrar finns", () => {
     expect(parseBolanekalkylSearch({})).toEqual({
       manadsavgift: undefined,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  filfelVidSkick,
   buildPropertyInput,
   formateraFilstorlek,
   harValideringsfel,
@@ -329,6 +330,24 @@ describe("kontrolleraPdfFil", () => {
 // ---------------------------------------------------------------------------
 // formateraFilstorlek
 // ---------------------------------------------------------------------------
+
+describe("filfelVidSkick", () => {
+  it("behåller det specifika skälet när en vald fil avvisades (fil är då null)", () => {
+    expect(filfelVidSkick(null, "Filen måste vara en PDF.")).toBe("Filen måste vara en PDF.");
+    expect(filfelVidSkick(null, "Filen är för stor. Max 25 MB.")).toBe(
+      "Filen är för stor. Max 25 MB.",
+    );
+  });
+
+  it("säger 'välj en fil' när ingen fil alls har valts", () => {
+    expect(filfelVidSkick(null, null)).toBe("Välj en fil att ladda upp.");
+  });
+
+  it("kontrollerar en vald fil på nytt", () => {
+    const pdf = new File(["%PDF"], "a.pdf", { type: "application/pdf" });
+    expect(filfelVidSkick(pdf, null)).toBeNull();
+  });
+});
 
 describe("formateraFilstorlek", () => {
   it("formaterar megabyte med kommatecken som decimaltecken", () => {

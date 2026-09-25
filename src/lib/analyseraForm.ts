@@ -34,6 +34,16 @@ export function kontrolleraPdfFil(file: File | null): string | null {
   return null;
 }
 
+/**
+ * Filfelet att visa när användaren skickar formuläret. En vald men avvisad
+ * fil (fel typ, för stor) sparas aldrig som `fil` — bara skälet i
+ * `tidigareFilfel`. Det skälet ska stå kvar, inte ersättas av "välj en fil".
+ */
+export function filfelVidSkick(fil: File | null, tidigareFilfel: string | null): string | null {
+  if (fil === null && tidigareFilfel !== null) return tidigareFilfel;
+  return kontrolleraPdfFil(fil);
+}
+
 export function formateraFilstorlek(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(1).replace(".", ",")} MB`;

@@ -55,11 +55,15 @@ function tolkaPositivtTal(varde: unknown): number | undefined {
   return resultat.success ? resultat.data : undefined;
 }
 
-/** Samma skräpvärdes-tolerans som `tolkaPositivtTal`, för en boolesk flagga
- *  ("1"/"0", vanligt i URL:er — riktiga booleaner finns inte i en
- *  sökväg). Allt annat än en igenkänd sträng blir `undefined`, aldrig ett
- *  kastat fel. */
+/** Samma skräpvärdes-tolerans som `tolkaPositivtTal`, för en boolesk flagga.
+ *  TanStack Routers parseSearch JSON-tolkar sökvärden, så "?x=1" kommer hit
+ *  som talet 1 och "?x=true" som true (och ett search-objekt från navigate()
+ *  har redan riktiga booleaner) — därför accepteras boolean, 1/0 och
+ *  strängformerna. Allt annat blir `undefined`, aldrig ett kastat fel. */
 function tolkaBoolean(varde: unknown): boolean | undefined {
+  if (typeof varde === "boolean") return varde;
+  if (varde === 1) return true;
+  if (varde === 0) return false;
   if (typeof varde !== "string") return undefined;
   if (varde === "1" || varde === "true") return true;
   if (varde === "0" || varde === "false") return false;

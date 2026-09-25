@@ -6,6 +6,7 @@ import {
   buildPropertyInput,
   formateraFilstorlek,
   harValideringsfel,
+  filfelVidSkick,
   kontrolleraPdfFil,
   validateraAnalyseraForm,
   type AnalyseraFormFields,
@@ -66,6 +67,7 @@ function Analysera() {
   const [dragging, setDragging] = useState(false);
   const [fil, setFil] = useState<File | null>(null);
   const [filFel, setFilFel] = useState<string | null>(null);
+  const [visaFilFel, setVisaFilFel] = useState(false);
   const [visaFel, setVisaFel] = useState(false);
   const [skickar, setSkickar] = useState(false);
   const [skickaFel, setSkickaFel] = useState<SkickaFel | null>(null);
@@ -92,18 +94,21 @@ function Analysera() {
     const fel = kontrolleraPdfFil(candidate);
     setFilFel(fel);
     setFil(fel ? null : candidate);
+    // Visa skälet direkt — annars ser användaren inte varför filen inte togs emot.
+    if (fel) setVisaFilFel(true);
   };
 
   const taBortFil = () => {
     setFil(null);
     setFilFel(null);
+    setVisaFilFel(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const analysera = async () => {
     if (skickar) return; // förhindra dubbelskick
 
-    const filfelNu = kontrolleraPdfFil(fil);
+    const filfelNu = filfelVidSkick(fil, filFel);
     setFilFel(filfelNu);
 
     if (harFel || filfelNu) {
@@ -219,7 +224,9 @@ function Analysera() {
             </p>
           ) : null}
         </div>
-        {visaFel && filFel ? <p className="mt-3 text-sm text-danger">{filFel}</p> : null}
+        {(visaFel || visaFilFel) && filFel ? (
+          <p className="mt-3 text-sm text-danger">{filFel}</p>
+        ) : null}
       </Card>
 
       <Card>
