@@ -57,6 +57,18 @@ export const sampleAnalysis: AnalysisResult = {
       source: "arsredovisning",
       ref: { page: 4, excerpt: "Byggnadernas totalyta är 3 040 kvm." },
     },
+    antalMedlemmar: {
+      value: 72,
+      unit: "antal",
+      source: "arsredovisning",
+      ref: { page: 8, excerpt: "Vid räkenskapsårets slut fanns det 72 medlemmar i föreningen." },
+    },
+    antalLokaler: {
+      value: 6,
+      unit: "antal",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt: "6 lokaler om 350 kvm" },
+    },
     rakenskapsar: 2025,
     keyFigures: [
       {
@@ -174,6 +186,38 @@ export const sampleAnalysis: AnalysisResult = {
       el: "ja",
       bredband: "ja",
       tv: "ja",
+    },
+    avgiftInkluderarKallor: {
+      varme: {
+        page: 15,
+        excerpt: "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme.",
+      },
+      vatten: {
+        page: 15,
+        excerpt: "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme.",
+      },
+      el: {
+        page: 15,
+        excerpt: "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme.",
+      },
+      bredband: {
+        page: 15,
+        excerpt: "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme.",
+      },
+      tv: {
+        page: 15,
+        excerpt: "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme.",
+      },
+    },
+    individuellMatning: {
+      el: {
+        matning: "ja",
+        ref: {
+          page: 9,
+          excerpt:
+            "Kostnader för el (totalt 184 927 kr) tas ut via årsavgiften genom individuell mätning av förbrukningen",
+        },
+      },
     },
     lanebok: {
       totalSkuld: {

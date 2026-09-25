@@ -21,5 +21,39 @@
     "el": "ja",
     "bredband": "ja",
     "tv": "ja"
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 72,
+    "antalLokaler": 6,
+    "avgiftInkluderarKallor": { "varme": 15, "vatten": 15, "el": 15, "bredband": 15, "tv": 15 },
+    "individuellMatning": { "el": "ja" }
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 8,
+      "tryckt": "Antalet medlemmar vid räkenskapsårets början var 70 st. ... Vid räkenskapsårets slut fanns det 72 medlemmar i föreningen."
+    },
+    "antalLokaler": {
+      "sida": 4,
+      "tryckt": "Föreningen har 49 bostadsrätter om totalt 2 690 kvm och 6 lokaler om 350 kvm. Byggnadernas totalyta är 3 040 kvm."
+    },
+    "avgiftInkluderarKallor.varme": {
+      "sida": 15,
+      "tryckt": "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme."
+    },
+    "avgiftInkluderarKallor.vatten": { "sida": 15, "tryckt": "Samma mening som varme ovan." },
+    "avgiftInkluderarKallor.bredband": { "sida": 15, "tryckt": "Samma mening som varme ovan." },
+    "avgiftInkluderarKallor.tv": {
+      "sida": 15,
+      "tryckt": "Samma mening som varme ovan (\"kabel-tv\" = tv)."
+    },
+    "avgiftInkluderarKallor.el": {
+      "sida": 15,
+      "tryckt": "Samma mening som varme ovan. Sida 9 ger en MER specifik källa för just el (se individuellMatning.el nedan) — sida 15 är också en giltig källa eftersom el uttryckligen listas där också."
+    },
+    "individuellMatning.el": {
+      "sida": 9,
+      "tryckt": "Kostnader för el (totalt 184 927 kr) tas ut via årsavgiften genom individuell mätning av förbrukningen, och ingår därmed i beräkningen av nyckeltalet för årsavgifter under bokslutsåret."
+    }
   }
 }

@@ -15,7 +15,14 @@ import {
   formatVarde,
   OMRADESINDELNING_ATTRIBUTION,
 } from "@/lib/analysisView";
-import type { AnalysisResult, PageRef, Severity, Status } from "@/types/analysis";
+import type {
+  AnalysisResult,
+  FeeInclusion,
+  PageRef,
+  Severity,
+  Status,
+  Tristate,
+} from "@/types/analysis";
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
   hog: "Hög risk",
@@ -129,6 +136,42 @@ export interface PdfFraga {
   fraga: string;
 }
 
+/** One "antal"-figure row — antal medlemmar/lägenheter/hyresrätter/lokaler. */
+export interface PdfOvrigInfoAntal {
+  label: string;
+  valueText: string;
+  pageRef: string | undefined;
+}
+
+/** One fee-inclusion row — mirrors AnalysRapport.tsx's avgiftPoster shape. */
+export interface PdfOvrigInfoAvgiftPost {
+  post: keyof FeeInclusion;
+  label: string;
+  statusText: string;
+  matningText: string | undefined;
+  pageRef: string | undefined;
+}
+
+export interface PdfOvrigInfoHandelse {
+  text: string;
+  pageRef: string | undefined;
+}
+
+/**
+ * Task 1.5's "Övrig info från årsredovisningen" — mirrors AnalysRapport.tsx's
+ * OvrigInfo section exactly (same fields, same "Framgår inte av
+ * årsredovisningen" wording for an unaddressed fee item, same "no exact
+ * page" note for an unreffed väsentlig händelse). `undefined` (not an empty
+ * object) when there is nothing at all to show, so AnalysPdfDocument.tsx can
+ * skip the whole section the same way the screen report hides it.
+ */
+export interface PdfOvrigInfo {
+  antal: PdfOvrigInfoAntal[];
+  avgiftPoster: PdfOvrigInfoAvgiftPost[];
+  handelser: PdfOvrigInfoHandelse[];
+  datakvalitetSkal: string[];
+}
+
 export interface PdfViewModel {
   foreningNamn: string;
   skapadLabel: string;
@@ -137,6 +180,7 @@ export interface PdfViewModel {
   betygMotivering: string;
   rodaFlaggor: PdfRedFlag[];
   keyFigures: PdfKeyFigure[];
+  ovrigInfo: PdfOvrigInfo | undefined;
   prisanalys: PdfPrisanalys;
   rantestress: PdfRantestress;
   fragor: PdfFraga[];
@@ -287,6 +331,82 @@ function buildFragor(analys: AnalysisResult): PdfFraga[] {
     .map((f) => ({ id: f.id, fraga: f.fraga }));
 }
 
+const AVGIFT_LABEL: Record<keyof FeeInclusion, string> = {
+  varme: "Värme",
+  vatten: "Vatten",
+  el: "El",
+  bredband: "Bredband",
+  tv: "Tv",
+};
+
+const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["varme", "vatten", "el", "bredband", "tv"];
+
+/** 'okant' (or the whole field being absent) renders as "the report doesn't
+ *  say" — never as "nej". Unknown is not false, per CLAUDE.md. Mirrors
+ *  AnalysRapport.tsx's avgiftStatusText exactly. */
+function avgiftStatusText(status: Tristate | undefined): string {
+  if (status === "ja") return "Ingår";
+  if (status === "nej") return "Ingår ej";
+  return "Framgår inte av årsredovisningen";
+}
+
+/** Mirrors AnalysRapport.tsx's OvrigInfo section — see PdfOvrigInfo's doc
+ *  comment. Returns undefined (not an empty object) when there is nothing
+ *  at all to show. */
+function buildOvrigInfo(analys: AnalysisResult): PdfOvrigInfo | undefined {
+  const f = analys.forening;
+
+  const antal = [
+    { label: "Antal medlemmar", figure: f.antalMedlemmar },
+    { label: "Antal lägenheter", figure: f.antalLagenheter },
+    { label: "Varav hyresrätter", figure: f.antalHyresratter },
+    { label: "Antal lokaler", figure: f.antalLokaler },
+  ]
+    .filter(
+      (p): p is { label: string; figure: NonNullable<typeof p.figure> } => p.figure !== undefined,
+    )
+    .map((p) => ({
+      label: p.label,
+      valueText: formatFigureVarde(p.figure),
+      pageRef: formatPageRef(p.figure.ref),
+    }));
+
+  const visaAvgiftPoster = f.avgiftInkluderarEnligtForening !== undefined;
+  const avgiftPoster: PdfOvrigInfoAvgiftPost[] = visaAvgiftPoster
+    ? AVGIFT_ORDNING.map((post) => {
+        const matning =
+          post === "bredband" || post === "tv" ? undefined : f.individuellMatning?.[post];
+        return {
+          post,
+          label: AVGIFT_LABEL[post],
+          statusText: avgiftStatusText(f.avgiftInkluderarEnligtForening?.[post]),
+          matningText: matning
+            ? matning.matning === "ja"
+              ? "Individuell mätning"
+              : "Ingen individuell mätning"
+            : undefined,
+          pageRef: formatPageRef(f.avgiftInkluderarKallor?.[post]),
+        };
+      })
+    : [];
+
+  const handelser: PdfOvrigInfoHandelse[] = (f.vasentligaHandelser ?? []).map((h) => ({
+    text: h.text,
+    pageRef: formatPageRef(h.ref),
+  }));
+
+  const datakvalitetSkal = analys.datakvalitet.extraktionKonfidens.skal ?? [];
+
+  const harNagot =
+    antal.length > 0 ||
+    avgiftPoster.length > 0 ||
+    handelser.length > 0 ||
+    datakvalitetSkal.length > 0;
+  if (!harNagot) return undefined;
+
+  return { antal, avgiftPoster, handelser, datakvalitetSkal };
+}
+
 export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
   return {
     foreningNamn: analys.forening.namn,
@@ -296,6 +416,7 @@ export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
     betygMotivering: analys.betygMotivering,
     rodaFlaggor: allRedFlagsBySeverity(analys.rodaFlaggor),
     keyFigures: buildKeyFigures(analys),
+    ovrigInfo: buildOvrigInfo(analys),
     prisanalys: buildPrisanalys(analys),
     rantestress: buildRantestress(analys),
     fragor: buildFragor(analys),

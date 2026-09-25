@@ -13,7 +13,14 @@ import {
   VARDERINGSDRIVARE_CAVEAT,
 } from "@/lib/analysisView";
 import type { BolanekalkylSearch } from "@/lib/bolanekalkyl";
-import type { AnalysisResult, Fraga, RantestressScenario, Severity } from "@/types/analysis";
+import type {
+  AnalysisResult,
+  FeeInclusion,
+  Fraga,
+  RantestressScenario,
+  Severity,
+  Tristate,
+} from "@/types/analysis";
 
 /**
  * Rent presentationslager för en färdig `AnalysisResult` — betygskort, de sju
@@ -79,6 +86,7 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
       <RodaFlaggor analys={analys} />
 
       <Foreningsekonomi analys={analys} />
+      <OvrigInfo analys={analys} />
       <Prisrimlighet analys={analys} />
       <Rantestress analys={analys} />
       <Fragor analys={analys} />
@@ -190,6 +198,163 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
           );
         })}
       </div>
+    </section>
+  );
+}
+
+const AVGIFT_LABEL: Record<keyof FeeInclusion, string> = {
+  varme: "Värme",
+  vatten: "Vatten",
+  el: "El",
+  bredband: "Bredband",
+  tv: "Tv",
+};
+
+/** Display order — matches PropertyInput's AVGIFTSPOSTER order elsewhere in the pipeline. */
+const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["varme", "vatten", "el", "bredband", "tv"];
+
+/** 'okant' (or the whole field being absent) renders as "the report doesn't
+ *  say" — never as "nej". Unknown is not false, per CLAUDE.md. */
+function avgiftStatusText(status: Tristate | undefined): string {
+  if (status === "ja") return "Ingår";
+  if (status === "nej") return "Ingår ej";
+  return "Framgår inte av årsredovisningen";
+}
+
+/**
+ * "Övrig info från årsredovisningen" — facts the report states that aren't
+ * one of the seven statutory key figures: member/unit counts, what the fee
+ * covers (with individual-metering notes), väsentliga händelser and any
+ * extraction data-quality caveats. Every one of these is already extracted
+ * (see Forening in src/types/analysis.ts) but was never rendered before
+ * task 1.5. Hidden entirely when there is nothing at all to show — an empty
+ * section would just be noise.
+ */
+function OvrigInfo({ analys }: { analys: AnalysisResult }) {
+  const f = analys.forening;
+
+  const antalPoster = [
+    { label: "Antal medlemmar", figure: f.antalMedlemmar },
+    { label: "Antal lägenheter", figure: f.antalLagenheter },
+    { label: "Varav hyresrätter", figure: f.antalHyresratter },
+    { label: "Antal lokaler", figure: f.antalLokaler },
+  ].filter(
+    (p): p is { label: string; figure: NonNullable<typeof p.figure> } => p.figure !== undefined,
+  );
+
+  const avgiftPoster = AVGIFT_ORDNING.map((post) => ({
+    post,
+    label: AVGIFT_LABEL[post],
+    status: f.avgiftInkluderarEnligtForening?.[post],
+    ref: f.avgiftInkluderarKallor?.[post],
+    matning: post === "bredband" || post === "tv" ? undefined : f.individuellMatning?.[post],
+  }));
+  const visaAvgiftPoster = f.avgiftInkluderarEnligtForening !== undefined;
+
+  const handelser = f.vasentligaHandelser ?? [];
+  const datakvalitetSkal = analys.datakvalitet.extraktionKonfidens.skal ?? [];
+
+  const harNagot =
+    antalPoster.length > 0 ||
+    visaAvgiftPoster ||
+    handelser.length > 0 ||
+    datakvalitetSkal.length > 0;
+
+  if (!harNagot) return null;
+
+  return (
+    <section className="mb-10">
+      <SectionTitle hint="Fakta ur årsredovisningen som inte är ett nyckeltal, men som är bra att känna till.">
+        Övrig info från årsredovisningen
+      </SectionTitle>
+
+      {antalPoster.length > 0 ? (
+        <Card className="mb-4">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            {antalPoster.map((p) => (
+              <div key={p.label}>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">{p.label}</p>
+                <p className="mt-1 font-display text-xl text-foreground">
+                  {formatFigureVarde(p.figure)}
+                </p>
+                {p.figure.ref ? (
+                  <span title={p.figure.ref.excerpt}>
+                    <Tag>s. {p.figure.ref.page}</Tag>
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
+      {visaAvgiftPoster ? (
+        <Card className="mb-4">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Vad ingår i avgiften</h3>
+          <ul className="divide-y divide-border">
+            {avgiftPoster.map((p) => (
+              <li
+                key={p.post}
+                className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0"
+              >
+                <span className="text-sm font-medium text-foreground">{p.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {avgiftStatusText(p.status)}
+                  </span>
+                  {p.matning ? (
+                    <Badge tone="teal">
+                      {p.matning.matning === "ja"
+                        ? "Individuell mätning"
+                        : "Ingen individuell mätning"}
+                    </Badge>
+                  ) : null}
+                  {p.ref ? (
+                    <span title={p.ref.excerpt}>
+                      <Tag>s. {p.ref.page}</Tag>
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {handelser.length > 0 ? (
+        <Card className="mb-4">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Väsentliga händelser</h3>
+          <ul className="space-y-2">
+            {handelser.map((h, i) => (
+              <li key={`handelse-${i}`} className="text-sm text-foreground">
+                {h.text}{" "}
+                {h.ref ? (
+                  <span title={h.ref.excerpt}>
+                    <Tag>s. {h.ref.page}</Tag>
+                  </span>
+                ) : (
+                  <span className="text-xs italic text-muted-foreground/70">
+                    (ingen exakt sidhänvisning)
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+
+      {datakvalitetSkal.length > 0 ? (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-foreground">
+            Om extraktionens tillförlitlighet
+          </h3>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {datakvalitetSkal.map((skal, i) => (
+              <li key={`skal-${i}`}>{skal}</li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { PDF_COLORS, PDF_DISCLAIMER, PDF_PAGE_PADDING } from "@/components/pdf/t
 import {
   buildPdfViewModel,
   type PdfKeyFigure,
+  type PdfOvrigInfo,
   type PdfRedFlag,
   type PdfViewModel,
 } from "@/components/pdf/viewModel";
@@ -364,6 +365,43 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.mutedForeground,
     fontStyle: "italic",
   },
+  ovrigInfoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  ovrigInfoCell: {
+    width: "50%",
+    marginBottom: 10,
+  },
+  ovrigInfoLabel: {
+    fontSize: 7,
+    color: PDF_COLORS.mutedForeground,
+    marginBottom: 2,
+  },
+  ovrigInfoValue: {
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  ovrigInfoBadge: {
+    fontSize: 6,
+    fontWeight: "bold",
+    color: PDF_COLORS.primary,
+    backgroundColor: PDF_COLORS.secondary,
+    borderRadius: 3,
+    paddingVertical: 1,
+    paddingHorizontal: 4,
+  },
+  ovrigInfoHandelseRow: {
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: PDF_COLORS.border,
+  },
+  bulletItem: {
+    fontSize: 8,
+    color: PDF_COLORS.mutedForeground,
+    lineHeight: 1.4,
+    marginBottom: 2,
+  },
 });
 
 function Header({ foreningNamn, skapadLabel }: { foreningNamn: string; skapadLabel: string }) {
@@ -470,6 +508,76 @@ function Foreningsekonomi({ keyFigures }: { keyFigures: PdfKeyFigure[] }) {
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+/** Mirrors AnalysRapport.tsx's OvrigInfo section — see PdfOvrigInfo's doc
+ *  comment in viewModel.ts. Called only when vm.ovrigInfo is defined; the
+ *  whole section is skipped otherwise (see AnalysPdfDocument below). */
+function OvrigInfo({ ovrigInfo }: { ovrigInfo: PdfOvrigInfo }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Övrig info från årsredovisningen</Text>
+
+      {ovrigInfo.antal.length > 0 ? (
+        <View style={[styles.card, { marginBottom: 8 }]} wrap={false}>
+          <View style={styles.ovrigInfoGrid}>
+            {ovrigInfo.antal.map((a) => (
+              <View key={a.label} style={styles.ovrigInfoCell}>
+                <Text style={styles.ovrigInfoLabel}>{a.label}</Text>
+                <Text style={styles.ovrigInfoValue}>{a.valueText}</Text>
+                {a.pageRef ? <Text style={styles.pageRefTag}>{a.pageRef}</Text> : null}
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {ovrigInfo.avgiftPoster.length > 0 ? (
+        <View style={[styles.card, { marginBottom: 8 }]} wrap={false}>
+          <Text style={[styles.priceLabel, { fontWeight: "bold", marginBottom: 4 }]}>
+            Vad ingår i avgiften
+          </Text>
+          {ovrigInfo.avgiftPoster.map((p) => (
+            <View key={p.post} style={styles.priceRow}>
+              <Text style={styles.priceLabel}>{p.label}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.summaryLabel}>{p.statusText}</Text>
+                {p.matningText ? <Text style={styles.ovrigInfoBadge}>{p.matningText}</Text> : null}
+                {p.pageRef ? <Text style={styles.pageRefTag}>{p.pageRef}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {ovrigInfo.handelser.length > 0 ? (
+        <View style={[styles.card, { marginBottom: 8 }]} wrap={false}>
+          <Text style={[styles.priceLabel, { fontWeight: "bold", marginBottom: 4 }]}>
+            Väsentliga händelser
+          </Text>
+          {ovrigInfo.handelser.map((h, i) => (
+            <View key={`handelse-${i}`} style={styles.ovrigInfoHandelseRow}>
+              <Text style={styles.flagBody}>{h.text}</Text>
+              <Text style={styles.pageRefTag}>{h.pageRef ?? "(ingen exakt sidhänvisning)"}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {ovrigInfo.datakvalitetSkal.length > 0 ? (
+        <View style={styles.card} wrap={false}>
+          <Text style={[styles.priceLabel, { fontWeight: "bold", marginBottom: 4 }]}>
+            Om extraktionens tillförlitlighet
+          </Text>
+          {ovrigInfo.datakvalitetSkal.map((skal, i) => (
+            <Text key={`skal-${i}`} style={styles.bulletItem}>
+              • {skal}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -633,6 +741,7 @@ export function AnalysPdfDocument({ analys }: { analys: AnalysisResult }) {
         <Betyg vm={vm} />
         <RodaFlaggor flaggor={vm.rodaFlaggor} />
         <Foreningsekonomi keyFigures={vm.keyFigures} />
+        {vm.ovrigInfo ? <OvrigInfo ovrigInfo={vm.ovrigInfo} /> : null}
         <Prisrimlighet vm={vm} />
         <Rantestress vm={vm} />
         <Fragor fragor={vm.fragor} />

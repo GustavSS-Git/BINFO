@@ -70,6 +70,113 @@ describe("buildPdfViewModel — sample analysis", () => {
     expect(vm.betyg).toBe("D");
     expect(vm.betygMotivering).toBe(sampleAnalysis.betygMotivering);
   });
+
+  it("builds ovrigInfo from the sample's real antalMedlemmar/antalLokaler/avgiftInkluderarKallor/individuellMatning", () => {
+    expect(vm.ovrigInfo).toBeDefined();
+    const antalMedlemmar = vm.ovrigInfo?.antal.find((a) => a.label === "Antal medlemmar");
+    expect(antalMedlemmar?.valueText).toBe("72 st");
+    expect(antalMedlemmar?.pageRef).toBe("s. 8");
+
+    const antalLokaler = vm.ovrigInfo?.antal.find((a) => a.label === "Antal lokaler");
+    expect(antalLokaler?.valueText).toBe("6 st");
+
+    const el = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
+    expect(el?.statusText).toBe("Ingår");
+    expect(el?.pageRef).toBe("s. 15");
+    expect(el?.matningText).toBe("Individuell mätning");
+
+    const bredband = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "bredband");
+    expect(bredband?.matningText).toBeUndefined();
+
+    expect(vm.ovrigInfo?.handelser.length).toBe(
+      sampleAnalysis.forening.vasentligaHandelser?.length,
+    );
+    expect(vm.ovrigInfo?.datakvalitetSkal).toEqual([]);
+  });
+});
+
+describe("buildPdfViewModel — ovrigInfo edge cases", () => {
+  it("is undefined when the analysis has nothing new to show — the PDF must skip the whole section", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        namn: sampleAnalysis.forening.namn,
+        orgnr: sampleAnalysis.forening.orgnr,
+        akta: sampleAnalysis.forening.akta,
+        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
+        keyFigures: sampleAnalysis.forening.keyFigures,
+      },
+      datakvalitet: { ...sampleAnalysis.datakvalitet, extraktionKonfidens: { niva: "hog" } },
+    };
+    expect(buildPdfViewModel(analys).ovrigInfo).toBeUndefined();
+  });
+
+  it("shows 'Framgår inte av årsredovisningen' for an 'okant' or unaddressed fee item, never 'nej'", () => {
+    // Omit (not set to undefined — exactOptionalPropertyTypes forbids that)
+    // avgiftInkluderarKallor/individuellMatning from the base sample, so this
+    // case only exercises avgiftInkluderarEnligtForening's own statuses.
+    const {
+      avgiftInkluderarKallor: _kallor,
+      individuellMatning: _matning,
+      ...foreningUtanKallor
+    } = sampleAnalysis.forening;
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...foreningUtanKallor,
+        avgiftInkluderarEnligtForening: {
+          varme: "ja",
+          vatten: "nej",
+          el: "okant",
+          bredband: "okant",
+          tv: "okant",
+        },
+      },
+    };
+    const vm = buildPdfViewModel(analys);
+    const el = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
+    expect(el?.statusText).toBe("Framgår inte av årsredovisningen");
+    const vatten = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "vatten");
+    expect(vatten?.statusText).toBe("Ingår ej");
+  });
+
+  it("marks a väsentlig händelse without a ref distinctly (undefined pageRef), never invents a page", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        namn: sampleAnalysis.forening.namn,
+        orgnr: sampleAnalysis.forening.orgnr,
+        akta: sampleAnalysis.forening.akta,
+        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
+        keyFigures: sampleAnalysis.forening.keyFigures,
+        vasentligaHandelser: [{ text: "Något hänt, ospecifik sida." }],
+      },
+      datakvalitet: { ...sampleAnalysis.datakvalitet, extraktionKonfidens: { niva: "hog" } },
+    };
+    const vm = buildPdfViewModel(analys);
+    expect(vm.ovrigInfo?.handelser).toEqual([
+      { text: "Något hänt, ospecifik sida.", pageRef: undefined },
+    ]);
+  });
+
+  it("surfaces datakvalitet.extraktionKonfidens.skal even with nothing else to show", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        namn: sampleAnalysis.forening.namn,
+        orgnr: sampleAnalysis.forening.orgnr,
+        akta: sampleAnalysis.forening.akta,
+        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
+        keyFigures: sampleAnalysis.forening.keyFigures,
+      },
+      datakvalitet: {
+        ...sampleAnalysis.datakvalitet,
+        extraktionKonfidens: { niva: "medel", skal: ["Ett fynd var tvetydigt."] },
+      },
+    };
+    const vm = buildPdfViewModel(analys);
+    expect(vm.ovrigInfo?.datakvalitetSkal).toEqual(["Ett fynd var tvetydigt."]);
+  });
 });
 
 describe("buildPdfViewModel — edge cases", () => {

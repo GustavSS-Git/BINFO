@@ -14,5 +14,20 @@
     "sparande_per_m2_totalyta": 337,
     "rantekanslighet": 8.7,
     "energikostnad_per_m2_totalyta": 194
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 136
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 6,
+      "tryckt": "Föreningens medlemsantal på bokslutsdagen uppgår till 136 personer."
+    },
+    "individuellMatning": {
+      "anmarkning": "Rapporten nämner IMD men utan att säga vilken förbrukning det gäller: \"I begreppet årsavgift ingår inte IMD-avgifter eller andra obligatoriska avgifter, vilket kan medföra skillnader i ovan information jämfört med nyckeltal i flerårsöversikten.\" (sida 6). Enligt extraktionsregeln ska en sådan opreciserad IMD-mening INTE kopplas till el/vatten/värme — därför utelämnat ur ovrigInfo med flit, som avsiktligt testfall för den regeln."
+    },
+    "avgiftInkluderarKallor": {
+      "anmarkning": "Ingen \"I årsavgiften ingår ...\"-mening hittades för denna rapport, bara generisk text om \"obligatoriska avgifter\". Utelämnat ur ovrigInfo med flit."
+    }
   }
 }

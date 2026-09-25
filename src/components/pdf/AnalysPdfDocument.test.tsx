@@ -107,6 +107,17 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
     expect(extractedText).toContain("s. 9");
   });
 
+  it("includes the Övrig info section with counts, fee inclusion and väsentliga händelser", () => {
+    expect(extractedText).toContain("Övrig info från årsredovisningen");
+    expect(extractedText).toContain("Antal medlemmar");
+    expect(extractedText).toContain("72 st");
+    expect(extractedText).toContain("Antal lokaler");
+    expect(extractedText).toContain("Vad ingår i avgiften");
+    expect(extractedText).toContain("Individuell mätning");
+    expect(extractedText).toContain("Väsentliga händelser");
+    expect(extractedText).toContain(sampleAnalysis.forening.vasentligaHandelser?.[0]?.text ?? "");
+  });
+
   it("does not break fi/fl ligatures in the extracted text layer", () => {
     // Regression test: fontkit substitutes a single "fi"/"fl" ligature glyph
     // for those letter pairs, and @react-pdf/render's generated ToUnicode

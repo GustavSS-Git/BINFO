@@ -41,6 +41,33 @@ describe("buildGroundingSystemPrompt", () => {
   });
 });
 
+describe("buildGroundingSystemPrompt — task 1.5 extra fält", () => {
+  it("instruerar att ta årets medlemsantal, inte jämförelsetalet inom parentes för föregående år", () => {
+    const prompt = buildGroundingSystemPrompt();
+    expect(prompt).toMatch(/medlem/i);
+    expect(prompt).toContain("43 (41)");
+    expect(prompt).toMatch(/inte jämförelsetalet|föregående år/i);
+  });
+
+  it("varnar för att förväxla lokaler/hyresrätter med areauppgifter och gemensamhetsutrymmen", () => {
+    const prompt = buildGroundingSystemPrompt();
+    expect(prompt).toMatch(/hyresrätt/i);
+    expect(prompt).toMatch(/lokal/i);
+    expect(prompt).toMatch(/föreningslokal|samlingslokal/i);
+  });
+
+  it("varnar uttryckligen för försäkrings-fällan — en mening om fastighetsförsäkring är inte ett svar om avgiften", () => {
+    const prompt = buildGroundingSystemPrompt();
+    expect(prompt).toMatch(/fastighetsförsäkring/i);
+    expect(prompt).toMatch(/INTE om vad som ingår/i);
+  });
+
+  it("instruerar om individuell mätning (IMD)", () => {
+    const prompt = buildGroundingSystemPrompt();
+    expect(prompt).toMatch(/individuell mätning|IMD/i);
+  });
+});
+
 describe("buildExtractionSystemPrompt", () => {
   it("listar alla sju id-strängar ordagrant — modellen har annars gissat egna förkortningar i praktiken", () => {
     const prompt = buildExtractionSystemPrompt();
@@ -84,6 +111,31 @@ describe("buildExtractionSystemPrompt", () => {
   it("instruerar om avgiftInkluderarEnligtForening", () => {
     const prompt = buildExtractionSystemPrompt();
     expect(prompt).toContain("avgiftInkluderarEnligtForening");
+  });
+
+  it("instruerar om avgiftInkluderarKallor — en källa per post rapporten tagit entydig ställning till", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("avgiftInkluderarKallor");
+    expect(prompt).toMatch(/"ja" eller "nej"/);
+  });
+
+  it("instruerar om individuellMatning och att 'matning' aldrig är 'okant'", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("individuellMatning");
+    expect(prompt).toMatch(/ALDRIG "okant"/);
+  });
+
+  it("instruerar om antalMedlemmar, antalHyresratter och antalLokaler", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toContain("antalMedlemmar");
+    expect(prompt).toContain("antalHyresratter");
+    expect(prompt).toContain("antalLokaler");
+    expect(prompt).toContain("43 (41)");
+  });
+
+  it("varnar mot försäkrings-fällan även i extraktionsprompten", () => {
+    const prompt = buildExtractionSystemPrompt();
+    expect(prompt).toMatch(/fastighetsförsäkring/i);
   });
 });
 
@@ -352,6 +404,6 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("ee9d0fc3f2badd829fd28432a1b4ec11bf0b7cc8b43bfb4da2ca5463f4ef632b");
+    expect(hash).toBe("6ef49ebfebb6e3715854067290d4a1216b6c1948547d6bcf0234491978b89171");
   });
 });

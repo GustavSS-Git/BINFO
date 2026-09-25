@@ -21,5 +21,28 @@
     "tv": "ja",
     "el": "nej",
     "bredband": "okant"
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 22,
+    "avgiftInkluderarKallor": { "varme": 13, "vatten": 13, "tv": 13, "el": 7 }
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 6,
+      "tryckt": "Vid räkenskapsårets slut fanns det 22 medlemmar i föreningen."
+    },
+    "avgiftInkluderarKallor.varme": {
+      "sida": 13,
+      "tryckt": "I årsavgiften ingår kostnader för kabel-tv, vatten och värme."
+    },
+    "avgiftInkluderarKallor.vatten": { "sida": 13, "tryckt": "Samma mening som varme ovan." },
+    "avgiftInkluderarKallor.tv": {
+      "sida": 13,
+      "tryckt": "Samma mening som varme ovan (\"kabel-tv\" = tv)."
+    },
+    "avgiftInkluderarKallor.el": {
+      "sida": 7,
+      "tryckt": "Kostnader för medlemmarnas elförbrukning ingår inte i årsavgiften."
+    }
   }
 }

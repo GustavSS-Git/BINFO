@@ -166,6 +166,17 @@ export interface Forening {
    *  user's (possibly overridden) answer, never silently replacing one
    *  with the other. */
   avgiftInkluderarEnligtForening?: FeeInclusion;
+  /** Where the report states each item of avgiftInkluderarEnligtForening
+   *  (only for items it actually addresses — an 'okant' item has no ref). */
+  avgiftInkluderarKallor?: Partial<Record<keyof FeeInclusion, PageRef>>;
+  /** Individual metering (IMD) per consumption item, only where the report
+   *  says so ('ja'/'nej'); absent = the report doesn't address it. */
+  individuellMatning?: Partial<Record<'el' | 'vatten' | 'varme', { matning: Tristate; ref: PageRef }>>;
+
+  /** Counts the report states, each cited like any other extracted figure. */
+  antalMedlemmar?: Figure;
+  antalHyresratter?: Figure;
+  antalLokaler?: Figure;
 
   lanebok?: {
     totalSkuld: Figure;

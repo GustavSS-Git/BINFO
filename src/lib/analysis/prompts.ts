@@ -8,7 +8,7 @@ import { BENCHMARKS } from "./benchmarks";
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "2";
+export const PROMPT_VERSION = "3";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -39,6 +39,10 @@ Din uppgift i detta steg är ENDAST att hitta och citera källunderlag — inte 
 
 Föreningens identitet: namn, organisationsnummer, om föreningen är äkta eller oäkta bostadsrättsförening, byggår, antal lägenheter, föreningens totalyta, vilket räkenskapsår rapporten avser.
 
+Antal medlemmar: föreningens medlemsantal VID RÄKENSKAPSÅRETS SLUT. Rapporter skriver ofta detta som "Föreningen hade vid årets slut 43 (41) medlemmar" — då är 43 talet att citera (nuvarande år), inte jämförelsetalet inom parentes (föregående år). Blanda inte ihop detta med ett annat tal som råkar stå nära ordet "medlemmar" i en annan mening (t.ex. ett årtal, ett styrelsemöte eller ett antal ledamöter) — citera bara meningen som uttryckligen anger det totala medlemsantalet. Vissa rapporter (särskilt från Riksbyggen i denna typ av underlag) anger bara antal lägenheter, aldrig medlemsantal — säg då inget om medlemsantal.
+
+Antal hyresrätter och antal lokaler: leta efter hur många av föreningens enheter som är hyresrätter respektive lokaler (kontor, butik, förråd som föreningen hyr ut eller äger som lokal — INTE gemensamhetsutrymmen som "föreningslokal" eller "samlingslokal", och INTE en areauppgift i kvadratmeter som råkar innehålla ordet "lokal" eller "garagelokal"). En lokal nämns ibland med sin upplåtelseform i samma mening, t.ex. "2 lokaler (hyresrätt)" — citera då både antalet och att det är hyresrätt. Räkna bara enheter rapporten uttryckligen anger som lokaler eller hyresrätter; gissa aldrig utifrån vad som är vanligt.
+
 De sju lagstadgade nyckeltalen (BFNAR 2023:1) — leta upp exakta värden för var och en:
 ${ALLA_NYCKELTAL.map((n) => `- ${n.label}`).join("\n")}
 
@@ -48,7 +52,9 @@ Underhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är p
 
 Väsentliga händelser: händelser efter räkenskapsårets slut eller annan väsentlig information i förvaltningsberättelsen som en köpare bör känna till.
 
-Vad som ingår i månadsavgiften: söker rapporten uttryckligen nämna om t.ex. värme, vatten, el, bredband eller tv ingår i avgiften eller bekostas separat av medlemmarna (ofta under "I årsavgiften ingår..." eller liknande formulering).
+Vad som ingår i månadsavgiften: söker rapporten uttryckligen nämna om t.ex. värme, vatten, el, bredband eller tv ingår i avgiften eller bekostas separat av medlemmarna (ofta under "I årsavgiften ingår..." eller liknande formulering, t.ex. "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme" eller en explicit uteslutning som "Kostnader för medlemmarnas elförbrukning ingår inte i årsavgiften"). Citera var i rapporten varje sådan post uttryckligen nämns, en post i taget — olika poster nämns ofta i olika meningar eller på olika sidor. VIKTIGT: en mening om föreningens EGEN fastighetsförsäkring (t.ex. "X ingår ej i föreningens fastighetsförsäkring") handlar INTE om vad som ingår i medlemmarnas avgift — citera den aldrig som ett svar på om en post ingår i avgiften.
+
+Individuell mätning (IMD): letar rapporten uttryckligen nämna att el, vatten eller värme mäts och debiteras individuellt per lägenhet (t.ex. "Kostnader för el ... tas ut via årsavgiften genom individuell mätning" eller "I begreppet årsavgift ingår inte IMD-avgifter"). Citera vilken specifik post (el, vatten eller värme) det gäller — om rapporten bara nämner "IMD" utan att säga vilken förbrukning det avser, notera det men koppla det inte till fel post.
 
 För varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.`;
 }
@@ -137,7 +143,18 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     "antalLagenheter": { "value": 42, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "föreningen omfattar 42 lägenheter" } },
     "totalyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "total bostadsarea om 3 200 kvm" } },
     "rakenskapsar": 2025,
-    "avgiftInkluderarEnligtForening": { "varme": "ja", "vatten": "ja", "el": "okant", "bredband": "okant", "tv": "okant" },
+    "antalMedlemmar": { "value": 43, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Föreningen hade vid årets slut 43 (41) medlemmar" } },
+    "antalHyresratter": { "value": 2, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "2 lokaler (hyresrätt)" } },
+    "antalLokaler": { "value": 2, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "2 lokaler (hyresrätt)" } },
+    "avgiftInkluderarEnligtForening": { "varme": "ja", "vatten": "ja", "el": "ja", "bredband": "okant", "tv": "okant" },
+    "avgiftInkluderarKallor": {
+      "varme": { "page": 15, "excerpt": "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme" },
+      "vatten": { "page": 15, "excerpt": "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme" },
+      "el": { "page": 15, "excerpt": "Kostnader för el tas ut via årsavgiften genom individuell mätning" }
+    },
+    "individuellMatning": {
+      "el": { "matning": "ja", "ref": { "page": 15, "excerpt": "Kostnader för el tas ut via årsavgiften genom individuell mätning" } }
+    },
     "keyFigures": [
       {
         "id": "arsavgift_per_m2_brf_yta",
@@ -192,7 +209,11 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - kommandeAtgarder är en ARRAY av objekt { "text", "ref"? } — aldrig en platt sträng-array. Varje planerad åtgärd citeras för sig, eftersom olika åtgärder ofta nämns på olika sidor. Om du inte kan hitta en exakt sida för en specifik åtgärd: utelämna "ref" för just den posten (skriv inte in "page": null) — åtgärden tas ändå med, bara utan citat.
 - Samma sak gäller vasentligaHandelser: "ref" är valfritt per händelse. Utelämna det om ingen exakt sida kan anges — händelsen ska ändå finnas med, aldrig hittas på en sida eller strykas för att den saknar exakt citat.
 - Ett kommandeAtgarder- eller väsentlig-händelse-objekt har ENDAST fälten "text" och (valfritt) "ref" — aldrig "beskrivning" eller "source" på den nivån.
-- avgiftInkluderarEnligtForening: sätt "ja"/"nej" per post (varme/vatten/el/bredband/tv) ENDAST när rapporten uttryckligen säger det (t.ex. "i årsavgiften ingår värme och vatten" eller "elkostnader ingår inte i avgiften"). Dra ALDRIG slutsatsen "nej" bara för att en post inte nämns, och gissa aldrig utifrån vad som är vanligt i svenska bostadsrättsföreningar i allmänhet — det räknas som att gissa, inte att läsa. Sätt "okant" för varje post rapporten inte uttryckligen tar ställning till. Utelämna hela fältet om rapporten inte säger något alls om vad som ingår i avgiften.
+- avgiftInkluderarEnligtForening: sätt "ja"/"nej" per post (varme/vatten/el/bredband/tv) ENDAST när rapporten uttryckligen säger det (t.ex. "i årsavgiften ingår värme och vatten" eller "elkostnader ingår inte i avgiften"). Dra ALDRIG slutsatsen "nej" bara för att en post inte nämns, och gissa aldrig utifrån vad som är vanligt i svenska bostadsrättsföreningar i allmänhet — det räknas som att gissa, inte att läsa. Sätt "okant" för varje post rapporten inte uttryckligen tar ställning till. Utelämna hela fältet om rapporten inte säger något alls om vad som ingår i avgiften. En mening om föreningens EGEN fastighetsförsäkring (t.ex. "X ingår ej i föreningens fastighetsförsäkring") är INTE ett svar om avgiften — använd den aldrig här.
+- avgiftInkluderarKallor: för VARJE post där avgiftInkluderarEnligtForening faktiskt är "ja" eller "nej" (aldrig för en post som är "okant" eller utelämnad), lägg till en post med samma nyckel som citerar var i rapporten det står — { "page", "excerpt" }, excerpt obligatoriskt. Utelämna hela fältet om avgiftInkluderarEnligtForening utelämnas.
+- individuellMatning: sätt en post (el/vatten/varme) ENDAST när rapporten uttryckligen säger att just den förbrukningen mäts och debiteras individuellt per lägenhet (t.ex. "Kostnader för el ... tas ut via årsavgiften genom individuell mätning" eller "I begreppet årsavgift ingår inte IMD-avgifter" — koppla den senare bara till en specifik post om rapporten säger vilken). "matning" är alltid "ja" eller "nej", ALDRIG "okant" — en post rapporten inte tar upp UTELÄMNAS helt, den sätts inte till "okant". "ref" är obligatoriskt med excerpt när posten finns.
+- antalMedlemmar: föreningens medlemsantal vid räkenskapsårets slut, ALDRIG jämförelsetalet inom parentes för föregående år (t.ex. "43 (41) medlemmar" → 43). Utelämna hela fältet om rapporten bara anger antal lägenheter, inte medlemsantal.
+- antalHyresratter / antalLokaler: sätt bara när rapporten uttryckligen anger föreningens hyresrätter respektive lokaler som egna enheter (t.ex. "2 lokaler (hyresrätt)"). Räkna aldrig en areauppgift i kvadratmeter (t.ex. "garagelokaler 130 kvm") eller ett gemensamhetsutrymme ("föreningslokal", "samlingslokal") som en lokal i den här betydelsen.
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
 - Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta i sig själva, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
 - Om cellen för ett nyckeltal INTE är ett rent tal — t.ex. "neg", "negativ", "(123)", "−4,2", "-", eller en kolumn märkt "tkr" — kopiera det exakt som det står i rapporten (tecken, mellanslag och allt) till figure.tryckt. Sätt figure.value till din bästa läsning av talet om du kan utläsa ett (annars null); ett senare, deterministiskt steg tolkar tryckt på nytt och den tolkningen vinner ALLTID över value när tryckt är satt, så en ofullständig gissning i value kostar ingenting — men hitta aldrig på en siffra som inte alls går att utläsa ur cellen. Sätt ALDRIG fältet "tecken" själv — det sätts uteslutande i det deterministiska steget, aldrig av dig. Är cellen redan ett rent tal (t.ex. "670" eller "-1 200"): utelämna tryckt helt, precis som idag.

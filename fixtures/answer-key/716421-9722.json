@@ -44,5 +44,27 @@
       "sida": 5,
       "tryckt": "\"Energikostnad, kr/kvm 186 164 167 166 0\" — första kolumnen (186) är 2024."
     }
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 60,
+    "avgiftInkluderarKallor": { "vatten": 12, "varme": 12, "bredband": 12 }
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 4,
+      "tryckt": "Antalet medlemmar vid räkenskapsårets slut var 60."
+    },
+    "avgiftInkluderarKallor.vatten": {
+      "sida": 12,
+      "tryckt": "Årsavgiften som medlemmarna betalar täcker kostnader för vatten, värme, sophämtning och bredband"
+    },
+    "avgiftInkluderarKallor.varme": {
+      "sida": 12,
+      "tryckt": "Samma mening som vatten ovan."
+    },
+    "avgiftInkluderarKallor.bredband": {
+      "sida": 12,
+      "tryckt": "Samma mening som vatten ovan. \"Sophämtning\" i samma mening är INTE en av de fem FeeInclusion-posterna (varme/vatten/el/bredband/tv), utelämnad här. El och tv nämns inte i den här meningen — okänt för dem."
+    }
   }
 }

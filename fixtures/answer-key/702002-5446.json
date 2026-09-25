@@ -40,5 +40,19 @@
     "skuldsattning_per_m2_brf_yta": {
       "anmarkning": "Samma osäkerhet som skuldsattning_per_m2_totalyta ovan — se den anmärkningen. Lämnat utanför \"nyckeltal\"."
     }
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 43,
+    "antalLokaler": 1
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 2,
+      "tryckt": "Föreningen hade vid årets slut 43 (41) medlemmar. — 43 är räkenskapsårets (2023) tal, 41 inom parentes är föregående år."
+    },
+    "antalLokaler": {
+      "sida": 3,
+      "tryckt": "\"Föreningens lokaler / Kontraktet på föreningens lokal löper enligt följande: Verksamhet Yta kvm Löptid t.o.m / Kontor 130,5 (varav lager 41,5) 2024-12-31\" — tabellen listar exakt en rad (ett kontor), tolkat som 1 lokal. Rubriken \"Föreningens lokaler\" står i plural som rubriktext, men inget tal för antal lokaler trycks separat — detta är en tolkning av tabellens radantal, inte ett direkt tryckt tal, och bör kontrolleras extra noga av ägaren."
+    }
   }
 }

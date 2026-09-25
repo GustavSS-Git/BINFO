@@ -14,5 +14,24 @@
     "sparande_per_m2_totalyta": 64,
     "rantekanslighet": 3,
     "energikostnad_per_m2_totalyta": 295
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 155,
+    "antalHyresratter": 2,
+    "antalLokaler": 2
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 5,
+      "tryckt": "Antalet medlemmar vid räkenskapsårets slut var 155."
+    },
+    "antalHyresratter": {
+      "sida": 2,
+      "tryckt": "\"117 lägenheter (upplåtna med bostadsrätt) 7 082 / 2 lokaler (hyresrätt) 168 / 3 föreningslokaler 48\" — de 2 lokalerna är uttryckligen upplåtna med hyresrätt. De 3 \"föreningslokalerna\" är gemensamhetsutrymmen (INTE en hyresrätt/lokal att räkna in, se avsnittsvarningen om föreningslokaler)."
+    },
+    "antalLokaler": {
+      "sida": 2,
+      "tryckt": "Samma rad som ovan — \"2 lokaler (hyresrätt) 168\". De 3 föreningslokalerna räknas INTE med här (gemensamhetsutrymmen, inte uthyrda/upplåtna lokaler)."
+    }
   }
 }

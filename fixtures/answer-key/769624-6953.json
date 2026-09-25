@@ -51,5 +51,35 @@
     "vatten": "ja",
     "varme": "ja",
     "el": "nej"
+  },
+  "ovrigInfo": {
+    "antalMedlemmar": 227,
+    "antalHyresratter": 14,
+    "antalLokaler": 15,
+    "avgiftInkluderarKallor": { "bredband": 14, "vatten": 14, "varme": 14, "el": 8 }
+  },
+  "ovrigInfoVerifiering": {
+    "antalMedlemmar": {
+      "sida": 7,
+      "tryckt": "\"Vid räkenskapsårets slutfanns det 227 medlemmar i föreningen.\" (löpande text, tillförlitligt läsbar trots att OCR:en klistrat ihop \"slut\" och \"fanns\")."
+    },
+    "antalHyresratter": {
+      "sida": 4,
+      "tryckt": "\"Föreningen har 14 hyreslägenheter och 167 bostadsrätter om totalt 10 272 kvm och 15 lokaler om 1 031 kvm.\" (löpande text, tillförlitligt läsbar — INTE i den garblade flerårsöversikten)."
+    },
+    "antalLokaler": {
+      "sida": 4,
+      "tryckt": "Samma mening som antalHyresratter ovan."
+    },
+    "avgiftInkluderarKallor.bredband": {
+      "sida": 14,
+      "tryckt": "Samma citat som avgiftInkluderar.bredband ovan (\"1 årsavgiften ingår kostnaderför bredband, vatten och värme.\")."
+    },
+    "avgiftInkluderarKallor.vatten": { "sida": 14, "tryckt": "Samma mening som bredband ovan." },
+    "avgiftInkluderarKallor.varme": { "sida": 14, "tryckt": "Samma mening som bredband ovan." },
+    "avgiftInkluderarKallor.el": {
+      "sida": 8,
+      "tryckt": "Samma citat som avgiftInkluderar.el ovan."
+    }
   }
 }

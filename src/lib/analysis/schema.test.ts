@@ -534,6 +534,166 @@ describe("ForeningSchema", () => {
     };
     expect(ForeningSchema.safeParse(med).success).toBe(true);
   });
+
+  describe("antalMedlemmar/antalHyresratter/antalLokaler", () => {
+    it("accepterar alla tre som vanliga Figure-fält", () => {
+      const med = {
+        ...bas,
+        antalMedlemmar: {
+          value: 43,
+          unit: "antal",
+          source: "arsredovisning",
+          ref: { page: 3, excerpt: "Föreningen hade vid årets slut 43 (41) medlemmar" },
+        },
+        antalHyresratter: {
+          value: 2,
+          unit: "antal",
+          source: "arsredovisning",
+          ref: { page: 3, excerpt: "2 lokaler (hyresrätt)" },
+        },
+        antalLokaler: {
+          value: 2,
+          unit: "antal",
+          source: "arsredovisning",
+          ref: { page: 3, excerpt: "2 lokaler (hyresrätt)" },
+        },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(true);
+    });
+
+    it("kräver PageRef på antalMedlemmar när source är 'arsredovisning', precis som alla andra figurer", () => {
+      const utanRef = {
+        ...bas,
+        antalMedlemmar: { value: 43, unit: "antal", source: "arsredovisning" },
+      };
+      expect(ForeningSchema.safeParse(utanRef).success).toBe(false);
+    });
+
+    it("är valfria — de flesta rapporter nämner inte allt", () => {
+      expect(ForeningSchema.safeParse(bas).success).toBe(true);
+    });
+  });
+
+  describe("avgiftInkluderarKallor", () => {
+    it("accepterar en källa per post som avgiftInkluderarEnligtForening faktiskt har ja/nej för", () => {
+      const med = {
+        ...bas,
+        avgiftInkluderarEnligtForening: {
+          varme: "ja",
+          vatten: "ja",
+          el: "okant",
+          bredband: "okant",
+          tv: "okant",
+        },
+        avgiftInkluderarKallor: {
+          varme: { page: 15, excerpt: "I årsavgiften ingår kostnader för värme" },
+          vatten: { page: 15, excerpt: "I årsavgiften ingår kostnader för vatten" },
+        },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(true);
+    });
+
+    it("kräver excerpt — en sidhänvisning utan citat bevisar ingenting", () => {
+      const med = {
+        ...bas,
+        avgiftInkluderarEnligtForening: {
+          varme: "ja",
+          vatten: "okant",
+          el: "okant",
+          bredband: "okant",
+          tv: "okant",
+        },
+        avgiftInkluderarKallor: { varme: { page: 15 } },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(false);
+    });
+
+    it("avvisar en källa för en post som är 'okant' i avgiftInkluderarEnligtForening — en källa utan ett entydigt svar bevisar ingenting", () => {
+      const med = {
+        ...bas,
+        avgiftInkluderarEnligtForening: {
+          varme: "okant",
+          vatten: "okant",
+          el: "okant",
+          bredband: "okant",
+          tv: "okant",
+        },
+        avgiftInkluderarKallor: { varme: { page: 15, excerpt: "Något ovidkommande citat" } },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(false);
+    });
+
+    it("avvisar en källa för en post som inte alls finns i avgiftInkluderarEnligtForening", () => {
+      const med = {
+        ...bas,
+        avgiftInkluderarKallor: { varme: { page: 15, excerpt: "Något citat" } },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(false);
+    });
+
+    // Regression för "försäkrings-fällan": en mening om föreningens egen
+    // fastighetsförsäkring ("X ingår ej i föreningens fastighetsförsäkring")
+    // handlar inte om avgiften. Schemat kan inte läsa textens INNEHÅLL, men
+    // det kan (och ska) fortfarande kräva att en källa hör ihop med ett
+    // entydigt ja/nej-svar — samma regel som ovan, här med ett citat som
+    // faktiskt kommer från en försäkringsmening för att göra avsikten tydlig.
+    it("avvisar en källa vars citat kommer från en försäkringsmening när posten ändå är 'okant'", () => {
+      const med = {
+        ...bas,
+        avgiftInkluderarEnligtForening: {
+          varme: "okant",
+          vatten: "okant",
+          el: "okant",
+          bredband: "okant",
+          tv: "okant",
+        },
+        avgiftInkluderarKallor: {
+          el: { page: 6, excerpt: "Hushållsel ingår ej i föreningens fastighetsförsäkring" },
+        },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(false);
+    });
+  });
+
+  describe("individuellMatning", () => {
+    it("accepterar 'ja' och 'nej' per post med citerad ref", () => {
+      const med = {
+        ...bas,
+        individuellMatning: {
+          el: {
+            matning: "ja",
+            ref: {
+              page: 15,
+              excerpt: "Kostnader för el tas ut via årsavgiften genom individuell mätning",
+            },
+          },
+        },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(true);
+    });
+
+    it("avvisar matning: 'okant' — frånvaro av posten UTTRYCKER redan okänt", () => {
+      const med = {
+        ...bas,
+        individuellMatning: {
+          vatten: { matning: "okant", ref: { page: 15, excerpt: "Något citat" } },
+        },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(false);
+    });
+
+    it("kräver excerpt på ref:en, precis som avgiftInkluderarKallor", () => {
+      const med = {
+        ...bas,
+        individuellMatning: { varme: { matning: "nej", ref: { page: 15 } } },
+      };
+      expect(ForeningSchema.safeParse(med).success).toBe(false);
+    });
+
+    it("är valfritt — de flesta rapporter nämner inte individuell mätning alls", () => {
+      expect(ForeningSchema.safeParse(bas).success).toBe(true);
+    });
+  });
 });
 
 describe("ExtractionResultSchema", () => {

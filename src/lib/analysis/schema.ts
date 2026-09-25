@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { KeyFigureId } from "@/types/analysis";
+import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
 
 /**
  * Zod mirror of src/types/analysis.ts. Model output is untrusted input —
@@ -153,6 +153,57 @@ export const FeeInclusionSchema = z
   })
   .strict();
 
+/**
+ * A PageRef that additionally requires `excerpt` — every citation outside a
+ * Figure (avgiftInkluderarKallor, individuellMatning) still needs the actual
+ * quoted text, not just a page number, for the same reason `refineFigure`
+ * requires it on an 'arsredovisning' Figure: a page number alone proves
+ * nothing to the buyer.
+ */
+const CitatPageRefSchema = PageRefSchema.extend({ excerpt: z.string().min(1) }).strict();
+
+/** Mirrors Forening.avgiftInkluderarKallor — where the report states each
+ *  item of avgiftInkluderarEnligtForening, only for items it actually
+ *  addresses. */
+export const AvgiftInkluderarKallorSchema = z
+  .object({
+    varme: CitatPageRefSchema.optional(),
+    vatten: CitatPageRefSchema.optional(),
+    el: CitatPageRefSchema.optional(),
+    bredband: CitatPageRefSchema.optional(),
+    tv: CitatPageRefSchema.optional(),
+  })
+  .strict();
+
+/** One item of Forening.individuellMatning. `matning` is never "okant" — the
+ *  report either states individual metering ('ja'/'nej') or the item is
+ *  omitted entirely, exactly like avgiftInkluderarKallor's citation-per-item
+ *  pattern above. */
+export const IndividuellMatningPostSchema = z
+  .object({
+    matning: TristateSchema,
+    ref: CitatPageRefSchema,
+  })
+  .strict()
+  .superRefine((post, ctx) => {
+    if (post.matning === "okant") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["matning"],
+        message:
+          "individuellMatning ska bara finnas med när rapporten uttryckligen säger 'ja' eller 'nej' — 'okant' uttrycks genom att utelämna posten helt.",
+      });
+    }
+  });
+
+export const IndividuellMatningSchema = z
+  .object({
+    el: IndividuellMatningPostSchema.optional(),
+    vatten: IndividuellMatningPostSchema.optional(),
+    varme: IndividuellMatningPostSchema.optional(),
+  })
+  .strict();
+
 export const PropertyInputSchema = z
   .object({
     kind: PropertyKindSchema,
@@ -256,6 +307,11 @@ export const ForeningSchema = z
     rakenskapsar: z.number().int(),
     keyFigures: KeyFiguresArraySchema,
     avgiftInkluderarEnligtForening: FeeInclusionSchema.optional(),
+    avgiftInkluderarKallor: AvgiftInkluderarKallorSchema.optional(),
+    individuellMatning: IndividuellMatningSchema.optional(),
+    antalMedlemmar: FigureSchema.optional(),
+    antalHyresratter: FigureSchema.optional(),
+    antalLokaler: FigureSchema.optional(),
     lanebok: z
       .object({
         totalSkuld: FigureSchema,
@@ -285,7 +341,28 @@ export const ForeningSchema = z
       .array(z.object({ text: z.string(), ref: PageRefSchema.optional() }).strict())
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((forening, ctx) => {
+    // avgiftInkluderarKallor cites WHERE the report takes a position on an
+    // item — a citation for an item the report never definitively addressed
+    // ('okant' or entirely absent from avgiftInkluderarEnligtForening) would
+    // be a source pointing at nothing. See the contract comment on
+    // Forening.avgiftInkluderarKallor in src/types/analysis.ts.
+    if (forening.avgiftInkluderarKallor) {
+      for (const post of Object.keys(forening.avgiftInkluderarKallor) as Array<
+        keyof FeeInclusion
+      >) {
+        const svar = forening.avgiftInkluderarEnligtForening?.[post];
+        if (svar !== "ja" && svar !== "nej") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["avgiftInkluderarKallor", post],
+            message: `avgiftInkluderarKallor.${post} har en källa, men avgiftInkluderarEnligtForening.${post} är inte satt till "ja" eller "nej" — en källa utan ett entydigt svar bevisar ingenting.`,
+          });
+        }
+      }
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // Analysis layers 2–4

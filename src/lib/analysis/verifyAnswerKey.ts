@@ -42,6 +42,29 @@ type NyckeltalForvantatVarde = number | { tecken: "negativ" | "positiv" };
  */
 type Verifieringspost = { sida: number; tryckt: string } | { anmarkning: string };
 
+/**
+ * Task 1.5's new "Övrig info" fields (Forening.antalMedlemmar,
+ * .antalHyresratter, .antalLokaler, .avgiftInkluderarKallor,
+ * .individuellMatning — see src/types/analysis.ts). Kept in its own block,
+ * scored in its own always-draft tally (see `ovrigInfoUtkast` below), and
+ * deliberately NOT folded into `nyckeltal`/`verifiering` above: those two
+ * fields describe a fixture's PRE-EXISTING, per-file verification status
+ * (arUtkast reads `kalla.verifieradMot` for the WHOLE fixture), and several
+ * of these fixtures already have verified nyckeltal — this task must not
+ * alter that verified status just because it adds new, not-yet-verified
+ * fields alongside it. `avgiftInkluderarKallor` only carries the expected
+ * PAGE per post (not the excerpt) — comparing a page number is enough to
+ * catch a wrong or missing citation; the excerpt is for the human verifier
+ * in `ovrigInfoVerifiering` below, not for the automated comparison.
+ */
+interface OvrigInfoForvantat {
+  antalMedlemmar?: number;
+  antalHyresratter?: number;
+  antalLokaler?: number;
+  avgiftInkluderarKallor?: Partial<Record<keyof FeeInclusion, number>>;
+  individuellMatning?: Partial<Record<"el" | "vatten" | "varme", "ja" | "nej">>;
+}
+
 interface AnswerKeyFixture {
   orgnr: string;
   namn: string;
@@ -57,6 +80,12 @@ interface AnswerKeyFixture {
    * nyckeltal matched; `nyckeltal` is expected to be empty.
    */
   forvantatRefuserad?: boolean;
+  /** See `OvrigInfoForvantat` above. */
+  ovrigInfo?: OvrigInfoForvantat;
+  /** Per-field page + printed text for the human verifier — same shape and
+   *  purpose as `verifiering` above, but keyed to `ovrigInfo`'s fields
+   *  (including dotted keys like "avgiftInkluderarKallor.el"). */
+  ovrigInfoVerifiering?: Record<string, Verifieringspost>;
 }
 
 /**
@@ -161,6 +190,11 @@ async function main() {
 
   const verifierad = nyRakning();
   const utkast = nyRakning();
+  // Task 1.5's new "Övrig info"-fält — alltid ett eget, alltid-utkast-läge
+  // (se OvrigInfoForvantat's filkommentar), oavsett om samma fixtures
+  // nyckeltal redan är verifierade.
+  const ovrigInfo = nyRakning();
+  const ovrigInfoRapporter: string[] = [];
   let hoppadeOver = 0;
   let misslyckade = 0;
   const utkastRapporter: string[] = [];
@@ -328,6 +362,81 @@ async function main() {
       }
     }
 
+    if (fixture.ovrigInfo) {
+      ovrigInfoRapporter.push(fixture.namn);
+      const forening = extraction.forening;
+      const oi = fixture.ovrigInfo;
+
+      if (oi.antalMedlemmar !== undefined) {
+        const r = jamforVarde(
+          "antalMedlemmar",
+          forening.antalMedlemmar?.value ?? null,
+          oi.antalMedlemmar,
+          "exakt",
+        );
+        ovrigInfo.totalFalt++;
+        if (r.godkand) ovrigInfo.godkanda++;
+        console.log(
+          `  ${r.godkand ? "✓" : "✗"} antalMedlemmar: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
+        );
+      }
+      if (oi.antalHyresratter !== undefined) {
+        const r = jamforVarde(
+          "antalHyresratter",
+          forening.antalHyresratter?.value ?? null,
+          oi.antalHyresratter,
+          "exakt",
+        );
+        ovrigInfo.totalFalt++;
+        if (r.godkand) ovrigInfo.godkanda++;
+        console.log(
+          `  ${r.godkand ? "✓" : "✗"} antalHyresratter: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
+        );
+      }
+      if (oi.antalLokaler !== undefined) {
+        const r = jamforVarde(
+          "antalLokaler",
+          forening.antalLokaler?.value ?? null,
+          oi.antalLokaler,
+          "exakt",
+        );
+        ovrigInfo.totalFalt++;
+        if (r.godkand) ovrigInfo.godkanda++;
+        console.log(
+          `  ${r.godkand ? "✓" : "✗"} antalLokaler: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
+        );
+      }
+      if (oi.avgiftInkluderarKallor) {
+        for (const [post, forvantadSida] of Object.entries(oi.avgiftInkluderarKallor)) {
+          const faktiskSida =
+            forening.avgiftInkluderarKallor?.[post as keyof FeeInclusion]?.page ?? null;
+          const r = jamforVarde(
+            `avgiftInkluderarKallor.${post}`,
+            faktiskSida,
+            forvantadSida,
+            "exakt",
+          );
+          ovrigInfo.totalFalt++;
+          if (r.godkand) ovrigInfo.godkanda++;
+          console.log(
+            `  ${r.godkand ? "✓" : "✗"} avgiftInkluderarKallor.${post}: förväntad sida ${r.forvantat}, fick ${r.faktiskt ?? "saknas"}`,
+          );
+        }
+      }
+      if (oi.individuellMatning) {
+        for (const [post, forvantatMatning] of Object.entries(oi.individuellMatning)) {
+          const faktiskMatning =
+            forening.individuellMatning?.[post as "el" | "vatten" | "varme"]?.matning;
+          const r = jamforTristate(`individuellMatning.${post}`, faktiskMatning, forvantatMatning);
+          ovrigInfo.totalFalt++;
+          if (r.godkand) ovrigInfo.godkanda++;
+          console.log(
+            `  ${r.godkand ? "✓" : "✗"} individuellMatning.${post}: förväntat "${r.forvantat}", fick "${r.faktiskt ?? "saknas"}"`,
+          );
+        }
+      }
+    }
+
     console.log(`\n${formatCallMetricsTable(calls)}`);
     console.log(
       `  (${spentSek.toFixed(2)} kr, ${(wallMs / 1000).toFixed(1)} s väggklocka för denna rapport)`,
@@ -361,6 +470,14 @@ async function main() {
     );
     console.log(`  Rapporter: ${utkastRapporter.join(", ")}`);
     console.log(`  ${utkast.godkanda}/${utkast.totalFalt} fält godkända (utkast).`);
+  }
+
+  if (ovrigInfoRapporter.length > 0) {
+    console.log(
+      `\nÖVRIG INFO (task 1.5) — nya fält, alltid UTKAST oavsett fixturens övriga verifieringsstatus, INTE lästa av produktägaren än (räknas INTE in ovan):`,
+    );
+    console.log(`  Rapporter: ${ovrigInfoRapporter.join(", ")}`);
+    console.log(`  ${ovrigInfo.godkanda}/${ovrigInfo.totalFalt} fält godkända (utkast).`);
   }
 
   const allaGodkanda = verifierad.godkanda === verifierad.totalFalt;
