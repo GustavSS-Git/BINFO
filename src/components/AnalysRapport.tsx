@@ -40,6 +40,13 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
   // never enter the page's main bundle or run during SSR (see
   // src/components/pdf/download.tsx).
   const handleDownloadPdf = async () => {
+    // Build-time guard: in the SSR build `import.meta.env.SSR` is the literal
+    // `true`, so the dynamic import below is dead code and @react-pdf never
+    // enters the server bundle. Without it, PDFKit's top-level
+    // `new URL(..., import.meta.url)` ended up in a server chunk shared with
+    // pdf.js and crashed uploads on Cloudflare Workers ("Invalid URL string")
+    // for PDFs whose fonts make pdf.js load that chunk.
+    if (import.meta.env.SSR) return;
     setPdfStatus("skapar");
     try {
       const { downloadAnalysPdf } = await import("@/components/pdf/download");
