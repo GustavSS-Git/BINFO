@@ -128,8 +128,13 @@ export interface PdfRantestressRad {
 
 export interface PdfRantestress {
   nuvarandeManadsavgift: string;
+  /** Empty when rantekanslighetProcent is null — the report doesn't state
+   *  räntekänslighet, so no stress scenarios could be computed. */
   rader: PdfRantestressRad[];
   kommentar: string;
+  /** True when rantekanslighetProcent is null. Drives the "not possible to
+   *  compute" note instead of the scenario table. */
+  ejBeraknbar: boolean;
 }
 
 export interface PdfFraga {
@@ -321,6 +326,7 @@ function buildRantestress(analys: AnalysisResult): PdfRantestress {
           : {}),
       })),
     kommentar: r.kommentar,
+    ejBeraknbar: r.rantekanslighetProcent === null,
   };
 }
 

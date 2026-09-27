@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPdfViewModel } from "@/components/pdf/viewModel";
+import { formatFigureVarde } from "@/lib/analysisView";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
 import type { AnalysisResult, Figure } from "@/types/analysis";
 
@@ -273,5 +274,26 @@ describe("buildPdfViewModel — edge cases", () => {
     const vm = buildPdfViewModel(analys);
     const sparande = vm.keyFigures.find((kf) => kf.id === "sparande_per_m2_totalyta");
     expect(sparande?.pageRef).toBeUndefined();
+  });
+});
+
+describe("buildPdfViewModel — rantestress with rantekanslighetProcent null", () => {
+  it("renders no scenario rows and flags ejBeraknbar when the report doesn't state räntekänslighet", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      rantestress: {
+        rantekanslighetProcent: null,
+        nuvarandeManadsavgift: sampleAnalysis.rantestress.nuvarandeManadsavgift,
+        scenarier: [],
+        kommentar: "Räntekänslighet saknas i årsredovisningen — räntestressen kan inte beräknas.",
+      },
+    };
+    const vm = buildPdfViewModel(analys);
+    expect(vm.rantestress.ejBeraknbar).toBe(true);
+    expect(vm.rantestress.rader).toEqual([]);
+    expect(vm.rantestress.kommentar).toBe(analys.rantestress.kommentar);
+    expect(vm.rantestress.nuvarandeManadsavgift).toBe(
+      formatFigureVarde(sampleAnalysis.rantestress.nuvarandeManadsavgift),
+    );
   });
 });

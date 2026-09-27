@@ -3,7 +3,6 @@ import { assembleraAnalys, byggPrisanalys } from "./assemble";
 import { extraktion } from "./__fixtures__/extraktion";
 import { DemoPrisdatakalla, ModellPrisdatakalla, TomPrisdatakalla } from "./prisdata";
 import { konfidensUtanPrisdata, konfidensUtanforStockholm } from "./prisdata";
-import { SaknarRantekanslighetError } from "./calc/rantestress";
 import { AnalysisResultSchema } from "./schema";
 import type { AnalysJudgement } from "./analyze";
 import type { ExtractionResult, Forening, PropertyInput } from "@/types/analysis";
@@ -307,15 +306,173 @@ describe("assembleraAnalys", () => {
     expect(Number.isInteger(resultat.prisanalys.prisPerM2.value)).toBe(true);
   });
 
-  it("propagerar SaknarRantekanslighetError när nyckeltalet saknas i årsredovisningen", async () => {
-    await expect(
-      assembleraAnalys({
-        extraction: extraktionUtanRantekanslighet(),
-        input: inputKomplett,
-        prisdatakalla: new TomPrisdatakalla(),
-        analys: analysJudgement,
-      }),
-    ).rejects.toThrow(SaknarRantekanslighetError);
+  it("degraderar i stället för att kasta när räntekänslighet saknas i årsredovisningen — resten av analysen slutförs", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRantekanslighet(),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.rantestress.rantekanslighetProcent).toBeNull();
+    expect(resultat.rantestress.scenarier).toEqual([]);
+    expect(resultat.betyg).toBe(analysJudgement.betyg);
+  });
+
+  it("lägger till en deterministisk fråga till mäklaren när räntekänslighet saknas", async () => {
+    // Egen analys utan analysJudgement:s "hog-rantekanslighet"-flagga (den
+    // handlar om ett KÄNT värde på 9,2 %, inte om att uppgiften saknas) —
+    // annars skulle dedup-kontrollen (harledsFran) skymma just det den här
+    // testen ska visa.
+    const analysUtanRantekanslighetsomnamnande: AnalysJudgement = {
+      ...analysJudgement,
+      rodaFlaggor: [],
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRantekanslighet(),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysUtanRantekanslighetsomnamnande,
+    });
+
+    const fraga = resultat.fragor.find((f) => f.id === "saknar-rantekanslighet");
+    expect(fraga).toBeDefined();
+    expect(fraga?.ursprung).toBe("analys");
+    expect(fraga?.riktadTill).toBe("maklaren");
+  });
+
+  it("hoppar över den deterministiska frågan om pass 2 redan skrev en fråga om räntekänslighet", async () => {
+    const analysMedEgenFraga: AnalysJudgement = {
+      ...analysJudgement,
+      fragor: [
+        {
+          id: "egen-fraga-om-rantekanslighet",
+          fraga: "Hur mycket påverkas avgiften av räntekänslighet?",
+          ursprung: "analys",
+          riktadTill: "styrelsen",
+          varfor: "Uppgiften saknas i rapporten.",
+        },
+      ],
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRantekanslighet(),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysMedEgenFraga,
+    });
+
+    expect(resultat.fragor.some((f) => f.id === "saknar-rantekanslighet")).toBe(false);
+    expect(resultat.fragor).toHaveLength(1);
+  });
+
+  it("hoppar över den deterministiska frågan om pass 2 redan flaggat räntekänslighet (harledsFran)", async () => {
+    const analysMedEgenFlagga: AnalysJudgement = {
+      ...analysJudgement,
+      fragor: [],
+      rodaFlaggor: [
+        {
+          id: "saknad-rantekanslighet-flagga",
+          titel: "Räntekänslighet går inte att kontrollera",
+          beskrivning: "Uppgiften saknas i rapporten.",
+          severity: "lag",
+          harledsFran: ["rantekanslighet"],
+        },
+      ],
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRantekanslighet(),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysMedEgenFlagga,
+    });
+
+    expect(resultat.fragor.some((f) => f.id === "saknar-rantekanslighet")).toBe(false);
+  });
+
+  it("sänker extraktionskonfidensen högst ett steg (hog -> medel) när räntekänslighet saknas", async () => {
+    const extraktionUtanRK: ExtractionResult = {
+      ...extraktionUtanRantekanslighet(),
+      datakvalitet: {
+        ...extraktionUtanRantekanslighet().datakvalitet,
+        extraktionKonfidens: { niva: "hog" },
+      },
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRK,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.datakvalitet.extraktionKonfidens.niva).toBe("medel");
+    expect(resultat.datakvalitet.extraktionKonfidens.skal).toContain(
+      "Räntekänslighet saknas i årsredovisningen, så analysen är något osäkrare. Det här är den " +
+        "bästa bedömningen utifrån tillgängliga uppgifter.",
+    );
+  });
+
+  it("lämnar konfidensen 'lag' oförändrad (sänker aldrig mer än ett steg) när räntekänslighet saknas", async () => {
+    const extraktionUtanRK: ExtractionResult = {
+      ...extraktionUtanRantekanslighet(),
+      datakvalitet: {
+        ...extraktionUtanRantekanslighet().datakvalitet,
+        extraktionKonfidens: { niva: "lag", skal: ["Redan lågt av andra skäl."] },
+      },
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRK,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.datakvalitet.extraktionKonfidens.niva).toBe("lag");
+  });
+
+  it("lämnar konfidensen 'medel' oförändrad — sänker bara hog -> medel, som tryckt-avvikelsen i runExtraction", async () => {
+    const extraktionUtanRK: ExtractionResult = {
+      ...extraktionUtanRantekanslighet(),
+      datakvalitet: {
+        ...extraktionUtanRantekanslighet().datakvalitet,
+        extraktionKonfidens: { niva: "medel" },
+      },
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionUtanRK,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.datakvalitet.extraktionKonfidens.niva).toBe("medel");
+    expect(resultat.datakvalitet.extraktionKonfidens.skal).toHaveLength(1);
+  });
+
+  it("varken lägger till frågan eller sänker konfidensen när räntekänsligheten är känd (även när den är 0, t.ex. en skuldfri förening)", async () => {
+    const extraktionSkuldfri: ExtractionResult = {
+      ...extraktion,
+      forening: {
+        ...extraktion.forening,
+        keyFigures: extraktion.forening.keyFigures.map((kf) =>
+          kf.id === "rantekanslighet"
+            ? { ...kf, status: "god", figure: { value: 0, unit: "procent", source: "berakning" } }
+            : kf,
+        ),
+      },
+    };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionSkuldfri,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.fragor.some((f) => f.id === "saknar-rantekanslighet")).toBe(false);
+    expect(resultat.rantestress.rantekanslighetProcent).toBe(0);
+    expect(resultat.rantestress.kommentar).toMatch(/inga räntebärande lån/i);
+    expect(resultat.datakvalitet.extraktionKonfidens).toEqual(
+      extraktion.datakvalitet.extraktionKonfidens,
+    );
   });
 
   it("producerar ett resultat som validerar mot AnalysisResultSchema", async () => {

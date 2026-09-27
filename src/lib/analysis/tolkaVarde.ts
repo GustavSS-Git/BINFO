@@ -1,4 +1,4 @@
-import type { Figure, KeyFigure } from "@/types/analysis";
+import type { Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
 
 /**
  * Deterministic parsing of a value exactly as printed in an annual report —
@@ -208,4 +208,71 @@ export function tolkaNyckeltal(keyFigures: readonly KeyFigure[]): TolkaNyckeltal
   });
 
   return { keyFigures: tolkade, avvikelser };
+}
+
+/**
+ * The three key figures a genuinely debt-free association can derive to 0
+ * (CLAUDE.md's domain rule): räntekänslighet and both skuldsättning/m²
+ * variants. All three are interest-bearing-debt-driven, so a totalSkuld of
+ * exactly 0 (never a rounded-down small number — see the exact-equality
+ * check in `harledSkuldfriaNyckeltal` below) settles every one of them.
+ */
+const SKULDFRIA_NYCKELTAL_ID: readonly KeyFigureId[] = [
+  "rantekanslighet",
+  "skuldsattning_per_m2_totalyta",
+  "skuldsattning_per_m2_brf_yta",
+];
+
+/**
+ * Deterministically derives 0 for räntekänslighet and both skuldsättning/m²
+ * figures when the report itself states the association carries no
+ * interest-bearing debt at all — `lanebok.totalSkuld.value === 0`,
+ * set by pass 1 per `buildExtractionSystemPrompt`'s "skuldfri" rule, cited
+ * back to the same sentence (`totalSkuld.ref`) so the derived 0 is never an
+ * uncited guess.
+ *
+ * Deliberately narrow:
+ *   - Fires ONLY on an exact `0`, never a rounding heuristic — a small
+ *     nonzero debt is a different, real number, not "basically debt-free".
+ *   - Requires a cited totalSkuld, and derives nothing when any of the
+ *     three figures is printed and > 0 (the report contradicts itself).
+ *   - NEVER overrides a figure that already carries a non-null `value` — a
+ *     number the report itself printed always wins, even if it happens to
+ *     be 0 already (then this is a no-op, not a double-write) or nonzero
+ *     alongside a debt-free totalSkuld (an inconsistency in the report
+ *     itself, not this function's to resolve).
+ *   - Called from runStructuredExtraction BEFORE `berikaNyckeltal`, so the
+ *     derived 0s are graded exactly like any other figure (0 debt / 0
+ *     räntekänslighet both land in benchmarks.ts's best "god" band) and pass
+ *     2 (analyze.ts) sees them as ordinary, already-graded numbers — not as
+ *     a special case it has to reason about.
+ */
+export function harledSkuldfriaNyckeltal(
+  totalSkuld: Figure | undefined,
+  keyFigures: readonly KeyFigure[],
+): KeyFigure[] {
+  if (totalSkuld?.value !== 0) return [...keyFigures];
+  // No citation, no derived figure: an uncited "debt-free" claim is a guess.
+  const ref = totalSkuld.ref;
+  if (!ref) return [...keyFigures];
+  // A printed, nonzero debt figure contradicts "debt-free". Derive nothing —
+  // a wrong 0 would make an indebted association look risk-free.
+  const motsagelse = keyFigures.some(
+    (kf) =>
+      SKULDFRIA_NYCKELTAL_ID.includes(kf.id) && kf.figure.value !== null && kf.figure.value > 0,
+  );
+  if (motsagelse) return [...keyFigures];
+
+  return keyFigures.map((kf) => {
+    if (!SKULDFRIA_NYCKELTAL_ID.includes(kf.id)) return kf;
+    if (kf.figure.value !== null) return kf;
+
+    const harledFigure: Figure = {
+      value: 0,
+      unit: kf.figure.unit,
+      source: "berakning",
+      ref,
+    };
+    return { ...kf, figure: harledFigure };
+  });
 }

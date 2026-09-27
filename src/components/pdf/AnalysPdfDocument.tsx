@@ -675,24 +675,30 @@ function Rantestress({ vm }: { vm: PdfViewModel }) {
           <Text style={styles.priceLabel}>Dagens avgift</Text>
           <Text style={styles.priceValue}>{r.nuvarandeManadsavgift}</Text>
         </View>
-        <View style={styles.table}>
-          <View style={styles.tableHeaderRow}>
-            <Text style={styles.tableCellHeader}>Räntehöjning</Text>
-            <Text style={styles.tableCellHeader}>Ny avgift/mån</Text>
-            <Text style={styles.tableCellHeader}>Ökning kr/mån</Text>
-            {showTotal ? <Text style={styles.tableCellHeader}>Total månadskostnad</Text> : null}
-          </View>
-          {r.rader.map((rad) => (
-            <View key={rad.okningPe} style={styles.tableRow}>
-              <Text style={styles.tableCell}>+{rad.okningPe} p.e.</Text>
-              <Text style={styles.tableCell}>{rad.nyManadsavgift}</Text>
-              <Text style={styles.tableCell}>{rad.avgiftsokning}</Text>
-              {showTotal ? (
-                <Text style={styles.tableCell}>{rad.totalManadskostnad ?? "—"}</Text>
-              ) : null}
+        {r.ejBeraknbar ? (
+          <Text style={styles.emptyNote}>
+            Inte möjligt att räkna då räntekänslighet saknas i rapporten.
+          </Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={styles.tableCellHeader}>Räntehöjning</Text>
+              <Text style={styles.tableCellHeader}>Ny avgift/mån</Text>
+              <Text style={styles.tableCellHeader}>Ökning kr/mån</Text>
+              {showTotal ? <Text style={styles.tableCellHeader}>Total månadskostnad</Text> : null}
             </View>
-          ))}
-        </View>
+            {r.rader.map((rad) => (
+              <View key={rad.okningPe} style={styles.tableRow}>
+                <Text style={styles.tableCell}>+{rad.okningPe} p.e.</Text>
+                <Text style={styles.tableCell}>{rad.nyManadsavgift}</Text>
+                <Text style={styles.tableCell}>{rad.avgiftsokning}</Text>
+                {showTotal ? (
+                  <Text style={styles.tableCell}>{rad.totalManadskostnad ?? "—"}</Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        )}
         <Text style={styles.rantestressComment}>{r.kommentar}</Text>
       </View>
     </View>

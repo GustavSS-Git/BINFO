@@ -13,7 +13,7 @@ import {
   toppRodaFlaggor,
   VARDERINGSDRIVARE_CAVEAT,
 } from "@/lib/analysisView";
-import type { BolanekalkylSearch } from "@/lib/bolanekalkyl";
+import { veljRantekanslighetForSok, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import type {
   AnalysisResult,
   FeeInclusion,
@@ -66,7 +66,7 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
   const prisFigure = analys.prisanalys.externVardering ?? analys.prisanalys.utgangspris;
   const bolanekalkylSearch: BolanekalkylSearch = {
     manadsavgift: analys.rantestress.nuvarandeManadsavgift.value ?? undefined,
-    rantekanslighet: analys.rantestress.rantekanslighetProcent,
+    rantekanslighet: veljRantekanslighetForSok(analys.rantestress.rantekanslighetProcent),
     pris: prisFigure.value ?? undefined,
     boarea: analys.input.boarea,
     prisUppskattning:
@@ -485,12 +485,27 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
 
 function Rantestress({ analys }: { analys: AnalysisResult }) {
   const r = analys.rantestress;
+  const ejBeraknbar = r.rantekanslighetProcent === null;
   const [delta, setDelta] = useState<0 | 1 | 2 | 3>(1);
-  const scenario: RantestressScenario | undefined = r.scenarier.find((s) => s.okningPe === delta);
+  // Räntekänslighet saknas i rapporten -> reglaget visas men är låst på +0,
+  // och en avgiftsstress kan inte räknas fram (se Rantestress i
+  // src/types/analysis.ts). Ett tomt scenarier-fält gör samma sak för +0
+  // p.e. hos en skuldfri förening (rantekanslighetProcent === 0) — den ska
+  // fortfarande renderas som vanligt, +0 kr.
+  const visadDelta = ejBeraknbar ? 0 : delta;
+  const scenario: RantestressScenario | undefined = r.scenarier.find(
+    (s) => s.okningPe === visadDelta,
+  );
 
   return (
     <section className="mb-10">
-      <SectionTitle hint="Dra i reglaget för att se hur just den här lägenhetens avgift påverkas.">
+      <SectionTitle
+        hint={
+          ejBeraknbar
+            ? "Räntekänslighet saknas i årsredovisningen, så avgiftsstressen kan inte beräknas."
+            : "Dra i reglaget för att se hur just den här lägenhetens avgift påverkas."
+        }
+      >
         Vad händer om räntan stiger?
       </SectionTitle>
       <Card>
@@ -498,7 +513,7 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
           <label htmlFor="stress" className="text-sm font-medium text-foreground">
             Räntehöjning
           </label>
-          <span className="font-display text-2xl text-primary">+{delta} p.e.</span>
+          <span className="font-display text-2xl text-primary">+{visadDelta} p.e.</span>
         </div>
         <input
           id="stress"
@@ -506,9 +521,12 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
           min={0}
           max={3}
           step={1}
-          value={delta}
+          value={visadDelta}
+          disabled={ejBeraknbar}
           onChange={(e) => setDelta(Number(e.target.value) as 0 | 1 | 2 | 3)}
-          className="mt-4 w-full accent-primary"
+          className={`mt-4 w-full accent-primary ${
+            ejBeraknbar ? "cursor-not-allowed opacity-60" : ""
+          }`}
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-border p-5">
@@ -520,13 +538,21 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
           </div>
           <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-5">
             <p className="text-xs uppercase tracking-wide text-primary">Stressad avgift</p>
-            <p className="mt-2 font-display text-3xl text-foreground">
-              {scenario ? formatFigureVarde(scenario.nyManadsavgift) : "Uppgift saknas"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              per månad · +
-              {scenario ? formatFigureVarde(scenario.avgiftsokningKrPerManad) : "okänt"}
-            </p>
+            {ejBeraknbar ? (
+              <p className="mt-2 text-sm text-foreground">
+                Inte möjligt att räkna då räntekänslighet saknas i rapporten.
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 font-display text-3xl text-foreground">
+                  {scenario ? formatFigureVarde(scenario.nyManadsavgift) : "Uppgift saknas"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  per månad · +
+                  {scenario ? formatFigureVarde(scenario.avgiftsokningKrPerManad) : "okänt"}
+                </p>
+              </>
+            )}
           </div>
         </div>
         <p className="mt-5 text-sm text-muted-foreground">{r.kommentar}</p>

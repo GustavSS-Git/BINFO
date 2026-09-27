@@ -392,7 +392,7 @@ describe("korNastaSteg", () => {
     expect(rad?.errorMessage).not.toMatch(/Zod/);
   });
 
-  it("dry assembly upptäcker saknad räntekänslighet som ett jobbfel (errorCode 'saknar_rantekanslighet'), utan modellanrop vid cache-träff", async () => {
+  it("saknad räntekänslighet fäller inte jobbet (task 7): torr sammanställning lyckas och raden blir done, utan modellanrop vid cache-träff", async () => {
     const lager = skapaFakeLager();
     const { id, nyckel } = await skapaRad(lager, { stage: "judging" });
 
@@ -416,12 +416,9 @@ describe("korNastaSteg", () => {
     expect(client.messages.create).not.toHaveBeenCalled();
 
     const rad = await lager.db.hamtaAnalys(id);
-    // Cache-träff -> ingen reservation gjordes -> requeueas med försöket kvar,
-    // precis som den vanliga fel-vägen (attempts < 3 här: bara ett försök gjort).
-    expect(rad?.status).toBe("queued");
-    expect(rad?.stage).toBe("judging");
-    expect(rad?.errorCode).toBe("saknar_rantekanslighet");
-    expect(rad?.errorMessage).toMatch(/Räntekänslighet saknas/);
+    expect(rad?.status).toBe("done");
+    expect(rad?.stage).toBe("complete");
+    expect(rad?.errorCode).toBeNull();
   });
 
   describe("reinvoke — task 1.2: hoppa direkt till nästa steg i stället för att vänta på nästa cron-tick", () => {
@@ -575,7 +572,7 @@ describe("korNastaSteg", () => {
       expect(rad?.costSek).toBeGreaterThan(foreRad?.costSek ?? 0);
     });
 
-    it("dry assembly-fel (saknad räntekänslighet) EFTER en FÄRSK, betald bedömning räknar den faktiska kostnaden, inte 0 kr (gap hittat av granskaren)", async () => {
+    it("saknad räntekänslighet EFTER en FÄRSK, betald bedömning: jobbet blir done och den faktiska kostnaden räknas", async () => {
       const lager = skapaFakeLager();
       const { id, nyckel } = await skapaRad(lager, { stage: "judging" });
 
@@ -604,8 +601,8 @@ describe("korNastaSteg", () => {
       expect(client.messages.create).toHaveBeenCalledTimes(1); // det betalda anropet gjordes
 
       const rad = await lager.db.hamtaAnalys(id);
-      expect(rad?.status).toBe("queued");
-      expect(rad?.errorCode).toBe("saknar_rantekanslighet");
+      expect(rad?.status).toBe("done");
+      expect(rad?.errorCode).toBeNull();
       expect(rad?.costSek).toBeGreaterThan(foreRad?.costSek ?? 0);
     });
 

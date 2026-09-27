@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseTrycktVarde, tolkaNyckeltal } from "./tolkaVarde";
-import type { KeyFigure, KeyFigureId } from "@/types/analysis";
+import { harledSkuldfriaNyckeltal, parseTrycktVarde, tolkaNyckeltal } from "./tolkaVarde";
+import type { Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
 
 const NBSP = " ";
 const NARROW_NBSP = " ";
@@ -242,5 +242,137 @@ describe("tolkaNyckeltal", () => {
         expect(kf.figure.tecken).toBe("negativ");
       }
     });
+  });
+});
+
+describe("harledSkuldfriaNyckeltal", () => {
+  const SKULDFRI_REF = { page: 7, excerpt: "Föreningen är skuldfri och ekonomin är fortsatt god." };
+  const TOTAL_SKULD_0: Figure = {
+    value: 0,
+    unit: "kr",
+    source: "arsredovisning",
+    ref: SKULDFRI_REF,
+  };
+
+  function saknatNyckeltal(id: KeyFigureId, unit: KeyFigure["figure"]["unit"]): KeyFigure {
+    return {
+      id,
+      label: id,
+      figure: { value: null, unit, source: "berakning" },
+      status: "okant",
+      forklaring: "Test.",
+    };
+  }
+
+  it("härleder 0 med källa 'berakning' och samma ref som totalSkuld, för alla tre skuldrelaterade nyckeltal", () => {
+    const input = [
+      saknatNyckeltal("rantekanslighet", "procent"),
+      saknatNyckeltal("skuldsattning_per_m2_totalyta", "kr/m2"),
+      saknatNyckeltal("skuldsattning_per_m2_brf_yta", "kr/m2"),
+    ];
+    const resultat = harledSkuldfriaNyckeltal(TOTAL_SKULD_0, input);
+
+    for (const kf of resultat) {
+      expect(kf.figure.value).toBe(0);
+      expect(kf.figure.source).toBe("berakning");
+      expect(kf.figure.ref).toEqual(SKULDFRI_REF);
+      // Enheten är den ursprungliga för respektive nyckeltal, inte totalSkuld:s ("kr").
+      expect(kf.figure.unit).not.toBe("kr");
+    }
+  });
+
+  it("härleder inget när totalSkuld = 0 saknar citat — ingen källa, ingen härledd siffra", () => {
+    const utanRef: Figure = { value: 0, unit: "kr", source: "arsredovisning" };
+    const input = [saknatNyckeltal("rantekanslighet", "procent")];
+    const resultat = harledSkuldfriaNyckeltal(utanRef, input);
+    expect(resultat[0]!.figure.value).toBeNull();
+  });
+
+  it("härleder inget när ett annat skuldnyckeltal är tryckt och > 0 — rapporten motsäger 'skuldfri'", () => {
+    const tryckt: KeyFigure = {
+      ...saknatNyckeltal("skuldsattning_per_m2_brf_yta", "kr/m2"),
+      figure: {
+        value: 4200,
+        unit: "kr/m2",
+        source: "arsredovisning",
+        ref: { page: 6, excerpt: "4 200" },
+      },
+    };
+    const input = [saknatNyckeltal("rantekanslighet", "procent"), tryckt];
+    const resultat = harledSkuldfriaNyckeltal(TOTAL_SKULD_0, input);
+    expect(resultat[0]!.figure.value).toBeNull();
+    expect(resultat[1]!.figure.value).toBe(4200);
+  });
+
+  it("Göken-fallet end-to-end: tryckt '-' tolkas som saknat och blir sedan 0 via en citerad skuldfri totalSkuld", () => {
+    const streck: KeyFigure = {
+      ...saknatNyckeltal("rantekanslighet", "procent"),
+      figure: { value: null, unit: "procent", source: "berakning", tryckt: "-" },
+    };
+    const { keyFigures: tolkade } = tolkaNyckeltal([streck]);
+    expect(tolkade[0]!.figure.value).toBeNull();
+
+    const resultat = harledSkuldfriaNyckeltal(TOTAL_SKULD_0, tolkade);
+    expect(resultat[0]!.figure.value).toBe(0);
+    expect(resultat[0]!.figure.source).toBe("berakning");
+    expect(resultat[0]!.figure.ref).toEqual(SKULDFRI_REF);
+  });
+
+  it("rör inte ett nyckeltal utanför den härledda listan (t.ex. sparande)", () => {
+    const input = [saknatNyckeltal("sparande_per_m2_totalyta", "kr/m2")];
+    const resultat = harledSkuldfriaNyckeltal(TOTAL_SKULD_0, input);
+    expect(resultat[0]!.figure.value).toBeNull();
+  });
+
+  it("överskriver ALDRIG ett redan tryckt (icke-null) värde", () => {
+    const input: KeyFigure[] = [
+      {
+        id: "rantekanslighet",
+        label: "Räntekänslighet",
+        figure: {
+          value: 3.5,
+          unit: "procent",
+          source: "arsredovisning",
+          ref: { page: 8, excerpt: "Räntekänslighet 3,5 %" },
+        },
+        status: "okant",
+        forklaring: "Test.",
+      },
+    ];
+    const resultat = harledSkuldfriaNyckeltal(TOTAL_SKULD_0, input);
+    expect(resultat[0]!.figure.value).toBe(3.5);
+    expect(resultat[0]!.figure.source).toBe("arsredovisning");
+  });
+
+  it("härleder inget när totalSkuld saknas (undefined)", () => {
+    const input = [saknatNyckeltal("rantekanslighet", "procent")];
+    const resultat = harledSkuldfriaNyckeltal(undefined, input);
+    expect(resultat[0]!.figure.value).toBeNull();
+  });
+
+  it("härleder inget när totalSkuld är skild från exakt 0", () => {
+    const totalSkuldPositiv: Figure = {
+      value: 43_200_000,
+      unit: "kr",
+      source: "arsredovisning",
+      ref: { page: 12, excerpt: "Summa 43 200 000" },
+    };
+    const input = [saknatNyckeltal("rantekanslighet", "procent")];
+    const resultat = harledSkuldfriaNyckeltal(totalSkuldPositiv, input);
+    expect(resultat[0]!.figure.value).toBeNull();
+  });
+
+  it("härleder inget när totalSkuld:s eget värde är null", () => {
+    const totalSkuldOkand: Figure = { value: null, unit: "kr", source: "berakning" };
+    const input = [saknatNyckeltal("rantekanslighet", "procent")];
+    const resultat = harledSkuldfriaNyckeltal(totalSkuldOkand, input);
+    expect(resultat[0]!.figure.value).toBeNull();
+  });
+
+  it("muterar inte indata", () => {
+    const input = [saknatNyckeltal("rantekanslighet", "procent")];
+    const kopia = structuredClone(input);
+    harledSkuldfriaNyckeltal(TOTAL_SKULD_0, input);
+    expect(input).toEqual(kopia);
   });
 });

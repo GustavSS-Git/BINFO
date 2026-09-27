@@ -315,8 +315,11 @@ export interface RantestressScenario {
 }
 
 export interface Rantestress {
-  /** The statutory key figure this is built on. */
-  rantekanslighetProcent: number;
+  /** The statutory key figure this is built on. null when the report does not
+   *  state it (and the association is not provably debt-free): the stress
+   *  cannot be computed, `scenarier` is then empty and `kommentar` says why.
+   *  The rest of the analysis still completes. */
+  rantekanslighetProcent: number | null;
   nuvarandeManadsavgift: Figure;
   scenarier: RantestressScenario[];
   kommentar: string;

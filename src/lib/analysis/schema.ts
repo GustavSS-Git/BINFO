@@ -465,7 +465,7 @@ export const RantestressScenarioSchema = z
 
 export const RantestressSchema = z
   .object({
-    rantekanslighetProcent: z.number(),
+    rantekanslighetProcent: z.number().nullable(),
     nuvarandeManadsavgift: FigureSchema,
     scenarier: z.array(RantestressScenarioSchema),
     kommentar: z.string(),

@@ -97,6 +97,10 @@ npm run build:edge / deploy:edge           # bundle / deploy the analys-steg Edg
 - Nyckeltal thresholds are product decisions in `BENCHMARKS.md`, mirrored in `benchmarks.ts`.
 - A debt-per-m² figure with an unclear basis (e.g. "Lån per kvm bostadsyta") is
   reported as skuldsättning per m² bostadsrättsyta — a number beats none here.
+- A debt-free association (the report shows no interest-bearing debt, cited)
+  has räntekänslighet and both skuldsättning/m² = 0 (`source: 'berakning'`),
+  not "missing". A genuinely missing räntekänslighet never fails the analysis:
+  only the rate stress is disabled, and the gap becomes a question for the visning.
 - Never present a statistical association as causation: an effect whose sign
   contradicts the obvious direction (e.g. "no lift" raising price) is replaced by
   the broader estimate or omitted.

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildMinimalPropertyInput, parseBolanekalkylSearch } from "./bolanekalkyl";
+import {
+  buildMinimalPropertyInput,
+  parseBolanekalkylSearch,
+  veljRantekanslighetForSok,
+} from "./bolanekalkyl";
 import type { FeeInclusion } from "@/types/analysis";
 
 function inclusion(overrides: Partial<FeeInclusion> = {}): FeeInclusion {
@@ -168,5 +172,19 @@ describe("buildMinimalPropertyInput", () => {
     expect(input.utgangspris).toBe(0);
     expect(input.antalRum).toBe(0);
     expect(input.andelstal).toBe(0);
+  });
+});
+
+describe("veljRantekanslighetForSok", () => {
+  it("utelämnar parametern när räntekänslighet saknas i rapporten (null)", () => {
+    expect(veljRantekanslighetForSok(null)).toBeUndefined();
+  });
+
+  it("utelämnar parametern för en skuldfri förening (0) — samma effekt som null", () => {
+    expect(veljRantekanslighetForSok(0)).toBeUndefined();
+  });
+
+  it("skickar med ett positivt tal oförändrat", () => {
+    expect(veljRantekanslighetForSok(9.09)).toBe(9.09);
   });
 });

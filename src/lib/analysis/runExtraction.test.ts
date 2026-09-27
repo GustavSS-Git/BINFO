@@ -454,6 +454,125 @@ describe("runStructuredExtraction", () => {
       "rantekanslighet",
     );
   });
+
+  it("härleder räntekänslighet och båda skuldsättning/m² till 0 (graderat 'god') när totalSkuld är exakt 0 — en skuldfri förening (Göken-fallet)", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    const skuldfriRef = {
+      page: 7,
+      excerpt: "Föreningen är skuldfri och ekonomin är fortsatt god.",
+    };
+    const modellsSvar: ExtractionResult = {
+      ...validExtractionResult,
+      forening: {
+        ...validExtractionResult.forening,
+        keyFigures: raaNyckeltal(),
+        lanebok: {
+          totalSkuld: { value: 0, unit: "kr", source: "arsredovisning", ref: skuldfriRef },
+        },
+      },
+    };
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(modellsSvar) }],
+    });
+
+    const { extraction } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    for (const id of [
+      "rantekanslighet",
+      "skuldsattning_per_m2_totalyta",
+      "skuldsattning_per_m2_brf_yta",
+    ] as const) {
+      const kf = extraction.forening.keyFigures.find((k) => k.id === id);
+      expect(kf?.figure.value).toBe(0);
+      expect(kf?.figure.source).toBe("berakning");
+      expect(kf?.figure.ref).toEqual(skuldfriRef);
+      expect(kf?.status).toBe("god");
+    }
+    // Ett nyckeltal härledningen inte rör (t.ex. sparande) förblir null/okant.
+    const sparande = extraction.forening.keyFigures.find(
+      (kf) => kf.id === "sparande_per_m2_totalyta",
+    );
+    expect(sparande?.figure.value).toBeNull();
+    expect(sparande?.status).toBe("okant");
+  });
+
+  it("härleder INTE när totalSkuld saknas eller är skild från 0", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    const modellsSvar: ExtractionResult = {
+      ...validExtractionResult,
+      forening: {
+        ...validExtractionResult.forening,
+        keyFigures: raaNyckeltal(),
+        lanebok: {
+          totalSkuld: {
+            value: 43_200_000,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 12, excerpt: "Summa 43 200 000" },
+          },
+        },
+      },
+    };
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(modellsSvar) }],
+    });
+
+    const { extraction } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    const rantekanslighet = extraction.forening.keyFigures.find(
+      (kf) => kf.id === "rantekanslighet",
+    );
+    expect(rantekanslighet?.figure.value).toBeNull();
+    expect(rantekanslighet?.status).toBe("okant");
+  });
+
+  it("härleder INTE över ett redan tryckt värde — en riktig siffra vinner alltid, oavsett totalSkuld", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    const modellsSvar: ExtractionResult = {
+      ...validExtractionResult,
+      forening: {
+        ...validExtractionResult.forening,
+        keyFigures: raaNyckeltal().map((kf) =>
+          kf.id === "rantekanslighet"
+            ? {
+                ...kf,
+                figure: {
+                  value: 3.5,
+                  unit: "procent" as const,
+                  source: "arsredovisning" as const,
+                  ref: { page: 8, excerpt: "Räntekänslighet 3,5 %" },
+                },
+              }
+            : kf,
+        ),
+        lanebok: {
+          totalSkuld: {
+            value: 0,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 7, excerpt: "Skuldfri" },
+          },
+        },
+      },
+    };
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(modellsSvar) }],
+    });
+
+    const { extraction } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    const rantekanslighet = extraction.forening.keyFigures.find(
+      (kf) => kf.id === "rantekanslighet",
+    );
+    expect(rantekanslighet?.figure.value).toBe(3.5);
+    expect(rantekanslighet?.figure.source).toBe("arsredovisning");
+  });
 });
 
 describe("runExtraction (komposition av runGrounding + runStructuredExtraction)", () => {

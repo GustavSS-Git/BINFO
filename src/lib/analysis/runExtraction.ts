@@ -3,7 +3,7 @@ import type { ExtractionResult } from "@/types/analysis";
 import { berikaNyckeltal, implausibelNegativAnmarkning } from "./benchmarks";
 import { extractPdfText } from "./pdf";
 import { ModelTruncatedError, extractWithRetry, type ModelCaller } from "./extract";
-import { tolkaNyckeltal } from "./tolkaVarde";
+import { harledSkuldfriaNyckeltal, tolkaNyckeltal } from "./tolkaVarde";
 import {
   buildExtractionSystemPrompt,
   buildExtractionUserPrompt,
@@ -429,7 +429,14 @@ export async function runStructuredExtraction(
   //      that verbatim text OVERRIDES whatever number the model itself put
   //      in figure.value. A regex over the report's own text is strictly
   //      more trustworthy than the model's own arithmetic on it.
-  //   2. berikaNyckeltal — pass 1's prompt always emits status: "okant" (see
+  //   2. harledSkuldfriaNyckeltal — a provably debt-free association
+  //      (lanebok.totalSkuld.value === 0, per buildExtractionSystemPrompt's
+  //      "skuldfri" rule) derives 0 for räntekänslighet and both
+  //      skuldsättning/m² figures wherever they're still null — see
+  //      tolkaVarde.ts's doc comment. Runs BEFORE berikaNyckeltal so the
+  //      derived 0s are graded exactly like any other figure, not left
+  //      "okant" and re-derived downstream.
+  //   3. berikaNyckeltal — pass 1's prompt always emits status: "okant" (see
   //      buildExtractionSystemPrompt); the model isn't asked to judge, only
   //      to find and cite. This is where the judgement actually happens:
   //      deterministic, benchmark-backed, and now sign-aware (a figure whose
@@ -443,7 +450,11 @@ export async function runStructuredExtraction(
   const { keyFigures: tolkadeNyckeltal, avvikelser: tolkningsAvvikelser } = tolkaNyckeltal(
     extraction.forening.keyFigures,
   );
-  const gradeadeNyckeltal = berikaNyckeltal(tolkadeNyckeltal);
+  const skuldfriaNyckeltal = harledSkuldfriaNyckeltal(
+    extraction.forening.lanebok?.totalSkuld,
+    tolkadeNyckeltal,
+  );
+  const gradeadeNyckeltal = berikaNyckeltal(skuldfriaNyckeltal);
   const implausibelaAnmarkningar = gradeadeNyckeltal
     .map((kf) => implausibelNegativAnmarkning(kf))
     .filter((s): s is string => s !== undefined);

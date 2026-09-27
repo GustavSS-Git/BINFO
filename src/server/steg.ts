@@ -20,9 +20,13 @@
  *
  * Steget `judging` gör dessutom en TORR sammanställning
  * (`assembleraAnalys`) innan det markerar jobbet klart — annars skulle ett
- * fel som bara syns vid sammanställning (t.ex. `SaknarRantekanslighetError`)
+ * fel som bara syns vid sammanställning (t.ex. `AssemblyValidationError`)
  * först upptäckas när en köpare faktiskt öppnar resultatet, långt efter att
- * jobbet redan sagt "done".
+ * jobbet redan sagt "done". Sedan task 7 (ägarbeslut) kastar
+ * `assembleraAnalys` inte längre `SaknarRantekanslighetError` för en genuint
+ * saknad räntekänslighet — den degraderas i stället inom `beraknaRantestress`
+ * (se rantestress.ts), så den torra sammanställningen kan fortfarande
+ * hamna på `AssemblyValidationError`, men inte längre på den koden.
  */
 
 import { runAnalys } from "@/lib/analysis/analyze";
@@ -160,10 +164,10 @@ async function avslutaMedFramgang(
  *      kastades, för fel som inträffar EFTER att modellanropet redan lyckats
  *      och returnerat (t.ex. `sparaExtraktionICache`/`sparaAnalysICache` som
  *      inte når databasen, eller den torra sammanställningens
- *      `SaknarRantekanslighetError`/`AssemblyValidationError` efter en FÄRSK,
- *      betald bedömning) — de felen bär själva ingen spend-annotering (de
- *      kommer inte från pipelinelagret), men stegfunktionen som anropar
- *      `avslutaMedFel` vet redan spentSek från sitt eget lyckade anrop.
+ *      `AssemblyValidationError` efter en FÄRSK, betald bedömning) — de
+ *      felen bär själva ingen spend-annotering (de kommer inte från
+ *      pipelinelagret), men stegfunktionen som anropar `avslutaMedFel` vet
+ *      redan spentSek från sitt eget lyckade anrop.
  * ALDRIG båda samtidigt (dubbelräkning): är felet självannoterat används
  * ENDAST den annoteringen; annars faller vi tillbaka på `knownSpentSek`
  * (default 0, korrekt för ett fel som kastas FÖRE något anrop alls, t.ex.
@@ -313,9 +317,10 @@ async function korExtraktionssteg(
 }
 
 /** Steg 3 — bedömning (pass 2), följt av en TORR sammanställning som aldrig
- *  skrivs någonstans — dess enda syfte är att låta ett monterings- eller
- *  räntekänslighetsfel upptäckas nu, som ett jobbfel, i stället för senare
- *  som ett tyst 500-fel när en köpare öppnar resultatet. */
+ *  skrivs någonstans — dess enda syfte är att låta ett monteringsfel
+ *  upptäckas nu, som ett jobbfel, i stället för senare som ett tyst
+ *  500-fel när en köpare öppnar resultatet. (Sedan task 7 är en genuint
+ *  saknad räntekänslighet inte längre ett sådant fel — se ovan.) */
 async function korBedomningssteg(
   lager: Lager,
   env: Env,
@@ -364,13 +369,15 @@ async function korBedomningssteg(
       // följer, skulle fela: bedömningen redan BETALADES för av runAnalys
       // ovan — spentSek är redan känd (satt just ovan) och skickas med till
       // avslutaMedFel i catch-blocket, inte 0 kr. Gäller t.ex.
-      // SaknarRantekanslighetError som upptäcks av den torra
-      // sammanställningen EFTER en färsk, betald bedömning.
+      // AssemblyValidationError som upptäcks av den torra sammanställningen
+      // EFTER en färsk, betald bedömning.
       await sparaAnalysICache(lager.db, nyckel, judgement, spentSek);
     }
 
     // Torr sammanställning — resultatet kastas, det enda syftet är att låta
-    // AssemblyValidationError/SaknarRantekanslighetError propagera hit.
+    // AssemblyValidationError propagera hit (sedan task 7 degraderar
+    // beraknaRantestress i stället för att kasta SaknarRantekanslighetError —
+    // se rantestress.ts och assemble.ts:s filkommentar).
     // Samma normalisering som läsvägen (hamtaResultat/hamtaForhandsvisning):
     // en rad köad före en kontraktsändring får inte fastna här bara för att
     // dess lagrade input bär en numera borttagen nyckel.

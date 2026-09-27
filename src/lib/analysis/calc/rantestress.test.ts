@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SaknarRantekanslighetError, beraknaRantestress, rantestressScenario } from "./rantestress";
-import type { Forening, KeyFigure, PropertyInput } from "@/types/analysis";
+import { beraknaRantestress, rantestressScenario } from "./rantestress";
+import type { Forening, KeyFigure } from "@/types/analysis";
 
 describe("rantestressScenario", () => {
   // Rantekänslighet är redan den statutory nyckeltalet "hur många procent
@@ -130,17 +130,43 @@ describe("beraknaRantestress", () => {
     expect(r.kommentar).toMatch(/1[\s\u00a0]?234/);
   });
 
-  it("kastar SaknarRantekanslighetError när nyckeltalet saknas helt", () => {
-    expect(() => beraknaRantestress(forening([energikostnad]), NUVARANDE_AVGIFT)).toThrow(
-      SaknarRantekanslighetError,
-    );
+  it("degraderar utan att kasta när nyckeltalet saknas helt — scenarier blir tomma, resten fortsätter", () => {
+    const r = beraknaRantestress(forening([energikostnad]), NUVARANDE_AVGIFT);
+    expect(r.rantekanslighetProcent).toBeNull();
+    expect(r.scenarier).toEqual([]);
+    expect(r.kommentar).toMatch(/saknas/i);
+    expect(r.nuvarandeManadsavgift).toEqual({
+      value: NUVARANDE_AVGIFT,
+      unit: "kr",
+      source: "anvandare",
+    });
   });
 
-  it("kastar SaknarRantekanslighetError när nyckeltalets värde är null", () => {
+  it("degraderar utan att kasta när nyckeltalets värde är null", () => {
     // Okänt får aldrig tyst behandlas som noll känslighet — det vore en
-    // självsäker tom analys, precis det PIPELINE.md förbjuder.
-    expect(() =>
-      beraknaRantestress(forening([energikostnad, rantekanslighetFigur(null)]), NUVARANDE_AVGIFT),
-    ).toThrow(SaknarRantekanslighetError);
+    // självsäker tom analys, precis det PIPELINE.md förbjuder. Men det får
+    // heller aldrig fälla hela jobbet (ägarbeslut, task 7) — degradera i
+    // stället till rantekanslighetProcent: null, scenarier: [].
+    const r = beraknaRantestress(
+      forening([energikostnad, rantekanslighetFigur(null)]),
+      NUVARANDE_AVGIFT,
+    );
+    expect(r.rantekanslighetProcent).toBeNull();
+    expect(r.scenarier).toEqual([]);
+    expect(r.kommentar).toMatch(/saknas/i);
+  });
+
+  it("ger fyra oförändrade scenarier och en särskild kommentar när räntekänsligheten är exakt 0 (skuldfri förening)", () => {
+    const r = beraknaRantestress(
+      forening([energikostnad, rantekanslighetFigur(0)]),
+      NUVARANDE_AVGIFT,
+    );
+    expect(r.rantekanslighetProcent).toBe(0);
+    expect(r.scenarier).toHaveLength(4);
+    for (const s of r.scenarier) {
+      expect(s.nyManadsavgift.value).toBe(NUVARANDE_AVGIFT);
+      expect(s.avgiftsokningKrPerManad.value).toBe(0);
+    }
+    expect(r.kommentar).toMatch(/inga räntebärande lån/i);
   });
 });

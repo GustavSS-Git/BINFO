@@ -41,6 +41,25 @@ export interface BolanekalkylSearch {
   prisUppskattning: boolean | undefined;
 }
 
+/**
+ * Väljer räntekänslighet-parametern till bolånekalkylens förifyllnings-länk
+ * (se AnalysRapport.tsx). `null` betyder att årsredovisningen inte anger
+ * räntekänslighet (se Rantestress.rantekanslighetProcent i
+ * src/types/analysis.ts) — ingen avgiftsstress kan då räknas fram, så
+ * parametern utelämnas. `0` (en skuldfri förening) ger också "ingen
+ * avgiftsstress", men det är redan vad `tolkaPositivtTal` ovan gör med den
+ * — `.positive()` förkastar 0 precis som den skulle förkasta ett saknat
+ * värde — så att utelämna 0 här är samma sak som att skicka med den:
+ * enklast och korrekt att bara skicka tal > 0.
+ */
+export function veljRantekanslighetForSok(
+  rantekanslighetProcent: number | null,
+): number | undefined {
+  return rantekanslighetProcent !== null && rantekanslighetProcent > 0
+    ? rantekanslighetProcent
+    : undefined;
+}
+
 const positivtTal = z.coerce.number().positive().finite();
 
 /**

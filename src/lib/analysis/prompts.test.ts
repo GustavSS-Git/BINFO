@@ -413,6 +413,6 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("a7206daaf54c1b1ed1e8049461a583f974cef1ee2e4191b004cb00e5f152e93c");
+    expect(hash).toBe("0a029628d911998aa01b76931fd1eae115a8baf53990818bdf7732bfb5cd1934");
   });
 });

@@ -10,6 +10,7 @@ import type {
   Konfidens,
   Prisanalys,
   PropertyInput,
+  Rantestress,
   Varderingsunderlag,
 } from "@/types/analysis";
 import { formatDataperiod } from "@/lib/analysisView";
@@ -126,6 +127,60 @@ function genereraSaknadUppgiftFragor(input: PropertyInput, forening: Forening): 
   }
 
   return fragor;
+}
+
+/**
+ * Deterministisk fråga för det fall räntekänslighet genuint saknas i
+ * årsredovisningen (Rantestress.rantekanslighetProcent === null) — se
+ * beslutet i rantestress.ts's filkommentar och CLAUDE.md:s domänregel om en
+ * genuint saknad räntekänslighet. Stabilt id, precis som
+ * saknad-uppgift-frågorna ovan.
+ */
+const SAKNAR_RANTEKANSLIGHET_FRAGA: Fraga = {
+  id: "saknar-rantekanslighet",
+  fraga:
+    "Årsredovisningen redovisar inte räntekänslighet. Fråga mäklaren eller styrelsen hur mycket " +
+    "avgiften behöver höjas per procentenhet högre ränta.",
+  ursprung: "analys",
+  riktadTill: "maklaren",
+  varfor:
+    "Räntekänslighet är ett av de sju lagstadgade nyckeltalen och visar hur känslig avgiften är " +
+    "för högre ränta.",
+};
+
+/** Matches "räntekänslighet"/"räntekänslig" case-insensitively — used to spot
+ *  whether pass 2 already raised the exact same gap on its own, so the
+ *  deterministic question above is never a duplicate of one the model
+ *  already wrote (see rule 3 in buildAnalysSystemPrompt: a null figure is
+ *  itself worth a flag or a question). Fraga carries no `harledsFran` (only
+ *  RedFlag does), so a question is matched on its own text; a red flag is
+ *  matched on its `harledsFran`, which DOES name the key figure. */
+function harRedanFragaOmRantekanslighet(analys: AnalysJudgement): boolean {
+  const namner = /räntekänslig/i;
+  return (
+    analys.fragor.some((f) => namner.test(f.fraga) || namner.test(f.varfor)) ||
+    analys.rodaFlaggor.some((flagga) => flagga.harledsFran.includes("rantekanslighet"))
+  );
+}
+
+/**
+ * Sänker extraktionskonfidensen med högst ETT steg (hog -> medel; medel och
+ * lag oförändrade) och lägger till ett förklarande skäl, ENDAST när
+ * räntekänslighet genuint saknas (rantestress.rantekanslighetProcent ===
+ * null). En skuldfri förenings härledda 0:a (se tolkaVarde.ts's
+ * harledSkuldfriaNyckeltal) är INTE null vid det här laget — den vägen
+ * triggar alltså aldrig den här nedgraderingen, precis som CLAUDE.md:s
+ * domänregel skiljer på de två fallen.
+ */
+function sankKonfidensForSaknadRantekanslighet(konfidens: Konfidens): Konfidens {
+  return {
+    niva: konfidens.niva === "hog" ? "medel" : konfidens.niva,
+    skal: [
+      ...(konfidens.skal ?? []),
+      "Räntekänslighet saknas i årsredovisningen, så analysen är något osäkrare. Det här är den " +
+        "bästa bedömningen utifrån tillgängliga uppgifter.",
+    ],
+  };
 }
 
 interface Uppgiftsstatus {
@@ -481,14 +536,19 @@ export async function byggPrisanalys(
  * anroparen redan tagit fram (input, forening, pass 2:s
  * betyg/rodaFlaggor/analys-frågor).
  *
- * BESLUT — SaknarRantekanslighetError FÅR PROPAGERA: beraknaRantestress
- * kastar när räntekänslighet saknas i årsredovisningen. Att fånga felet
- * här och falla tillbaka på ett nollscenario skulle producera precis det
- * självsäkra tomma felläget CLAUDE.md och PIPELINE.md förbjuder — en
- * köpare skulle se fyra oförändrade avgiftsscenarier och tro att avgiften
- * inte är räntekänslig, när sanningen är att vi inte vet. Anroparen (som
- * har kontext för att visa ett tydligt felmeddelande eller avbryta hela
- * analysen) måste se felet.
+ * BESLUT (task 7, ägarbeslut) — en genuint saknad räntekänslighet FÅLLER
+ * INTE längre hela analysen: `beraknaRantestress` degraderar numera i
+ * stället för att kasta `SaknarRantekanslighetError` (se den funktionens
+ * filkommentar i rantestress.ts). Den här funktionen bygger på det genom
+ * att, ENDAST när `rantestress.rantekanslighetProcent` kom tillbaka `null`,
+ * lägga till en deterministisk fråga till mäklaren (om inte pass 2 redan
+ * skrev en fråga eller flagga om exakt samma sak — se
+ * `harRedanFragaOmRantekanslighet`) och sänka `datakvalitet.extraktionKonfidens`
+ * högst ett steg (se `sankKonfidensForSaknadRantekanslighet`). En genuint
+ * skuldfri förenings härledda 0:a (tolkaVarde.ts's
+ * `harledSkuldfriaNyckeltal`, kört långt innan detta, i extraktionens
+ * pipeline) gör att `rantekanslighetProcent` ALDRIG är null i det fallet —
+ * ingen av de här två sidoeffekterna triggas då.
  *
  * FÖRIFYLLNING AV avgiftInkluderar: PropertyInput.avgiftInkluderar är
  * kontraktets EFFEKTIVA värde, avsett att förifyllas från föreningens
@@ -508,20 +568,28 @@ export async function assembleraAnalys({
   analysisId,
   skapad,
 }: AssembleraAnalysInput): Promise<AnalysisResult> {
-  // Propagerar avsiktligt SaknarRantekanslighetError — se filkommentaren ovan.
-  const rantestress = beraknaRantestress(extraction.forening, input.manadsavgift);
+  // Degraderar numera i stället för att kasta — se filkommentaren ovan.
+  const rantestress: Rantestress = beraknaRantestress(extraction.forening, input.manadsavgift);
+  const rantekanslighetSaknas = rantestress.rantekanslighetProcent === null;
   const prisanalys = await byggPrisanalys(input, prisdatakalla);
 
   const uppgiftsstatus = berakUppgiftsstatus(input);
+  const extraktionKonfidens = rantekanslighetSaknas
+    ? sankKonfidensForSaknadRantekanslighet(extraction.datakvalitet.extraktionKonfidens)
+    : extraction.datakvalitet.extraktionKonfidens;
   const datakvalitet: AnalysisResult["datakvalitet"] = {
     pdfSaknarTextlager: extraction.datakvalitet.pdfSaknarTextlager,
-    extraktionKonfidens: extraction.datakvalitet.extraktionKonfidens,
+    extraktionKonfidens,
     uppgifterKanda: uppgiftsstatus.kanda,
     uppgifterTotalt: uppgiftsstatus.totalt,
     saknadeFalt: uppgiftsstatus.saknade,
   };
 
   const saknadUppgiftFragor = genereraSaknadUppgiftFragor(input, extraction.forening);
+  const rantekanslighetFraga: Fraga[] =
+    rantekanslighetSaknas && !harRedanFragaOmRantekanslighet(analys)
+      ? [SAKNAR_RANTEKANSLIGHET_FRAGA]
+      : [];
 
   const resultat: AnalysisResult = {
     schemaVersion: "1.0.0",
@@ -543,7 +611,7 @@ export async function assembleraAnalys({
     rodaFlaggor: analys.rodaFlaggor,
     prisanalys,
     rantestress,
-    fragor: [...analys.fragor, ...saknadUppgiftFragor],
+    fragor: [...analys.fragor, ...saknadUppgiftFragor, ...rantekanslighetFraga],
 
     datakvalitet,
 
