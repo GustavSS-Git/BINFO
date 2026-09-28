@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "DOK5PZ7WPD3G3LDGCQ53Q.pdf",
     "forvaltare": "SBC",
-    "verifieradMot": "UTKAST — värdena är avstämda av Claude mot originalrapporten (DOK5PZ7WPD3G3LDGCQ53Q.pdf): Sida 5 (PDF-sida 7) \"Föreningen är skuldfri och ekonomin är fortsatt god.\"; Sida 6 (PDF-sida 8) flerårsöversikten, med \"-\" på räntekänslighet och båda skuldsättningsraderna; Sida 10 (PDF-sida 12) balansräkningen utan skulder till kreditinstitut. verify-extraction 2026-09-28: 17/17. Väntar på produktägarens bekräftelse innan UTKAST tas bort."
+    "verifieradMot": "sida 7 (\"Sida 5 av 18\", förvaltningsberättelsen: \"Föreningen är skuldfri och ekonomin är fortsatt god.\"), sida 8 (\"Sida 6 av 18\", Flerårsöversikt, \"-\" på räntekänslighet och båda skuldsättningsraderna), sida 12 (\"Sida 10 av 18\", balansräkningen utan skulder till kreditinstitut). Bekräftad av produktägaren 2026-09-28."
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 225,
@@ -52,7 +52,7 @@
     "antalMedlemmar": 56,
     "antalLokaler": 4
   },
-  "ovrigInfoVerifierad": false,
+  "ovrigInfoVerifierad": true,
   "ovrigInfoVerifiering": {
     "antalMedlemmar": {
       "sida": 7,
