@@ -16,6 +16,7 @@ const ALLA_FELKODER: AnalysErrorCode[] = [
   "daily_cap",
   "validation",
   "saknar_rantekanslighet",
+  "versionskonflikt",
   "unknown",
 ];
 
@@ -80,6 +81,11 @@ describe("FELKOD_INNEHALL", () => {
 
   it("validation pekar tillbaka mot formuläret", () => {
     expect(FELKOD_INNEHALL.validation.atgard).toMatch(/formulär/i);
+  });
+
+  it("versionskonflikt läses som 'det är vi, inte du' och pekar tillbaka mot formuläret", () => {
+    expect(FELKOD_INNEHALL.versionskonflikt.forklaring).toMatch(/inte.*din|beror inte på dig/i);
+    expect(FELKOD_INNEHALL.versionskonflikt.atgard).toMatch(/formulär/i);
   });
 });
 

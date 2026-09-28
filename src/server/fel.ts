@@ -141,6 +141,35 @@ export function tolkaSpendSkal(skal: SpendSkal): FelResultat {
 }
 
 /**
+ * Tolkar en jobbrads `promptVersion`-mismatch mot den körande kodens egen
+ * `PROMPT_VERSION` (se `korNastaSteg`/`avslutaMedVersionskonflikt` i
+ * `steg.ts`) till samma `FelResultat`-form som `tolkaFel`/`tolkaSpendSkal` —
+ * inte ett kastat fel, utan ett tillstånd upptäckt INNAN något
+ * modellanrop eller någon cache-läsning/skrivning görs.
+ *
+ * BAKGRUND (live incident 2026-09-28): webbplatsen och Edge Function-koden
+ * deployas separat. Webbplatsen stämplar varje jobbrad med SIN EGEN
+ * `PROMPT_VERSION` vid `skapaAnalys` (analys.ts); Edge Function-koden som
+ * senare klaimar och kör raden kör SIN EGEN, potentiellt äldre eller nyare,
+ * `PROMPT_VERSION`. När de två låg på olika versioner körde den gamla
+ * arbetaren de GAMLA prompterna men skrev resultatet till cachen under
+ * radens stämplade (NYA) nyckel — och förgiftade cachen: varje senare
+ * köpare av samma förening fick den gamla extraktionen under den nya
+ * versionens nyckel. Ett jobb vars stämplade version inte matchar den
+ * körande koden får därför ALDRIG köras eller röra cachen — bara
+ * misslyckas direkt, utan omkö (ett nytt försök hjälper inte förrän båda
+ * sidor är på samma version igen).
+ */
+export function versionskonfliktResultat(): FelResultat {
+  return {
+    errorCode: "versionskonflikt",
+    message:
+      "Binfo uppdaterades medan din analys väntade i kön. Ladda upp årsredovisningen igen om en " +
+      "stund, så körs den med den senaste versionen.",
+  };
+}
+
+/**
  * True ENDAST för `"daily_cap"` — det enda felläget som är ett tillfälligt,
  * externt tillstånd (dagens spend-tak) snarare än något som beror på just
  * den här rapporten eller det här jobbet. En skannad PDF, en

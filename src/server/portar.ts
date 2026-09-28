@@ -25,9 +25,19 @@ import type { AnalysJudgement } from "@/lib/analysis/analyze";
 export type AnalysStatus = "queued" | "running" | "done" | "failed";
 export type AnalysStage = "uploaded" | "extracting" | "judging" | "complete";
 
-/** Mirrors the `error_code` values the migration documents on that column. */
+/** Mirrors the `error_code` values the migration documents on that column.
+ *  `error_code` is a plain `text` column (no enum, no CHECK constraint — see
+ *  the migration) so `"versionskonflikt"` was added here without a
+ *  migration; it is NOT yet listed in the migration's own comment, which
+ *  documents the column's original values as of 2026-09-13. */
 export type AnalysErrorCode =
-  "scanned_pdf" | "cost_cap" | "daily_cap" | "validation" | "saknar_rantekanslighet" | "unknown";
+  | "scanned_pdf"
+  | "cost_cap"
+  | "daily_cap"
+  | "validation"
+  | "saknar_rantekanslighet"
+  | "versionskonflikt"
+  | "unknown";
 
 /** One row of the `analys` table — a single buyer's analysis job. */
 export interface AnalysRad {

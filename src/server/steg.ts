@@ -27,12 +27,29 @@
  * saknad räntekänslighet — den degraderas i stället inom `beraknaRantestress`
  * (se rantestress.ts), så den torra sammanställningen kan fortfarande
  * hamna på `AssemblyValidationError`, men inte längre på den koden.
+ *
+ * VERSIONSVAKT (tillagd efter en live-incident 2026-09-28): webbplatsen
+ * (`skapaAnalys`, analys.ts) och den här Edge Function-koden deployas
+ * OBEROENDE av varandra. Webbplatsen stämplar varje ny rad med SIN EGEN
+ * `PROMPT_VERSION` vid skapandet; den här filen kör SIN EGEN `PROMPT_VERSION`
+ * när den senare klaimar och avancerar raden. Låg de på olika versioner
+ * (webbplatsen redan på "5", arbetaren fortfarande på "4") körde arbetaren de
+ * GAMLA prompterna men skrev resultatet till `extraktion_cache`/`analys_cache`
+ * under radens stämplade (NYA) nyckel — och förgiftade cachen: varje senare
+ * köpare av samma förening fick den gamla extraktionen tillbaka under den
+ * nya versionens nyckel, utan att något fel någonsin syntes. `korNastaSteg`
+ * kontrollerar därför `rad.promptVersion` mot den körande kodens
+ * `PROMPT_VERSION` OMEDELBART efter klaimningen — före allt annat (spend,
+ * cache, modellanrop) — och låter jobbet misslyckas direkt utan omkö vid en
+ * mismatch (se `avslutaMedVersionskonflikt` nedan). Ett nytt försök kan inte
+ * hjälpa förrän båda sidor är på samma version igen.
  */
 
 import { runAnalys } from "@/lib/analysis/analyze";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
 import { errorHasKnownSpend } from "@/lib/analysis/callMetrics";
 import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
+import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import {
   runGrounding,
   runStructuredExtraction,
@@ -47,7 +64,7 @@ import {
 } from "./cache";
 import { lasPropertyInputFranRad } from "./lagratInput";
 import type { Env } from "./env";
-import { tolkaFel } from "./fel";
+import { tolkaFel, versionskonfliktResultat } from "./fel";
 import type { AnalysRad, AnalysStage, Lager } from "./portar";
 import {
   reserveraForSteg,
@@ -204,6 +221,31 @@ async function avslutaMedFel(
       finishedAt: new Date().toISOString(),
     });
   }
+}
+
+/** Se filkommentarens "VERSIONSVAKT"-stycke. Körs INNAN allt annat för en
+ *  klaimad rad vars stämplade `promptVersion` inte matchar den körande
+ *  kodens `PROMPT_VERSION` — ingen spend-reservation, inget modellanrop och
+ *  ingen cache-läsning/skrivning har hunnit ske när den här funktionen
+ *  anropas. Jobbet avslutas direkt som permanent `failed`, MEDVETET utan
+ *  `slappSteg`/omkö (samma mönster som `avslutaMedFel`s uttömda-försök-gren):
+ *  ett nytt försök kan inte lyckas förrän de två sidorna delar version igen,
+ *  så att köa om det bara vore att gissa på samma sätt en gång till. De två
+ *  versionssträngarna loggas bara till serverns egen konsol (Edge
+ *  Function-loggen) — ALDRIG till `errorMessage`, som en köpare ser
+ *  ordagrant (samma köparsäkerhets-invariant som `tolkaFel`, se fel.ts). */
+async function avslutaMedVersionskonflikt(lager: Lager, rad: AnalysRad): Promise<void> {
+  console.error(
+    `[versionskonflikt] Rad ${rad.id} stämplad promptVersion="${rad.promptVersion}" men ` +
+      `körande kod har PROMPT_VERSION="${PROMPT_VERSION}" — avbryter utan cache-skrivning.`,
+  );
+  const { errorCode, message } = versionskonfliktResultat();
+  await lager.db.uppdateraAnalys(rad.id, {
+    status: "failed",
+    errorCode,
+    errorMessage: message,
+    finishedAt: new Date().toISOString(),
+  });
 }
 
 /** En refuserad reservation (kill switch eller dagligt tak) är inte jobbets
@@ -417,6 +459,14 @@ export async function korNastaSteg(
   const rad = await lager.db.klaimaNastaSteg();
   if (!rad) {
     return { claimed: false };
+  }
+
+  // VERSIONSVAKT — se filkommentaren och avslutaMedVersionskonflikt ovan.
+  // Måste ske FÖRE nyckel/switch: nyckel härleds från rad.promptVersion, och
+  // varje gren av switchen nedan kan läsa eller skriva en cache keyed på den.
+  if (rad.promptVersion !== PROMPT_VERSION) {
+    await avslutaMedVersionskonflikt(lager, rad);
+    return { claimed: true, analysisId: rad.id, stage: rad.stage };
   }
 
   const nyckel: CacheNyckel = {

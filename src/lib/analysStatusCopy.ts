@@ -19,7 +19,13 @@
 export type AnalysStage = "uploaded" | "extracting" | "judging" | "complete";
 
 export type AnalysErrorCode =
-  "scanned_pdf" | "cost_cap" | "daily_cap" | "validation" | "saknar_rantekanslighet" | "unknown";
+  | "scanned_pdf"
+  | "cost_cap"
+  | "daily_cap"
+  | "validation"
+  | "saknar_rantekanslighet"
+  | "versionskonflikt"
+  | "unknown";
 
 /** Ordningen stegen faktiskt inträffar i — driver den enkla förloppsstapeln. */
 export const STEG_ORDNING: AnalysStage[] = ["uploaded", "extracting", "judging", "complete"];
@@ -84,6 +90,15 @@ export const FELKOD_INNEHALL: Record<AnalysErrorCode, FelkodInnehall> = {
     atgard:
       "Kontrollera att det är den senaste årsredovisningen (nyckeltalet är obligatoriskt sedan " +
       "räkenskapsår 2023). Saknas uppgiften ändå, fråga styrelsen om den direkt.",
+  },
+  versionskonflikt: {
+    rubrik: "Analysen kunde inte slutföras",
+    forklaring:
+      "Det berodde inte på din årsredovisning — våra system uppdaterades medan analysen väntade " +
+      "i kön, mellan två steg som måste köras med samma version.",
+    atgard:
+      "Gå tillbaka till formuläret och ladda upp årsredovisningen igen om en stund, så körs den " +
+      "med den senaste versionen.",
   },
   unknown: {
     rubrik: "Något gick fel",

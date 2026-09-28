@@ -623,6 +623,124 @@ describe("korNastaSteg", () => {
     });
   });
 
+  describe("versionsvakt — en rad stämplad med en annan promptVersion än den körande koden (regression mot en live-incident 2026-09-28)", () => {
+    it("misslyckas direkt, utan att röra spend, modellanrop eller cachen — vid steget 'uploaded'", async () => {
+      const lager = skapaFakeLager();
+      const { id } = await skapaRad(lager); // stage: "uploaded"
+      // Simulera en rad stämplad av en ANNAN deploy av webbplatsen än den som
+      // kör den här koden.
+      await lager.db.uppdateraAnalys(id, { promptVersion: "4" });
+      const client = fakeClient();
+      const reinvoke = vi.fn();
+
+      const foreRad = await lager.db.hamtaAnalys(id);
+      const resultat = await korNastaSteg(lager, miljo(), { client, reinvoke });
+
+      expect(resultat).toEqual({ claimed: true, analysisId: id, stage: "uploaded" });
+      expect(client.messages.countTokens).not.toHaveBeenCalled();
+      expect(client.messages.create).not.toHaveBeenCalled();
+      expect(reinvoke).not.toHaveBeenCalled();
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.status).toBe("failed");
+      expect(rad?.errorCode).toBe("versionskonflikt");
+      expect(rad?.errorMessage).toBeTruthy();
+      expect(rad?.errorMessage).not.toMatch(/PROMPT_VERSION|prompt_version/i);
+      expect(rad?.finishedAt).toBeTruthy();
+      // Spendbokföringen rördes aldrig — samma costSek som innan.
+      expect(rad?.costSek).toBe(foreRad?.costSek ?? 0);
+    });
+
+    it("misslyckas direkt vid steget 'extracting' — ingen cache-läsning eller -skrivning görs", async () => {
+      const lager = skapaFakeLager();
+      const { id, nyckel } = await skapaRad(lager, { stage: "extracting" });
+      await lager.db.uppdateraAnalys(id, { promptVersion: "4" });
+      const client = fakeClient();
+
+      const resultat = await korNastaSteg(lager, miljo(), { client });
+
+      expect(resultat).toEqual({ claimed: true, analysisId: id, stage: "extracting" });
+      expect(client.messages.countTokens).not.toHaveBeenCalled();
+      expect(client.messages.create).not.toHaveBeenCalled();
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.status).toBe("failed");
+      expect(rad?.errorCode).toBe("versionskonflikt");
+
+      // Ingen cache-skrivning gjordes under den (numera stale) nyckeln.
+      const cachad = await lager.db.hamtaExtraktion(
+        nyckel.pdfHash,
+        nyckel.model,
+        nyckel.promptVersion,
+      );
+      expect(cachad).toBeNull();
+    });
+
+    it("misslyckas direkt vid steget 'judging' — den befintliga extraktions-cachen läses aldrig, och ingen analys-cache skrivs", async () => {
+      const lager = skapaFakeLager();
+      const { id, nyckel } = await skapaRad(lager, { stage: "judging" });
+      // Extraktionen finns redan i cachen (från steg 2, som lyckades under
+      // den GAMLA versionen) — bedömningssteget får ändå inte röra den.
+      await sparaExtraktionICache(lager.db, nyckel, extraktion, 0.5);
+      await lager.db.uppdateraAnalys(id, { promptVersion: "4" });
+      const client = fakeClient();
+
+      const resultat = await korNastaSteg(lager, miljo(), { client });
+
+      expect(resultat).toEqual({ claimed: true, analysisId: id, stage: "judging" });
+      expect(client.messages.countTokens).not.toHaveBeenCalled();
+      expect(client.messages.create).not.toHaveBeenCalled();
+
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.status).toBe("failed");
+      expect(rad?.errorCode).toBe("versionskonflikt");
+
+      const analysCachad = await lager.db.hamtaAnalysCache(
+        nyckel.pdfHash,
+        nyckel.model,
+        nyckel.promptVersion,
+      );
+      expect(analysCachad).toBeNull();
+    });
+
+    it("konsumerar aldrig ett dagligt spend-tak — dagens reserverade belopp är oförändrat", async () => {
+      const lager = skapaFakeLager();
+      const { id } = await skapaRad(lager);
+      await lager.db.uppdateraAnalys(id, { promptVersion: "4" });
+      const client = fakeClient();
+
+      // Ett spend-tak satt precis så en giltig grundning skulle rymmas — om
+      // versionsvakten av misstag reserverade spend skulle det synas här
+      // genom att en EFTERFÖLJANDE riktig rad inte längre får plats.
+      const env = miljo({ maxDailySpendSek: 3 });
+      await korNastaSteg(lager, env, { client });
+
+      const { id: andraId } = await skapaRad(lager); // korrekt promptVersion
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 500 });
+      client.messages.create.mockResolvedValueOnce(groundingResponse());
+      const resultat = await korNastaSteg(lager, env, { client });
+
+      expect(resultat).toEqual({ claimed: true, analysisId: andraId, stage: "uploaded" });
+      const andraRad = await lager.db.hamtaAnalys(andraId);
+      expect(andraRad?.stage).toBe("extracting"); // lyckades — taket refuserade inte
+    });
+
+    it("den befintliga same-version-vägen är oförändrad: en rad med matchande promptVersion körs som vanligt", async () => {
+      const lager = skapaFakeLager();
+      const { id } = await skapaRad(lager); // promptVersion = PROMPT_VERSION, satt av skapaRad
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValueOnce({ input_tokens: 500 });
+      client.messages.create.mockResolvedValueOnce(groundingResponse());
+
+      const resultat = await korNastaSteg(lager, miljo(), { client });
+
+      expect(resultat).toEqual({ claimed: true, analysisId: id, stage: "uploaded" });
+      const rad = await lager.db.hamtaAnalys(id);
+      expect(rad?.stage).toBe("extracting");
+      expect(rad?.errorCode).toBeNull();
+    });
+  });
+
   describe("effort — per-stegs reasoning-djup från Env (task 1.2)", () => {
     it("skickar env.effortGrounding vidare till grundningsanropet", async () => {
       const lager = skapaFakeLager();
