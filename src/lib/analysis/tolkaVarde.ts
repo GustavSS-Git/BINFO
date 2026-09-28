@@ -1,4 +1,4 @@
-import type { Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
+import type { Figure, KeyFigure, KeyFigureId, Konfidens } from "@/types/analysis";
 
 /**
  * Deterministic parsing of a value exactly as printed in an annual report —
@@ -275,4 +275,23 @@ export function harledSkuldfriaNyckeltal(
     };
     return { ...kf, figure: harledFigure };
   });
+}
+
+/** Matches a confidence note about the debt figures (as the model tends to
+ *  write it when it sees "-" cells), e.g. "skuldsättning, räntekänslighet saknas". */
+const SKULDNYCKELTAL_I_TEXT = /räntekänslig|skuldsättning|skuldsattning/i;
+
+/**
+ * Once `harledSkuldfriaNyckeltal` has filled in a debt-free association's
+ * 0s, a note the extraction model wrote about those same figures being
+ * missing ("-") contradicts what the buyer now sees. Drop such notes. If
+ * none remain, nothing explains a lowered level, so it goes back to "hog";
+ * if other reasons remain, the level the model chose is kept.
+ * `harleddes` is false → returned unchanged.
+ */
+export function rensaSkuldfriaKonfidensSkal(konfidens: Konfidens, harleddes: boolean): Konfidens {
+  if (!harleddes || !konfidens.skal) return konfidens;
+  const kvar = konfidens.skal.filter((s) => !SKULDNYCKELTAL_I_TEXT.test(s));
+  if (kvar.length === konfidens.skal.length) return konfidens;
+  return kvar.length === 0 ? { niva: "hog" } : { niva: konfidens.niva, skal: kvar };
 }

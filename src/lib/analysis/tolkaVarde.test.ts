@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { harledSkuldfriaNyckeltal, parseTrycktVarde, tolkaNyckeltal } from "./tolkaVarde";
+import {
+  harledSkuldfriaNyckeltal,
+  parseTrycktVarde,
+  rensaSkuldfriaKonfidensSkal,
+  tolkaNyckeltal,
+} from "./tolkaVarde";
 import type { Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
 
 const NBSP = " ";
@@ -374,5 +379,34 @@ describe("harledSkuldfriaNyckeltal", () => {
     const kopia = structuredClone(input);
     harledSkuldfriaNyckeltal(TOTAL_SKULD_0, input);
     expect(input).toEqual(kopia);
+  });
+});
+
+describe("rensaSkuldfriaKonfidensSkal", () => {
+  const GOKEN_SKAL =
+    "Flera nyckeltal (skuldsättning, räntekänslighet) saknas i flerårsöversikten och anges som '-' i rapporten.";
+
+  it("tar bort modellens 'saknas'-skäl om skuldnyckeltalen och återställer 'hog' när inget annat skäl finns kvar (Göken)", () => {
+    const resultat = rensaSkuldfriaKonfidensSkal({ niva: "medel", skal: [GOKEN_SKAL] }, true);
+    expect(resultat).toEqual({ niva: "hog" });
+  });
+
+  it("behåller nivån och de andra skälen när något annat också sänkte konfidensen", () => {
+    const annat = "Texten på sida 4 var svårläst.";
+    const resultat = rensaSkuldfriaKonfidensSkal(
+      { niva: "medel", skal: [GOKEN_SKAL, annat] },
+      true,
+    );
+    expect(resultat).toEqual({ niva: "medel", skal: [annat] });
+  });
+
+  it("rör ingenting när skuldfri-härledningen inte slog till", () => {
+    const konfidens = { niva: "medel" as const, skal: [GOKEN_SKAL] };
+    expect(rensaSkuldfriaKonfidensSkal(konfidens, false)).toEqual(konfidens);
+  });
+
+  it("rör ingenting när inget skäl handlar om skuldnyckeltalen", () => {
+    const konfidens = { niva: "lag" as const, skal: ["Skannade sidor."] };
+    expect(rensaSkuldfriaKonfidensSkal(konfidens, true)).toEqual(konfidens);
   });
 });

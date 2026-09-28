@@ -498,6 +498,43 @@ describe("runStructuredExtraction", () => {
     expect(sparande?.status).toBe("okant");
   });
 
+  it("stryker modellens inaktuella 'skuldnyckeltal saknas'-skäl när 0:orna härletts, och återställer konfidensen (Göken live 2026-09-28)", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    const modellsSvar: ExtractionResult = {
+      ...validExtractionResult,
+      forening: {
+        ...validExtractionResult.forening,
+        keyFigures: raaNyckeltal(),
+        lanebok: {
+          totalSkuld: {
+            value: 0,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 7, excerpt: "Föreningen är skuldfri och ekonomin är fortsatt god." },
+          },
+        },
+      },
+      datakvalitet: {
+        ...validExtractionResult.datakvalitet,
+        extraktionKonfidens: {
+          niva: "medel",
+          skal: [
+            "Flera nyckeltal (skuldsättning, räntekänslighet) saknas i flerårsöversikten och anges som '-' i rapporten.",
+          ],
+        },
+      },
+    };
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 100 },
+      content: [{ type: "text", text: JSON.stringify(modellsSvar) }],
+    });
+
+    const { extraction } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+
+    expect(extraction.datakvalitet.extraktionKonfidens).toEqual({ niva: "hog" });
+  });
+
   it("härleder INTE när totalSkuld saknas eller är skild från 0", async () => {
     const client = fakeClient();
     client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });

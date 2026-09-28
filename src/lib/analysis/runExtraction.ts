@@ -3,7 +3,11 @@ import type { ExtractionResult } from "@/types/analysis";
 import { berikaNyckeltal, implausibelNegativAnmarkning } from "./benchmarks";
 import { extractPdfText } from "./pdf";
 import { ModelTruncatedError, extractWithRetry, type ModelCaller } from "./extract";
-import { harledSkuldfriaNyckeltal, tolkaNyckeltal } from "./tolkaVarde";
+import {
+  harledSkuldfriaNyckeltal,
+  rensaSkuldfriaKonfidensSkal,
+  tolkaNyckeltal,
+} from "./tolkaVarde";
 import {
   buildExtractionSystemPrompt,
   buildExtractionUserPrompt,
@@ -460,6 +464,14 @@ export async function runStructuredExtraction(
     .filter((s): s is string => s !== undefined);
   const anmarkningar = [...tolkningsAvvikelser, ...implausibelaAnmarkningar];
 
+  // The model's own "debt figures missing" note is stale once the debt-free
+  // rule has filled them in (see rensaSkuldfriaKonfidensSkal).
+  const harleddes = skuldfriaNyckeltal.some((kf, i) => kf !== tolkadeNyckeltal[i]);
+  const modellensKonfidens = rensaSkuldfriaKonfidensSkal(
+    extraction.datakvalitet.extraktionKonfidens,
+    harleddes,
+  );
+
   const extraktionKonfidens =
     anmarkningar.length > 0
       ? {
@@ -467,13 +479,10 @@ export async function runStructuredExtraction(
           // implausible negative reading) is exactly the kind of thing that
           // should visibly lower confidence — but never RAISE it back to
           // "hog" if something else already lowered it further ("lag").
-          niva:
-            extraction.datakvalitet.extraktionKonfidens.niva === "hog"
-              ? ("medel" as const)
-              : extraction.datakvalitet.extraktionKonfidens.niva,
-          skal: [...(extraction.datakvalitet.extraktionKonfidens.skal ?? []), ...anmarkningar],
+          niva: modellensKonfidens.niva === "hog" ? ("medel" as const) : modellensKonfidens.niva,
+          skal: [...(modellensKonfidens.skal ?? []), ...anmarkningar],
         }
-      : extraction.datakvalitet.extraktionKonfidens;
+      : modellensKonfidens;
 
   const enrichedExtraction: ExtractionResult = {
     ...extraction,
