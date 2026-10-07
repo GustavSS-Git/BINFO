@@ -297,3 +297,50 @@ describe("buildPdfViewModel — rantestress with rantekanslighetProcent null", (
     );
   });
 });
+
+describe("buildPdfViewModel — valuation coverage tier", () => {
+  const u0 = sampleAnalysis.prisanalys.varderingsunderlag;
+  if (!u0) throw new Error("sample has no varderingsunderlag");
+  const prisniva = {
+    region: "Riket",
+    krPerM2: 60000,
+    period: { fran: "2026-01-01", till: "2026-08-31" },
+    kalla: "Svensk Mäklarstatistik",
+  };
+  const med = (extra: Record<string, unknown>): AnalysisResult => ({
+    ...sampleAnalysis,
+    prisanalys: {
+      ...sampleAnalysis.prisanalys,
+      varderingsunderlag: { ...u0, ...extra },
+    },
+  });
+
+  it("has no coverage text for Stockholm / old analyses", () => {
+    const u = buildPdfViewModel(sampleAnalysis).prisanalys.varderingsunderlag;
+    expect(u?.disclaimerText).toBeUndefined();
+    expect(u?.metodText).toBeUndefined();
+  });
+
+  it("carries the disclaimer for utanfor_lan", () => {
+    const u = buildPdfViewModel(med({ tackning: "utanfor_lan", omrade: null, prisniva })).prisanalys
+      .varderingsunderlag;
+    expect(u?.tackningTitel).toBe("Utanför Binfos täckningsområde");
+    expect(u?.disclaimerText).toContain("utanför Stockholms län");
+    expect(u?.metodText).toBeUndefined();
+    expect(u?.omradeText).toBe("Riket");
+  });
+
+  it("carries the method note for lan", () => {
+    const u = buildPdfViewModel(
+      med({
+        tackning: "lan",
+        kommun: "Nacka",
+        omrade: null,
+        prisniva: { ...prisniva, region: "Nacka" },
+      }),
+    ).prisanalys.varderingsunderlag;
+    expect(u?.metodText).toContain("Nacka");
+    expect(u?.disclaimerText).toBeUndefined();
+    expect(u?.omradeText).toBe("Nacka");
+  });
+});

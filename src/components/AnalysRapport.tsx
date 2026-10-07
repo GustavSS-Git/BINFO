@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Card, Button, Badge, StatusLabel, SectionTitle, Tag } from "@/components/ui/binfo";
+import {
+  Callout,
+  Card,
+  Button,
+  Badge,
+  StatusLabel,
+  SectionTitle,
+  Tag,
+} from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   formatDrivareLabel,
   formatBudpremieText,
   formatDataperiod,
+  varderingsTackningText,
   formatFigureVarde,
   formatVarde,
   OMRADESINDELNING_ATTRIBUTION,
@@ -370,6 +379,7 @@ function OvrigInfo({ analys }: { analys: AnalysisResult }) {
 function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
   const p = analys.prisanalys;
   const u = p.varderingsunderlag;
+  const tackningText = u ? varderingsTackningText(u) : null;
   const varderingslabel =
     p.externVardering?.source === "schablon" ? "Binfos värdering" : "Extern värdering";
   return (
@@ -377,6 +387,13 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
       <SectionTitle hint="Jämförelse mot Binfos värderingsmodell och pris per kvadratmeter.">
         Är priset rimligt?
       </SectionTitle>
+      {tackningText?.typ === "utanfor_lan" ? (
+        <div className="mb-4">
+          <Callout variant="flag" title={tackningText.titel ?? "Utanför täckningsområdet"}>
+            <p>{tackningText.text}</p>
+          </Callout>
+        </div>
+      ) : null}
       <Card>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
@@ -427,7 +444,7 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <p className="text-sm font-medium text-foreground">Binfos värdering</p>
               <p className="text-sm text-muted-foreground">
-                Inte tillgänglig — täcker i dag bara Stockholms kommun
+                Inte tillgänglig — postnumret saknas eller är ogiltigt
               </p>
             </div>
           )}
@@ -436,7 +453,11 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
         {u ? (
           <div className="mt-6 space-y-3 border-t border-border pt-6">
             <p className="text-sm font-medium text-foreground">
-              Område: {u.omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)"}
+              Område:{" "}
+              {u.omrade ??
+                (tackningText
+                  ? (u.kommun ?? u.prisniva?.region ?? "Okänt")
+                  : "Stockholm (postnumret saknas i vår områdesindelning)")}
             </p>
             {u.drivare.length > 0 ? (
               <div>
@@ -463,6 +484,9 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
               {u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell{" "}
               {u.modellVersion}
             </p>
+            {tackningText?.typ === "lan" ? (
+              <p className="text-xs text-muted-foreground">{tackningText.text}</p>
+            ) : null}
             <p className="text-xs text-muted-foreground">{OMRADESINDELNING_ATTRIBUTION}</p>
           </div>
         ) : null}

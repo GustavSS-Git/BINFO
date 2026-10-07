@@ -1,9 +1,6 @@
 import {
   budpremieForOmrade,
   drivareForInput,
-  harKantPrefix,
-  omradeForPostnummer,
-  postnummerOmrade,
   vardera,
   type VarderingResultat,
 } from "@/lib/vardering";
@@ -232,23 +229,17 @@ export class DemoPrisdatakalla implements Prisdatakalla {
 // ---------------------------------------------------------------------------
 
 /**
- * Vilka postnummer Binfos värderingsmodell (src/lib/vardering) täcker
- * (produktbeslut, se task 4g-uppdraget):
- *   - Precist kartlagt till ett område -> normal (områdesspecifik) körning.
- *   - Inte kartlagt, men 3-siffersprefixet finns ändå med i kartläggnings-
- *     tabellen (dvs. ett postnummer modellen känner igen, bara utan exakt
- *     områdesmatchning) -> körs ändå, med hela Stockholm som fallback-område.
- *   - Allt annat (postnummer utanför Stockholm, eller en anonymiserad
- *     rapport vars postnummer är "") -> INGEN värdering. vardera() själv har
- *     ingen avvisningslogik — den producerar en prediktion för vilken input
- *     som helst — så det här är den enda platsen avgörandet görs.
+ * Täckning (se src/lib/vardering/tackning.ts för den fullständiga
+ * upplösningsordningen): varje välformat femsiffrigt postnummer får en
+ * värdering.
+ *   - 'stockholm'   : Stockholms kommun — områdesmodellen (tränad på
+ *                     försäljningar där).
+ *   - 'lan'         : övriga Stockholms län — generella samband × kommunens
+ *                     genomsnittspris.
+ *   - 'utanfor_lan' : utanför länet — generella samband × riksgenomsnittet.
+ * Bara ett tomt eller felformaterat postnummer (t.ex. en anonymiserad
+ * rapport) ger INGEN värdering; det avgörandet fattas i vardera() (null).
  */
-function arInomVarderingensRackvidd(postnummer: string): boolean {
-  return (
-    omradeForPostnummer(postnummer, postnummerOmrade) !== null ||
-    harKantPrefix(postnummer, postnummerOmrade)
-  );
-}
 
 /** Exakt de fält vardera()/budpremieForOmrade()/drivareForInput() behöver. */
 export interface ModellVarderingInput {
@@ -272,22 +263,26 @@ export interface ModellVarderingInput {
  */
 export interface ModellVarderingUnderlag {
   resultat: VarderingResultat;
-  budpremie: Budpremie;
+  /** Bara för 'stockholm' — underlaget (utgångspris mot slutpris) täcker
+   *  enbart Stockholms kommun. null för 'lan' och 'utanfor_lan'. */
+  budpremie: Budpremie | null;
   drivare: Varderingsdrivare[];
 }
 
 /**
  * Kör Binfos värderingsmodell end-till-end för en lägenhet, eller null när
- * postnumret ligger utanför modellens räckvidd (se
- * arInomVarderingensRackvidd ovan). Ren funktion, inget nätverksanrop —
- * vardera()/budpremieForOmrade()/drivareForInput() är alla rena
- * uppslagningar mot data som redan laddats vid modulinit (src/lib/vardering).
+ * postnumret är tomt eller felformaterat (ingen värdering möjlig). Ren
+ * funktion, inget nätverksanrop — vardera()/budpremieForOmrade()/
+ * drivareForInput() är alla rena uppslagningar mot data som redan laddats
+ * vid modulinit (src/lib/vardering).
+ *
+ * Budpremie sätts bara för 'stockholm'. Drivarna (och deras förbehåll) är
+ * desamma för alla täckningsnivåer, men områdesspecifika effekter används
+ * bara när ett Stockholmsområde är känt.
  */
 export function korBinfoVarderingsmodell(
   input: ModellVarderingInput,
 ): ModellVarderingUnderlag | null {
-  if (!arInomVarderingensRackvidd(input.postnummer)) return null;
-
   const resultat = vardera({
     postnummer: input.postnummer,
     boarea: input.boarea,
@@ -298,12 +293,75 @@ export function korBinfoVarderingsmodell(
     hiss: input.hiss,
     balkong: input.balkong,
   });
+  if (!resultat) return null;
 
   return {
     resultat,
-    budpremie: budpremieForOmrade(resultat.omrade),
-    drivare: drivareForInput({ hiss: input.hiss, balkong: input.balkong }, resultat.omrade),
+    budpremie: resultat.tackning === "stockholm" ? budpremieForOmrade(resultat.omrade) : null,
+    drivare: drivareForInput(
+      { hiss: input.hiss, balkong: input.balkong },
+      resultat.omrade,
+      resultat.tackning,
+    ),
   };
+}
+
+const sv0 = (n: number) => n.toLocaleString("sv-SE", { maximumFractionDigits: 0 });
+const sv1 = (n: number) => n.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+
+/**
+ * "46 317 kr/m², Svensk Mäklarstatistik, aug 2026" — prisnivån som citeras i
+ * texterna. Delas av schablonBasis här och konfidensskälen i assemble.ts.
+ */
+export function prisnivaCitat(prisniva: NonNullable<VarderingResultat["prisniva"]>): string {
+  return `${sv0(prisniva.krPerM2)} kr/m², ${prisniva.kalla}, ${formatDataperiod(prisniva.period)}`;
+}
+
+/** schablonBasis för Binfos värdering — metod och baslinje utpekade, och aldrig
+ *  något som kan läsas som ett faktum. */
+function byggSchablonBasis(resultat: VarderingResultat): string {
+  const modell = `Binfos värderingsmodell (${resultat.modellVersion})`;
+  const forsaljningar = `${resultat.antalForsaljningar} försäljningar i Stockholm ${formatDataperiod(resultat.dataperiod)}`;
+  const slut = "Det är en statistisk skattning, inte en besiktning av just den här lägenheten.";
+
+  if (resultat.tackning === "stockholm") {
+    const omradeText =
+      resultat.omrade ??
+      "hela Stockholm (postnumret gick inte att koppla till ett specifikt område)";
+    return (
+      `${modell}: en statistisk skattning för ${omradeText}, byggd på ${forsaljningar}. ` +
+      `Typiskt fel ±${sv1(resultat.typisktFelProcent)} %. ${slut}`
+    );
+  }
+
+  const prisniva = resultat.prisniva;
+  const generella =
+    "Den bygger på generella samband (storlek, antal rum, våning, byggår, avgift, hiss och balkong) " +
+    `från ${forsaljningar}`;
+  const nedreGrans = (plats: string) =>
+    `Typiskt fel ±${sv1(resultat.typisktFelProcent)} % är simulerat inom Stockholm och är en nedre gräns — ` +
+    `det verkliga felet ${plats} är sannolikt större.`;
+
+  if (resultat.tackning === "lan" && prisniva) {
+    const kommun = resultat.kommun ?? prisniva.region;
+    return (
+      `${modell}: en statistisk skattning för ${kommun}. ${generella}, skalade till ` +
+      `genomsnittspriset i ${kommun} (${prisnivaCitat(prisniva)}). ` +
+      `Modellen är inte tränad på försäljningar i ${kommun}. ${nedreGrans(`i ${kommun}`)} ${slut}`
+    );
+  }
+
+  const forKommun = resultat.kommun ? ` för ${resultat.kommun}` : "";
+  const enManad =
+    prisniva && prisniva.period.fran === prisniva.period.till
+      ? " Riksgenomsnittet avser en enda månad."
+      : "";
+  return (
+    `${modell}: en statistisk skattning${forKommun} utanför Stockholms län. ${generella}, skalade till ` +
+    `riksgenomsnittet för bostadsrätter${prisniva ? ` (${prisnivaCitat(prisniva)})` : ""}. ` +
+    `Modellen är inte tränad på försäljningar utanför Stockholm.${enManad} ` +
+    `${nedreGrans("utanför länet")} ${slut}`
+  );
 }
 
 /**
@@ -311,19 +369,22 @@ export function korBinfoVarderingsmodell(
  * Ersätter den tidigare platta 80 000 kr/m²-schablonen. Märks fortfarande
  * `source: 'schablon'` — inte `'extern'`, som är reserverad för en verklig
  * tredjepartsintegration — men är till skillnad från den gamla schablonen en
- * riktig statistisk modell: den tar hänsyn till läge (område), antal rum,
- * våning, byggår, avgift, hiss och balkong, och bär ett uppmätt
- * osäkerhetsintervall (se ml/artifacts/valuation-v2/MODEL_CARD.md).
+ * riktig statistisk modell: den tar hänsyn till storlek, antal rum, våning,
+ * byggår, avgift, hiss och balkong, och bär ett uppmätt (för Stockholm) eller
+ * simulerat (för resten av landet) osäkerhetsintervall. Se
+ * ml/artifacts/valuation-v3/MODEL_CARD.md.
+ *
+ * Tre metoder efter postnummer (se täckningskommentaren
+ * ovan och src/lib/vardering/tackning.ts): områdesmodellen för Stockholms
+ * kommun, samt generella samband × kommunens respektive riksgenomsnittets
+ * kr/m² för resten. Alla ger en uppskattning; bara ett tomt eller
+ * felformaterat postnummer ger null.
  *
  * Kräver inget konstruktortillstånd (till skillnad från de äldre källorna
- * ovan) — allt modellen behöver kommer med varje enskild förfrågan, se
- * Prisdataforfragans utökade fält.
- *
- * Utanför Stockholm (eller för en anonymiserad förfrågan med tomt
- * postnummer) returnerar hamtaVardering null — se
- * arInomVarderingensRackvidd. Modellen känner varken enskilda försäljningar
- * i en förening eller en riktig områdesmedian, så de två andra metoderna
- * lämnar alltid tomt/null, av samma skäl som de äldre källorna ovan.
+ * ovan) — allt modellen behöver kommer med varje enskild förfrågan. Modellen
+ * känner varken enskilda försäljningar i en förening eller en riktig
+ * områdesmedian, så de två andra metoderna lämnar alltid tomt/null, av samma
+ * skäl som de äldre källorna ovan.
  */
 export class ModellPrisdatakalla implements Prisdatakalla {
   async hamtaVardering(forfragan: Prisdataforfragan): Promise<Vardering | null> {
@@ -331,18 +392,11 @@ export class ModellPrisdatakalla implements Prisdatakalla {
     if (!underlag) return null;
     const { resultat } = underlag;
 
-    const omradeText =
-      resultat.omrade ??
-      "hela Stockholm (postnumret gick inte att koppla till ett specifikt område)";
     return {
       value: resultat.varde,
       unit: "kr",
       source: "schablon",
-      schablonBasis:
-        `Binfos värderingsmodell (${resultat.modellVersion}): en statistisk skattning för ${omradeText}, ` +
-        `byggd på ${resultat.antalForsaljningar} försäljningar i Stockholm ${formatDataperiod(resultat.dataperiod)}. ` +
-        `Typiskt fel ±${resultat.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %. ` +
-        "Det är en statistisk skattning, inte en besiktning av just den här lägenheten.",
+      schablonBasis: byggSchablonBasis(resultat),
       range: resultat.intervall,
       leverantor: `Binfo värderingsmodell ${resultat.modellVersion}`,
     };
@@ -384,18 +438,18 @@ export function konfidensUtanPrisdata(): Konfidens {
 }
 
 /**
- * Konfidensen en Prisanalys ska bära när Binfos värderingsmodell inte täcker
- * objektets postnummer (task 4g:s omfångsregel — se
- * arInomVarderingensRackvidd ovan). Skiljs från konfidensUtanPrisdata()
- * ovan: skälet är inte "ingen källa ansluten" utan specifikt att modellen
- * bara täcker Stockholms kommun i dag, vilket köparen ska få veta ordagrant.
+ * Konfidensen en Prisanalys ska bära när Binfos värdering inte kan räknas
+ * fram alls eftersom postnumret saknas eller är felformaterat (t.ex. en
+ * anonymiserad rapport). Postnummer utanför Stockholm har en egen
+ * uppskattning (konfidens 'lag', se konfidensForModell i assemble.ts), så
+ * den här gäller bara det som inte går att placera alls.
  */
-export function konfidensUtanforStockholm(): Konfidens {
+export function konfidensUtanPostnummer(): Konfidens {
   return {
     niva: "lag",
     skal: [
-      "Binfos värdering finns i dag bara för Stockholms kommun. Det här postnumret ligger " +
-        "utanför modellens täckning, så utgångspriset har inte kunnat stämmas av mot någon värdering.",
+      "Postnumret saknas eller är ogiltigt, så Binfos värdering kan inte räknas fram och " +
+        "utgångspriset har inte stämts av mot någon värdering.",
     ],
   };
 }

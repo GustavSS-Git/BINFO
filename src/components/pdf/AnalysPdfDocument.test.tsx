@@ -178,3 +178,37 @@ describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cle
     expect(extractedText).not.toContain(dangling);
   });
 });
+
+describe("AnalysPdfDocument — utanför Stockholms län", () => {
+  it("shows the disclaimer before the estimate", async () => {
+    registerPdfFonts(await loadTestFontSources());
+    const u = sampleAnalysis.prisanalys.varderingsunderlag;
+    if (!u) throw new Error("sample has no varderingsunderlag");
+    const analys = {
+      ...sampleAnalysis,
+      prisanalys: {
+        ...sampleAnalysis.prisanalys,
+        varderingsunderlag: {
+          ...u,
+          omrade: null,
+          tackning: "utanfor_lan" as const,
+          prisniva: {
+            region: "Riket",
+            krPerM2: 60000,
+            period: { fran: "2026-01-01", till: "2026-08-31" },
+            kalla: "Svensk Mäklarstatistik",
+          },
+        },
+      },
+    };
+    const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(doc, { mergePages: true });
+    const flat = text.replace(/\s+/g, " ");
+    const iDisclaimer = flat.indexOf("Utanför Binfos täckningsområde");
+    expect(iDisclaimer).toBeGreaterThan(-1);
+    expect(iDisclaimer).toBeLessThan(
+      flat.indexOf("Utgångspris", flat.indexOf("Är priset rimligt")),
+    );
+  }, 30_000);
+});

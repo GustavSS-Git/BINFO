@@ -1,27 +1,37 @@
 /**
- * Feature vector construction — mirrors ml/train_valuation.py's RESTRICTED
- * feature pipeline (load_data() + make_preprocessor()) exactly, for the six
- * numeric features, three missing indicators and three one-hot categorical
- * groups that pipeline uses. Pure, no I/O.
+ * Feature vector construction — mirrors ml/train_valuation_v3.py's RESTRICTED
+ * feature pipeline (make_preprocessor()) for the five/six numeric features,
+ * three missing indicators and the one-hot categorical groups, for BOTH the
+ * Stockholm area model (with omrade + postcode_delta) and the general r(x)
+ * model (neither). Pure, no I/O.
  *
- * The six numeric / three indicator / three categorical names below are
- * hardcoded (rather than driven purely off manifest.numericFeatures etc.)
- * for readability; assertManifestShape() in data.ts cross-checks them
- * against the loaded manifest at import time and throws if a regenerated
- * manifest ever disagrees, so this file can't silently drift out of sync.
+ * The names below are hardcoded (rather than driving purely off the manifest
+ * lists) for readability; the assertManifestShape() check in data.ts
+ * cross-checks them against the loaded manifests at import time and throws
+ * if a regenerated manifest ever disagrees, so this file can't silently
+ * drift out of sync.
  */
-import type { Manifest, Tristate, VarderingInput } from "./types";
+import type { FeatureManifest, Manifest, Tristate, VarderingInput } from "./types";
 
 interface NumericFeatures {
   living_area: number;
   number_of_rooms: number;
   apartment_floor_clean: number;
   build_year_clean: number;
-  monthly_fee_clean: number;
   fee_per_sqm: number;
+  postcode_delta: number;
 }
 
-function median(manifest: Manifest, feature: keyof NumericFeatures): number {
+/** Inputs that are not part of VarderingInput itself. */
+export interface FeatureKontext {
+  /** The one-hot omrade category (see omradeCategoryForFeature). Required by
+   *  the Stockholm model, ignored by the general model. */
+  omradeKategori?: string;
+  /** postcode_delta (Stockholm model only); 0 = unseen postnummer. */
+  postcodeDelta?: number;
+}
+
+function median(manifest: FeatureManifest, feature: keyof NumericFeatures): number {
   const value = manifest.numericMedians[feature];
   if (value === undefined) {
     throw new Error(`Vardering: manifest has no median for numeric feature "${feature}"`);
@@ -33,18 +43,16 @@ function median(manifest: Manifest, feature: keyof NumericFeatures): number {
  * Builds the raw (pre-imputation) numeric feature values plus the three
  * missing indicators.
  *
- * fee_per_sqm is the one detail worth calling out: it is computed ONCE from
- * the raw manadsavgift/boarea, exactly mirroring
- * `cleaned["fee_per_sqm"] = cleaned["monthly_fee_clean"] / cleaned["living_area"]`
- * in load_data() — a single column built before any imputation happens. When
- * manadsavgift is missing, fee_per_sqm is NaN here too, and is imputed with
- * its OWN column median further down (see byggFeatures below), completely
- * independently of monthly_fee_clean's median. It is never recomputed as
- * "imputed monthly fee / boarea" — that would not match what the model was
- * trained on (sklearn's ColumnTransformer imputes monthly_fee_clean and
- * fee_per_sqm as two unrelated numeric columns).
+ * fee_per_sqm is computed ONCE from the raw manadsavgift/boarea, exactly
+ * mirroring `fee_per_sqm = monthly_fee_clean / living_area` in load_data().
+ * When manadsavgift is missing, fee_per_sqm is NaN here too and is imputed
+ * with its own column median further down (never "imputed fee / boarea").
+ * monthly_fee_clean itself is NOT a model feature in valuation-v3.
  */
-function raknaRaFeatures(input: VarderingInput): {
+function raknaRaFeatures(
+  input: VarderingInput,
+  postcodeDelta: number,
+): {
   numeric: NumericFeatures;
   apartmentFloorMissing: 0 | 1;
   buildYearMissing: 0 | 1;
@@ -62,8 +70,8 @@ function raknaRaFeatures(input: VarderingInput): {
       number_of_rooms: input.antalRum,
       apartment_floor_clean: input.vaning ?? NaN,
       build_year_clean: input.byggar ?? NaN,
-      monthly_fee_clean: input.manadsavgift ?? NaN,
       fee_per_sqm: feePerSqm,
+      postcode_delta: postcodeDelta,
     },
     apartmentFloorMissing,
     buildYearMissing,
@@ -71,9 +79,11 @@ function raknaRaFeatures(input: VarderingInput): {
   };
 }
 
-function imputeNumeric(manifest: Manifest, numeric: NumericFeatures): NumericFeatures {
+function imputeNumeric(manifest: FeatureManifest, numeric: NumericFeatures): NumericFeatures {
   const out = { ...numeric };
   for (const key of Object.keys(out) as (keyof NumericFeatures)[]) {
+    // postcode_delta is never missing (unseen -> 0), and the general model
+    // has no such column — only impute what is actually NaN.
     if (Number.isNaN(out[key])) {
       out[key] = median(manifest, key);
     }
@@ -111,12 +121,11 @@ export function omradeCategoryForFeature(omrade: string | null, manifest: Manife
  *  ready to feed straight into tree.ts's predictRaw(). */
 export function byggFeatures(
   input: VarderingInput,
-  omrade: string | null,
-  manifest: Manifest,
+  manifest: FeatureManifest,
+  kontext: FeatureKontext = {},
 ): number[] {
-  const raw = raknaRaFeatures(input);
+  const raw = raknaRaFeatures(input, kontext.postcodeDelta ?? 0);
   const numeric = imputeNumeric(manifest, raw.numeric);
-  const omradeCategory = omradeCategoryForFeature(omrade, manifest);
 
   const indicatorValues: Record<string, number> = {
     apartment_floor_missing: raw.apartmentFloorMissing,
@@ -124,7 +133,14 @@ export function byggFeatures(
     monthly_fee_missing: raw.monthlyFeeMissing,
   };
 
-  const omradeOneHot = oneHot(manifest.categoricalCategories["omrade"], omradeCategory, "omrade");
+  const omradeCategories = manifest.categoricalCategories["omrade"];
+  let omradeOneHot: number[] = [];
+  if (omradeCategories !== undefined) {
+    if (kontext.omradeKategori === undefined) {
+      throw new Error("Vardering: the model needs an omrade category but none was given");
+    }
+    omradeOneHot = oneHot(omradeCategories, kontext.omradeKategori, "omrade");
+  }
   const elevatorOneHot = oneHot(
     manifest.categoricalCategories["elevator_clean"],
     input.hiss,
@@ -181,7 +197,7 @@ export function byggFeatures(
 
   // Every feature value must be a finite number by now: byggFeatures fully
   // imputes and one-hot-encodes before this point, so tree.ts's walker
-  // should never see a NaN in practice for this model (see tree.ts's header
+  // should never see a NaN in practice for these models (see tree.ts's header
   // comment on the missing-value routing it implements defensively anyway).
   const nanIdx = x.findIndex((v) => Number.isNaN(v));
   if (nanIdx !== -1) {

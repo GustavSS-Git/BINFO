@@ -413,6 +413,17 @@ export const VarderingsunderlagSchema = z
     antalForsaljningar: z.number(),
     typisktFelProcent: z.number(),
     drivare: z.array(VarderingsdrivareSchema),
+    tackning: z.enum(["stockholm", "lan", "utanfor_lan"]).optional(),
+    kommun: z.string().nullable().optional(),
+    prisniva: z
+      .object({
+        region: z.string(),
+        krPerM2: z.number(),
+        period: DataperiodSchema,
+        kalla: z.string(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

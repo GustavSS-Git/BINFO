@@ -15,6 +15,7 @@ import {
   formatSkapadDatum,
   formatVarde,
   OMRADESINDELNING_ATTRIBUTION,
+  varderingsTackningText,
 } from "@/lib/analysisView";
 import type {
   AnalysisResult,
@@ -90,6 +91,11 @@ export interface PdfVarderingsdrivare {
 
 export interface PdfVarderingsunderlag {
   omradeText: string;
+  /** 'utanfor_lan' only: rendered first in the section, above the estimate. */
+  tackningTitel: string | undefined;
+  disclaimerText: string | undefined;
+  /** 'lan' only: method note shown with the data basis. */
+  metodText: string | undefined;
   intervallText: string | undefined;
   drivare: PdfVarderingsdrivare[];
   dataBasisText: string;
@@ -266,8 +272,16 @@ function buildVarderingsunderlag(
         `${formatVarde(p.externVardering.range.high, "kr")} (${u.intervallTackningProcent} %)`
       : undefined;
 
+  const tackning = varderingsTackningText(u);
   return {
-    omradeText: u.omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)",
+    omradeText:
+      u.omrade ??
+      (tackning
+        ? (u.kommun ?? u.prisniva?.region ?? "Okänt")
+        : "Stockholm (postnumret saknas i vår områdesindelning)"),
+    tackningTitel: tackning?.typ === "utanfor_lan" ? tackning.titel : undefined,
+    disclaimerText: tackning?.typ === "utanfor_lan" ? tackning.text : undefined,
+    metodText: tackning?.typ === "lan" ? tackning.text : undefined,
     intervallText,
     drivare: u.drivare.map((d) => ({
       label: formatDrivareLabel(d, u.omrade),

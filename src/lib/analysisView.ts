@@ -14,6 +14,7 @@ import type {
   Figure,
   RedFlag,
   Severity,
+  Varderingsunderlag,
 } from "@/types/analysis";
 
 const SEVERITY_RANK: Record<Severity, number> = { hog: 0, medel: 1, lag: 2 };
@@ -98,6 +99,7 @@ export function formatDataperiod(period: Dataperiod): string {
     // visa "undefined".
     return `${period.fran}–${period.till}`;
   }
+  if (franAr === tillAr && franIdx === tillIdx) return `${tillLabel} ${tillAr}`;
   return franAr === tillAr
     ? `${franLabel}–${tillLabel} ${tillAr}`
     : `${franLabel} ${franAr}–${tillLabel} ${tillAr}`;
@@ -235,4 +237,44 @@ export function formatBudpremieText(budpremie: Budpremie): string {
     `${riktningstext(budpremie.medianProcent)} utgångspriset (median för hela Stockholm, ` +
     `n = ${budpremie.n}, ${period}).`
   );
+}
+
+export interface VarderingsTackningText {
+  typ: "lan" | "utanfor_lan";
+  /** Only set for 'utanfor_lan' (shown as a disclaimer heading). */
+  titel?: string;
+  text: string;
+}
+
+/**
+ * Coverage copy for a valuation: null for Stockholms kommun (or analyses
+ * that predate regional coverage), a method note for the rest of Stockholms
+ * län, and a disclaimer for postnummer outside the län. Never prints
+ * "undefined" when prisniva/kommun are missing.
+ */
+export function varderingsTackningText(u: Varderingsunderlag): VarderingsTackningText | null {
+  const tackning = u.tackning ?? "stockholm";
+  if (tackning === "stockholm") return null;
+  const n = u.prisniva;
+  const niva = n
+    ? ` (${n.krPerM2.toLocaleString("sv-SE", { maximumFractionDigits: 0 })} kr/m², ${n.kalla}, ${formatDataperiod(n.period)})`
+    : "";
+  if (tackning === "utanfor_lan") {
+    return {
+      typ: "utanfor_lan",
+      titel: "Utanför Binfos täckningsområde",
+      text:
+        "Binfo är byggt för bostadsrätter i Stockholms län, och värderingsmodellen är tränad på försäljningar i Stockholm. " +
+        "Det här postnumret ligger utanför Stockholms län, så uppskattningen nedan bygger på generella samband från Stockholm " +
+        (n ? `och riksgenomsnittet för bostadsrätter${niva}. ` : "och ett riksgenomsnitt. ") +
+        "Den kan vara betydligt mindre träffsäker än i Stockholm.",
+    };
+  }
+  const plats = u.kommun ?? n?.region;
+  return {
+    typ: "lan",
+    text:
+      "Uppskattningen bygger på generella samband från Binfos Stockholmsmodell" +
+      (n ? `, skalade till genomsnittspriset i ${plats ?? "området"}${niva}.` : "."),
+  };
 }

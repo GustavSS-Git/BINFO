@@ -1,6 +1,6 @@
 /**
  * Valuation drivers (Varderingsdrivare[]) for one apartment, built from
- * ml/artifacts/valuation-v2/effects.json (an interpretable OLS companion to
+ * ml/artifacts/valuation-v3/effects.json (an interpretable OLS companion to
  * the LightGBM production model — never used for point predictions, only
  * for "why" explanations). Pure, no I/O.
  *
@@ -12,12 +12,14 @@
  *      answer in the årsredovisning is not a property of the apartment
  *      itself, so it is never surfaced as a driver, regardless of the
  *      apartment's own hiss/balkong Tristate value.
- *   3. "fee_per_sqm+100" is excluded: its positive sign ("higher fee ->
- *      higher price") is most likely confounded with newer/better-amenity
- *      buildings rather than a real causal driver, and showing it would
- *      mislead a buyer into reading a higher avgift as good news. Kept in
- *      the generated data file for transparency/future use, just excluded
- *      here.
+ *   3. "fee_per_sqm+10" (10 kr/m² higher monthly fee, about -2.4 %, significant)
+ *      is SHOWN as a continuous city-wide driver. valuation-v2's
+ *      "fee_per_sqm+100" (+9.6 %) was excluded because its positive sign was
+ *      a collinearity artefact (the model also contained monthly_fee_clean,
+ *      which is fee_per_sqm x living area); valuation-v3 removes that term
+ *      and the effect flips to the obvious direction. As with every driver
+ *      this is an association, not a causal claim — the fee level partly
+ *      proxies debt and building condition.
  *   4. hiss 'nej': the area-specific `elevator=nej` effect for the
  *      apartment's omrade if one exists and is significant, else the
  *      city-wide `elevator=nej` effect. hiss 'ja' is the reference category
@@ -29,7 +31,8 @@
  *      contradicts the city-wide effect is never shown; the city-wide
  *      figure is used instead. Owner decision: no correlation presented as
  *      causation.
- *   5. The continuous effects (rooms+1, floor+1, build_year+10, boarea+10)
+ *   5. The continuous effects (rooms+1, floor+1, build_year+10,
+ *      fee_per_sqm+10, boarea+10)
  *      are always included as general, city-wide, unscaled "all else equal"
  *      information (never adjusted to this apartment's actual room count /
  *      floor / build year / area), ordered after the categorical ones.
@@ -38,14 +41,21 @@
  */
 import { effectsData } from "./data";
 import type { Effect, Tristate } from "./types";
-import type { Varderingsdrivare } from "@/types/analysis";
+import type { Varderingsdrivare, VarderingsTackning } from "@/types/analysis";
 
-/** IDs deliberately never shown as a driver — see rule 3 above. */
-const EXCLUDED_EFFECT_IDS = new Set<string>(["fee_per_sqm+100"]);
+/** IDs deliberately never shown as a driver. Empty since valuation-v3 (the
+ *  only former entry, "fee_per_sqm+100", no longer exists — see rule 3). */
+const EXCLUDED_EFFECT_IDS = new Set<string>();
 
 /** Continuous, always-shown, city-wide effects — see rule 5 above. Order
  *  here is the display order. */
-const CONTINUOUS_EFFECT_IDS = ["rooms+1", "floor+1", "build_year+10", "boarea+10"];
+const CONTINUOUS_EFFECT_IDS = [
+  "rooms+1",
+  "floor+1",
+  "build_year+10",
+  "fee_per_sqm+10",
+  "boarea+10",
+];
 
 function isOkantEffect(effect: Effect): boolean {
   return effect.id.endsWith("=okant");
@@ -100,18 +110,25 @@ function categoricalDriver(
 
 /** Selects the valuation drivers relevant to this apartment: categorical
  *  (hiss, then balkong) drivers first, then the continuous city-wide
- *  effects in their effects.json order. */
+ *  effects in their effects.json order. Outside Stockholms kommun the
+ *  categorical drivers are left out: the general model behind those
+ *  estimates gives hiss/balkong no effect (MODEL_CARD.md section 6), so
+ *  showing "Ingen hiss −2,4 %" there would describe a number that wasn't
+ *  applied. */
 export function drivareForInput(
   input: { hiss: Tristate; balkong: Tristate },
   omrade: string | null,
+  tackning: VarderingsTackning = "stockholm",
 ): Varderingsdrivare[] {
   const result: Varderingsdrivare[] = [];
 
-  const hissDriver = categoricalDriver(input.hiss, "elevator=nej", omrade);
-  if (hissDriver) result.push(hissDriver);
+  if (tackning === "stockholm") {
+    const hissDriver = categoricalDriver(input.hiss, "elevator=nej", omrade);
+    if (hissDriver) result.push(hissDriver);
 
-  const balkongDriver = categoricalDriver(input.balkong, "balcony=nej", omrade);
-  if (balkongDriver) result.push(balkongDriver);
+    const balkongDriver = categoricalDriver(input.balkong, "balcony=nej", omrade);
+    if (balkongDriver) result.push(balkongDriver);
+  }
 
   for (const id of CONTINUOUS_EFFECT_IDS) {
     const effect = effectsData.effects.find((e) => e.id === id && e.niva === "stad" && eligible(e));
@@ -121,7 +138,7 @@ export function drivareForInput(
   return result;
 }
 
-/** ml/artifacts/valuation-v2/effects.json's caveat_sv, verbatim — meant to
+/** ml/artifacts/valuation-v3/effects.json's caveat_sv, verbatim — meant to
  *  be shown next to the drivers list in the UI ("Det här är genomsnittliga
  *  effekter för Stockholm..."). */
 export function hamtaVarderingsdrivareCaveat(): string {

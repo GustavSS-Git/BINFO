@@ -291,6 +291,33 @@ export interface Varderingsunderlag {
   typisktFelProcent: number;
   /** Average effects relevant to this apartment's attributes. */
   drivare: Varderingsdrivare[];
+  /** Which valuation method applies to the postnummer. Absent on analyses
+   *  made before regional coverage existed — read absent as 'stockholm'. */
+  tackning?: VarderingsTackning;
+  /** The kommun the postnummer maps to; null = could not be resolved. */
+  kommun?: string | null;
+  /** The local price baseline the estimate is scaled to. Present only for
+   *  'lan' (kommun average) and 'utanfor_lan' (national average). */
+  prisniva?: Prisniva;
+}
+
+/**
+ * 'stockholm'   — Stockholms kommun: the area-level model trained on its sales.
+ * 'lan'         — elsewhere in Stockholms län: general relationships × the
+ *                 kommun's average kr/m².
+ * 'utanfor_lan' — outside Stockholms län: general relationships × the national
+ *                 average kr/m², shown with a disclaimer first.
+ */
+export type VarderingsTackning = "stockholm" | "lan" | "utanfor_lan";
+
+/** A published average price level used as a local baseline. */
+export interface Prisniva {
+  /** e.g. "Nacka" or "Riket". */
+  region: string;
+  krPerM2: number;
+  period: Dataperiod;
+  /** Publisher and publication, shown as the citation. */
+  kalla: string;
 }
 
 export interface Budpremie {

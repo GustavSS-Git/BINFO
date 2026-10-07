@@ -101,6 +101,12 @@ npm run build:edge / deploy:edge           # bundle / deploy the analys-steg Edg
   has räntekänslighet and both skuldsättning/m² = 0 (`source: 'berakning'`),
   not "missing". A genuinely missing räntekänslighet never fails the analysis:
   only the rate stress is disabled, and the gap becomes a question for the visning.
+- Valuation coverage (`src/lib/vardering/tackning.ts`, model card in
+  `ml/artifacts/valuation-v3/`): Stockholms kommun → area model trained on its
+  sales; rest of Stockholms län → general relationships × the kommun's 12-month
+  average kr/m² (Svensk Mäklarstatistik); outside the län → × the national
+  average, still estimated but with a disclaimer shown first. Confidence is
+  never 'hog'; outside Stockholms kommun always 'lag'.
 - Never present a statistical association as causation: an effect whose sign
   contradicts the obvious direction (e.g. "no lift" raising price) is replaced by
   the broader estimate or omitted.

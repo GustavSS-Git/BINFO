@@ -589,6 +589,12 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Är priset rimligt?</Text>
+      {u?.disclaimerText ? (
+        <View style={[styles.conclusionBox, { marginTop: 0, marginBottom: 8 }]}>
+          <Text style={styles.priceLabel}>{u.tackningTitel}</Text>
+          <Text style={{ marginTop: 2 }}>{u.disclaimerText}</Text>
+        </View>
+      ) : null}
       <View style={styles.card} wrap={false}>
         <View style={styles.priceRow}>
           <Text style={styles.priceLabel}>Utgångspris</Text>
@@ -619,7 +625,7 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
           <View style={[styles.priceRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.priceLabel}>Binfos värdering</Text>
             <Text style={styles.summaryLabel}>
-              Inte tillgänglig — täcker i dag bara Stockholms kommun
+              Inte tillgänglig — postnumret saknas eller är ogiltigt
             </Text>
           </View>
         )}
@@ -647,6 +653,7 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
               </View>
             ) : null}
             <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.dataBasisText}</Text>
+            {u.metodText ? <Text style={styles.confidenceNote}>{u.metodText}</Text> : null}
             <Text style={styles.confidenceNote}>{u.attributionText}</Text>
           </View>
         ) : null}

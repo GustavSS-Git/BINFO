@@ -1,14 +1,16 @@
 /**
- * Parity test: every row of ml/artifacts/valuation-v2/parity_fixtures.json
- * must match the exact Python predictions/intervals that file was generated
- * from (see ml/train_valuation.py's build_parity_fixtures()). This is the
- * stated correctness criterion for this module.
+ * Parity tests against the exact Python predictions the valuation-v3
+ * artefacts were generated with:
+ *   - parity_fixtures.json         : Stockholm area model (log prediction
+ *     <= 1e-9 absolute, SEK exact after rounding, postcode_delta exact).
+ *   - general_parity_fixtures.json : r(x) of the general model (log_g and r).
+ * This is the stated correctness criterion for this module.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { prediktera, vardera } from "./vardera";
+import { beraknaR, prediktera, predikteraMedOmrade, varderaStockholmsmodell } from "./vardera";
 import type { VarderingInput } from "./types";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +30,7 @@ interface FixtureInput {
 interface Fixture {
   input: FixtureInput;
   expected_output: {
+    postcode_delta: number;
     predicted_total_price_sek: number;
     predicted_log_price_per_sqm: number;
     interval_lower_sek: number;
@@ -43,7 +46,7 @@ const FIXTURES_PATH = path.resolve(
   "..",
   "ml",
   "artifacts",
-  "valuation-v2",
+  "valuation-v3",
   "parity_fixtures.json",
 );
 
@@ -63,38 +66,66 @@ function toInput(f: FixtureInput): VarderingInput {
   return input;
 }
 
-describe("parity against ml/artifacts/valuation-v2/parity_fixtures.json", () => {
+describe("parity against ml/artifacts/valuation-v3/parity_fixtures.json", () => {
   it("has the expected fixture count", () => {
-    expect(fixtures.length).toBe(50);
+    expect(fixtures.length).toBe(52);
   });
 
   it.each(fixtures.map((f, i) => [i, f] as const))("fixture %i (postnummer %s)", (i, f) => {
     const input = toInput(f.input);
-    const { predLog, omrade } = prediktera(input);
+    // The fixture's own omrade (training-time mapping), "Okänt" -> null.
+    const fixtureOmrade = f.input.omrade.startsWith("Okänt") ? null : f.input.omrade;
+    const { predLog, postcodeDelta } = predikteraMedOmrade(input, fixtureOmrade);
+    const { omrade } = prediktera(input);
 
+    expect(postcodeDelta).toBe(f.expected_output.postcode_delta);
     expect(Math.abs(predLog - f.expected_output.predicted_log_price_per_sqm)).toBeLessThanOrEqual(
       1e-9,
     );
 
-    const result = vardera(input);
-    expect(
-      Math.abs(result.varde - Math.round(f.expected_output.predicted_total_price_sek)),
-    ).toBeLessThanOrEqual(1);
-    expect(
-      Math.abs(result.intervall.low - Math.round(f.expected_output.interval_lower_sek)),
-    ).toBeLessThanOrEqual(1);
-    expect(
-      Math.abs(result.intervall.high - Math.round(f.expected_output.interval_upper_sek)),
-    ).toBeLessThanOrEqual(1);
+    // End to end with the fixture's own omrade (the synthetic unseen-postnummer
+    // fixtures carry an omrade that 99999 itself does not map to).
+    const result = varderaStockholmsmodell(input, fixtureOmrade);
+    expect(result.varde).toBe(Math.round(f.expected_output.predicted_total_price_sek));
+    expect(result.intervall.low).toBe(Math.round(f.expected_output.interval_lower_sek));
+    expect(result.intervall.high).toBe(Math.round(f.expected_output.interval_upper_sek));
 
-    // Sanity: our own postnummer -> omrade mapping should agree with what
-    // the fixture's omrade field says (it came from the same training-time
-    // mapping), except that we report null (not the literal "Okänt (...)"
-    // category string) for genuinely unmapped postnummer.
-    if (f.input.omrade.startsWith("Okänt")) {
-      expect(omrade).toBeNull();
-    } else {
-      expect(omrade).toBe(f.input.omrade);
+    // Our own postnummer -> omrade mapping agrees with the fixture's omrade,
+    // except that we report null (not the literal "Okänt (...)" category
+    // string) for genuinely unmapped postnummer. The synthetic 99999
+    // fixtures are excluded: their omrade is a label, not a mapping.
+    if (f.input.postnummer !== "99999") {
+      expect(omrade).toBe(fixtureOmrade);
     }
+  });
+
+  it("the synthetic unseen-postnummer fixtures get postcode_delta 0 (owner decision 5)", () => {
+    const unseen = fixtures.filter((f) => f.input.postnummer === "99999");
+    expect(unseen.length).toBe(2);
+    for (const f of unseen) {
+      expect(prediktera(toInput(f.input)).postcodeDelta).toBe(0);
+    }
+  });
+});
+
+interface GeneralFixture {
+  input: Omit<FixtureInput, "postnummer" | "omrade">;
+  expected_output: { log_g: number; r_unclipped: number; r: number };
+}
+
+const generalFixtures: GeneralFixture[] = JSON.parse(
+  readFileSync(path.join(path.dirname(FIXTURES_PATH), "general_parity_fixtures.json"), "utf-8"),
+);
+
+describe("parity against ml/artifacts/valuation-v3/general_parity_fixtures.json", () => {
+  it("has the expected fixture count", () => {
+    expect(generalFixtures.length).toBe(52);
+  });
+
+  it.each(generalFixtures.map((f, i) => [i, f] as const))("fixture %i", (_i, f) => {
+    const { logG, rOklippt, r } = beraknaR(toInput({ ...f.input, postnummer: "", omrade: "" }));
+    expect(Math.abs(logG - f.expected_output.log_g)).toBeLessThanOrEqual(1e-9);
+    expect(rOklippt).toBeCloseTo(f.expected_output.r_unclipped, 12);
+    expect(r).toBeCloseTo(f.expected_output.r, 12);
   });
 });

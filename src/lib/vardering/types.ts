@@ -1,5 +1,6 @@
 /**
- * Shared types + Zod schemas for the offline valuation module (task 4f).
+ * Shared types + Zod schemas for the offline valuation module (task 4f;
+ * extended with the regional / national coverage on top of valuation-v3).
  *
  * Server-only: this module (and everything under src/lib/vardering/) is
  * meant to run in a Cloudflare Worker / Supabase Edge Function, never in the
@@ -12,7 +13,7 @@
  * producing silently wrong predictions — "visible failure is fine".
  */
 import { z } from "zod";
-import type { Tristate } from "@/types/analysis";
+import type { Prisniva, Tristate, VarderingsTackning } from "@/types/analysis";
 
 export type { Tristate };
 
@@ -60,15 +61,9 @@ export type ModelData = z.infer<typeof ModelDataSchema>;
 // Preprocessing manifest
 // ---------------------------------------------------------------------------
 
-export const ManifestSchema = z.object({
-  modelVersion: z.string(),
-  /** e.g. "2026-01-01 to 2026-08-31 (8 months)" — kept as the human string
-   *  metadata.json uses, plus the parsed ISO bounds for Dataperiod. */
-  dataPeriodLabel: z.string(),
-  dataPeriod: z.object({ fran: z.string(), till: z.string() }),
-  /** metadata.json -> n_rows_used_for_training. */
-  trainingN: z.number().int().positive(),
-
+/** The preprocessing recipe shared by the Stockholm and the general model:
+ *  what features.ts needs to build a booster input vector. */
+export const FeatureManifestSchema = z.object({
   featureOrder: z.array(z.string()),
   numericFeatures: z.array(z.string()),
   missingIndicatorFeatures: z.array(z.string()),
@@ -76,6 +71,18 @@ export const ManifestSchema = z.object({
   numericMedians: z.record(z.string(), z.number()),
   categoricalFillValues: z.record(z.string(), z.string()),
   categoricalCategories: z.record(z.string(), z.array(z.string())),
+});
+export type FeatureManifest = z.infer<typeof FeatureManifestSchema>;
+
+export const ManifestSchema = FeatureManifestSchema.extend({
+  modelVersion: z.string(),
+  /** e.g. "2026-01-01 to 2026-08-31 (8 months)" — kept as the human string
+   *  metadata.json uses, plus the parsed ISO bounds for Dataperiod. */
+  dataPeriodLabel: z.string(),
+  dataPeriod: z.object({ fran: z.string(), till: z.string() }),
+  /** metadata.json -> n_rows. */
+  trainingN: z.number().int().positive(),
+
   /** The literal omrade category label unmapped/missing postnummer were
    *  filled with during training (ml/train_valuation.py load_data():
    *  `cleaned["omrade"].fillna("Okänt (postnummer ej kartlagt)")`). Used to
@@ -98,13 +105,60 @@ export const ManifestSchema = z.object({
    *  not look up — unmapped/null omrade goes straight to qOverallLog. */
   qPerAreaLog: z.record(z.string(), z.number().nonnegative()),
 
-  /** metadata.json -> cv_results.lightgbm.overall.mape (RESTRICTED feature
-   *  set, the shipped model; see report for exactly which key). */
+  /** metadata.json -> final_model.cv.mape (5-fold CV, the shipped model). */
   mapeOverallPercent: z.number().nonnegative(),
-  /** metadata.json -> cv_results.lightgbm.per_area[*].mape. */
+  /** metadata.json -> final_model.cv.per_area[*].mape. */
   mapePerAreaPercent: z.record(z.string(), z.number().nonnegative()),
 });
 export type Manifest = z.infer<typeof ManifestSchema>;
+
+/** general_model.json: the r(x) model (trees + recipe + constants). */
+export const GeneralModelDataSchema = ModelDataSchema.merge(FeatureManifestSchema).extend({
+  dataPeriodLabel: z.string(),
+  dataPeriod: z.object({ fran: z.string(), till: z.string() }),
+  /** Rows the r(x) booster was trained on (general_model.json r_inference). */
+  trainingN: z.number().int().positive(),
+  smearingFactor: z.number().positive(),
+  normaliser: z.number().positive(),
+  clipMin: z.number().positive(),
+  clipMax: z.number().positive(),
+  targetCoveragePercent: z.number().positive(),
+  /** metadata.json -> regional_method.q_regional_log. */
+  qRegionalLog: z.number().nonnegative(),
+  /** metadata.json -> regional_method.simulation_cv_with_fee.mape — a LOWER
+   *  BOUND on the error outside the training area. */
+  mapeRegionalPercent: z.number().nonnegative(),
+});
+export type GeneralModelData = z.infer<typeof GeneralModelDataSchema>;
+
+/** postcode_encoding.json: postnummer -> postcode_delta; unseen -> `fallback`. */
+export const PostcodeDeltaSchema = z.object({
+  fallback: z.literal(0),
+  table: z.record(z.string(), z.number()),
+});
+export type PostcodeDeltaData = z.infer<typeof PostcodeDeltaSchema>;
+
+/** postnummer_kommun.csv, compact (see kommunKodning.ts). */
+export const KommunDataSchema = z.object({
+  /** kommun code (4 digits) -> name. */
+  kommuner: z.record(z.string().regex(/^\d{4}$/), z.string()),
+  /** kommun code -> delta-coded base-36 postnummer list. */
+  postnummer: z.record(z.string().regex(/^\d{4}$/), z.string()),
+});
+export type KommunData = z.infer<typeof KommunDataSchema>;
+
+const PrisnivaPunktSchema = z.object({
+  krPerM2: z.number().positive(),
+  period: z.object({ fran: z.string(), till: z.string() }),
+});
+
+/** regional_prisniva.json, compact: published average kr/m² per kommun + riket. */
+export const PrisnivaDataSchema = z.object({
+  kalla: z.string(),
+  kommuner: z.record(z.string(), PrisnivaPunktSchema.extend({ namn: z.string() })),
+  riket: PrisnivaPunktSchema.extend({ namn: z.string() }),
+});
+export type PrisnivaData = z.infer<typeof PrisnivaDataSchema>;
 
 // ---------------------------------------------------------------------------
 // postnummer -> omrade map
@@ -193,15 +247,24 @@ export interface VarderingResultat {
   intervall: { low: number; high: number };
   /** Integer SEK per m² (living area). */
   prisPerM2: number;
-  /** The area the postnummer maps to; null = unmapped, Stockholm-wide model. */
+  /** Which method produced the estimate (see VarderingsTackning). */
+  tackning: VarderingsTackning;
+  /** The Stockholm area the postnummer maps to; null = Stockholm-wide model
+   *  (unmapped postnummer in Stockholms kommun) or not in Stockholms kommun. */
   omrade: string | null;
+  /** The kommun the postnummer resolves to; null = could not be resolved. */
+  kommun: string | null;
+  /** The published average kr/m² the estimate is scaled to; only for
+   *  'lan' (kommun average) and 'utanfor_lan' (national average). */
+  prisniva?: Prisniva;
   modellVersion: string;
   dataperiod: { fran: string; till: string };
-  /** Rows the shipped model was trained on (overall, not per-area). */
+  /** Rows the model used was trained on (overall, not per-area). */
   antalForsaljningar: number;
   /** Nominal target coverage of `intervall`, percent (e.g. 90). */
   intervallTackningProcent: number;
-  /** Typical error (5-fold CV MAPE, percent) for this area, or overall when
-   *  omrade is null / has no per-area figure. */
+  /** Typical error (MAPE, percent): 'stockholm' = 5-fold CV for the area (or
+   *  overall when omrade is null); 'lan'/'utanfor_lan' = the SIMULATED
+   *  regional MAPE, a lower bound on the true error. */
   typisktFelProcent: number;
 }

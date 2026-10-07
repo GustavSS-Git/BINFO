@@ -19,8 +19,9 @@ import type { AnalysJudgement } from "./analyze";
 import { beraknaRantestress } from "./calc/rantestress";
 import {
   konfidensUtanPrisdata,
-  konfidensUtanforStockholm,
+  konfidensUtanPostnummer,
   korBinfoVarderingsmodell,
+  prisnivaCitat,
   type ModellVarderingUnderlag,
   type Prisdatakalla,
   type Prisdataforfragan,
@@ -55,8 +56,9 @@ export class AssemblyValidationError extends Error {
 export interface AssembleraAnalysInput {
   extraction: ExtractionResult;
   input: PropertyInput;
-  /** Injiceras av anroparen — TomPrisdatakalla i produktion tills en riktig
-   *  källa finns, DemoPrisdatakalla för utveckling/demo. */
+  /** Injiceras av anroparen — ModellPrisdatakalla (Binfos egen
+   *  värderingsmodell) i produktion; TomPrisdatakalla/DemoPrisdatakalla
+   *  för tester, utveckling och demo. */
   prisdatakalla: Prisdatakalla;
   /** Pass 2:s betyg/rodaFlaggor/fragor(ursprung 'analys'), redan Zod-validerat. */
   analys: AnalysJudgement;
@@ -278,25 +280,51 @@ function byggSlutsats(underlag: {
 
 /**
  * Konfidensen Prisanalys ska bära när externVardering kom från Binfos egen
- * värderingsmodell (task 4g:s produktbeslut): aldrig 'hog' — modellens eget
- * uppmätta typiska fel (8–18 % beroende på område, se
- * ml/artifacts/valuation-v2/MODEL_CARD.md) gör det oärligt att kalla den
- * hög konfidens — 'medel' när postnumret gick att koppla till ett specifikt
- * Stockholmsområde, annars 'lag' (hela Stockholm som fallback-område ger
- * märkbart lägre precision, se MODEL_CARD.mds per-område-MAPE).
+ * värderingsmodell (produktbeslut): aldrig 'hog'.
+ *   - 'stockholm' med känt område: 'medel' (uppmätt typiskt fel 8–17 % beroende
+ *     på område, se ml/artifacts/valuation-v3/MODEL_CARD.md).
+ *   - 'stockholm' utan område (hela Stockholm som fallback): 'lag'.
+ *   - 'lan' och 'utanfor_lan': alltid 'lag'. Modellen är inte tränad på
+ *     försäljningar där; felet har bara simulerats inom Stockholm, och är en
+ *     nedre gräns. Skälen anger metoden rakt ut.
  */
 function konfidensForModell(resultat: ModellVarderingUnderlag["resultat"]): Konfidens {
   const felText = resultat.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+
+  if (resultat.tackning === "stockholm") {
+    const skal: string[] = [
+      `Värderingen är en statistisk modell (typiskt fel ±${felText} %), inte en besiktning av lägenheten.`,
+    ];
+    if (resultat.omrade === null) {
+      skal.push(
+        "Postnumret kunde inte kopplas till ett specifikt Stockholmsområde — värderingen bygger " +
+          "på en stadsövergripande modell med lägre precision än en områdesspecifik skattning.",
+      );
+    }
+    return { niva: resultat.omrade !== null ? "medel" : "lag", skal };
+  }
+
   const skal: string[] = [
-    `Värderingen är en statistisk modell (typiskt fel ±${felText} %), inte en besiktning av lägenheten.`,
+    `Värderingen är en statistisk modell, inte en besiktning av lägenheten. Det simulerade felet är ±${felText} %, ` +
+      "men det är en nedre gräns — det verkliga felet utanför Stockholms kommun är okänt och sannolikt större.",
   ];
-  if (resultat.omrade === null) {
+  const prisniva = resultat.prisniva;
+  if (resultat.tackning === "lan") {
+    const kommun = resultat.kommun ?? prisniva?.region ?? "kommunen";
     skal.push(
-      "Postnumret kunde inte kopplas till ett specifikt Stockholmsområde — värderingen bygger " +
-        "på en stadsövergripande modell med lägre precision än en områdesspecifik skattning.",
+      "Uppskattningen bygger på generella samband från Binfos Stockholmsmodell, skalade till " +
+        `genomsnittspriset i ${kommun}${prisniva ? ` (${prisnivaCitat(prisniva)})` : ""}. ` +
+        `Modellen är inte tränad på försäljningar i ${kommun}.`,
+    );
+  } else {
+    skal.push(
+      "Binfo är byggt för bostadsrätter i Stockholms län och modellen är tränad på försäljningar i Stockholm. " +
+        "Postnumret ligger utanför Stockholms län, så uppskattningen bygger på generella samband från " +
+        `Stockholm och riksgenomsnittet för bostadsrätter${prisniva ? ` (${prisnivaCitat(prisniva)})` : ""}. ` +
+        "Den kan vara betydligt mindre träffsäker.",
     );
   }
-  return { niva: resultat.omrade !== null ? "medel" : "lag", skal };
+  return { niva: "lag", skal };
 }
 
 /**
@@ -315,7 +343,9 @@ function byggModellSlutsats(underlag: {
 }): string {
   const { utgangspris, resultat, avvikelseMotVardering, avvikelseMotForeningen } = underlag;
   const omradeText =
-    resultat.omrade ?? "Stockholm (postnumret gick inte att koppla till ett specifikt område)";
+    resultat.tackning === "stockholm"
+      ? (resultat.omrade ?? "Stockholm (postnumret gick inte att koppla till ett specifikt område)")
+      : (resultat.kommun ?? "riket");
   const innanforIntervallet =
     utgangspris >= resultat.intervall.low && utgangspris <= resultat.intervall.high;
   const periodText = formatDataperiod(resultat.dataperiod);
@@ -337,6 +367,15 @@ function byggModellSlutsats(underlag: {
     `Värderingen speglar prisläget ${periodText} och är en statistisk skattning — inte en ` +
       `besiktning av just den här lägenheten.`,
   );
+  if (resultat.tackning !== "stockholm" && resultat.prisniva) {
+    delar.push(
+      resultat.tackning === "lan"
+        ? `Den bygger på generella samband från Stockholm, skalade till genomsnittspriset i ${omradeText} ` +
+            `(${prisnivaCitat(resultat.prisniva)}); modellen är inte tränad på försäljningar där.`
+        : "Den bygger på generella samband från Stockholm och riksgenomsnittet för bostadsrätter " +
+            `(${prisnivaCitat(resultat.prisniva)}) och kan vara betydligt mindre träffsäker.`,
+    );
+  }
   if (avvikelseMotForeningen !== undefined) {
     const riktning = avvikelseMotForeningen >= 0 ? "över" : "under";
     delar.push(
@@ -443,9 +482,9 @@ export async function byggPrisanalys(
   // prisdatakalla faktiskt returnerade, men på exakt samma fält som
   // ModellPrisdatakalla.hamtaVardering(forfragan) använder (forfragan är
   // byggd ur precis de här input-fälten ovan), så de två körningarna aldrig
-  // kan säga olika saker. Null betyder "postnumret ligger utanför Binfos
-  // modells räckvidd" (task 4g:s omfångsregel), oavsett vilken prisdatakalla
-  // som faktiskt användes.
+  // kan säga olika saker. Null betyder "ingen värdering möjlig" (tomt eller
+  // felformaterat postnummer), oavsett vilken prisdatakalla som faktiskt
+  // användes.
   const modellRun = korBinfoVarderingsmodell(input);
   const inomVarderingensRackvidd = modellRun !== null;
   // Bara meningsfullt att koppla varderingsunderlag/budpremie till DEN HÄR
@@ -477,17 +516,21 @@ export async function byggPrisanalys(
       antalForsaljningar: modellUnderlag.resultat.antalForsaljningar,
       typisktFelProcent: modellUnderlag.resultat.typisktFelProcent,
       drivare: modellUnderlag.drivare,
+      tackning: modellUnderlag.resultat.tackning,
+      kommun: modellUnderlag.resultat.kommun,
+      ...(modellUnderlag.resultat.prisniva ? { prisniva: modellUnderlag.resultat.prisniva } : {}),
     };
-    budpremie = modellUnderlag.budpremie;
+    if (modellUnderlag.budpremie) budpremie = modellUnderlag.budpremie;
   } else if (!inomVarderingensRackvidd && !harOberoendeData) {
-    // Fall B: postnumret ligger utanför Binfos modells räckvidd (utanför
-    // Stockholm, eller en anonymiserad rapport med tomt postnummer) och
-    // ingen annan oberoende prisdata finns heller.
-    konfidens = konfidensUtanforStockholm();
+    // Fall B: ingen värdering går att räkna fram eftersom postnumret saknas
+    // eller är felformaterat (t.ex. en anonymiserad rapport), och ingen
+    // annan oberoende prisdata finns heller. Postnummer utanför Stockholm
+    // hamnar INTE här — de får en egen uppskattning (Fall A, 'lag').
+    konfidens = konfidensUtanPostnummer();
     slutsats =
-      "Binfos värdering finns i dag bara för Stockholms kommun, så utgångspriset har inte " +
-      "kunnat stämmas av mot någon värdering. Prisbedömningen bygger enbart på det angivna " +
-      "utgångspriset.";
+      "Postnumret saknas eller är ogiltigt, så Binfos värdering kan inte räknas fram och " +
+      "utgångspriset har inte kunnat stämmas av mot någon värdering. Prisbedömningen bygger " +
+      "enbart på det angivna utgångspriset.";
   } else {
     // Fall C: allt annat — en annan schablonkälla än Binfos modell, en
     // riktig oberoende källa (source 'extern'), eller en blandning. Samma

@@ -9,8 +9,15 @@ import {
   formatSkapadDatum,
   formatVarde,
   toppRodaFlaggor,
+  varderingsTackningText,
 } from "./analysisView";
-import type { Budpremie, FeeInclusion, Figure, RedFlag } from "@/types/analysis";
+import type {
+  Varderingsunderlag,
+  Budpremie,
+  FeeInclusion,
+  Figure,
+  RedFlag,
+} from "@/types/analysis";
 
 function flagga(id: string, severity: RedFlag["severity"]): RedFlag {
   return { id, titel: id, beskrivning: id, severity, harledsFran: [] };
@@ -79,6 +86,11 @@ describe("formatDataperiod", () => {
 
   it("formaterar en period över ett årsskifte med båda åren utsatta", () => {
     expect(formatDataperiod({ fran: "2025-11-01", till: "2026-02-28" })).toBe("nov 2025–feb 2026");
+  });
+
+  it("formaterar en enda månad som 'kortmånad år', inte 'aug–aug'", () => {
+    expect(formatDataperiod({ fran: "2026-08", till: "2026-08" })).toBe("aug 2026");
+    expect(formatDataperiod({ fran: "2026-08-01", till: "2026-08-31" })).toBe("aug 2026");
   });
 
   it("faller tillbaka till rådatumen för ett oväntat format hellre än att krascha", () => {
@@ -263,5 +275,50 @@ describe("formatDrivareLabel", () => {
     expect(formatDrivareLabel({ label: "Ingen hiss", niva: "stad" }, "Södermalm")).toBe(
       "Ingen hiss",
     );
+  });
+});
+
+describe("varderingsTackningText", () => {
+  const base = { omrade: null, drivare: [] } as unknown as Varderingsunderlag;
+  const prisniva = {
+    region: "Nacka",
+    krPerM2: 82000,
+    period: { fran: "2026-01-01", till: "2026-08-31" },
+    kalla: "Svensk Mäklarstatistik",
+  };
+
+  it("ger null för Stockholm och för äldre analyser utan tackning", () => {
+    expect(varderingsTackningText(base)).toBeNull();
+    expect(varderingsTackningText({ ...base, tackning: "stockholm" })).toBeNull();
+  });
+
+  it("ger en metodnotis för län med kommun och prisnivå", () => {
+    const t = varderingsTackningText({ ...base, tackning: "lan", kommun: "Nacka", prisniva });
+    expect(t?.typ).toBe("lan");
+    expect(t?.text).toContain("genomsnittspriset i Nacka");
+    expect(t?.text).toContain("82");
+    expect(t?.text).toContain("Svensk Mäklarstatistik");
+    expect(t?.text).toContain("jan–aug 2026");
+  });
+
+  it("ger en friskrivning utanför länet", () => {
+    const t = varderingsTackningText({
+      ...base,
+      tackning: "utanfor_lan",
+      prisniva: { ...prisniva, region: "Riket" },
+    });
+    expect(t?.typ).toBe("utanfor_lan");
+    expect(t?.titel).toBe("Utanför Binfos täckningsområde");
+    expect(t?.text).toContain("riksgenomsnittet för bostadsrätter");
+    expect(t?.text).toContain("betydligt mindre träffsäker");
+  });
+
+  it("skriver aldrig 'undefined' när prisnivå eller kommun saknas", () => {
+    for (const tackning of ["lan", "utanfor_lan"] as const) {
+      const t = varderingsTackningText({ ...base, tackning });
+      expect(t?.text).toBeTruthy();
+      expect(t?.text).not.toContain("undefined");
+      expect(t?.text).not.toContain("null");
+    }
   });
 });

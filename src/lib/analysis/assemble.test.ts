@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assembleraAnalys, byggPrisanalys } from "./assemble";
 import { extraktion } from "./__fixtures__/extraktion";
 import { DemoPrisdatakalla, ModellPrisdatakalla, TomPrisdatakalla } from "./prisdata";
-import { konfidensUtanPrisdata, konfidensUtanforStockholm } from "./prisdata";
+import { konfidensUtanPrisdata, konfidensUtanPostnummer } from "./prisdata";
 import { AnalysisResultSchema } from "./schema";
 import type { AnalysJudgement } from "./analyze";
 import type { ExtractionResult, Forening, PropertyInput } from "@/types/analysis";
@@ -187,8 +187,8 @@ describe("assembleraAnalys", () => {
       const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
 
       // utgångspris 4 950 000 mot modellens punktskattning för 11857 (Södermalm),
-      // ett deterministiskt tal ur den tränade modellen (~6 597 964 kr).
-      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-25.0, 0);
+      // ett deterministiskt tal ur den tränade modellen (valuation-v3).
+      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-25.6, 0);
     });
 
     it("faller tillbaka till 'lag' konfidens och Stockholmsövergripande område för ett okartlagt men känt Stockholmsprefix", async () => {
@@ -206,24 +206,100 @@ describe("assembleraAnalys", () => {
       expect(prisanalys.konfidens.skal?.join(" ")).toMatch(/inte kopplas till ett specifikt/i);
     });
 
-    it("ger ingen värdering alls, och en Stockholms-specifik lågkonfidensförklaring, utanför Stockholm", async () => {
+    it("ger 'lag' konfidens och en skälförklaring som anger metod och baslinje för övriga Stockholms län (Solna)", async () => {
       const prisanalys = await byggPrisanalys(
-        { ...inputKomplett, postnummer: "99999" },
+        { ...inputKomplett, postnummer: "16900" },
         modellkalla(),
       );
+
+      expect(prisanalys.externVardering?.value).not.toBeNull();
+      expect(prisanalys.externVardering?.source).toBe("schablon");
+      expect(prisanalys.konfidens.niva).toBe("lag");
+      const skal = prisanalys.konfidens.skal?.join(" ") ?? "";
+      expect(skal).toMatch(/generella samband från Binfos Stockholmsmodell/);
+      expect(skal).toMatch(/genomsnittspriset i Solna/);
+      expect(skal).toMatch(/64\s352 kr\/m², Svensk Mäklarstatistik, sep 2025/);
+      expect(skal).toMatch(/inte tränad på försäljningar i Solna/);
+      expect(prisanalys.varderingsunderlag).toMatchObject({
+        tackning: "lan",
+        kommun: "Solna",
+        omrade: null,
+        prisniva: { region: "Solna", krPerM2: 64352, kalla: "Svensk Mäklarstatistik" },
+      });
+      expect(prisanalys.slutsats).toMatch(/Solna/);
+      expect("budpremie" in prisanalys).toBe(false);
+    });
+
+    it("Huddinge-postnumren som står som Stockholmsområden i områdeskartan värderas som Huddinge ('lan')", async () => {
+      const prisanalys = await byggPrisanalys(
+        { ...inputKomplett, postnummer: "12352" },
+        modellkalla(),
+      );
+
+      expect(prisanalys.konfidens.niva).toBe("lag");
+      expect(prisanalys.varderingsunderlag).toMatchObject({
+        tackning: "lan",
+        kommun: "Huddinge",
+        omrade: null,
+      });
+      expect("budpremie" in prisanalys).toBe(false);
+    });
+
+    it("värderar även utanför Stockholms län, med 'lag' konfidens och en tydlig förklaring (Göteborg)", async () => {
+      const prisanalys = await byggPrisanalys(
+        { ...inputKomplett, postnummer: "40010" },
+        modellkalla(),
+      );
+
+      expect(prisanalys.externVardering?.value).not.toBeNull();
+      expect(prisanalys.konfidens.niva).toBe("lag");
+      const skal = prisanalys.konfidens.skal?.join(" ") ?? "";
+      expect(skal).toMatch(/Binfo är byggt för bostadsrätter i Stockholms län/);
+      expect(skal).toMatch(/utanför Stockholms län/);
+      expect(skal).toMatch(
+        /riksgenomsnittet för bostadsrätter \(46\s317 kr\/m², Svensk Mäklarstatistik, aug 2026\)/,
+      );
+      expect(skal).toMatch(/betydligt mindre träffsäker/);
+      expect(prisanalys.varderingsunderlag).toMatchObject({
+        tackning: "utanfor_lan",
+        kommun: "Göteborg",
+        prisniva: { region: "Riket", krPerM2: 46317 },
+      });
+      expect("budpremie" in prisanalys).toBe(false);
+      // Aldrig 'hog' eller 'medel' utanför Stockholms kommun.
+      expect(prisanalys.konfidens.niva).not.toBe("hog");
+    });
+
+    it("sätter tackning/kommun på varderingsunderlag även i Stockholm, utan prisniva", async () => {
+      const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
+
+      expect(prisanalys.varderingsunderlag).toMatchObject({
+        tackning: "stockholm",
+        kommun: "Stockholm",
+      });
+      expect(prisanalys.varderingsunderlag && "prisniva" in prisanalys.varderingsunderlag).toBe(
+        false,
+      );
+    });
+
+    it("ger ingen värdering alls, och en postnummer-specifik lågkonfidensförklaring, för ett tomt postnummer (anonymiserad rapport)", async () => {
+      const prisanalys = await byggPrisanalys({ ...inputKomplett, postnummer: "" }, modellkalla());
 
       expect("externVardering" in prisanalys).toBe(false);
       expect("varderingsunderlag" in prisanalys).toBe(false);
       expect("budpremie" in prisanalys).toBe(false);
-      expect(prisanalys.konfidens).toEqual(konfidensUtanforStockholm());
-      expect(prisanalys.slutsats).toMatch(/Stockholms kommun/);
+      expect(prisanalys.konfidens).toEqual(konfidensUtanPostnummer());
+      expect(prisanalys.slutsats).toMatch(/Postnumret saknas eller är ogiltigt/);
     });
 
-    it("ger samma 'utanför Stockholm'-besked för ett tomt postnummer (anonymiserad rapport)", async () => {
-      const prisanalys = await byggPrisanalys({ ...inputKomplett, postnummer: "" }, modellkalla());
+    it("ger samma besked för ett felformaterat postnummer", async () => {
+      const prisanalys = await byggPrisanalys(
+        { ...inputKomplett, postnummer: "115-32" },
+        modellkalla(),
+      );
 
       expect("externVardering" in prisanalys).toBe(false);
-      expect(prisanalys.konfidens).toEqual(konfidensUtanforStockholm());
+      expect(prisanalys.konfidens).toEqual(konfidensUtanPostnummer());
     });
 
     it("en riktig extern källa höjer däremot konfidensen (utan att koppla på något varderingsunderlag)", async () => {
