@@ -1,0 +1,4 @@
+[out:json][timeout:240];
+rel(54391);map_to_area->.lan;
+rel(area.lan)["boundary"="administrative"]["admin_level"="7"]["type"="boundary"];
+out geom;

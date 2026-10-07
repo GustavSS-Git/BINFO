@@ -326,3 +326,25 @@ previously-unmapped codes, including 10451, are now all mapped via tier 2/3).
 - `ml/mapping/sources/` — small, tracked files: `stadsdelar_fullsize.geo.json` (CC0), `stadsdelar_LICENSE.txt`.
 - `ml/mapping/sources/raw/` — large, gitignored, re-fetchable raw downloads: `osm_addr_postcode_raw.json` (kommun), `osm_addr_postcode_lan_raw.json` (lan, new in v3), `geonames_SE_postal_codes.txt`, `geonames_SE_readme.txt`.
 - `data/derived/postnummer_omrade.csv` — final output: postnummer, omrade, andel_i_omrade, n_adresser, metod, kalla, granne_konflikt.
+
+## Postnummer -> kommun (added 2026-10-07, `build_postnummer_kommun.py`)
+
+Output: `data/derived/postnummer_kommun.csv` (16,365 postnummer; columns postnummer, kommun_kod,
+kommun_namn, lan_kod, metod, kalla, n_osm, andel_osm, kommun_kod_geonames, konflikt_geonames,
+flaggor) plus `postnummer_kommun_coverage.json` (coverage, unmapped list, name checks) and
+`postnummer_omrade_kommun_konflikter.csv` (cross-check against `postnummer_omrade.csv`;
+**that file is not modified**).
+
+Sources: GeoNames SE admin2 (CC BY 4.0, 2026-09-24); OSM address points in Stockholms län
+(ODbL, 2026-09-24); **OSM admin_level=7 kommun boundaries for Stockholms län, 26 relations
+with SCB code in tag `KNKOD`** (ODbL, Overpass, retrieved 2026-10-07, see
+`sources/kommun_boundaries/SOURCE.md`). Method precedence and thresholds are documented in the
+script docstring (`osm_majority` for blank/contradicting GeoNames when >= 3 OSM points and >= 80 %
+agree; else `geonames_admin2`; else weak OSM; else GeoNames coordinate point-in-polygon unless the
+coordinate is a generic centroid shared by > 200 postnummer). Outside Stockholms län there is no
+boundary source: blank GeoNames kommun stays unmapped (2,317 postnummer).
+Stockholms län: 3,613 of 3,856 known postnummer mapped (geonames_admin2 3,071; osm_majority 218;
+osm_majority_svag 64; geonames_koordinat 260 = approximate); 243 unmapped, mostly the generic
+"Stockholm" centroid prefixes 109xx (100) and 110xx (71). 7 straddling postnummer are flagged `grans`.
+Kommun names of Sigtuna, Sollentuna, Upplands Väsby, Upplands-Bro (absent from GeoNames' filled
+rows) come from the Mäklarstatistik xlsx, matched to the OSM relation by exact name.

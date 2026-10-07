@@ -1,6 +1,10 @@
 # Valuation outside Stockholm — design (task 4e, not built)
 
-Status: a design only. Nothing here is implemented. The owner will supply the data.
+Status: **superseded — built differently in valuation-v3 (2026-10-08).** The shipped method is
+`kr/m² = kommun 12-month average (Svensk Mäklarstatistik) × r(x)` inside Stockholms län and the national
+average × r(x) outside it, where r(x) comes from a no-location model trained on within-area relative prices
+— not the ratio-to-Stockholm scaling below. See `ml/artifacts/valuation-v3/MODEL_CARD.md` section 6 and
+`src/lib/vardering/tackning.ts`. Kept for the reasoning only.
 
 ## Problem
 

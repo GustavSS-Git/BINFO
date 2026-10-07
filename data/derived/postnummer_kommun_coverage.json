@@ -1,0 +1,1733 @@
+{
+  "generated_for": "postnummer_kommun.csv",
+  "osm_boundaries_timestamp": "2026-10-07T21:45:46Z",
+  "n_osm_points_with_valid_postcode": 140051,
+  "n_osm_points_outside_all_polygons": 0,
+  "n_postnummer_total_mapped": 16365,
+  "by_metod_all": {
+    "geonames_admin2": 15823,
+    "geonames_koordinat": 260,
+    "osm_majority": 218,
+    "osm_majority_svag": 64
+  },
+  "stockholms_lan": {
+    "n_postnummer_known": 3856,
+    "n_mapped": 3613,
+    "n_unmapped": 243,
+    "by_metod": {
+      "geonames_admin2": 3071,
+      "geonames_koordinat": 260,
+      "osm_majority": 218,
+      "osm_majority_svag": 64
+    },
+    "by_kommun": [
+      {
+        "kommun_kod": "0114",
+        "kommun_namn": "Upplands Väsby",
+        "n": 74
+      },
+      {
+        "kommun_kod": "0115",
+        "kommun_namn": "Vallentuna",
+        "n": 48
+      },
+      {
+        "kommun_kod": "0117",
+        "kommun_namn": "Österåker",
+        "n": 50
+      },
+      {
+        "kommun_kod": "0120",
+        "kommun_namn": "Värmdö",
+        "n": 95
+      },
+      {
+        "kommun_kod": "0123",
+        "kommun_namn": "Järfälla",
+        "n": 109
+      },
+      {
+        "kommun_kod": "0125",
+        "kommun_namn": "Ekerö",
+        "n": 41
+      },
+      {
+        "kommun_kod": "0126",
+        "kommun_namn": "Huddinge",
+        "n": 125
+      },
+      {
+        "kommun_kod": "0127",
+        "kommun_namn": "Botkyrka",
+        "n": 100
+      },
+      {
+        "kommun_kod": "0128",
+        "kommun_namn": "Salem",
+        "n": 20
+      },
+      {
+        "kommun_kod": "0136",
+        "kommun_namn": "Haninge",
+        "n": 111
+      },
+      {
+        "kommun_kod": "0138",
+        "kommun_namn": "Tyresö",
+        "n": 50
+      },
+      {
+        "kommun_kod": "0139",
+        "kommun_namn": "Upplands-Bro",
+        "n": 44
+      },
+      {
+        "kommun_kod": "0140",
+        "kommun_namn": "Nykvarn",
+        "n": 16
+      },
+      {
+        "kommun_kod": "0160",
+        "kommun_namn": "Täby",
+        "n": 124
+      },
+      {
+        "kommun_kod": "0162",
+        "kommun_namn": "Danderyd",
+        "n": 61
+      },
+      {
+        "kommun_kod": "0163",
+        "kommun_namn": "Sollentuna",
+        "n": 82
+      },
+      {
+        "kommun_kod": "0180",
+        "kommun_namn": "Stockholm",
+        "n": 1576
+      },
+      {
+        "kommun_kod": "0181",
+        "kommun_namn": "Södertälje",
+        "n": 122
+      },
+      {
+        "kommun_kod": "0182",
+        "kommun_namn": "Nacka",
+        "n": 142
+      },
+      {
+        "kommun_kod": "0183",
+        "kommun_namn": "Sundbyberg",
+        "n": 90
+      },
+      {
+        "kommun_kod": "0184",
+        "kommun_namn": "Solna",
+        "n": 186
+      },
+      {
+        "kommun_kod": "0186",
+        "kommun_namn": "Lidingö",
+        "n": 66
+      },
+      {
+        "kommun_kod": "0187",
+        "kommun_namn": "Vaxholm",
+        "n": 24
+      },
+      {
+        "kommun_kod": "0188",
+        "kommun_namn": "Norrtälje",
+        "n": 115
+      },
+      {
+        "kommun_kod": "0191",
+        "kommun_namn": "Sigtuna",
+        "n": 95
+      },
+      {
+        "kommun_kod": "0192",
+        "kommun_namn": "Nynäshamn",
+        "n": 47
+      }
+    ],
+    "n_straddling_flagged": 7,
+    "unmapped": [
+      {
+        "postnummer": "10101",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10153",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10154",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10159",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10215",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10216",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10218",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10376",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10379",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10406",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10547",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10549",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10550",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10569",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10573",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10574",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10629",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10637",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10643",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10653",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10710",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10760",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10790",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10900",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10901",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10902",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10903",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10904",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10905",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10906",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10907",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10908",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10909",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10910",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10911",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10912",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10913",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10914",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10915",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10916",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10917",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10918",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10919",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10920",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10921",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10922",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10923",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10924",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10925",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10926",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10927",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10928",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10929",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10930",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10931",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10932",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10933",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10934",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10935",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10936",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10937",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10938",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10939",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10940",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10941",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10942",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10943",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10944",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10945",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10946",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10947",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10948",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10949",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10950",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10951",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10952",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10953",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10954",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10955",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10956",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10957",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10958",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10959",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10960",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10961",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10962",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10963",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10964",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10965",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10966",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10967",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10968",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10969",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10970",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10971",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10972",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10973",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10974",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10975",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10976",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10977",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10978",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10979",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10980",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10981",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10982",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10983",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10984",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10985",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10986",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10987",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10988",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10989",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10990",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10991",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10992",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10993",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10994",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10995",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10996",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10997",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10998",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "10999",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11000",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11001",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11002",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11003",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11004",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11005",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11006",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11007",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11008",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11009",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11010",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11011",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11012",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11013",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11015",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11016",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11017",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11019",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11020",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11022",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11023",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11025",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11026",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11027",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11029",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11030",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11034",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11037",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11039",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11043",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11045",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11046",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11049",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11050",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11051",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11052",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11053",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11054",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11055",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11056",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11057",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11058",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11059",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11060",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11069",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11070",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11075",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11076",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11077",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11078",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11079",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11080",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11081",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11082",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11083",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11084",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11085",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11086",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11087",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11088",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11089",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11090",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11091",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11092",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11093",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11094",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11095",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11096",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11097",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11098",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11099",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11272",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11279",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11280",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11378",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11379",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11402",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11411",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11473",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11490",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11551",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11576",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11596",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11597",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11681",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11701",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11754",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11780",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11796",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "11881",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "12020",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "12081",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "12619",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "12620",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "12681",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "13110",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "13185",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "13189",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "16490",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "16520",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Hässelby",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "16987",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17087",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17332",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17333",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17334",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17335",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17336",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17337",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17338",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17339",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17340",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17341",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17342",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17343",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17344",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17345",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17351",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17365",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "17386",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      },
+      {
+        "postnummer": "19587",
+        "geonames_lan": "Stockholm",
+        "geonames_plats": "Stockholm",
+        "orsak": "ingen kommunuppgift, inga OSM-punkter, GeoNames-koordinat generisk eller utanför Stockholms län"
+      }
+    ]
+  },
+  "outside_stockholms_lan": {
+    "n_mapped": 12752,
+    "n_unmapped_no_kommun_in_geonames": 2317,
+    "note": "no boundary source outside Stockholms lan; blank GeoNames kommun stays unmapped"
+  },
+  "geonames_vs_osm_conflicts_resolved_to_osm": [
+    {
+      "postnummer": "12352",
+      "kommun_kod": "0126",
+      "kommun_namn": "Huddinge",
+      "kommun_kod_geonames": "0180",
+      "n_osm": 31,
+      "andel_osm": 0.935
+    },
+    {
+      "postnummer": "12404",
+      "kommun_kod": "0126",
+      "kommun_namn": "Huddinge",
+      "kommun_kod_geonames": "0180",
+      "n_osm": 6,
+      "andel_osm": 1.0
+    },
+    {
+      "postnummer": "13155",
+      "kommun_kod": "0182",
+      "kommun_namn": "Nacka",
+      "kommun_kod_geonames": "0180",
+      "n_osm": 8,
+      "andel_osm": 0.875
+    },
+    {
+      "postnummer": "13432",
+      "kommun_kod": "0120",
+      "kommun_namn": "Värmdö",
+      "kommun_kod_geonames": "0187",
+      "n_osm": 535,
+      "andel_osm": 0.964
+    },
+    {
+      "postnummer": "14346",
+      "kommun_kod": "0126",
+      "kommun_namn": "Huddinge",
+      "kommun_kod_geonames": "0180",
+      "n_osm": 4,
+      "andel_osm": 1.0
+    },
+    {
+      "postnummer": "14791",
+      "kommun_kod": "0127",
+      "kommun_namn": "Botkyrka",
+      "kommun_kod_geonames": "0192",
+      "n_osm": 95,
+      "andel_osm": 1.0
+    },
+    {
+      "postnummer": "17176",
+      "kommun_kod": "0184",
+      "kommun_namn": "Solna",
+      "kommun_kod_geonames": "0180",
+      "n_osm": 4,
+      "andel_osm": 1.0
+    },
+    {
+      "postnummer": "76296",
+      "kommun_kod": "0188",
+      "kommun_namn": "Norrtälje",
+      "kommun_kod_geonames": "0380",
+      "n_osm": 65,
+      "andel_osm": 1.0
+    },
+    {
+      "postnummer": "76297",
+      "kommun_kod": "0188",
+      "kommun_namn": "Norrtälje",
+      "kommun_kod_geonames": "0380",
+      "n_osm": 3,
+      "andel_osm": 1.0
+    }
+  ],
+  "kommun_name_mismatches": [],
+  "kommun_codes_absent_from_geonames_filled_rows": [
+    {
+      "kod": "0114",
+      "namn": "Upplands Väsby"
+    },
+    {
+      "kod": "0139",
+      "namn": "Upplands-Bro"
+    },
+    {
+      "kod": "0163",
+      "namn": "Sollentuna"
+    },
+    {
+      "kod": "0191",
+      "namn": "Sigtuna"
+    }
+  ],
+  "omrade_cross_check": {
+    "n_omrade_postnummer": 1440,
+    "n_not_in_kommun_table": 42,
+    "n_in_kommun_0180": 1394,
+    "n_conflicts_other_kommun": 4,
+    "conflicts_by_kommun": [
+      {
+        "kommun_kod": "0126",
+        "kommun_namn": "Huddinge",
+        "n": 4
+      }
+    ],
+    "conflicts_by_omrade_metod": {
+      "prefix_granne": 3,
+      "osm_address_majority": 1
+    },
+    "conflicts_file": "data/derived/postnummer_omrade_kommun_konflikter.csv"
+  }
+}

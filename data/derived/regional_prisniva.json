@@ -1,0 +1,481 @@
+{
+  "version": "regional-prisniva-2026-09",
+  "statistik": "medelvärde (average) kr/kvm, bostadsrätter; INTE median",
+  "n": null,
+  "n_note": "Svensk Mäklarstatistik anger inget antal försäljningar i tabellen; n är okänt.",
+  "vald_kolumn": "12 mån average (ägarens beslut 2026-10-07)",
+  "kommuner": [
+    {
+      "kod": "0114",
+      "namn": "Upplands Väsby",
+      "krPerM2": 30911,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 31210,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0115",
+      "namn": "Vallentuna",
+      "krPerM2": 33268,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 33318,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0117",
+      "namn": "Österåker",
+      "krPerM2": 36718,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 37014,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0120",
+      "namn": "Värmdö",
+      "krPerM2": 46871,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 48731,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0123",
+      "namn": "Järfälla",
+      "krPerM2": 34320,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 34081,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0125",
+      "namn": "Ekerö",
+      "krPerM2": 46981,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 45579,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0126",
+      "namn": "Huddinge",
+      "krPerM2": 38544,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 39214,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0127",
+      "namn": "Botkyrka",
+      "krPerM2": 29280,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 28563,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0128",
+      "namn": "Salem",
+      "krPerM2": 29146,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 28577,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0136",
+      "namn": "Haninge",
+      "krPerM2": 32447,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 34391,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0138",
+      "namn": "Tyresö",
+      "krPerM2": 37564,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 36908,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0139",
+      "namn": "Upplands-Bro",
+      "krPerM2": 28460,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 28253,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0140",
+      "namn": "Nykvarn",
+      "krPerM2": 32145,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 31407,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0160",
+      "namn": "Täby",
+      "krPerM2": 49306,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 49371,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0162",
+      "namn": "Danderyd",
+      "krPerM2": 65201,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 67734,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0163",
+      "namn": "Sollentuna",
+      "krPerM2": 42864,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 43821,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0180",
+      "namn": "Stockholm",
+      "krPerM2": 90017,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 90920,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0181",
+      "namn": "Södertälje",
+      "krPerM2": 26314,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 26805,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0182",
+      "namn": "Nacka",
+      "krPerM2": 59170,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 60334,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0183",
+      "namn": "Sundbyberg",
+      "krPerM2": 65191,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 64135,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0184",
+      "namn": "Solna",
+      "krPerM2": 64352,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 64518,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0186",
+      "namn": "Lidingö",
+      "krPerM2": 65682,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 66151,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0187",
+      "namn": "Vaxholm",
+      "krPerM2": 45075,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 46299,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0188",
+      "namn": "Norrtälje",
+      "krPerM2": 28919,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 28180,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0191",
+      "namn": "Sigtuna",
+      "krPerM2": 26929,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 26168,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    },
+    {
+      "kod": "0192",
+      "namn": "Nynäshamn",
+      "krPerM2": 25369,
+      "period": {
+        "fran": "2025-09",
+        "till": "2026-08",
+        "etikett": "sep 2025 - aug 2026 (12 mån)"
+      },
+      "krPerM2Tre_man": 25387,
+      "periodTre_man": {
+        "fran": "2026-06",
+        "till": "2026-08",
+        "etikett": "jun - aug 2026 (3 mån)"
+      }
+    }
+  ],
+  "lan": {
+    "kod": "01",
+    "namn": "Stockholms län",
+    "krPerM2": 70164,
+    "period": {
+      "fran": "2025-09",
+      "till": "2026-08",
+      "etikett": "sep 2025 - aug 2026 (12 mån)"
+    },
+    "krPerM2Tre_man": 69455,
+    "periodTre_man": {
+      "fran": "2026-06",
+      "till": "2026-08",
+      "etikett": "jun - aug 2026 (3 mån)"
+    }
+  },
+  "riket": {
+    "kod": "00",
+    "namn": "Riket",
+    "krPerM2": 46317,
+    "period": {
+      "fran": "2026-08",
+      "till": "2026-08",
+      "etikett": "augusti 2026 (en månad)"
+    },
+    "kalla": "Svensk Mäklarstatistik",
+    "proveniens": "uppgift från ägaren 2026-10-07 (ej hämtad av Claude; ingen n angiven)",
+    "varning": "Riket avser en enda månad (aug 2026) medan kommunernas 12 mån-kolumn avser sep 2025 - aug 2026; perioderna är inte jämförbara rakt av."
+  },
+  "stockholmReferens": {
+    "kod": "0180",
+    "namn": "Stockholm",
+    "krPerM2": 90017,
+    "period": {
+      "fran": "2025-09",
+      "till": "2026-08",
+      "etikett": "sep 2025 - aug 2026 (12 mån)"
+    }
+  },
+  "kallor": [
+    {
+      "namn": "Svensk Mäklarstatistik, Bostadsrätter - Stockholms län (kommuner)",
+      "url": "https://www.maklarstatistik.se/omrade/riket/stockholms-lan/",
+      "uppdaterad": "2026-09-08",
+      "levererad_av": "ägaren, xlsx i data/raw/maklarstatistik_stockholms_lan.xlsx (2026-10-07)"
+    },
+    {
+      "namn": "Riket 46 317 kr/kvm (aug 2026, average)",
+      "proveniens": "uppgift från ägaren 2026-10-07",
+      "fil": "data/raw/riket_prisniva.csv"
+    },
+    {
+      "namn": "Kommunkoder och namn",
+      "proveniens": "data/derived/postnummer_kommun.csv (GeoNames admin2 + OSM KNKOD)"
+    }
+  ]
+}

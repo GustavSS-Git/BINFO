@@ -1,0 +1,1911 @@
+{
+  "version": "valuation-v3",
+  "trained_at": "2026-10-08T00:06:45.148583",
+  "data_period": "2026-01-01 to 2026-08-31 (8 months)",
+  "n_rows": 4991,
+  "months": {
+    "1": 563,
+    "2": 642,
+    "3": 764,
+    "4": 736,
+    "5": 740,
+    "6": 658,
+    "7": 276,
+    "8": 612
+  },
+  "random_state": 42,
+  "cleaning_report": {
+    "rows_in": 5000,
+    "rows_out": 4991,
+    "duplicate_rows_dropped": 1,
+    "missing_target_rows_dropped": 8,
+    "apartment_floor_parsed_nonnull": 4634,
+    "apartment_floor_still_missing": 357,
+    "build_year_parsed_nonnull": 4531,
+    "build_year_still_missing": 460,
+    "monthly_fee_implausible_nulled": 6,
+    "building_storeys_implausible_nulled": 9,
+    "postal_code_missing": 18,
+    "notes": []
+  },
+  "n_unmapped_omrade": 24,
+  "excluded_features": [
+    "utgangspris (not present in this file; would be leakage if it were)"
+  ],
+  "baselines": {
+    "v2_restricted_400_trees": {
+      "cv": {
+        "n": 4991,
+        "mae": 639208.8788537314,
+        "mape": 12.240449085231678,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 434,
+            "mae": 603326.6575430657,
+            "mape": 12.832918105228144
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 50,
+            "mae": 391208.5216420513,
+            "mape": 17.750114589312304
+          },
+          "Centrala Stockholm": {
+            "n": 12,
+            "mae": 1526867.3918256916,
+            "mape": 18.338955287651903
+          },
+          "Enskede-Skarpnäck": {
+            "n": 544,
+            "mae": 502587.0028362316,
+            "mape": 13.472761370606323
+          },
+          "Essingen": {
+            "n": 77,
+            "mae": 488580.798984745,
+            "mape": 9.979745097883363
+          },
+          "Farsta-Vantör": {
+            "n": 303,
+            "mae": 436254.6749786266,
+            "mape": 15.565618615727733
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 749,
+            "mae": 736180.1203404428,
+            "mape": 16.838630579641503
+          },
+          "Hässelby-Vällingby": {
+            "n": 128,
+            "mae": 349833.6605454753,
+            "mape": 12.823409427569974
+          },
+          "Kungsholmen": {
+            "n": 644,
+            "mae": 593996.2400845198,
+            "mape": 9.127368162285547
+          },
+          "Okänt (postnummer ej kartlagt)": {
+            "n": 24,
+            "mae": 1297644.5886692011,
+            "mape": 34.8697725921577
+          },
+          "Spånga-Kista": {
+            "n": 125,
+            "mae": 297665.580674767,
+            "mape": 14.664418848136915
+          },
+          "Södermalm": {
+            "n": 737,
+            "mae": 664792.776436732,
+            "mape": 10.31695332981643
+          },
+          "Vasastan-Norrmalm": {
+            "n": 643,
+            "mae": 720843.3002257171,
+            "mape": 8.306714771231302
+          },
+          "Östermalm": {
+            "n": 521,
+            "mae": 857647.4267319678,
+            "mape": 11.237469918416176
+          }
+        }
+      },
+      "time_split": {
+        "n": 888,
+        "mae": 638576.139328948,
+        "mape": 12.687676835343428,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 85,
+            "mae": 644198.0805280305,
+            "mape": 13.772460930738465
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 9,
+            "mae": 218904.6953824741,
+            "mape": 10.085988533226448
+          },
+          "Centrala Stockholm": {
+            "n": 1,
+            "mae": 713482.5126196202,
+            "mape": 6.072185912163148
+          },
+          "Enskede-Skarpnäck": {
+            "n": 92,
+            "mae": 501177.9317379822,
+            "mape": 13.553669877548344
+          },
+          "Essingen": {
+            "n": 17,
+            "mae": 507890.67150013236,
+            "mape": 8.107433498363125
+          },
+          "Farsta-Vantör": {
+            "n": 62,
+            "mae": 408836.76568680495,
+            "mape": 15.512250302361602
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 120,
+            "mae": 674021.8515229746,
+            "mape": 17.925676836130716
+          },
+          "Hässelby-Vällingby": {
+            "n": 32,
+            "mae": 568290.538510467,
+            "mape": 16.832050433658377
+          },
+          "Kungsholmen": {
+            "n": 107,
+            "mae": 553647.8717749794,
+            "mape": 9.716260230049265
+          },
+          "Okänt (postnummer ej kartlagt)": {
+            "n": 5,
+            "mae": 411906.0958558209,
+            "mape": 12.515593616475634
+          },
+          "Spånga-Kista": {
+            "n": 28,
+            "mae": 270948.2354655533,
+            "mape": 15.30745208774514
+          },
+          "Södermalm": {
+            "n": 125,
+            "mae": 665933.9773125988,
+            "mape": 9.69056844281619
+          },
+          "Vasastan-Norrmalm": {
+            "n": 98,
+            "mae": 709196.0440714905,
+            "mape": 7.993211570381206
+          },
+          "Östermalm": {
+            "n": 107,
+            "mae": 1017079.2266333884,
+            "mape": 13.43401080739535
+          }
+        },
+        "n_train": 4103
+      }
+    },
+    "v2_restricted_300_trees_shipped": {
+      "cv": {
+        "n": 4991,
+        "mae": 637726.853676474,
+        "mape": 12.255368971882481,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 434,
+            "mae": 609743.1267932216,
+            "mape": 12.964029255269521
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 50,
+            "mae": 393345.8018053336,
+            "mape": 18.026803324171507
+          },
+          "Centrala Stockholm": {
+            "n": 12,
+            "mae": 1501924.5501400856,
+            "mape": 18.325731482772937
+          },
+          "Enskede-Skarpnäck": {
+            "n": 544,
+            "mae": 507401.84463378077,
+            "mape": 13.641500419798923
+          },
+          "Essingen": {
+            "n": 77,
+            "mae": 496989.36626894,
+            "mape": 10.201282740720915
+          },
+          "Farsta-Vantör": {
+            "n": 303,
+            "mae": 434259.3993758332,
+            "mape": 15.556130140084647
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 749,
+            "mae": 734243.5784675333,
+            "mape": 16.861987513432155
+          },
+          "Hässelby-Vällingby": {
+            "n": 128,
+            "mae": 346050.9611975852,
+            "mape": 12.716558472078704
+          },
+          "Kungsholmen": {
+            "n": 644,
+            "mae": 594070.8080793893,
+            "mape": 9.14187560114468
+          },
+          "Okänt (postnummer ej kartlagt)": {
+            "n": 24,
+            "mae": 1280685.8348946562,
+            "mape": 35.156505107548774
+          },
+          "Spånga-Kista": {
+            "n": 125,
+            "mae": 295777.95870531304,
+            "mape": 14.564799868890091
+          },
+          "Södermalm": {
+            "n": 737,
+            "mae": 658281.6554058227,
+            "mape": 10.248666625640606
+          },
+          "Vasastan-Norrmalm": {
+            "n": 643,
+            "mae": 717411.9294645154,
+            "mape": 8.260012918113329
+          },
+          "Östermalm": {
+            "n": 521,
+            "mae": 851665.4952412719,
+            "mape": 11.181187584000995
+          }
+        }
+      },
+      "time_split": {
+        "n": 888,
+        "mae": 639003.3632348065,
+        "mape": 12.717863601712923,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 85,
+            "mae": 645841.2540366213,
+            "mape": 13.907537815299298
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 9,
+            "mae": 240885.34503609542,
+            "mape": 11.213306940550025
+          },
+          "Centrala Stockholm": {
+            "n": 1,
+            "mae": 731312.8602375127,
+            "mape": 6.223933409402874
+          },
+          "Enskede-Skarpnäck": {
+            "n": 92,
+            "mae": 508360.61503412185,
+            "mape": 13.633111334064871
+          },
+          "Essingen": {
+            "n": 17,
+            "mae": 458438.6259951323,
+            "mape": 7.583841505602382
+          },
+          "Farsta-Vantör": {
+            "n": 62,
+            "mae": 409267.20568120794,
+            "mape": 15.545129781001544
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 120,
+            "mae": 675490.0834487922,
+            "mape": 18.043140109361687
+          },
+          "Hässelby-Vällingby": {
+            "n": 32,
+            "mae": 558484.4626130223,
+            "mape": 16.7426917940896
+          },
+          "Kungsholmen": {
+            "n": 107,
+            "mae": 562564.9243250292,
+            "mape": 9.865537204934489
+          },
+          "Okänt (postnummer ej kartlagt)": {
+            "n": 5,
+            "mae": 417977.5967080853,
+            "mape": 13.151793876099246
+          },
+          "Spånga-Kista": {
+            "n": 28,
+            "mae": 270889.7407420229,
+            "mape": 15.429255034682473
+          },
+          "Södermalm": {
+            "n": 125,
+            "mae": 652178.181189923,
+            "mape": 9.46730684894463
+          },
+          "Vasastan-Norrmalm": {
+            "n": 98,
+            "mae": 707608.8277865878,
+            "mape": 7.926361677194685
+          },
+          "Östermalm": {
+            "n": 107,
+            "mae": 1028359.8205621358,
+            "mape": 13.48297692614909
+          }
+        },
+        "n_train": 4103
+      }
+    },
+    "v3_features_default_300_trees": {
+      "cv": {
+        "n": 4991,
+        "mae": 636035.6349044867,
+        "mape": 12.196035208792058,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 434,
+            "mae": 609591.3927486002,
+            "mape": 12.94956039754199
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 50,
+            "mae": 361162.24890967726,
+            "mape": 16.689981364387386
+          },
+          "Centrala Stockholm": {
+            "n": 12,
+            "mae": 1479376.9880846299,
+            "mape": 17.135248992813914
+          },
+          "Enskede-Skarpnäck": {
+            "n": 544,
+            "mae": 513257.99780444824,
+            "mape": 13.812108467188434
+          },
+          "Essingen": {
+            "n": 77,
+            "mae": 478732.90419418743,
+            "mape": 9.821394493853825
+          },
+          "Farsta-Vantör": {
+            "n": 303,
+            "mae": 423986.5496004556,
+            "mape": 15.162067547496891
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 749,
+            "mae": 721165.286559909,
+            "mape": 16.577877783866178
+          },
+          "Hässelby-Vällingby": {
+            "n": 128,
+            "mae": 356918.2881130919,
+            "mape": 12.867179839598542
+          },
+          "Kungsholmen": {
+            "n": 644,
+            "mae": 599043.4216807242,
+            "mape": 9.219978786126301
+          },
+          "Okänt (postnummer ej kartlagt)": {
+            "n": 24,
+            "mae": 1211391.367860138,
+            "mape": 32.509543244815134
+          },
+          "Spånga-Kista": {
+            "n": 125,
+            "mae": 280925.79185485595,
+            "mape": 14.493914502035443
+          },
+          "Södermalm": {
+            "n": 737,
+            "mae": 660061.0412418095,
+            "mape": 10.249688502623739
+          },
+          "Vasastan-Norrmalm": {
+            "n": 643,
+            "mae": 706383.1925807582,
+            "mape": 8.154109205900005
+          },
+          "Östermalm": {
+            "n": 521,
+            "mae": 869591.2533320845,
+            "mape": 11.430830700650453
+          }
+        }
+      },
+      "time_split": {
+        "n": 888,
+        "mae": 630445.3194071845,
+        "mape": 12.633656295264089,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 85,
+            "mae": 649250.5325355195,
+            "mape": 13.843874615973192
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 9,
+            "mae": 249892.54285228485,
+            "mape": 11.582069694278967
+          },
+          "Centrala Stockholm": {
+            "n": 1,
+            "mae": 251064.70794690773,
+            "mape": 2.136718918364483
+          },
+          "Enskede-Skarpnäck": {
+            "n": 92,
+            "mae": 512865.7313454782,
+            "mape": 14.124061099199043
+          },
+          "Essingen": {
+            "n": 17,
+            "mae": 449806.58653619676,
+            "mape": 8.342164862123495
+          },
+          "Farsta-Vantör": {
+            "n": 62,
+            "mae": 426091.5704707444,
+            "mape": 16.109605268278777
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 120,
+            "mae": 651851.8324948878,
+            "mape": 17.110906360698877
+          },
+          "Hässelby-Vällingby": {
+            "n": 32,
+            "mae": 560820.4905790173,
+            "mape": 16.878017680132267
+          },
+          "Kungsholmen": {
+            "n": 107,
+            "mae": 587196.7558043172,
+            "mape": 10.415496403277725
+          },
+          "Okänt (postnummer ej kartlagt)": {
+            "n": 5,
+            "mae": 409475.7490084986,
+            "mape": 12.846830434947206
+          },
+          "Spånga-Kista": {
+            "n": 28,
+            "mae": 228032.18734565776,
+            "mape": 13.763383843885244
+          },
+          "Södermalm": {
+            "n": 125,
+            "mae": 645566.4682904151,
+            "mape": 9.390231860230394
+          },
+          "Vasastan-Norrmalm": {
+            "n": 98,
+            "mae": 683985.4706727496,
+            "mape": 7.815630376637717
+          },
+          "Östermalm": {
+            "n": 107,
+            "mae": 988260.0096114809,
+            "mape": 13.068906988902679
+          }
+        },
+        "n_train": 4103
+      }
+    }
+  },
+  "postcode_experiment": {
+    "grid": [
+      {
+        "mode": "raw",
+        "k": 0.5,
+        "janjun_cv_mape": 10.171527171999662
+      },
+      {
+        "mode": "raw",
+        "k": 1,
+        "janjun_cv_mape": 10.200129708242105
+      },
+      {
+        "mode": "raw",
+        "k": 2,
+        "janjun_cv_mape": 10.27186201662819
+      },
+      {
+        "mode": "raw",
+        "k": 3,
+        "janjun_cv_mape": 10.260390317429614
+      },
+      {
+        "mode": "raw",
+        "k": 5,
+        "janjun_cv_mape": 10.353876197651044
+      },
+      {
+        "mode": "raw",
+        "k": 10,
+        "janjun_cv_mape": 10.3722043974171
+      },
+      {
+        "mode": "raw",
+        "k": 30,
+        "janjun_cv_mape": 10.537366062848152
+      },
+      {
+        "mode": "resid",
+        "k": 0.5,
+        "janjun_cv_mape": 10.659116674719579
+      },
+      {
+        "mode": "resid",
+        "k": 1,
+        "janjun_cv_mape": 10.643912113769169
+      },
+      {
+        "mode": "resid",
+        "k": 2,
+        "janjun_cv_mape": 10.70531177259487
+      },
+      {
+        "mode": "resid",
+        "k": 3,
+        "janjun_cv_mape": 10.67773240612942
+      },
+      {
+        "mode": "resid",
+        "k": 5,
+        "janjun_cv_mape": 10.72159968808284
+      },
+      {
+        "mode": "resid",
+        "k": 10,
+        "janjun_cv_mape": 10.799512558643103
+      },
+      {
+        "mode": "resid",
+        "k": 30,
+        "janjun_cv_mape": 10.75257957186074
+      }
+    ],
+    "selected": {
+      "mode": "raw",
+      "k": 0.5,
+      "selection_metric": "Jan-Jun 5-fold CV MAPE (default LightGBM params)"
+    },
+    "baseline_no_postcode": {
+      "janjun_cv_mape": 12.422185600188918,
+      "jul_aug_mape": 12.633656295264089,
+      "n_test": 888
+    },
+    "selected_result": {
+      "jul_aug_mape": 10.183253417148824,
+      "mae": 529131.2948658675,
+      "n_test": 888,
+      "n_train": 4103
+    },
+    "gain_pp_jul_aug": 2.4504028781152645,
+    "adoption_threshold_pp": 0.3,
+    "adopted": true,
+    "jul_aug_rows_with_postnummer_in_table": {
+      "n_seen": 857,
+      "n_unseen": 31,
+      "mape_seen_with_pc": 9.905461595249717,
+      "mape_unseen_with_pc": 17.86285313868224,
+      "mape_seen_without_pc": 12.545489393391701,
+      "mape_unseen_without_pc": 15.071044517994256
+    },
+    "table_size_jan_jun": 632
+  },
+  "tuning": {
+    "final_feature_set": {
+      "n_configs": 40,
+      "seed": 42,
+      "search_space": {
+        "num_leaves": [
+          8,
+          12,
+          16,
+          24,
+          31
+        ],
+        "min_child_samples": [
+          5,
+          10,
+          20,
+          30,
+          50
+        ],
+        "learning_rate": [
+          0.03,
+          0.05,
+          0.08,
+          0.1
+        ],
+        "n_estimators": [
+          150,
+          200,
+          250,
+          300
+        ],
+        "reg_lambda": [
+          0.0,
+          1.0,
+          5.0,
+          10.0,
+          30.0
+        ],
+        "colsample_bytree": [
+          0.6,
+          0.8,
+          1.0
+        ],
+        "subsample": [
+          0.7,
+          0.85,
+          1.0
+        ],
+        "max_depth": [
+          -1,
+          4,
+          6,
+          8
+        ]
+      },
+      "default_params": {
+        "n_estimators": 300,
+        "num_leaves": 31,
+        "learning_rate": 0.05
+      },
+      "best_params": {
+        "num_leaves": 31,
+        "min_child_samples": 10,
+        "learning_rate": 0.05,
+        "n_estimators": 250,
+        "reg_lambda": 0.0,
+        "colsample_bytree": 0.8,
+        "subsample": 0.85,
+        "max_depth": 8,
+        "subsample_freq": 1
+      },
+      "best_janjun_cv_mape": 10.030171460338824,
+      "default_janjun_cv_mape": 10.171527171999662,
+      "top5": [
+        {
+          "i": 19,
+          "params": {
+            "num_leaves": 31,
+            "min_child_samples": 10,
+            "learning_rate": 0.05,
+            "n_estimators": 250,
+            "reg_lambda": 0.0,
+            "colsample_bytree": 0.8,
+            "subsample": 0.85,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 10.030171460338824
+        },
+        {
+          "i": 22,
+          "params": {
+            "num_leaves": 24,
+            "min_child_samples": 5,
+            "learning_rate": 0.1,
+            "n_estimators": 250,
+            "reg_lambda": 30.0,
+            "colsample_bytree": 0.6,
+            "subsample": 0.85,
+            "max_depth": 6,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 10.055381168261743
+        },
+        {
+          "i": 28,
+          "params": {
+            "num_leaves": 24,
+            "min_child_samples": 10,
+            "learning_rate": 0.1,
+            "n_estimators": 250,
+            "reg_lambda": 5.0,
+            "colsample_bytree": 0.6,
+            "subsample": 0.85,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 10.067564679292904
+        },
+        {
+          "i": 7,
+          "params": {
+            "num_leaves": 16,
+            "min_child_samples": 5,
+            "learning_rate": 0.08,
+            "n_estimators": 250,
+            "reg_lambda": 30.0,
+            "colsample_bytree": 1.0,
+            "subsample": 0.85,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 10.072769611836975
+        },
+        {
+          "i": 2,
+          "params": {
+            "num_leaves": 16,
+            "min_child_samples": 5,
+            "learning_rate": 0.1,
+            "n_estimators": 200,
+            "reg_lambda": 5.0,
+            "colsample_bytree": 0.8,
+            "subsample": 0.7,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 10.088376591021394
+        }
+      ],
+      "jul_aug": {
+        "default": 10.183253417148824,
+        "tuned": 10.101382904687886,
+        "n_test": 888
+      },
+      "full_5fold_cv": {
+        "default": 9.890543307178454,
+        "tuned": 9.756076645760361,
+        "n": 4991
+      },
+      "adopted": true
+    },
+    "without_postcode_for_reference": {
+      "n_configs": 40,
+      "seed": 42,
+      "search_space": {
+        "num_leaves": [
+          8,
+          12,
+          16,
+          24,
+          31
+        ],
+        "min_child_samples": [
+          5,
+          10,
+          20,
+          30,
+          50
+        ],
+        "learning_rate": [
+          0.03,
+          0.05,
+          0.08,
+          0.1
+        ],
+        "n_estimators": [
+          150,
+          200,
+          250,
+          300
+        ],
+        "reg_lambda": [
+          0.0,
+          1.0,
+          5.0,
+          10.0,
+          30.0
+        ],
+        "colsample_bytree": [
+          0.6,
+          0.8,
+          1.0
+        ],
+        "subsample": [
+          0.7,
+          0.85,
+          1.0
+        ],
+        "max_depth": [
+          -1,
+          4,
+          6,
+          8
+        ]
+      },
+      "default_params": {
+        "n_estimators": 300,
+        "num_leaves": 31,
+        "learning_rate": 0.05
+      },
+      "best_params": {
+        "num_leaves": 31,
+        "min_child_samples": 10,
+        "learning_rate": 0.05,
+        "n_estimators": 250,
+        "reg_lambda": 0.0,
+        "colsample_bytree": 0.8,
+        "subsample": 0.85,
+        "max_depth": 8,
+        "subsample_freq": 1
+      },
+      "best_janjun_cv_mape": 12.349134757458403,
+      "default_janjun_cv_mape": 12.422185600188918,
+      "top5": [
+        {
+          "i": 19,
+          "params": {
+            "num_leaves": 31,
+            "min_child_samples": 10,
+            "learning_rate": 0.05,
+            "n_estimators": 250,
+            "reg_lambda": 0.0,
+            "colsample_bytree": 0.8,
+            "subsample": 0.85,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 12.349134757458403
+        },
+        {
+          "i": 24,
+          "params": {
+            "num_leaves": 24,
+            "min_child_samples": 10,
+            "learning_rate": 0.1,
+            "n_estimators": 150,
+            "reg_lambda": 1.0,
+            "colsample_bytree": 0.6,
+            "subsample": 0.85,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 12.463250948927312
+        },
+        {
+          "i": 28,
+          "params": {
+            "num_leaves": 24,
+            "min_child_samples": 10,
+            "learning_rate": 0.1,
+            "n_estimators": 250,
+            "reg_lambda": 5.0,
+            "colsample_bytree": 0.6,
+            "subsample": 0.85,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 12.480069141266222
+        },
+        {
+          "i": 2,
+          "params": {
+            "num_leaves": 16,
+            "min_child_samples": 5,
+            "learning_rate": 0.1,
+            "n_estimators": 200,
+            "reg_lambda": 5.0,
+            "colsample_bytree": 0.8,
+            "subsample": 0.7,
+            "max_depth": 8,
+            "subsample_freq": 1
+          },
+          "janjun_cv_mape": 12.484036830672776
+        },
+        {
+          "i": 8,
+          "params": {
+            "num_leaves": 16,
+            "min_child_samples": 10,
+            "learning_rate": 0.1,
+            "n_estimators": 200,
+            "reg_lambda": 0.0,
+            "colsample_bytree": 0.8,
+            "subsample": 1.0,
+            "max_depth": -1
+          },
+          "janjun_cv_mape": 12.518931830852889
+        }
+      ],
+      "jul_aug": {
+        "default": 12.633656295264089,
+        "tuned": 12.409648921798647,
+        "n_test": 888
+      },
+      "full_5fold_cv": {
+        "default": 12.196035208792058,
+        "tuned": 12.168709902622144,
+        "n": 4991
+      },
+      "adopted": true
+    }
+  },
+  "final_model": {
+    "params": {
+      "num_leaves": 31,
+      "min_child_samples": 10,
+      "learning_rate": 0.05,
+      "n_estimators": 250,
+      "reg_lambda": 0.0,
+      "colsample_bytree": 0.8,
+      "subsample": 0.85,
+      "max_depth": 8,
+      "subsample_freq": 1
+    },
+    "postcode_encoding": {
+      "mode": "raw",
+      "k": 0.5
+    },
+    "cv": {
+      "n": 4991,
+      "mae": 521987.60112898855,
+      "mape": 9.756076645760361,
+      "per_area": {
+        "Bromma-Västerled": {
+          "n": 434,
+          "mae": 503121.50670932356,
+          "mape": 10.756061759159875
+        },
+        "Brännkyrka-Skärholmen": {
+          "n": 50,
+          "mae": 359417.65529941826,
+          "mape": 16.34059130154642
+        },
+        "Centrala Stockholm": {
+          "n": 12,
+          "mae": 1354965.1285313517,
+          "mape": 15.945057403381577
+        },
+        "Enskede-Skarpnäck": {
+          "n": 544,
+          "mae": 373709.2302956812,
+          "mape": 9.930566826795618
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 396271.1820206021,
+          "mape": 8.407425224326644
+        },
+        "Farsta-Vantör": {
+          "n": 303,
+          "mae": 364806.74467520183,
+          "mape": 12.861882362755136
+        },
+        "Hägersten-Liljeholmen": {
+          "n": 749,
+          "mae": 458052.43605628447,
+          "mape": 10.334218224796778
+        },
+        "Hässelby-Vällingby": {
+          "n": 128,
+          "mae": 329643.30036495114,
+          "mape": 12.136884423577381
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 508525.3366277986,
+          "mape": 7.622402232024035
+        },
+        "Okänt (postnummer ej kartlagt)": {
+          "n": 24,
+          "mae": 1274207.3368183395,
+          "mape": 35.3854422777141
+        },
+        "Spånga-Kista": {
+          "n": 125,
+          "mae": 313424.38274812384,
+          "mape": 14.970585714851861
+        },
+        "Södermalm": {
+          "n": 737,
+          "mae": 566161.2351250236,
+          "mape": 8.621910923148048
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 682023.2762480353,
+          "mape": 7.769163062733673
+        },
+        "Östermalm": {
+          "n": 521,
+          "mae": 710136.3117074997,
+          "mape": 9.205672374084918
+        }
+      }
+    },
+    "time_split": {
+      "n": 888,
+      "mae": 528216.4341117542,
+      "mape": 10.101382904687886,
+      "per_area": {
+        "Bromma-Västerled": {
+          "n": 85,
+          "mae": 577642.1495456534,
+          "mape": 12.290006361072837
+        },
+        "Brännkyrka-Skärholmen": {
+          "n": 9,
+          "mae": 338887.1419502941,
+          "mape": 17.045473425119898
+        },
+        "Centrala Stockholm": {
+          "n": 1,
+          "mae": 1967834.2272044495,
+          "mape": 16.747509659390527
+        },
+        "Enskede-Skarpnäck": {
+          "n": 92,
+          "mae": 351067.8007815997,
+          "mape": 9.305637645281099
+        },
+        "Essingen": {
+          "n": 17,
+          "mae": 465981.3221073713,
+          "mape": 8.400373243420772
+        },
+        "Farsta-Vantör": {
+          "n": 62,
+          "mae": 334142.06933379243,
+          "mape": 13.096609555003658
+        },
+        "Hägersten-Liljeholmen": {
+          "n": 120,
+          "mae": 410094.0125708055,
+          "mape": 10.66197152694245
+        },
+        "Hässelby-Vällingby": {
+          "n": 32,
+          "mae": 449759.4090790307,
+          "mape": 14.263848685285724
+        },
+        "Kungsholmen": {
+          "n": 107,
+          "mae": 448856.45151205285,
+          "mape": 7.6464454731658344
+        },
+        "Okänt (postnummer ej kartlagt)": {
+          "n": 5,
+          "mae": 516823.2933345394,
+          "mape": 15.085443197512106
+        },
+        "Spånga-Kista": {
+          "n": 28,
+          "mae": 213045.45869113662,
+          "mape": 12.552268596426511
+        },
+        "Södermalm": {
+          "n": 125,
+          "mae": 518492.65499586996,
+          "mape": 7.7057707002560205
+        },
+        "Vasastan-Norrmalm": {
+          "n": 98,
+          "mae": 708673.2547659678,
+          "mape": 7.996919976432085
+        },
+        "Östermalm": {
+          "n": 107,
+          "mae": 930466.2688437767,
+          "mape": 11.368656715617856
+        }
+      },
+      "n_train": 4103
+    }
+  },
+  "v2_per_area_cv": {
+    "Bromma-Västerled": {
+      "n": 434,
+      "mae": 609743.1267932216,
+      "mape": 12.964029255269521
+    },
+    "Brännkyrka-Skärholmen": {
+      "n": 50,
+      "mae": 393345.8018053336,
+      "mape": 18.026803324171507
+    },
+    "Centrala Stockholm": {
+      "n": 12,
+      "mae": 1501924.5501400856,
+      "mape": 18.325731482772937
+    },
+    "Enskede-Skarpnäck": {
+      "n": 544,
+      "mae": 507401.84463378077,
+      "mape": 13.641500419798923
+    },
+    "Essingen": {
+      "n": 77,
+      "mae": 496989.36626894,
+      "mape": 10.201282740720915
+    },
+    "Farsta-Vantör": {
+      "n": 303,
+      "mae": 434259.3993758332,
+      "mape": 15.556130140084647
+    },
+    "Hägersten-Liljeholmen": {
+      "n": 749,
+      "mae": 734243.5784675333,
+      "mape": 16.861987513432155
+    },
+    "Hässelby-Vällingby": {
+      "n": 128,
+      "mae": 346050.9611975852,
+      "mape": 12.716558472078704
+    },
+    "Kungsholmen": {
+      "n": 644,
+      "mae": 594070.8080793893,
+      "mape": 9.14187560114468
+    },
+    "Okänt (postnummer ej kartlagt)": {
+      "n": 24,
+      "mae": 1280685.8348946562,
+      "mape": 35.156505107548774
+    },
+    "Spånga-Kista": {
+      "n": 125,
+      "mae": 295777.95870531304,
+      "mape": 14.564799868890091
+    },
+    "Södermalm": {
+      "n": 737,
+      "mae": 658281.6554058227,
+      "mape": 10.248666625640606
+    },
+    "Vasastan-Norrmalm": {
+      "n": 643,
+      "mae": 717411.9294645154,
+      "mape": 8.260012918113329
+    },
+    "Östermalm": {
+      "n": 521,
+      "mae": 851665.4952412719,
+      "mape": 11.181187584000995
+    }
+  },
+  "conformal_interval_evaluation": {
+    "method": "time+area-aware split conformal on log(price_per_sqm): train Jan-May, calibrate q per area on June (>=30 rows) else pooled June q, coverage on held-out Jul-Aug",
+    "target_coverage": 0.9,
+    "n_train": 3445,
+    "n_calib": 658,
+    "n_test": 888,
+    "q_overall_log": 0.21608044750203545,
+    "smearing_factor_jan_may_model": 1.0036033714246102,
+    "empirical_coverage_overall": 0.8851351351351351,
+    "mape_jul_aug_jan_may_model": 10.416042278810036,
+    "per_area": {
+      "Bromma-Västerled": {
+        "n_test": 85,
+        "empirical_coverage": 0.8470588235294118,
+        "q_log": 0.2207391893950943,
+        "q_source": "area_specific"
+      },
+      "Brännkyrka-Skärholmen": {
+        "n_test": 9,
+        "empirical_coverage": 0.6666666666666666,
+        "q_log": 0.21608044750203545,
+        "q_source": "pooled_fallback"
+      },
+      "Centrala Stockholm": {
+        "n_test": 1,
+        "empirical_coverage": 1.0,
+        "q_log": 0.21608044750203545,
+        "q_source": "pooled_fallback"
+      },
+      "Enskede-Skarpnäck": {
+        "n_test": 92,
+        "empirical_coverage": 0.9347826086956522,
+        "q_log": 0.2309566775567502,
+        "q_source": "area_specific"
+      },
+      "Essingen": {
+        "n_test": 17,
+        "empirical_coverage": 1.0,
+        "q_log": 0.21608044750203545,
+        "q_source": "pooled_fallback"
+      },
+      "Farsta-Vantör": {
+        "n_test": 62,
+        "empirical_coverage": 0.9354838709677419,
+        "q_log": 0.26570658434448546,
+        "q_source": "area_specific"
+      },
+      "Hägersten-Liljeholmen": {
+        "n_test": 120,
+        "empirical_coverage": 0.9,
+        "q_log": 0.2230203518073699,
+        "q_source": "area_specific"
+      },
+      "Hässelby-Vällingby": {
+        "n_test": 32,
+        "empirical_coverage": 0.8125,
+        "q_log": 0.21608044750203545,
+        "q_source": "pooled_fallback"
+      },
+      "Kungsholmen": {
+        "n_test": 107,
+        "empirical_coverage": 0.8598130841121495,
+        "q_log": 0.1699740831786372,
+        "q_source": "area_specific"
+      },
+      "Okänt (postnummer ej kartlagt)": {
+        "n_test": 5,
+        "empirical_coverage": 0.8,
+        "q_log": 0.21608044750203545,
+        "q_source": "pooled_fallback"
+      },
+      "Spånga-Kista": {
+        "n_test": 28,
+        "empirical_coverage": 0.7142857142857143,
+        "q_log": 0.21608044750203545,
+        "q_source": "pooled_fallback"
+      },
+      "Södermalm": {
+        "n_test": 125,
+        "empirical_coverage": 0.92,
+        "q_log": 0.19743655398685078,
+        "q_source": "area_specific"
+      },
+      "Vasastan-Norrmalm": {
+        "n_test": 98,
+        "empirical_coverage": 0.8775510204081632,
+        "q_log": 0.13340620998347957,
+        "q_source": "area_specific"
+      },
+      "Östermalm": {
+        "n_test": 107,
+        "empirical_coverage": 0.8878504672897196,
+        "q_log": 0.23052962620740128,
+        "q_source": "area_specific"
+      }
+    },
+    "q_per_area_log": {
+      "Bromma-Västerled": 0.2207391893950943,
+      "Brännkyrka-Skärholmen": 0.21608044750203545,
+      "Centrala Stockholm": 0.21608044750203545,
+      "Enskede-Skarpnäck": 0.2309566775567502,
+      "Essingen": 0.21608044750203545,
+      "Farsta-Vantör": 0.26570658434448546,
+      "Hägersten-Liljeholmen": 0.2230203518073699,
+      "Hässelby-Vällingby": 0.21608044750203545,
+      "Kungsholmen": 0.1699740831786372,
+      "Okänt (postnummer ej kartlagt)": 0.21608044750203545,
+      "Spånga-Kista": 0.21608044750203545,
+      "Södermalm": 0.19743655398685078,
+      "Vasastan-Norrmalm": 0.13340620998347957,
+      "Östermalm": 0.23052962620740128
+    },
+    "q_per_area_source": {
+      "Bromma-Västerled": "area_specific",
+      "Brännkyrka-Skärholmen": "pooled_fallback",
+      "Centrala Stockholm": "pooled_fallback",
+      "Enskede-Skarpnäck": "area_specific",
+      "Essingen": "pooled_fallback",
+      "Farsta-Vantör": "area_specific",
+      "Hägersten-Liljeholmen": "area_specific",
+      "Hässelby-Vällingby": "pooled_fallback",
+      "Kungsholmen": "area_specific",
+      "Okänt (postnummer ej kartlagt)": "pooled_fallback",
+      "Spånga-Kista": "pooled_fallback",
+      "Södermalm": "area_specific",
+      "Vasastan-Norrmalm": "area_specific",
+      "Östermalm": "area_specific"
+    }
+  },
+  "conformal_v2_config_same_protocol": {
+    "empirical_coverage_overall": 0.875,
+    "q_overall_log": 0.2648059161388518,
+    "n_test": 888,
+    "mape_jul_aug_jan_may_model": 13.028251973475346
+  },
+  "production_model": {
+    "file": "model.json",
+    "postcode_encoding_file": "postcode_encoding.json",
+    "n_trees": 250,
+    "round_sig_figs": 6,
+    "json_bytes": 2742957,
+    "postcode_encoding_json_bytes": 13063,
+    "smearing_factor": 1.004472992673499,
+    "max_abs_diff_native_vs_exported_log_pred_first_200_rows": 4.831785189729487e-05,
+    "back_transform": "predicted_total_price = exp(model_log_pred) * smearing_factor * living_area",
+    "interval": "bounds = exp(model_log_pred +/- q_log_for_area) * smearing_factor * living_area; q from conformal_interval_evaluation.q_per_area_log, fallback q_overall_log",
+    "inputs_to_booster_in_order": [
+      "num__living_area",
+      "num__number_of_rooms",
+      "num__apartment_floor_clean",
+      "num__build_year_clean",
+      "num__fee_per_sqm",
+      "num__postcode_delta",
+      "ind__apartment_floor_missing",
+      "ind__build_year_missing",
+      "ind__monthly_fee_missing",
+      "cat__omrade_Bromma-Västerled",
+      "cat__omrade_Brännkyrka-Skärholmen",
+      "cat__omrade_Centrala Stockholm",
+      "cat__omrade_Enskede-Skarpnäck",
+      "cat__omrade_Essingen",
+      "cat__omrade_Farsta-Vantör",
+      "cat__omrade_Hägersten-Liljeholmen",
+      "cat__omrade_Hässelby-Vällingby",
+      "cat__omrade_Kungsholmen",
+      "cat__omrade_Okänt (postnummer ej kartlagt)",
+      "cat__omrade_Spånga-Kista",
+      "cat__omrade_Södermalm",
+      "cat__omrade_Vasastan-Norrmalm",
+      "cat__omrade_Östermalm",
+      "cat__elevator_clean_ja",
+      "cat__elevator_clean_nej",
+      "cat__elevator_clean_okant",
+      "cat__balcony_clean_ja",
+      "cat__balcony_clean_nej",
+      "cat__balcony_clean_okant"
+    ]
+  },
+  "effects_fee_per_sqm": {
+    "fee_per_sqm_per_kr_beta_log": -0.0024470683054306232,
+    "fee_per_sqm_p_value": 1.850689376900208e-42,
+    "fee_per_sqm_ci_log": [
+      -0.002795045101866834,
+      -0.0020990915089944126
+    ],
+    "n_ols": 4991
+  },
+  "effects_vs_v2": {
+    "same_top_level_keys": true,
+    "ids_only_in_v3": [
+      "fee_per_sqm+10"
+    ],
+    "ids_only_in_v2": [
+      "fee_per_sqm+100"
+    ],
+    "v2_fee_per_sqm+100": {
+      "id": "fee_per_sqm+100",
+      "label_sv": "100 kr/m² högre avgift",
+      "effekt_procent": 9.6,
+      "ci_low_procent": 2.83,
+      "ci_high_procent": 16.8,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4961,
+      "signifikant": true
+    },
+    "v3_fee_per_sqm+10": {
+      "id": "fee_per_sqm+10",
+      "label_sv": "10 kr/m² högre månadsavgift",
+      "effekt_procent": -2.42,
+      "ci_low_procent": -2.76,
+      "ci_high_procent": -2.08,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4961,
+      "signifikant": true
+    },
+    "v2_vs_v3_other_effects": {
+      "rooms+1": {
+        "v2": 5.36,
+        "v3": 4.36
+      },
+      "floor+1": {
+        "v2": 1.7,
+        "v3": 1.64
+      },
+      "build_year+10": {
+        "v2": -1.4,
+        "v3": -1.52
+      },
+      "fee_per_sqm+10": {
+        "v2": null,
+        "v3": -2.42
+      },
+      "boarea+10": {
+        "v2": 1.35,
+        "v3": -2.33
+      },
+      "elevator=nej": {
+        "v2": -2.5,
+        "v3": -2.41
+      },
+      "elevator=okant": {
+        "v2": 6.55,
+        "v3": 7.22
+      },
+      "balcony=nej": {
+        "v2": -2.87,
+        "v3": -2.65
+      },
+      "balcony=okant": {
+        "v2": -1.45,
+        "v3": -1.12
+      }
+    }
+  },
+  "regional_method": {
+    "design_variants_jul_aug_and_cv": {
+      "pooled | fee=yes | 150 trees x 15 leaves": {
+        "jul_aug_mape_train_jan_may": 26.16269422494801,
+        "n_test": 882,
+        "cv_mape": 28.522739820171523,
+        "cv_n": 4955,
+        "booster_json_bytes": 775887
+      },
+      "pooled | fee=no | 150 trees x 15 leaves": {
+        "jul_aug_mape_train_jan_may": 25.862659304856468,
+        "n_test": 882,
+        "cv_mape": 27.675385787338886,
+        "cv_n": 4955,
+        "booster_json_bytes": 774879
+      },
+      "area_relative | fee=yes | 60 trees x 15 leaves": {
+        "jul_aug_mape_train_jan_may": 14.889654017427517,
+        "n_test": 882,
+        "cv_mape": 14.888187350418386,
+        "cv_n": 4955,
+        "booster_json_bytes": 311899
+      },
+      "area_relative | fee=yes | 150 trees x 15 leaves": {
+        "jul_aug_mape_train_jan_may": 14.483429813290815,
+        "n_test": 882,
+        "cv_mape": 14.491262668723278,
+        "cv_n": 4955,
+        "booster_json_bytes": 777087
+      },
+      "area_relative | fee=yes | 300 trees x 31 leaves": {
+        "jul_aug_mape_train_jan_may": 14.457613985929202,
+        "n_test": 882,
+        "cv_mape": 14.366337859155085,
+        "cv_n": 4955,
+        "booster_json_bytes": 3266027
+      },
+      "area_relative | fee=no | 60 trees x 15 leaves": {
+        "jul_aug_mape_train_jan_may": 15.595063094460052,
+        "n_test": 882,
+        "cv_mape": 15.258805069988773,
+        "cv_n": 4955,
+        "booster_json_bytes": 311713
+      },
+      "area_relative | fee=no | 150 trees x 15 leaves": {
+        "jul_aug_mape_train_jan_may": 15.354801335888752,
+        "n_test": 882,
+        "cv_mape": 15.011663837016522,
+        "cv_n": 4955,
+        "booster_json_bytes": 777271
+      },
+      "area_relative | fee=no | 300 trees x 31 leaves": {
+        "jul_aug_mape_train_jan_may": 15.456217699284819,
+        "n_test": 882,
+        "cv_mape": 14.99237297716111,
+        "cv_n": 4955,
+        "booster_json_bytes": 3265406
+      }
+    },
+    "monotone_constraints": {
+      "cat__elevator_clean_ja": 1,
+      "cat__elevator_clean_nej": -1,
+      "cat__balcony_clean_ja": 1,
+      "cat__balcony_clean_nej": -1
+    },
+    "marginal_effects_on_r_UNCONSTRAINED_for_reference": {
+      "elevator_clean: nej vs ja": 0.029916189030206652,
+      "balcony_clean: nej vs ja": -0.009887084098962218,
+      "byggar 1915": 1.123102609528393,
+      "byggar 1945": 1.0021349708504887,
+      "byggar 1975": 0.9273681242620838,
+      "byggar 2000": 0.9732293090635259,
+      "byggar 2018": 1.036971684509382,
+      "avgift 30 kr/m2/man": 1.075469229863847,
+      "avgift 45 kr/m2/man": 1.0496628495929432,
+      "avgift 60 kr/m2/man": 1.0029282745809969,
+      "avgift 75 kr/m2/man": 0.9883970994008027,
+      "avgift 90 kr/m2/man": 0.9533913890726207
+    },
+    "simulation": {
+      "with_fee": {
+        "q_regional_log": 0.27786389769737013,
+        "n_train": 3426,
+        "n_calib": 647,
+        "n_test": 882,
+        "coverage_overall": 0.8775510204081632,
+        "mape_jul_aug_jan_may_model": 14.483429813290815,
+        "mape_jul_aug_unclipped": 14.483429813290815,
+        "median_abs_log_error": 0.1076042257865315,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 85,
+            "coverage": 0.8470588235294118,
+            "mape": 15.192666365372872
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 9,
+            "coverage": 1.0,
+            "mape": 9.837785995918447
+          },
+          "Enskede-Skarpnäck": {
+            "n": 92,
+            "coverage": 0.8586956521739131,
+            "mape": 15.893952484323503
+          },
+          "Essingen": {
+            "n": 17,
+            "coverage": 1.0,
+            "mape": 9.025034494246508
+          },
+          "Farsta-Vantör": {
+            "n": 62,
+            "coverage": 0.7903225806451613,
+            "mape": 17.966619823409427
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 120,
+            "coverage": 0.8,
+            "mape": 18.756009945047058
+          },
+          "Hässelby-Vällingby": {
+            "n": 32,
+            "coverage": 0.90625,
+            "mape": 11.971154698154177
+          },
+          "Kungsholmen": {
+            "n": 107,
+            "coverage": 0.9158878504672897,
+            "mape": 14.190710027358747
+          },
+          "Spånga-Kista": {
+            "n": 28,
+            "coverage": 0.8214285714285714,
+            "mape": 17.502263165147777
+          },
+          "Södermalm": {
+            "n": 125,
+            "coverage": 0.936,
+            "mape": 10.448814015900075
+          },
+          "Vasastan-Norrmalm": {
+            "n": 98,
+            "coverage": 0.9591836734693877,
+            "mape": 9.512719626747472
+          },
+          "Östermalm": {
+            "n": 107,
+            "coverage": 0.8504672897196262,
+            "mape": 16.675261454059225
+          }
+        },
+        "n_excluded_okant_or_small_area": 6
+      },
+      "without_fee": {
+        "q_regional_log": 0.2899845061577698,
+        "n_train": 3426,
+        "n_calib": 647,
+        "n_test": 882,
+        "coverage_overall": 0.8900226757369615,
+        "mape_jul_aug_jan_may_model": 15.354801335888752,
+        "mape_jul_aug_unclipped": 15.354801335888752,
+        "median_abs_log_error": 0.11721821104910257,
+        "per_area": {
+          "Bromma-Västerled": {
+            "n": 85,
+            "coverage": 0.8705882352941177,
+            "mape": 15.568376282131593
+          },
+          "Brännkyrka-Skärholmen": {
+            "n": 9,
+            "coverage": 0.8888888888888888,
+            "mape": 17.525432252405587
+          },
+          "Enskede-Skarpnäck": {
+            "n": 92,
+            "coverage": 0.8695652173913043,
+            "mape": 17.150445992430967
+          },
+          "Essingen": {
+            "n": 17,
+            "coverage": 1.0,
+            "mape": 9.886938975366597
+          },
+          "Farsta-Vantör": {
+            "n": 62,
+            "coverage": 0.8225806451612904,
+            "mape": 18.070325737394995
+          },
+          "Hägersten-Liljeholmen": {
+            "n": 120,
+            "coverage": 0.8333333333333334,
+            "mape": 19.299960828211546
+          },
+          "Hässelby-Vällingby": {
+            "n": 32,
+            "coverage": 0.875,
+            "mape": 14.394967069981657
+          },
+          "Kungsholmen": {
+            "n": 107,
+            "coverage": 0.9439252336448598,
+            "mape": 13.266429558073273
+          },
+          "Spånga-Kista": {
+            "n": 28,
+            "coverage": 0.7857142857142857,
+            "mape": 21.915793984092378
+          },
+          "Södermalm": {
+            "n": 125,
+            "coverage": 0.944,
+            "mape": 11.017006754943703
+          },
+          "Vasastan-Norrmalm": {
+            "n": 98,
+            "coverage": 0.9897959183673469,
+            "mape": 9.59050204688287
+          },
+          "Östermalm": {
+            "n": 107,
+            "coverage": 0.8317757009345794,
+            "mape": 19.334908687308076
+          }
+        },
+        "n_excluded_okant_or_small_area": 6
+      }
+    },
+    "simulation_cv_with_fee": {
+      "n": 4955,
+      "mae": 747205.7184597694,
+      "mape": 14.491262668723278,
+      "per_area": {
+        "Bromma-Västerled": {
+          "n": 434,
+          "mae": 689629.9157643612,
+          "mape": 15.003661858741093
+        },
+        "Brännkyrka-Skärholmen": {
+          "n": 50,
+          "mae": 424721.4626785327,
+          "mape": 19.400926004134043
+        },
+        "Enskede-Skarpnäck": {
+          "n": 544,
+          "mae": 638815.1166493064,
+          "mape": 16.99379306109593
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 502320.10213825066,
+          "mape": 10.206241656427263
+        },
+        "Farsta-Vantör": {
+          "n": 303,
+          "mae": 493382.89738675294,
+          "mape": 17.348817026132863
+        },
+        "Hägersten-Liljeholmen": {
+          "n": 749,
+          "mae": 781797.4458972325,
+          "mape": 18.029733856594536
+        },
+        "Hässelby-Vällingby": {
+          "n": 128,
+          "mae": 334160.8436784453,
+          "mape": 12.59966889760008
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 717251.9690029935,
+          "mape": 11.838760482237106
+        },
+        "Spånga-Kista": {
+          "n": 125,
+          "mae": 420444.6175925566,
+          "mape": 18.397609222954944
+        },
+        "Södermalm": {
+          "n": 737,
+          "mae": 749470.8844889854,
+          "mape": 11.820117931598576
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 942904.2562612282,
+          "mape": 11.541961145351806
+        },
+        "Östermalm": {
+          "n": 521,
+          "mae": 1045542.3998334479,
+          "mape": 15.089397834861076
+        }
+      }
+    },
+    "simulation_cv_without_fee": {
+      "n": 4955,
+      "mae": 771829.8123777257,
+      "mape": 15.011663837016522,
+      "per_area": {
+        "Bromma-Västerled": {
+          "n": 434,
+          "mae": 700057.4270951074,
+          "mape": 15.45325769969451
+        },
+        "Brännkyrka-Skärholmen": {
+          "n": 50,
+          "mae": 452327.20604559564,
+          "mape": 21.425804336964028
+        },
+        "Enskede-Skarpnäck": {
+          "n": 544,
+          "mae": 658341.8899049965,
+          "mape": 17.75152706041922
+        },
+        "Essingen": {
+          "n": 77,
+          "mae": 520218.304592191,
+          "mape": 10.185684488322194
+        },
+        "Farsta-Vantör": {
+          "n": 303,
+          "mae": 505690.57576688856,
+          "mape": 17.982295783889224
+        },
+        "Hägersten-Liljeholmen": {
+          "n": 749,
+          "mae": 824154.4172075675,
+          "mape": 18.655910530031143
+        },
+        "Hässelby-Vällingby": {
+          "n": 128,
+          "mae": 377121.04978614766,
+          "mape": 14.368822372407209
+        },
+        "Kungsholmen": {
+          "n": 644,
+          "mae": 736221.9001961559,
+          "mape": 12.033141370356711
+        },
+        "Spånga-Kista": {
+          "n": 125,
+          "mae": 455369.69894417154,
+          "mape": 20.914929625696136
+        },
+        "Södermalm": {
+          "n": 737,
+          "mae": 777886.5617488403,
+          "mape": 12.195231225769561
+        },
+        "Vasastan-Norrmalm": {
+          "n": 643,
+          "mae": 934707.5378555682,
+          "mape": 11.479361200159412
+        },
+        "Östermalm": {
+          "n": 521,
+          "mae": 1104847.9517184722,
+          "mape": 15.680836935577938
+        }
+      }
+    },
+    "production_general_model": {
+      "formula": "r(x) = clip(exp(g(x)) * smearing_factor / normaliser, clip_min, clip_max); g(x) = booster output (log of price per m2 relative to the omrade average)",
+      "target": "log(price_per_sq_meter / mean price_per_sq_meter of the row's omrade), no location features",
+      "smearing_factor": 1.013949392503442,
+      "normaliser": 1.0,
+      "clip_min": 0.5028831823466812,
+      "clip_max": 1.4440045116105358,
+      "mean_r_training_rows": 0.9971088116818013,
+      "n_training_rows": 4955,
+      "input_ranges_training": {
+        "living_area": {
+          "min": 16.0,
+          "p01": 21.0,
+          "p99": 141.0,
+          "max": 245.0
+        },
+        "number_of_rooms": {
+          "min": 1.0,
+          "p01": 1.0,
+          "p99": 5.0,
+          "max": 8.0
+        },
+        "apartment_floor_clean": {
+          "min": -3.0,
+          "p01": 0.0,
+          "p99": 11.0,
+          "max": 25.0
+        },
+        "build_year_clean": {
+          "min": 1500.0,
+          "p01": 1881.0,
+          "p99": 2025.0,
+          "max": 2028.0
+        },
+        "fee_per_sqm": {
+          "min": 4.534090909090909,
+          "p01": 23.63823529411765,
+          "p99": 124.42260869565206,
+          "max": 249.1818181818182
+        }
+      },
+      "json_bytes": 779086
+    },
+    "production_general_model_nofee": {
+      "formula": "r(x) = clip(exp(g(x)) * smearing_factor / normaliser, clip_min, clip_max); g(x) = booster output (log of price per m2 relative to the omrade average)",
+      "target": "log(price_per_sq_meter / mean price_per_sq_meter of the row's omrade), no location features",
+      "smearing_factor": 1.0152011972114323,
+      "normaliser": 1.0,
+      "clip_min": 0.6343226913694086,
+      "clip_max": 1.4120164822628751,
+      "mean_r_training_rows": 0.9978793300005168,
+      "n_training_rows": 4955,
+      "input_ranges_training": {
+        "living_area": {
+          "min": 16.0,
+          "p01": 21.0,
+          "p99": 141.0,
+          "max": 245.0
+        },
+        "number_of_rooms": {
+          "min": 1.0,
+          "p01": 1.0,
+          "p99": 5.0,
+          "max": 8.0
+        },
+        "apartment_floor_clean": {
+          "min": -3.0,
+          "p01": 0.0,
+          "p99": 11.0,
+          "max": 25.0
+        },
+        "build_year_clean": {
+          "min": 1500.0,
+          "p01": 1881.0,
+          "p99": 2025.0,
+          "max": 2028.0
+        },
+        "fee_per_sqm": {
+          "min": 4.534090909090909,
+          "p01": 23.63823529411765,
+          "p99": 124.42260869565206,
+          "max": 249.1818181818182
+        }
+      },
+      "json_bytes": 779202
+    },
+    "marginal_effects_on_r_with_fee": {
+      "elevator_clean: nej vs ja": 0.0,
+      "balcony_clean: nej vs ja": -0.006716558623527269,
+      "byggar 1915": 1.123351830693331,
+      "byggar 1945": 1.0117130875980231,
+      "byggar 1975": 0.9229268790280971,
+      "byggar 2000": 0.9622991369628356,
+      "byggar 2018": 1.0216705936348656,
+      "avgift 30 kr/m2/man": 1.064445000512426,
+      "avgift 45 kr/m2/man": 1.0446680887752515,
+      "avgift 60 kr/m2/man": 1.002666234309936,
+      "avgift 75 kr/m2/man": 0.9923913284707595,
+      "avgift 90 kr/m2/man": 0.9522804532938397
+    },
+    "average_definition_sensitivity": {
+      "mean_of_sale_ppsm": 91655.45021037868,
+      "total_price_over_total_area": 90759.8946898268,
+      "median_ppsm": 90741.0,
+      "n": 4991,
+      "period": "2026-01-01 to 2026-08-31 (8 months)"
+    },
+    "n_general_fixtures": 52,
+    "q_regional_log": 0.27786389769737013
+  },
+  "sizes_bytes": {
+    "model.json": 2742957,
+    "postcode_encoding.json": 13063,
+    "general_model.json": 779086,
+    "general_model_nofee.json": 779202,
+    "model_plus_general_plus_postcode": 3535106
+  }
+}

@@ -1,0 +1,1096 @@
+[
+  {
+    "input": {
+      "postnummer": "16736",
+      "omrade": "Bromma-Västerled",
+      "boarea": 43.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2895.0,
+      "vaning": 3.0,
+      "byggar": 1939.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.105017,
+      "predicted_log_price_per_sqm": 11.186092514803985,
+      "predicted_total_price_sek": 3115049.649967272,
+      "interval_lower_sek": 2498038.694340225,
+      "interval_upper_sek": 3884461.174979556,
+      "q_log_used": 0.2207391893950943
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12737",
+      "omrade": "Brännkyrka-Skärholmen",
+      "boarea": 36.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2629.0,
+      "vaning": 1.0,
+      "byggar": 1965.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.018409,
+      "predicted_log_price_per_sqm": 10.41789391322399,
+      "predicted_total_price_sek": 1209691.432094912,
+      "interval_lower_sek": 974612.6829031305,
+      "interval_upper_sek": 1501471.6990188053,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11131",
+      "omrade": "Centrala Stockholm",
+      "boarea": 66.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4824.0,
+      "vaning": 3.0,
+      "byggar": 1500.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.101071,
+      "predicted_log_price_per_sqm": 11.834290761953994,
+      "predicted_total_price_sek": 9142171.731157705,
+      "interval_lower_sek": 7365577.933402843,
+      "interval_upper_sek": 11347283.90870016,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12152",
+      "omrade": "Enskede-Skarpnäck",
+      "boarea": 53.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3204.0,
+      "vaning": 1.0,
+      "byggar": 1947.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.141122,
+      "predicted_log_price_per_sqm": 11.137175207223986,
+      "predicted_total_price_sek": 3656182.540569405,
+      "interval_lower_sek": 2902182.1043750336,
+      "interval_upper_sek": 4606075.804069224,
+      "q_log_used": 0.2309566775567502
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11261",
+      "omrade": "Essingen",
+      "boarea": 34.0,
+      "antalRum": 1.0,
+      "manadsavgift": 3431.0,
+      "vaning": 3.0,
+      "byggar": 1938.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": -0.000912,
+      "predicted_log_price_per_sqm": 11.326314604453987,
+      "predicted_total_price_sek": 2833825.5681645796,
+      "interval_lower_sek": 2283129.6201589303,
+      "interval_upper_sek": 3517350.605010454,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12476",
+      "omrade": "Farsta-Vantör",
+      "boarea": 27.5,
+      "antalRum": 1.0,
+      "manadsavgift": 2448.0,
+      "vaning": 3.0,
+      "byggar": 1960.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.001683,
+      "predicted_log_price_per_sqm": 10.854813351673997,
+      "predicted_total_price_sek": 1430396.6979519646,
+      "interval_lower_sek": 1096633.719458809,
+      "interval_upper_sek": 1865741.2016489939,
+      "q_log_used": 0.26570658434448546
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11757",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 74.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4770.0,
+      "vaning": 3.0,
+      "byggar": 2017.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.317691,
+      "predicted_log_price_per_sqm": 11.455774662154,
+      "predicted_total_price_sek": 7020203.568417341,
+      "interval_lower_sek": 5616854.805851057,
+      "interval_upper_sek": 8774173.420092931,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "16260",
+      "omrade": "Hässelby-Vällingby",
+      "boarea": 24.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2049.0,
+      "vaning": 3.0,
+      "byggar": 1952.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.113554,
+      "predicted_log_price_per_sqm": 10.81839123644399,
+      "predicted_total_price_sek": 1203696.8475108638,
+      "interval_lower_sek": 969783.023033397,
+      "interval_upper_sek": 1494031.207285524,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11227",
+      "omrade": "Kungsholmen",
+      "boarea": 47.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2310.0,
+      "vaning": 1.0,
+      "byggar": 1901.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.145015,
+      "predicted_log_price_per_sqm": 11.73585379450399,
+      "predicted_total_price_sek": 5900008.8848847095,
+      "interval_lower_sek": 4977758.919800285,
+      "interval_upper_sek": 6993127.9120916445,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12364",
+      "omrade": "Okänt (postnummer ej kartlagt)",
+      "boarea": 46.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4032.0,
+      "vaning": 4.0,
+      "byggar": 2023.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.00933,
+      "predicted_log_price_per_sqm": 11.026393900603995,
+      "predicted_total_price_sek": 2840521.771627427,
+      "interval_lower_sek": 2288524.5536510926,
+      "interval_upper_sek": 3525661.947658328,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "16340",
+      "omrade": "Spånga-Kista",
+      "boarea": 68.0,
+      "antalRum": 3.0,
+      "manadsavgift": 5094.0,
+      "vaning": 2.0,
+      "byggar": 1961.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.054572,
+      "predicted_log_price_per_sqm": 10.206832353373994,
+      "predicted_total_price_sek": 1850197.7386946627,
+      "interval_lower_sek": 1490649.7096434997,
+      "interval_upper_sek": 2296469.552923694,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11662",
+      "omrade": "Södermalm",
+      "boarea": 45.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2512.0,
+      "vaning": 4.0,
+      "byggar": 1889.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.019385,
+      "predicted_log_price_per_sqm": 11.737707911763987,
+      "predicted_total_price_sek": 5659428.198679621,
+      "interval_lower_sek": 4645440.998145749,
+      "interval_upper_sek": 6894744.233926261,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11343",
+      "omrade": "Vasastan-Norrmalm",
+      "boarea": 86.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4405.0,
+      "vaning": 3.0,
+      "byggar": 1916.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": -0.064117,
+      "predicted_log_price_per_sqm": 11.892599474574016,
+      "predicted_total_price_sek": 12627781.041734789,
+      "interval_lower_sek": 11050691.67970536,
+      "interval_upper_sek": 14429943.270505592,
+      "q_log_used": 0.13340620998347957
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11444",
+      "omrade": "Östermalm",
+      "boarea": 58.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2877.0,
+      "vaning": 3.0,
+      "byggar": 1894.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.14374,
+      "predicted_log_price_per_sqm": 11.956606580273997,
+      "predicted_total_price_sek": 9079344.981679805,
+      "interval_lower_sek": 7210025.047044996,
+      "interval_upper_sek": 11433317.465400442,
+      "q_log_used": 0.23052962620740128
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11647",
+      "omrade": "Södermalm",
+      "boarea": 71.0,
+      "antalRum": 2.0,
+      "manadsavgift": 6422.0,
+      "vaning": null,
+      "byggar": 1997.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": -0.115715,
+      "predicted_log_price_per_sqm": 11.316918699179979,
+      "predicted_total_price_sek": 5862352.871024072,
+      "interval_lower_sek": 4812008.106933196,
+      "interval_upper_sek": 7141962.444927631,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12531",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 63.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4642.0,
+      "vaning": 2.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.227389,
+      "predicted_log_price_per_sqm": 10.843608499859982,
+      "predicted_total_price_sek": 3240396.461117249,
+      "interval_lower_sek": 2592636.5607646336,
+      "interval_upper_sek": 4049996.588077285,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11440",
+      "omrade": "Östermalm",
+      "boarea": 57.0,
+      "antalRum": 2.0,
+      "manadsavgift": null,
+      "vaning": 2.0,
+      "byggar": 1953.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.258057,
+      "predicted_log_price_per_sqm": 11.820068965383982,
+      "predicted_total_price_sek": 7784018.284201427,
+      "interval_lower_sek": 6181389.396370861,
+      "interval_upper_sek": 9802155.593749769,
+      "q_log_used": 0.23052962620740128
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11530",
+      "omrade": "Östermalm",
+      "boarea": 62.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4072.0,
+      "vaning": 3.0,
+      "byggar": 1974.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.003752,
+      "predicted_log_price_per_sqm": 11.52449182740399,
+      "predicted_total_price_sek": 6300182.952519141,
+      "interval_lower_sek": 5003056.605987094,
+      "interval_upper_sek": 7933611.062428022,
+      "q_log_used": 0.23052962620740128
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12629",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 39.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2990.0,
+      "vaning": 6.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.038334,
+      "predicted_log_price_per_sqm": 11.289983411903986,
+      "predicted_total_price_sek": 3134587.287357552,
+      "interval_lower_sek": 2507978.7926040348,
+      "interval_upper_sek": 3917751.4144214964,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11522",
+      "omrade": "Östermalm",
+      "boarea": 58.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2817.0,
+      "vaning": 3.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.239236,
+      "predicted_log_price_per_sqm": 11.872582100233986,
+      "predicted_total_price_sek": 8347629.2082285425,
+      "interval_lower_sek": 6628960.106286968,
+      "interval_upper_sek": 10511892.103858398,
+      "q_log_used": 0.23052962620740128
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11261",
+      "omrade": "Essingen",
+      "boarea": 37.0,
+      "antalRum": 2.0,
+      "manadsavgift": 1888.0,
+      "vaning": 1.0,
+      "byggar": 1938.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.000912,
+      "predicted_log_price_per_sqm": 11.365395191864,
+      "predicted_total_price_sek": 3206774.3775481903,
+      "interval_lower_sek": 2583603.468328147,
+      "interval_upper_sek": 3980255.4976263396,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12626",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 53.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4218.0,
+      "vaning": 2.0,
+      "byggar": 2022.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.074512,
+      "predicted_log_price_per_sqm": 11.18552396300399,
+      "predicted_total_price_sek": 3837297.4784110165,
+      "interval_lower_sek": 3070216.208552506,
+      "interval_upper_sek": 4796030.942967947,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11429",
+      "omrade": "Östermalm",
+      "boarea": 80.0,
+      "antalRum": 3.0,
+      "manadsavgift": 3454.0,
+      "vaning": 5.0,
+      "byggar": 1914.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.004765,
+      "predicted_log_price_per_sqm": 11.92808677892401,
+      "predicted_total_price_sek": 12171119.292384919,
+      "interval_lower_sek": 9665242.936107947,
+      "interval_upper_sek": 15326686.127676029,
+      "q_log_used": 0.23052962620740128
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11240",
+      "omrade": "Kungsholmen",
+      "boarea": 72.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4935.0,
+      "vaning": 5.0,
+      "byggar": 2026.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.075706,
+      "predicted_log_price_per_sqm": 11.68390631404398,
+      "predicted_total_price_sek": 8580780.64536384,
+      "interval_lower_sek": 7239490.351571587,
+      "interval_upper_sek": 10170577.334613994,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12059",
+      "omrade": "Enskede-Skarpnäck",
+      "boarea": 59.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4947.0,
+      "vaning": 1.0,
+      "byggar": null,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.075898,
+      "predicted_log_price_per_sqm": 11.076345227273993,
+      "predicted_total_price_sek": 3829886.360209809,
+      "interval_lower_sek": 3040063.6546609392,
+      "interval_upper_sek": 4824908.68559036,
+      "q_log_used": 0.2309566775567502
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11857",
+      "omrade": "Södermalm",
+      "boarea": 56.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3596.0,
+      "vaning": null,
+      "byggar": 1929.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.001377,
+      "predicted_log_price_per_sqm": 11.563735814653993,
+      "predicted_total_price_sek": 5918245.081410632,
+      "interval_lower_sek": 4857886.233926181,
+      "interval_upper_sek": 7210054.57044908,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11356",
+      "omrade": "Vasastan-Norrmalm",
+      "boarea": 136.0,
+      "antalRum": 4.0,
+      "manadsavgift": 5596.0,
+      "vaning": 4.0,
+      "byggar": 1907.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.041407,
+      "predicted_log_price_per_sqm": 11.815416313814008,
+      "predicted_total_price_sek": 18486184.3306782,
+      "interval_lower_sek": 16177436.296793818,
+      "interval_upper_sek": 21124423.22987487,
+      "q_log_used": 0.13340620998347957
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11863",
+      "omrade": "Södermalm",
+      "boarea": 34.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2069.0,
+      "vaning": 2.0,
+      "byggar": 2018.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.045652,
+      "predicted_log_price_per_sqm": 11.70369590940399,
+      "predicted_total_price_sek": 4133022.1492184508,
+      "interval_lower_sek": 3392517.7357499227,
+      "interval_upper_sek": 5035160.732079216,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11351",
+      "omrade": "Vasastan-Norrmalm",
+      "boarea": 41.0,
+      "antalRum": 2.0,
+      "manadsavgift": 1469.0,
+      "vaning": 2.0,
+      "byggar": 1946.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.019823,
+      "predicted_log_price_per_sqm": 11.697733834683998,
+      "predicted_total_price_sek": 4954312.26506974,
+      "interval_lower_sek": 4335565.935561004,
+      "interval_upper_sek": 5661362.411420555,
+      "q_log_used": 0.13340620998347957
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12941",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 68.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4774.0,
+      "vaning": 3.0,
+      "byggar": 2020.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.121325,
+      "predicted_log_price_per_sqm": 11.330621716153999,
+      "predicted_total_price_sek": 5692114.989304219,
+      "interval_lower_sek": 4554253.038610674,
+      "interval_upper_sek": 7114267.208425863,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11217",
+      "omrade": "Kungsholmen",
+      "boarea": 58.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3456.0,
+      "vaning": 3.0,
+      "byggar": 2010.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.253953,
+      "predicted_log_price_per_sqm": 11.246121302101992,
+      "predicted_total_price_sek": 4461641.614270572,
+      "interval_lower_sek": 3764227.609772736,
+      "interval_upper_sek": 5288268.393364434,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11528",
+      "omrade": "Östermalm",
+      "boarea": 88.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4851.0,
+      "vaning": 3.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": -0.20238,
+      "predicted_log_price_per_sqm": 11.564782700270005,
+      "predicted_total_price_sek": 9309840.652040403,
+      "interval_lower_sek": 7393064.6341395145,
+      "interval_upper_sek": 11723573.004643701,
+      "q_log_used": 0.23052962620740128
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11767",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 18.0,
+      "antalRum": 1.0,
+      "manadsavgift": 1234.0,
+      "vaning": 1.0,
+      "byggar": 1946.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.263128,
+      "predicted_log_price_per_sqm": 11.693335960404006,
+      "predicted_total_price_sek": 2165519.26705196,
+      "interval_lower_sek": 1732628.859514112,
+      "interval_upper_sek": 2706565.615724735,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11638",
+      "omrade": "Södermalm",
+      "boarea": 42.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3586.0,
+      "vaning": 1.0,
+      "byggar": 1929.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.072692,
+      "predicted_log_price_per_sqm": 11.66449908271398,
+      "predicted_total_price_sek": 4909249.906519537,
+      "interval_lower_sek": 4029670.4870661194,
+      "interval_upper_sek": 5980820.199075157,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11631",
+      "omrade": "Södermalm",
+      "boarea": 43.0,
+      "antalRum": 1.0,
+      "manadsavgift": 3454.0,
+      "vaning": 0.0,
+      "byggar": null,
+      "hiss": "okant",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.063416,
+      "predicted_log_price_per_sqm": 11.513166559403997,
+      "predicted_total_price_sek": 4320275.337281003,
+      "interval_lower_sek": 3546221.1853426252,
+      "interval_upper_sek": 5263286.753534847,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11262",
+      "omrade": "Essingen",
+      "boarea": 43.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2515.0,
+      "vaning": 15.0,
+      "byggar": 1935.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.002751,
+      "predicted_log_price_per_sqm": 11.484646599264005,
+      "predicted_total_price_sek": 4198801.702140187,
+      "interval_lower_sek": 3382850.6041530804,
+      "interval_upper_sek": 5211562.021760966,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11226",
+      "omrade": "Kungsholmen",
+      "boarea": 55.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2399.0,
+      "vaning": 3.0,
+      "byggar": 1909.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": -0.031017,
+      "predicted_log_price_per_sqm": 11.740319600814,
+      "predicted_total_price_sek": 6935167.779713569,
+      "interval_lower_sek": 5851108.6931109475,
+      "interval_upper_sek": 8220074.973039856,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12932",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 50.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3530.0,
+      "vaning": 2.0,
+      "byggar": 1946.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.011614,
+      "predicted_log_price_per_sqm": 11.154061039143988,
+      "predicted_total_price_sek": 3507966.430955718,
+      "interval_lower_sek": 2806718.9098506267,
+      "interval_upper_sek": 4384417.847303102,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11249",
+      "omrade": "Kungsholmen",
+      "boarea": 79.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4635.0,
+      "vaning": 5.0,
+      "byggar": 2017.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.019412,
+      "predicted_log_price_per_sqm": 11.705753176823986,
+      "predicted_total_price_sek": 9622975.206621654,
+      "interval_lower_sek": 8118776.022947283,
+      "interval_upper_sek": 11405863.588984529,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12626",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 51.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4109.0,
+      "vaning": 10.0,
+      "byggar": 2022.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.074512,
+      "predicted_log_price_per_sqm": 11.317560714203987,
+      "predicted_total_price_sek": 4213690.249327838,
+      "interval_lower_sek": 3371367.5246942346,
+      "interval_upper_sek": 5266463.945929717,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11771",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 54.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3798.0,
+      "vaning": null,
+      "byggar": 2018.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.180593,
+      "predicted_log_price_per_sqm": 11.303950926054,
+      "predicted_total_price_sek": 4401244.902212461,
+      "interval_lower_sek": 3521429.733453257,
+      "interval_upper_sek": 5500878.380513709,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12473",
+      "omrade": "Farsta-Vantör",
+      "boarea": 33.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2998.0,
+      "vaning": 7.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": -0.120499,
+      "predicted_log_price_per_sqm": 10.803621185829988,
+      "predicted_total_price_sek": 1630817.149489462,
+      "interval_lower_sek": 1250288.873682718,
+      "interval_upper_sek": 2127160.0756033305,
+      "q_log_used": 0.26570658434448546
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12032",
+      "omrade": "Södermalm",
+      "boarea": 93.5,
+      "antalRum": 4.0,
+      "manadsavgift": 6618.0,
+      "vaning": 6.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.185649,
+      "predicted_log_price_per_sqm": 11.452898535369998,
+      "predicted_total_price_sek": 8844647.132774713,
+      "interval_lower_sek": 7259971.31906538,
+      "interval_upper_sek": 10775219.276399381,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12629",
+      "omrade": "Hägersten-Liljeholmen",
+      "boarea": 63.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4830.0,
+      "vaning": 1.0,
+      "byggar": 2020.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.038334,
+      "predicted_log_price_per_sqm": 11.112000931213995,
+      "predicted_total_price_sek": 4237985.838189678,
+      "interval_lower_sek": 3390806.3904948644,
+      "interval_upper_sek": 5296829.690731785,
+      "q_log_used": 0.2230203518073699
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11218",
+      "omrade": "Kungsholmen",
+      "boarea": 63.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4680.0,
+      "vaning": 0.5,
+      "byggar": 2012.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.197275,
+      "predicted_log_price_per_sqm": 11.293063855699991,
+      "predicted_total_price_sek": 5079186.153238811,
+      "interval_lower_sek": 4285241.712835934,
+      "interval_upper_sek": 6020227.960998703,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11130",
+      "omrade": "Centrala Stockholm",
+      "boarea": 40.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3217.0,
+      "vaning": 2.0,
+      "byggar": 1640.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.00629,
+      "predicted_log_price_per_sqm": 11.740857326163988,
+      "predicted_total_price_sek": 5046471.271317629,
+      "interval_lower_sek": 4065792.957146904,
+      "interval_upper_sek": 6263691.378447632,
+      "q_log_used": 0.21608044750203545
+    }
+  },
+  {
+    "input": {
+      "postnummer": "12050",
+      "omrade": "Enskede-Skarpnäck",
+      "boarea": 54.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4576.0,
+      "vaning": 8.0,
+      "byggar": 2016.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.108923,
+      "predicted_log_price_per_sqm": 11.201725058654004,
+      "predicted_total_price_sek": 3973556.6125637535,
+      "interval_lower_sek": 3154105.344507133,
+      "interval_upper_sek": 5005905.139074035,
+      "q_log_used": 0.2309566775567502
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11821",
+      "omrade": "Södermalm",
+      "boarea": 102.0,
+      "antalRum": 4.0,
+      "manadsavgift": 5734.0,
+      "vaning": 4.0,
+      "byggar": 1905.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.096782,
+      "predicted_log_price_per_sqm": 11.882352992813999,
+      "predicted_total_price_sek": 14824456.256007215,
+      "interval_lower_sek": 12168391.301958924,
+      "interval_upper_sek": 18060275.82716647,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11622",
+      "omrade": "Södermalm",
+      "boarea": 61.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2053.0,
+      "vaning": 3.0,
+      "byggar": 1906.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.013237,
+      "predicted_log_price_per_sqm": 11.818048399934,
+      "predicted_total_price_sek": 8313450.328799625,
+      "interval_lower_sek": 6823947.868525699,
+      "interval_upper_sek": 10128075.082195846,
+      "q_log_used": 0.19743655398685078
+    }
+  },
+  {
+    "input": {
+      "postnummer": "11250",
+      "omrade": "Kungsholmen",
+      "boarea": 33.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3169.0,
+      "vaning": 0.0,
+      "byggar": 1938.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": -0.031914,
+      "predicted_log_price_per_sqm": 11.468906542234004,
+      "predicted_total_price_sek": 3172013.514452269,
+      "interval_lower_sek": 2676185.55723588,
+      "interval_upper_sek": 3759705.566253826,
+      "q_log_used": 0.1699740831786372
+    }
+  },
+  {
+    "input": {
+      "postnummer": "99999",
+      "omrade": "Bromma-Västerled",
+      "boarea": 43.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2895.0,
+      "vaning": 3.0,
+      "byggar": 1939.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "postcode_delta": 0.0,
+      "predicted_log_price_per_sqm": 11.134669121403984,
+      "predicted_total_price_sek": 2958912.1908729556,
+      "interval_lower_sek": 2372828.03695707,
+      "interval_upper_sek": 3689758.0511246272,
+      "q_log_used": 0.2207391893950943
+    },
+    "note": "synthetic unseen postnummer 99999: postcode_delta must fall back to 0"
+  },
+  {
+    "input": {
+      "postnummer": "99999",
+      "omrade": "Brännkyrka-Skärholmen",
+      "boarea": 36.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2629.0,
+      "vaning": 1.0,
+      "byggar": 1965.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "postcode_delta": 0.0,
+      "predicted_log_price_per_sqm": 10.42788600902399,
+      "predicted_total_price_sek": 1221839.3754067926,
+      "interval_lower_sek": 984399.9222840391,
+      "interval_upper_sek": 1516549.753306159,
+      "q_log_used": 0.21608044750203545
+    },
+    "note": "synthetic unseen postnummer 99999: postcode_delta must fall back to 0"
+  }
+]
