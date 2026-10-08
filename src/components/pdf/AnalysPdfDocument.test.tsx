@@ -99,8 +99,8 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
     }
   });
 
-  it("labels the schablon extern värdering as an estimate, not a fact", () => {
-    expect(extractedText).toContain("schablon");
+  it("labels the model-based extern värdering as an estimate, not a fact", () => {
+    expect(extractedText).toContain("estimat");
   });
 
   it("includes page references for cited figures", () => {
