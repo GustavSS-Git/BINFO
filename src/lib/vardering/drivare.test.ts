@@ -5,7 +5,6 @@ import { effectsData } from "./data";
 const CONTINUOUS_LABELS = [
   "Ett rum till",
   "En våning högre",
-  "10 år nyare byggnad",
   "10 kr/m² högre månadsavgift",
   "10 kvm större boarea (pris per kvm)",
 ];
@@ -79,6 +78,14 @@ describe("drivareForInput", () => {
   it("always includes the continuous city-wide effects, in order, incl. the monthly-fee effect", () => {
     const result = drivareForInput({ hiss: "ja", balkong: "ja" }, null);
     expect(result.map((d) => d.label)).toEqual(CONTINUOUS_LABELS);
+  });
+
+  it("never shows the building-age effect as a driver, but keeps it in the data (owner decision 2026-10-08)", () => {
+    for (const omrade of [null, "Östermalm", "Hägersten-Liljeholmen"] as const) {
+      const result = drivareForInput({ hiss: "nej", balkong: "nej" }, omrade);
+      expect(result.some((d) => d.label.includes("nyare byggnad"))).toBe(false);
+    }
+    expect(effectsData.effects.some((e) => e.id === "build_year+10")).toBe(true);
   });
 
   it("shows fee_per_sqm+10 as a city-wide, negative, significant driver (valuation-v3)", () => {
