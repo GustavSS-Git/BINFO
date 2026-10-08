@@ -110,7 +110,7 @@ describe("formatBudpremieText", () => {
       dataperiod: period,
     };
     expect(formatBudpremieText(budpremie)).toBe(
-      "Bostäder i Södermalm har sålts för 3,7 % över utgångspriset (median, n = 448, jan–aug 2026).",
+      "Bostäder i Södermalm har sålts för 3,7 % över utgångspriset.",
     );
   });
 
@@ -147,8 +147,7 @@ describe("formatBudpremieText", () => {
     };
     const text = formatBudpremieText(budpremie);
     expect(text).toBe(
-      "Bostäder i Stockholm har sålts för 4,8 % över utgångspriset (median för hela " +
-        "Stockholm, n = 4051, jan–aug 2026).",
+      "Bostäder i Stockholm har sålts för 4,8 % över utgångspriset.",
     );
   });
 });
