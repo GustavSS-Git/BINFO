@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assembleraAnalys, byggPrisanalys } from "./assemble";
+import { assembleraAnalys, byggPrisanalys, utanNyckeltalsantal } from "./assemble";
 import { extraktion } from "./__fixtures__/extraktion";
 import { DemoPrisdatakalla, ModellPrisdatakalla, TomPrisdatakalla } from "./prisdata";
 import { konfidensUtanPrisdata, konfidensUtanPostnummer } from "./prisdata";
@@ -650,5 +650,47 @@ describe("assembleraAnalys", () => {
 
       expect(JSON.stringify(andraKorningen)).toBe(JSON.stringify(forstaKorningen));
     });
+  });
+});
+
+describe("utanNyckeltalsantal", () => {
+  it("tar bort antalet i 'av sju nyckeltal' så motiveringen inte hävdar ett totalantal sidan inte visar", () => {
+    expect(utanNyckeltalsantal("Två av sju nyckeltal har status 'svag'.")).toBe(
+      "Två av nyckeltalen har status 'svag'.",
+    );
+  });
+
+  it("behåller stor bokstav när meningen inleds med partivet", () => {
+    expect(utanNyckeltalsantal("Av de sju nyckeltalen är två svaga.")).toBe(
+      "Av nyckeltalen är två svaga.",
+    );
+  });
+
+  it("hanterar bestämd plural och tillägget 'lagstadgade'", () => {
+    expect(utanNyckeltalsantal("Två av de sju lagstadgade nyckeltalen är svaga.")).toBe(
+      "Två av nyckeltalen är svaga.",
+    );
+  });
+
+  it("rör en mening som redan står utan antal", () => {
+    expect(utanNyckeltalsantal("Avgiften styrs av nyckeltalen ovan.")).toBe(
+      "Avgiften styrs av nyckeltalen ovan.",
+    );
+  });
+
+  it("tillämpas på betygMotivering i den monterade rapporten", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktion,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: {
+        ...analysJudgement,
+        betygMotivering: "Två av sju nyckeltal har status 'svag', vilket ger betyg C.",
+      },
+    });
+
+    expect(resultat.betygMotivering).toBe(
+      "Två av nyckeltalen har status 'svag', vilket ger betyg C.",
+    );
   });
 });

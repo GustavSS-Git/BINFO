@@ -603,6 +603,30 @@ export async function byggPrisanalys(
  * det den fick (med ett undantag: den hoppar över frågan om föreningen
  * redan gett ett definitivt ja/nej, se genereraSaknadUppgiftFragor ovan).
  */
+/**
+ * Modellens betygsmotivering kan räkna upp hur många nyckeltal som bedömts
+ * ("Två av sju nyckeltal har status 'svag'"). Sjutton… rapporten visar bara de
+ * bedömda nyckeltalen — varje tal med status "okänt" filtreras bort i
+ * AnalysRapport.tsx — så ett totalantal som "sju" är ett påstående sidan inte
+ * längre kan backa. Antalet tas därför bort ur partivformen "av <antal>
+ * nyckeltal(en)", som då blir bestämd plural: "Två av nyckeltalen har status
+ * 'svag'". Bestämd plural är dessutom det grammatiskt korrekta efter "av".
+ *
+ * Endast former med ett uttryckligt antal ersätts — en mening som redan säger
+ * "av nyckeltalen" lämnas orörd.
+ */
+const NYCKELTALORTAL = "(?:\\d+|ett|två|tre|fyra|fem|sex|sju|åtta|nio|tio|elva|tolv|ton)";
+const AV_ANTAL_NYCKELTAL = new RegExp(
+  `\\bav\\s+(?:de\\s+)?${NYCKELTALORTAL}\\s+(?:lagstadgade\\s+)?nyckeltal(en)?\\b`,
+  "gi",
+);
+
+export function utanNyckeltalsantal(text: string): string {
+  return text.replace(AV_ANTAL_NYCKELTAL, (match) =>
+    match.startsWith("A") ? "Av nyckeltalen" : "av nyckeltalen",
+  );
+}
+
 export async function assembleraAnalys({
   extraction,
   input,
@@ -649,7 +673,7 @@ export async function assembleraAnalys({
     forening: extraction.forening,
 
     betyg: analys.betyg,
-    betygMotivering: analys.betygMotivering,
+    betygMotivering: utanNyckeltalsantal(analys.betygMotivering),
 
     rodaFlaggor: analys.rodaFlaggor,
     prisanalys,
