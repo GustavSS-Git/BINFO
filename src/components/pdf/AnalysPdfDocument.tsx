@@ -609,7 +609,7 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             <View style={{ flex: 1 }}>
               <Text style={styles.priceLabel}>
                 {varderingslabel}
-                {p.externVardering.isSchablon ? " (schablon)" : ""}
+                {p.externVardering.isSchablon ? " (estimat)" : ""}
               </Text>
               <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
                 {p.externVardering.leverantor}
