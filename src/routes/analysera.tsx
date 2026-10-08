@@ -258,7 +258,6 @@ function Analysera() {
           />
           <Field
             label="Våning"
-            optional
             placeholder="4"
             value={form.vaning}
             onChange={set("vaning")}
