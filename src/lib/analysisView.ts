@@ -223,19 +223,17 @@ function formatProcentAbs(procentVarde: number): string {
  *     Stockholm, med Stockholms n. Samma mått i båda fallen.
  */
 export function formatBudpremieText(budpremie: Budpremie): string {
-  const period = formatDataperiod(budpremie.dataperiod);
   if (budpremie.omrade !== null) {
     return (
       `Bostäder i ${budpremie.omrade} har sålts för ${formatProcentAbs(budpremie.medianProcent)} % ` +
-      `${riktningstext(budpremie.medianProcent)} utgångspriset (median, n = ${budpremie.n}, ${period}).`
+      `${riktningstext(budpremie.medianProcent)} utgångspriset.`
     );
   }
   // Fallback (unmapped postnummer or too few sales in the area): same
   // statistic as for an area — the median — so the two are comparable.
   return (
     `Bostäder i Stockholm har sålts för ${formatProcentAbs(budpremie.medianProcent)} % ` +
-    `${riktningstext(budpremie.medianProcent)} utgångspriset (median för hela Stockholm, ` +
-    `n = ${budpremie.n}, ${period}).`
+    `${riktningstext(budpremie.medianProcent)} utgångspriset.`
   );
 }
 
