@@ -488,12 +488,6 @@ export const sampleAnalysis: AnalysisResult = {
           niva: "stad",
         },
         {
-          label: "10 år nyare byggnad",
-          effektProcent: -1.4,
-          intervallProcent: { low: -1.6, high: -1.2 },
-          niva: "stad",
-        },
-        {
           label: "10 kvm större boarea",
           effektProcent: 1.4,
           intervallProcent: { low: 0.6, high: 2.1 },
