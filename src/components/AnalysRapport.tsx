@@ -483,12 +483,10 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                 </div>
               </div>
             ) : null}
-            <p className="hidden text-xs text-muted-foreground">
-              Bygger på {u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar i Stockholm{" "}
-              {formatDataperiod(u.dataperiod)} · typiskt fel ±
-              {u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell{" "}
-              {u.modellVersion}
+            <p className="text-xs text-muted-foreground">
+              Bygger på försäljningar i Stockholm {formatDataperiod(u.dataperiod)}
             </p>
+
             {tackningText?.typ === "lan" ? (
               <p className="text-xs text-muted-foreground">{tackningText.text}</p>
             ) : null}
