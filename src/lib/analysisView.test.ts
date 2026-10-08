@@ -146,9 +146,7 @@ describe("formatBudpremieText", () => {
       dataperiod: period,
     };
     const text = formatBudpremieText(budpremie);
-    expect(text).toBe(
-      "Bostäder i Stockholm har sålts för 4,8 % över utgångspriset.",
-    );
+    expect(text).toBe("Bostäder i Stockholm har sålts för 4,8 % över utgångspriset.");
   });
 });
 

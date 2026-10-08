@@ -135,6 +135,7 @@ describe("validateraAnalyseraForm", () => {
     expect(harValideringsfel(fel)).toBe(true);
     expect(fel.utgangspris).not.toBeNull();
     expect(fel.boarea).not.toBeNull();
+    expect(fel.vaning).not.toBeNull();
     expect(fel.manadsavgift).not.toBeNull();
     expect(fel.antalRum).not.toBeNull();
     expect(fel.adress).not.toBeNull();
@@ -163,6 +164,7 @@ describe("validateraAnalyseraForm", () => {
       tomtFormulär({
         utgangspris: "4 950 000",
         boarea: "58",
+        vaning: "4",
         manadsavgift: "3 240",
         andelstal: "2,1",
         antalRum: "3",
@@ -180,6 +182,7 @@ describe("validateraAnalyseraForm", () => {
       tomtFormulär({
         utgangspris: "4 950 000",
         boarea: "58",
+        vaning: "4",
         manadsavgift: "3 240",
         antalRum: "3",
         adress: "Kapellgränd 12",
@@ -192,10 +195,17 @@ describe("validateraAnalyseraForm", () => {
     expect("organisationsnummer" in fel).toBe(false);
   });
 
-  it("lämnar vaning/byggar utanför felobjektet — de är valfria", () => {
+  it("kräver våning som obligatoriskt, på samma villkor som boarea", () => {
+    expect(validateraAnalyseraForm(tomtFormulär()).vaning).toBe("Ange våning.");
+    expect(validateraAnalyseraForm(tomtFormulär({ vaning: "0" })).vaning).toBe("Ange våning.");
+    expect(validateraAnalyseraForm(tomtFormulär({ vaning: "bv" })).vaning).toBe("Ange våning.");
+    expect(validateraAnalyseraForm(tomtFormulär({ vaning: "4" })).vaning).toBeNull();
+  });
+
+  it("lämnar byggår utanför felobjektet — det är fortfarande valfritt, våning inte", () => {
     const fel = validateraAnalyseraForm(tomtFormulär());
-    expect("vaning" in fel).toBe(false);
     expect("byggar" in fel).toBe(false);
+    expect("vaning" in fel).toBe(true);
   });
 });
 

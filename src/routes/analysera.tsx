@@ -261,6 +261,7 @@ function Analysera() {
             placeholder="4"
             value={form.vaning}
             onChange={set("vaning")}
+            error={visaFel ? fel.vaning : null}
           />
           <Field
             label="Månadsavgift"

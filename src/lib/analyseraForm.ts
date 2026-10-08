@@ -97,11 +97,14 @@ export interface AnalyseraFormFields {
   byggar: string;
 }
 
-/** Ett fel per obligatoriskt fält. `vaning`/`byggar` är valfria i
- *  PropertyInput och ingår därför inte här. */
+/** Ett fel per obligatoriskt fält. `byggar` är valfritt och ingår därför inte
+ *  här. `vaning` är obligatoriskt i formuläret (köparen ska alltid kunna säga
+ *  var i huset lägenheten ligger) även om PropertyInput-kontraktet har fältet
+ *  valfritt. */
 export interface AnalyseraFormFel {
   utgangspris: string | null;
   boarea: string | null;
+  vaning: string | null;
   manadsavgift: string | null;
   antalRum: string | null;
   adress: string | null;
@@ -113,6 +116,7 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
   return {
     utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
+    vaning: parsePositivtTal(f.vaning) === null ? "Ange våning." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
@@ -153,9 +157,11 @@ export interface AnalyseraFormUppgifter {
  * submit på fel innan detta anropas, så de obligatoriska `?? 0`-reserverna
  * nedan är en säkerhetsnätslösning, inte den normala vägen.
  *
- * `vaning`/`byggar` utelämnas HELT (inte satta till `undefined`) när
- * användaren inte fyllt i dem — exactOptionalPropertyTypes kräver det, och
- * ett utelämnat fält är dessutom den semantik kontraktet vill ha.
+ * `vaning`/`byggar` utelämnas HELT (inte satta till `undefined`) när de inte
+ * går att tolka som tal — exactOptionalPropertyTypes kräver det, och ett
+ * utelämnat fält är dessutom den semantik kontraktet vill ha. `vaning` är
+ * numera obligatoriskt i formuläret, så där är utelämnandet bara ett
+ * säkerhetsnät; `byggar` kan fortfarande vara riktigt tomt.
  */
 export function buildPropertyInput(
   typ: PropertyType,
