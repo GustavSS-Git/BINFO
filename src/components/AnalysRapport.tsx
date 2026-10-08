@@ -412,7 +412,7 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
               <div>
                 <p className="flex items-center gap-2 text-sm font-medium text-foreground">
                   {varderingslabel}
-                  {p.externVardering.source === "schablon" ? <Tag>Schablon</Tag> : null}
+                  {p.externVardering.source === "schablon" ? <Tag>Estimat</Tag> : null}
                 </p>
                 <p className="text-xs text-muted-foreground">{p.externVardering.leverantor}</p>
               </div>
