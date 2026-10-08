@@ -483,7 +483,7 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                 </div>
               </div>
             ) : null}
-            <p className="text-xs text-muted-foreground">
+            <p className="hidden text-xs text-muted-foreground">
               Bygger på {u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar i Stockholm{" "}
               {formatDataperiod(u.dataperiod)} · typiskt fel ±
               {u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell{" "}
