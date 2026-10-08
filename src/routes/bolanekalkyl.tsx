@@ -38,18 +38,20 @@ export const Route = createFileRoute("/bolanekalkyl")({
   component: Bolanekalkyl,
 });
 
-const num = (v: string) => (v.trim() === "" ? 0 : Number(v.replace(/\s/g, "")));
+/** Ett tomt fält räknas som noll i beräkningen, men visas aldrig som ett svar
+ *  (se VET_EJ). Komma godtas som decimalavskiljare eftersom exemplen i fälten
+ *  är skrivna på svenska ("t.ex. 3,6"). */
+const num = (v: string) =>
+  v.trim() === "" ? 0 : Number(v.trim().replace(/\s/g, "").replace(",", "."));
 
-/** Kalkylens startvärden. Helt fristående — inga siffror hämtas från någon
- *  analys. Lånebelopp/kontantinsats/ränta/bruttoinkomst är samma generiska
- *  startgissningar som redan fanns i mockdatan (kalkylDefaults):
- *  låneuppgifter är personliga antaganden om köparens egen lånesituation,
- *  inte föreningens, så de har ingen motsvarighet i kontraktet att hämtas
- *  ifrån. */
-const LANEBELOPP_DEFAULT = kalkylDefaults.lanebelopp;
-const KONTANTINSATS_DEFAULT = kalkylDefaults.kontantinsats;
-const RANTA_DEFAULT = kalkylDefaults.ranta;
-const BRUTTOINKOMST_DEFAULT = kalkylDefaults.bruttoinkomst;
+/** Grått exempel i ett tomt fält, i stället för ett ifyllt värde. Exemplen är
+ *  samma siffror som tidigare låg i fälten (kalkylDefaults i
+ *  src/data/mockData.ts) — köparen ser en rimlig storleksordning utan att en
+ *  påhittad siffra räknas med i totalen. */
+const exempel = (n: number) => `t.ex. ${n.toLocaleString("sv-SE")}`;
+
+/** Utskriften för ett beräknat värde vars indata är tomma. */
+const VET_EJ = "—";
 
 /** De fem schablonbaserade kostnadsposterna som användaren kan skriva över
  *  inline. Ränta/amortering/ränteavdrag/avgift kommer alltid från
@@ -75,16 +77,16 @@ function Bolanekalkyl() {
   const [lanebelopp, setLanebelopp] = useState(
     search.pris !== undefined && prisKontantinsats !== undefined
       ? String(search.pris - prisKontantinsats)
-      : String(LANEBELOPP_DEFAULT),
+      : "",
   );
-  const [ranta, setRanta] = useState(String(RANTA_DEFAULT));
+  const [ranta, setRanta] = useState("");
   const [kontantinsats, setKontantinsats] = useState(
-    String(prisKontantinsats ?? KONTANTINSATS_DEFAULT),
+    prisKontantinsats !== undefined ? String(prisKontantinsats) : "",
   );
   // Bruttoinkomst per låntagare. Låntagare 2:s värde ligger kvar i state
   // även när "1 låntagare" är valt — det ingår då inte i någon beräkning,
   // men återkommer om användaren byter tillbaka.
-  const [inkomst, setInkomst] = useState(String(BRUTTOINKOMST_DEFAULT));
+  const [inkomst, setInkomst] = useState("");
   const [inkomst2, setInkomst2] = useState("");
   const [lantagare, setLantagare] = useState<"1" | "2">(
     String(kalkylDefaults.antalLantagare) as "1" | "2",
@@ -107,6 +109,18 @@ function Bolanekalkyl() {
   const uppgifter = useUppgifter();
   // Egna värden som ersätter schablonerna när användaren redigerar en rad.
   const [egna, setEgna] = useState<Partial<Record<CostItemId, number>>>({});
+
+  // Vad som faktiskt är ifyllt. Ett tomt fält ger 0 i beräkningen, men 0 är
+  // inte samma sak som ett svar: varje utskrift nedan styrs av dessa flaggor,
+  // så att en kalkyl med tomma rutor visar streck i stället för siffror som
+  // ser ut att betyda något.
+  const ifylld = (v: string) => v.trim() !== "";
+  const harRanta = ifylld(ranta);
+  const harRanteunderlag = harRanta && ifylld(lanebelopp);
+  const harLan = harRanteunderlag && ifylld(kontantinsats);
+  const harInkomst = ifylld(inkomst) && (lantagare === "1" || ifylld(inkomst2));
+  const harAvgift = ifylld(manadsavgift);
+  const harTotal = harLan && harAvgift;
 
   // Boarean styr schablonerna för el/värme/vatten (src/lib/analysis/calc/schabloner.ts).
   // Delad "uppgifter"-butik, samma som /analysera skriver till — så en
@@ -193,7 +207,7 @@ function Bolanekalkyl() {
   const bostadsvarde = lan.lanebelopp + lan.kontantinsats;
   const minKontant = bostadsvarde * amorteringsregler.minKontantinsatsAndel;
   const kontantFel =
-    bostadsvarde > 0 && lan.kontantinsats < minKontant - 0.5
+    bostadsvarde > 0 && ifylld(kontantinsats) && lan.kontantinsats < minKontant - 0.5
       ? `Kontantinsatsen måste vara minst 10 % av bostadens värde (${kr(minKontant)}).`
       : null;
 
@@ -276,6 +290,7 @@ function Bolanekalkyl() {
               suffix="kr"
               value={lanebelopp}
               onChange={setLanebelopp}
+              placeholder={exempel(kalkylDefaults.lanebelopp)}
               {...(prisFranAnalys
                 ? {
                     hint: prisUppskattningFranAnalys
@@ -289,10 +304,17 @@ function Bolanekalkyl() {
               suffix="kr"
               value={kontantinsats}
               onChange={setKontantinsats}
+              placeholder={exempel(kalkylDefaults.kontantinsats)}
               error={kontantFel}
               hint="Bolånetaket är 90 % — minst 10 % kontantinsats krävs."
             />
-            <Field label="Ränta" suffix="%" value={ranta} onChange={setRanta} />
+            <Field
+              label="Ränta"
+              suffix="%"
+              value={ranta}
+              onChange={setRanta}
+              placeholder={exempel(kalkylDefaults.ranta)}
+            />
             <Field
               label="Månadsavgift"
               suffix="kr"
@@ -357,6 +379,7 @@ function Bolanekalkyl() {
               suffix="kr/år"
               value={inkomst}
               onChange={setInkomst}
+              placeholder={exempel(kalkylDefaults.bruttoinkomst / kalkylDefaults.antalLantagare)}
               hint="Lön före skatt per år, inklusive fasta tillägg."
             />
             {lantagare === "2" ? (
@@ -365,6 +388,7 @@ function Bolanekalkyl() {
                 suffix="kr/år"
                 value={inkomst2}
                 onChange={setInkomst2}
+                placeholder={exempel(kalkylDefaults.bruttoinkomst / kalkylDefaults.antalLantagare)}
                 hint="Lön före skatt per år, inklusive fasta tillägg."
               />
             ) : null}
@@ -372,7 +396,7 @@ function Bolanekalkyl() {
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm font-medium text-foreground">Hushållets nettoinkomst</span>
                 <span className="text-sm font-medium text-foreground">
-                  {kr(nettoinkomstPerManad)}/mån
+                  {harInkomst ? `${kr(nettoinkomstPerManad)}/mån` : VET_EJ}
                 </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -399,7 +423,9 @@ function Bolanekalkyl() {
                 className="mt-3 w-full accent-primary"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                Höjer din ränta ({lan.ranta.toFixed(2).replace(".", ",")} %)
+                {harRanta
+                  ? `Höjer din ränta (${lan.ranta.toFixed(2).replace(".", ",")} %)`
+                  : "Höjer din ränta"}
                 {harRantekanslighet ? " och föreningens avgift." : "."}
               </p>
               {!harRantekanslighet ? (
@@ -419,9 +445,14 @@ function Bolanekalkyl() {
                 Lånekostnad
               </p>
               <div className="mt-3 divide-y divide-border">
-                <Rad label="Räntekostnad" value={rantekostnad} />
-                <Rad label="Amortering" value={amortering} />
-                <Rad label="Ränteavdrag" value={avdragPerManad} negativ />
+                <Rad label="Räntekostnad" value={rantekostnad} okant={!harRanteunderlag} />
+                <Rad label="Amortering" value={amortering} okant={!harLan} />
+                <Rad
+                  label="Ränteavdrag"
+                  value={avdragPerManad}
+                  negativ
+                  okant={!harLan || !harInkomst}
+                />
               </div>
             </div>
 
@@ -438,6 +469,7 @@ function Bolanekalkyl() {
                 <Rad
                   label="Månadsavgift"
                   value={manadsavgiftPost}
+                  okant={!harAvgift}
                   {...(manadsavgiftFranAnalys ? { note: "från din analys" } : {})}
                 />
                 {boendeSchablonPoster.map((p) => (
@@ -457,36 +489,50 @@ function Bolanekalkyl() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Total månadskostnad
               </p>
-              {harSpann ? (
-                <>
-                  <p className="mt-2 font-display text-4xl text-foreground">
-                    {Math.round(nettoLag).toLocaleString("sv-SE")} – {kr(nettoHog)}/mån
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Beroende på vad som ingår i avgiften.
-                  </p>
-                </>
+              {harTotal ? (
+                harSpann ? (
+                  <>
+                    <p className="mt-2 font-display text-4xl text-foreground">
+                      {Math.round(nettoLag).toLocaleString("sv-SE")} – {kr(nettoHog)}/mån
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Beroende på vad som ingår i avgiften.
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 font-display text-5xl text-foreground">{kr(nettoLag)}</p>
+                )
               ) : (
-                <p className="mt-2 font-display text-5xl text-foreground">{kr(nettoLag)}</p>
+                <p className="mt-2 font-display text-5xl text-muted-foreground">{VET_EJ}</p>
               )}
               <p className="mt-1 text-sm text-muted-foreground">
-                i snitt över året, efter ränteavdrag
+                {harTotal
+                  ? "i snitt över året, efter ränteavdrag"
+                  : "Fyll i uppgifterna till vänster."}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Brutto:{" "}
-                {harSpann
-                  ? `${Math.round(bruttoLag).toLocaleString("sv-SE")} – ${kr(bruttoHog)}`
-                  : kr(bruttoLag)}
-              </p>
+              {harTotal ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Brutto:{" "}
+                  {harSpann
+                    ? `${Math.round(bruttoLag).toLocaleString("sv-SE")} – ${kr(bruttoHog)}`
+                    : kr(bruttoLag)}
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-8 border-t border-border pt-6">
               <div className="divide-y divide-border">
-                <Rad label="Det här betalar ni varje månad" value={betalarPerManad} />
+                <Rad
+                  label="Det här betalar ni varje månad"
+                  value={betalarPerManad}
+                  okant={!harTotal}
+                />
                 <div className="flex items-center justify-between gap-3 py-3">
                   <span className="text-sm text-muted-foreground">Andel av nettoinkomsten</span>
                   <span className="text-sm font-medium text-foreground">
-                    {andelAvNetto.toFixed(1).replace(".", ",")} %
+                    {harTotal && harInkomst
+                      ? `${andelAvNetto.toFixed(1).replace(".", ",")} %`
+                      : VET_EJ}
                   </span>
                 </div>
               </div>
@@ -494,23 +540,35 @@ function Bolanekalkyl() {
                 <p className="text-sm text-muted-foreground">Kvar att leva på per månad</p>
                 <p
                   className={`mt-1 font-display text-4xl ${
-                    kvarAttLevaPa < 0 ? "text-destructive" : "text-foreground"
+                    !harTotal || !harInkomst
+                      ? "text-muted-foreground"
+                      : kvarAttLevaPa < 0
+                        ? "text-destructive"
+                        : "text-foreground"
                   }`}
                 >
-                  {kvarAttLevaPa < 0 ? "−" : ""}
-                  {kr(Math.abs(kvarAttLevaPa))}
+                  {harTotal && harInkomst ? (
+                    <>
+                      {kvarAttLevaPa < 0 ? "−" : ""}
+                      {kr(Math.abs(kvarAttLevaPa))}
+                    </>
+                  ) : (
+                    VET_EJ
+                  )}
                 </p>
               </div>
               <div className="mt-6 border-t border-border pt-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-sm text-muted-foreground">Tillbaka i deklarationen</span>
                   <span className="text-sm font-medium text-foreground">
-                    {kr(hushall.ranteavdragPerAr)}/år
+                    {harLan && harInkomst ? `${kr(hushall.ranteavdragPerAr)}/år` : VET_EJ}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  motsvarar {kr(hushall.ranteavdragPerAr / 12)}/mån
-                </p>
+                {harLan && harInkomst ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    motsvarar {kr(hushall.ranteavdragPerAr / 12)}/mån
+                  </p>
+                ) : null}
                 <p className="mt-2 text-xs text-muted-foreground">
                   Ränteavdraget betalas ut som skatteåterbäring året efter, vanligtvis mellan april
                   och juni. Vill ni ha det varje månad i stället kan ni ansöka om jämkning hos
@@ -543,42 +601,48 @@ function Bolanekalkyl() {
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Belåningsgrad</dt>
                 <dd className="font-medium text-foreground">
-                  {m.amortering.belaningsgrad.toFixed(1).replace(".", ",")} %
+                  {harLan ? `${m.amortering.belaningsgrad.toFixed(1).replace(".", ",")} %` : VET_EJ}
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Skuldkvot (lån / bruttoinkomst)</dt>
                 <dd className="font-medium text-foreground">
-                  {m.amortering.skuldkvot.toFixed(2).replace(".", ",")} ×
+                  {harLan && harInkomst
+                    ? `${m.amortering.skuldkvot.toFixed(2).replace(".", ",")} ×`
+                    : VET_EJ}
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Tillämpad amorteringstakt</dt>
                 <dd className="font-medium text-foreground">
-                  {m.amortering.tillampadAmorteringstakt} % per år
+                  {harLan ? `${m.amortering.tillampadAmorteringstakt} % per år` : VET_EJ}
                 </dd>
               </div>
             </dl>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Badge
-                tone={
-                  m.amortering.belaningsgrad > 70
-                    ? "danger"
-                    : m.amortering.belaningsgrad > 50
-                      ? "warning"
-                      : "success"
-                }
-              >
-                {m.amortering.belaningsgrad > 70
-                  ? "Över 70 % → 2 %"
-                  : m.amortering.belaningsgrad > 50
-                    ? "50–70 % → 1 %"
-                    : "Under 50 % → inget krav"}
-              </Badge>
-              {m.amortering.overBankernasTypiskaTak ? (
-                <Badge tone="neutral">
-                  Över bankernas vanliga interna tak — kan påverka din kreditprövning.
-                </Badge>
+              {harLan ? (
+                <>
+                  <Badge
+                    tone={
+                      m.amortering.belaningsgrad > 70
+                        ? "danger"
+                        : m.amortering.belaningsgrad > 50
+                          ? "warning"
+                          : "success"
+                    }
+                  >
+                    {m.amortering.belaningsgrad > 70
+                      ? "Över 70 % → 2 %"
+                      : m.amortering.belaningsgrad > 50
+                        ? "50–70 % → 1 %"
+                        : "Under 50 % → inget krav"}
+                  </Badge>
+                  {m.amortering.overBankernasTypiskaTak ? (
+                    <Badge tone="neutral">
+                      Över bankernas vanliga interna tak — kan påverka din kreditprövning.
+                    </Badge>
+                  ) : null}
+                </>
               ) : null}
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
@@ -587,7 +651,8 @@ function Bolanekalkyl() {
               vanligtvis ligger på 5–6 × bruttoinkomsten.
             </p>
             <p className="mt-3 text-xs text-muted-foreground">
-              Bostadens värde beräknas som lånebelopp + kontantinsats ({kr(bostadsvarde)}).
+              Bostadens värde beräknas som lånebelopp + kontantinsats
+              {harLan ? ` (${kr(bostadsvarde)}).` : "."}
             </p>
           </Card>
         </div>
@@ -601,11 +666,13 @@ function Rad({
   value,
   note,
   negativ,
+  okant,
 }: {
   label: string;
   value: number;
   note?: string;
   negativ?: boolean;
+  okant?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-3">
@@ -613,9 +680,12 @@ function Rad({
         {label}
         {note ? <span className="ml-2 text-xs text-muted-foreground/80">({note})</span> : null}
       </span>
-      <span className={`text-sm font-medium ${negativ ? "text-success" : "text-foreground"}`}>
-        {negativ ? "− " : ""}
-        {kr(value)}
+      <span
+        className={`text-sm font-medium ${
+          okant ? "text-muted-foreground" : negativ ? "text-success" : "text-foreground"
+        }`}
+      >
+        {okant ? VET_EJ : `${negativ ? "− " : ""}${kr(value)}`}
       </span>
     </div>
   );

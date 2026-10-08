@@ -28,7 +28,8 @@ export const property = {
   rantebindning: "Två lån (58 %) omsätts inom 12 månader",
 };
 
-/** Bolånekalkylens utgångsvärden. */
+/** Bolånekalkylens exempelvärden — visas gråa i de tomma fälten, räknas inte
+ *  med förrän köparen själv skriver in ett belopp. */
 export const kalkylDefaults = {
   lanebelopp: 3_960_000, // 80 % av utgångspriset
   kontantinsats: 990_000,
