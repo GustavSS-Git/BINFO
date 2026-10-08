@@ -475,7 +475,12 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-1 text-xs text-muted-foreground">{VARDERINGSDRIVARE_CAVEAT}</p>
+                {/* Driveförklaringens förbehållsrad är dold på ägarbegäran
+                    2026-10-08. Texten ligger kvar i VARDERINGSDRIVARE_CAVEAT
+                    (och i PDF-exporten) och tas fram genom ta bort div:en. */}
+                <div className="hidden">
+                  <p className="mt-1 text-xs text-muted-foreground">{VARDERINGSDRIVARE_CAVEAT}</p>
+                </div>
               </div>
             ) : null}
             <p className="text-xs text-muted-foreground">
