@@ -98,6 +98,27 @@ logged in §9 with date and reason.
 - **Free pre-checks:** count tokens per page with `countTokens` before any paid call.
 - **Estimated cost of the evaluation: ~90–120 kr.**
 
+
+### 1.9 Evaluation results (2026-10-09, measured — 77.44 SEK, 117 calls; raw calls in `docs/api-runs/`)
+Scored against the supervisor's draft answer keys (owner verification pending). 8 fields = 7 nyckeltal + total skuld.
+
+| Report | V1 direct (ref only, self-reported pages) | V2 transcr. Haiku 4.5 | V2 Sonnet 5 | V2 Sonnet 5.5 | V3 Tesseract (local) |
+|---|---|---|---|---|---|
+| Startfältet (23 p, outlined) | 8/8 · 0.76 kr · 8 s | 8/8 · 3.15 kr | 8/8 · 4.38 kr | 8/8 · 4.68 kr · 105 s | 8/8 · 1.86 kr |
+| Ängsknarren (34 p, outlined) | 8/8 · 1.10 kr | 8/8 · 3.69 kr | 8/8 · 5.77 kr | 8/8 · 5.79 kr · 108 s | 8/8 · 2.16 kr |
+| Zederslundshus (16 p, raster) | 6/8 · 0.61 kr | 7/8 · 2.80 kr | 7/8 · 3.43 kr | 7/8 · 3.31 kr · 96 s | 7/8 · 1.83 kr |
+
+(V2 cost/time = transcription + grounding + extraction; judging adds ~0.5 kr / ~25 s.)
+- **Digit quality is clean**: no resolution-related misreads, no tkr/kr, comma, sign or column errors → option (b) image blocks not needed.
+- The only miss (Zederslundshus total debt 7 581 085 vs 7 706 397) is a **prompt gap, not a transcription error**: the extraction prompt never says to add the short-term part of the loans. Affects text PDFs too → fixed in W1-IMPL (PROMPT_VERSION 6).
+- Haiku 4.5 emits wrong/duplicate page markers (breaks the citation rule) and is slower per chunk → rejected.
+- 5-page chunks: slowest single call 25.7 s (Sonnet 5.5) → far inside the Edge 150 s limit; 17-page chunks take 107 s (too close). pdf-lib split of the 8.3 MB PDF: 96 ms, < 45 MB RSS.
+- One block per page makes citations cite whole pages (extraction input 24–45k tok); paragraph/row blocks with a block→page map ("V2b") cut extraction input to 9–13k at equal accuracy → adopted.
+- Tesseract matches on numbers at ~40 % of the API cost but loses table columns and cannot run in Workers/Edge → not adopted (would need a separate OCR service).
+- **Garbled text layer (test_rapport)**: the CURRENT text pipeline already scores 7/7 at 3.01 kr / 80 s vs the scan path 7/7 at 4.96 kr / 117 s (only with an "ignore the text layer" note; without it 6/7 because the model copies the broken layer). **Decision changed (supervisor, 2026-10-09):** garbled layers stay on the normal path; the scan path is the fallback only for 'saknas'. Owner's "garbled → scan path" answer was conditional on it helping; measured, it does not.
+
+**Decision D8 (made):** V2b — Sonnet 5.5 (effort medium) transcription in parallel 5-page chunks via pdf-lib, "ignore any text layer" note on every call, page markers validated (count = chunk size, else retry the chunk), per-page persistence in `sidtext`, then custom-content grounding with paragraph/row blocks mapped to pages. Expected **≈ 4–6.5 kr and ≈ 2–2.5 min of API time per scanned report** (target was ≤ 15 kr / ≤ 5 min).
+
 ### 1.5 Files
 - **New:** `src/lib/analysis/{textlager,transkribering,rimlighet}.ts` (+ tests), `pdf-lib` dependency.
 - **Changed:** `pdf.ts`, `runExtraction.ts` (grounding accepts a custom-content source), `prompts.ts`
@@ -584,4 +605,9 @@ The supervisor owns:
 | 2026-10-09 | Branch `v2`; pdf-lib added (4b99f66); contract D1 (b33ce92) | done |
 | 2026-10-09 | Wave A launched: W1-EVAL (worktree), C1/W5 cache+model A/B, W2 price backend, W3a register core, W3b identity, W4 account modules | in progress |
 | 2026-10-09 | Draft answer keys (supervisor, from page images): Startfältet 769635-9905, Ängsknarren 2001 769607-2912, Zederslundshus 724000-0161 (`SBC 2`), Barsbro Parken 769624-6953 (`test_rapport` nyckeltal, previously unreadable) | drafted — owner to verify |
+| 2026-10-09 | W4 account modules (8cebb70), W2 price service (5adeb9d), C1/W5 + identity (35facff) | done, committed |
+| 2026-10-09 | D9 model: default claude-sonnet-5-5 (A/B: 64/65 vs 64/65, ~2x faster, −9 % cost) | done (35facff) |
+| 2026-10-09 | W5 caching: breakpoints implemented but OFF by default — isolated report +0.05–0.12 kr with caching, burst −3 %; fails the "net ≤ 0" rule for production. 'system' mode kept for backfills | done |
+| 2026-10-09 | W1-EVAL: see §1.9; D8 decided (V2b, Sonnet 5.5); garbled layers stay on normal path | done |
+| 2026-10-09 | W3a register core: SQL verified on PGlite (Postgres-in-WASM, 45 checks) pending real Supabase; under review | in review |
 | 2026-10-09 | Docker unavailable (owner remote) → migration apply, SQL-level tests, verify-rls deferred to a Docker session | deferred |
