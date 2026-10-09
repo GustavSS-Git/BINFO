@@ -197,7 +197,7 @@ function Vardering() {
         <div className="mt-6 rounded-lg border border-danger/30 bg-danger/5 p-4" role="alert">
           <p className="font-medium text-foreground">Det gick inte att göra värderingen</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Något gick fel — kontrollera din internetuppkoppling och försök igen.
+            Något gick fel. Försök igen om en stund.
           </p>
         </div>
       ) : null}

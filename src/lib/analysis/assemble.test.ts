@@ -754,6 +754,26 @@ describe("andelAvForeningensSkuld — lägenhetens andel av föreningens lån (b
     expect(beraknaAndelAvForeningensSkuld(forening, 54.3)?.value).toBe(414_472);
   });
 
+  it("för över osäkerheten från skuldnyckeltalet till kronbeloppet", () => {
+    const { forening } = extraktionMed("skuldsattning_per_m2_brf_yta", {
+      value: 7_633,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt: "Skuldsättning 7 633" },
+      osaker: "Utanför rimligt intervall.",
+    });
+    expect(beraknaAndelAvForeningensSkuld(forening, 54)?.osaker).toBe("Utanför rimligt intervall.");
+  });
+
+  it("visar inget kronbelopp när skuldnyckeltalet saknar sidhänvisning", () => {
+    const { forening } = extraktionMed("skuldsattning_per_m2_brf_yta", {
+      value: 7_633,
+      unit: "kr/m2",
+      source: "berakning",
+    });
+    expect(beraknaAndelAvForeningensSkuld(forening, 54)).toBeNull();
+  });
+
   it("ger 0 kr för en skuldfri förening (härlett, citerat), utan fråga", async () => {
     const ref = { page: 12, excerpt: "Föreningen har inga lån" };
     const resultat = await assembleraAnalys({

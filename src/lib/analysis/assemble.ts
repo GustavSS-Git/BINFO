@@ -247,11 +247,17 @@ const sv0 = (n: number) => n.toLocaleString("sv-SE", { maximumFractionDigits: 0 
 export function beraknaAndelAvForeningensSkuld(forening: Forening, boarea: number): Figure | null {
   const skuldPerM2 = nyckeltalsfigur(forening, "skuldsattning_per_m2_brf_yta");
   if (!skuldPerM2 || skuldPerM2.value === null) return null;
+  // No citation, no display: a debt figure without a page reference is not
+  // shown as a kronor amount (the missing-figure question covers it instead).
+  if (!skuldPerM2.ref) return null;
   return {
     value: Math.round(skuldPerM2.value * boarea),
     unit: "kr",
     source: "berakning",
-    ...(skuldPerM2.ref ? { ref: skuldPerM2.ref } : {}),
+    ref: skuldPerM2.ref,
+    // A sanity-check doubt on the source figure carries over: the derived
+    // kronor amount must never look more certain than what it is built from.
+    ...(skuldPerM2.osaker ? { osaker: skuldPerM2.osaker } : {}),
   };
 }
 

@@ -8,6 +8,7 @@ import {
   mapPropertyKind,
   MAX_PDF_STORLEK_BYTES,
   parsePositivtTal,
+  parseVaning,
   parseValfrittHeltal,
   validateraAnalyseraForm,
   type AnalyseraFormFields,
@@ -38,6 +39,19 @@ function inclusion(overrides: Partial<FeeInclusion> = {}): FeeInclusion {
 // ---------------------------------------------------------------------------
 // parsePositivtTal
 // ---------------------------------------------------------------------------
+
+describe("parseVaning", () => {
+  it("godtar bottenvåning (0) och positiva heltal", () => {
+    expect(parseVaning("0")).toBe(0);
+    expect(parseVaning("4")).toBe(4);
+    expect(parseVaning("2,5")).toBe(2);
+  });
+  it("avvisar tomt, text och negativa tal", () => {
+    expect(parseVaning("")).toBeNull();
+    expect(parseVaning("abc")).toBeNull();
+    expect(parseVaning("-1")).toBeNull();
+  });
+});
 
 describe("parsePositivtTal", () => {
   it("tolkar ett enkelt heltal", () => {
@@ -195,9 +209,10 @@ describe("validateraAnalyseraForm", () => {
     expect("organisationsnummer" in fel).toBe(false);
   });
 
-  it("kräver våning som obligatoriskt, på samma villkor som boarea", () => {
+  it("kräver våning som obligatoriskt; 0 (bottenvåning) är ett giltigt svar", () => {
     expect(validateraAnalyseraForm(tomtFormulär()).vaning).toBe("Ange våning.");
-    expect(validateraAnalyseraForm(tomtFormulär({ vaning: "0" })).vaning).toBe("Ange våning.");
+    expect(validateraAnalyseraForm(tomtFormulär({ vaning: "0" })).vaning).toBeNull();
+    expect(validateraAnalyseraForm(tomtFormulär({ vaning: "-1" })).vaning).toBe("Ange våning.");
     expect(validateraAnalyseraForm(tomtFormulär({ vaning: "bv" })).vaning).toBe("Ange våning.");
     expect(validateraAnalyseraForm(tomtFormulär({ vaning: "4" })).vaning).toBeNull();
   });

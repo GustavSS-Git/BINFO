@@ -1,5 +1,10 @@
 import type { PrisInput, Tristate } from "@/types/analysis";
-import { parsePositivtTal, parseValfrittHeltal, valideraPostnummer } from "@/lib/analyseraForm";
+import {
+  parsePositivtTal,
+  parseValfrittHeltal,
+  parseVaning,
+  valideraPostnummer,
+} from "@/lib/analyseraForm";
 
 /**
  * Ren logik för /vardering ("Bara priskoll"): formulär → PrisInput. Återanvänder
@@ -53,7 +58,7 @@ export function validateraVarderingForm(f: VarderingFormFields): VarderingFormFe
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     postnummer: valideraPostnummer(f.postnummer),
-    vaning: parsePositivtTal(f.vaning) === null ? "Ange våning." : null,
+    vaning: parseVaning(f.vaning) === null ? "Ange våning." : null,
   };
 }
 
@@ -70,7 +75,7 @@ export function buildPrisInput(
   form: VarderingFormFields,
   uppgifter: { hiss: Tristate; balkong: Tristate },
 ): PrisInput {
-  const vaning = parseValfrittHeltal(form.vaning);
+  const vaning = parseVaning(form.vaning) ?? undefined;
   const byggar = parseValfrittHeltal(form.byggar);
   const utgangspris = parsePositivtTal(form.utgangspris);
 

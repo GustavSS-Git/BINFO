@@ -43,7 +43,6 @@ import { hamtaPrisuppskattning } from "./prisuppskattning";
 import { skapaLager } from "./supabase";
 import { skapaKontoDatabas } from "./supabaseKonto";
 
-/** Production policy (STANDARD_POLICY): today everything is granted. */
 /** Who is asking — the first call in every handler. The single insertion
  *  point for Supabase Auth is inside `losKontext`, not here. */
 function kontextFor(env: Env): Promise<Kontext> {

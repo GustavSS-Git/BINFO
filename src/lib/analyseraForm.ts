@@ -79,6 +79,15 @@ export function parseValfrittHeltal(rått: string): number | undefined {
   return Math.trunc(tal);
 }
 
+/** Våning: ett heltal ≥ 0 — 0 är bottenvåning, som `parsePositivtTal` annars
+ *  skulle avvisa. `null` för tomt eller ogiltigt. */
+export function parseVaning(rått: string): number | null {
+  const normaliserat = normaliseraTalsträng(rått);
+  if (normaliserat === "") return null;
+  const tal = Number(normaliserat);
+  return Number.isFinite(tal) && tal >= 0 ? Math.trunc(tal) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Formulärvalidering
 // ---------------------------------------------------------------------------
@@ -126,7 +135,7 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
   return {
     utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
-    vaning: parsePositivtTal(f.vaning) === null ? "Ange våning." : null,
+    vaning: parseVaning(f.vaning) === null ? "Ange våning." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
@@ -173,7 +182,7 @@ export function buildPropertyInput(
   form: AnalyseraFormFields,
   uppgifter: AnalyseraFormUppgifter,
 ): PropertyInput {
-  const vaning = parseValfrittHeltal(form.vaning);
+  const vaning = parseVaning(form.vaning) ?? undefined;
   const byggar = parseValfrittHeltal(form.byggar);
 
   return {
