@@ -68,12 +68,28 @@ import type {
 // ---------------------------------------------------------------------------
 
 /**
- * Off until the scan workstream (WS1) ships the 'transkribering' stage. While
- * off, skapaAnalys refuses a PDF whose text layer is 'saknas' exactly as
- * before the register existed, and the worker's 'transkribering' stage is a
- * stub that fails loudly.
+ * Scanned (image-only) reports are analysed since WS1: a PDF whose text layer is
+ * 'saknas' is queued like any other and takes the 'transkribering' stage
+ * (steg.ts) before grounding. Kept as a code-level emergency brake — set it to
+ * false and skapaAnalys refuses such a PDF again (`scanned_pdf`, before any
+ * upload or spend), exactly as before the register existed. The error code
+ * and `ScannedPdfError` also stay for old failed rows.
  */
-export const SKANNADE_RAPPORTER_AKTIVA = false;
+export const SKANNADE_RAPPORTER_AKTIVA = true;
+
+/**
+ * Interim guard on the scan path (supervisor, 2026-10-09 — product limit
+ * pending owner confirmation, not a domain fact): transcription costs about
+ * 0.105 SEK/page (measured), and nothing else bounds a single scanned upload
+ * except the daily cap. The annual reports seen so far have 12–34 pages, so 60
+ * leaves ample room (≈ 6.5 SEK) while refusing a 300-page scan (≈ 31 SEK).
+ * Text-layer PDFs are not affected.
+ */
+export const MAX_SIDOR_SKANNAD_RAPPORT = 60;
+
+export const FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE =
+  "Den skannade årsredovisningen har fler sidor än vi kan läsa av just nu. " +
+  "Ladda gärna upp en digital version (med textlager) av årsredovisningen.";
 
 /** Major version of the extraction schema (`ExtractionResult.schemaVersion`
  *  "1.x.y"). Bump together with a breaking ExtractionResultSchema change. */

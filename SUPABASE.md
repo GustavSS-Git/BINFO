@@ -45,7 +45,7 @@ version of it.
 | `rapport_identitet_uniq` | Partial unique index on `(orgnr, rakenskapsar, pipeline_version)` over rows with an identity whose status is not `failed`/`ersatt`. **The concurrency lock** for the same report. |
 | `rapport_fil_version_uniq` | Partial unique index on `(pdf_hash, pipeline_version)` over live rows. **The second lock**: same bytes (incl. concurrent lazy re-runs of an identity-less rapport, which the identity index cannot see). A conflict on either index links to the slot holder (`skapaRapportMedPlats`). |
 | `rapport_fil(pdf_hash pk, rapport_id, pdf_path, sidor, bytes, uppladdad)` | One row per byte version. The primary key settles same-bytes races. |
-| `sidtext(rapport_id, sida, text, kalla)` | Scan transcriptions (WS1). Created, unused. |
+| `sidtext(rapport_id, sida, text, kalla, pk(rapport_id, sida))` | Scan transcriptions (WS1): one row per transcribed page, `kalla 'transkribering'`, `on delete cascade`. Written by the `transkribering` stage, read by `grundning` for `textlager 'saknas'`. See "Scanned reports" below. |
 | `forening_adress` | Where a BRF is. `kalla 'anvandare'` rows hold the buyer's postnummer + kommun code + område (from `losTackning`) and **never** a street address (CHECK); upsert `registrera_forening_adress`, unique NULLS NOT DISTINCT (needs Postgres ≥ 15). |
 | `analys.rapport_id` | Nullable FK. Null = legacy row. |
 | `claim_next_rapport_steg`, `slapp_rapport_steg` | The rapport queue; same lease/attempts/`SKIP LOCKED` semantics as `claim_next_steg`/`slapp_steg`, except a release never resurrects a done/failed/ersatt row. |
@@ -66,8 +66,8 @@ and the row marked done) and fails only linked rows whose rapport is not done.
 ```
 identifiering ──(register hit)──► status 'ersatt', ersatt_av = hit
      │                             (analys rows + files re-pointed)
-     ├─(textlager 'saknas')─► transkribering (stub until WS1) ─┐
-     ▼                                                          ▼
+     ├─(textlager 'saknas')─► transkribering (WS1) ─┐
+     ▼                                               ▼
 grundning ─► extraktion ─► bedomning ─► klar (status 'done')
 ```
 
@@ -93,9 +93,10 @@ logged and surfaces on that buyer's read.
 ### Upload (`skapaAnalys`)
 
 Validation order unchanged up to the text extraction. Then: classify
-`textlager` (`saknas` = every page empty → still refused while
-`SKANNADE_RAPPORTER_AKTIVA` is off; `trasigt` = `bedomTextkvalitet` > 0.6 → runs
-the normal path, recorded); upload `<hash>.pdf`; then `kopplaUppladdning`:
+`textlager` (`saknas` = ≥ 80 % of pages empty → the scan path, "Scanned reports" below; `trasigt` = `bedomTextkvalitet` > 0.6 → runs
+the normal path, recorded); then, *before* the daily spend cap, a free hash
+lookup: a hash hit on a done, parseable rapport is served at no cost, so the cap
+does not refuse it (the kill switch still does); upload `<hash>.pdf`; then `kopplaUppladdning`:
 
 1. **hash** → `rapport_fil` → its rapport (following `ersatt_av`): servable →
    link, `ateranvand`; in progress at this version → link, `vantarPaRapport`;
@@ -119,7 +120,58 @@ the normal path, recorded); upload `<hash>.pdf`; then `kopplaUppladdning`:
    the loser, which deletes its unreferenced rapport and links to the winner.
 
 Then the `analys` row (its own status/stage are set to `queued`/`uploaded`
-and never used again) and, best effort, `forening_adress`.
+and never used again) and, best effort, `forening_adress`. The upload quota
+taken at the start is given back (`aterlamnaUppladdningskvot`, `kvot.ts`) when
+the upload costs nothing: served from the register (`ateranvand`) or joined to a
+rapport someone else already started (`vantarPaRapport`).
+
+### Scanned reports (WS1)
+
+A PDF with no text layer (`textlager 'saknas'`) is accepted
+(`SKANNADE_RAPPORTER_AKTIVA = true` in `register.ts`; set it to `false` and
+`skapaAnalys` refuses such a PDF again with `scanned_pdf`, as a code-level
+emergency brake). Its rapport runs
+`identifiering` (unchanged; pages 1–3 as a native document) →
+**`transkribering`** → `grundning` → `extraktion` → `bedomning`. A garbled text
+layer (`trasigt`) stays on the normal path (measured better,
+docs/PLAN-v2.md §1.9).
+
+- **`transkribering`** (`korTranskribering`, `steg.ts` → `transkribera`): the PDF
+  from storage is split with `pdf-lib` into 5-page chunks, run **in parallel in
+  one invocation**, one Sonnet call per chunk (model = `rapport.model`, effort =
+  `ANTHROPIC_EFFORT_GROUNDING`, `max_tokens` 8000). Each finished chunk is
+  upserted into `sidtext` at once (`sparaSidtext`, on `(rapport_id, sida)`), so
+  a retry reads the stored pages (`hamtaSidtext` → `redanKlara`) and redoes only
+  chunks with a missing page. Page markers are validated per chunk (one retry,
+  then `TranskriberingMarkorFelError`).
+- **Spend.** The daily reservation is realistic, `0.15 kr × pages still to do`
+  (measured 0.105 kr/page incl. headers: 34 pages = 3.58 kr), reconciled to the
+  real cost. The step's own budget for `transkribera` is
+  `max(MAX_COST_PER_ANALYSIS_SEK, chunks × 1.0 kr)` because its pre-flight sums
+  the worst case of all parallel chunks (≈ 0.94 kr each at 8.6k in / 8k out, price
+  table in `costGuard.ts`); with the default 5 kr a 34-page scan (7 chunks, worst
+  case ≈ 6.6 kr) would otherwise never start.
+- **Failure** takes the normal path (3 attempts per stage, real spend booked via
+  the error's annotation). `TranskriberingMarkorFelError` and
+  `TomTranskriptionError` become `scanned_pdf` with a fixed buyer-safe message
+  (`fel.ts`); no new error code, since the UI's code union must stay equal to the
+  server's.
+- **`grundning` for `saknas`** reads `sidtext` ordered by page and runs
+  `runGroundingFranTranskription` (custom-content document; page numbers only
+  from the block→page map). **`extraktion`** passes `kalla 'skannad'` →
+  `datakvalitet.kalla = 'skannad'` and confidence capped at `medel`.
+- **`sidtext` writes are not lease-guarded.** A page is paid-for output of the
+  same bytes; one that finishes after the worker lost its lease is kept so the
+  next attempt does not pay twice. The write never touches the `rapport` row, so
+  it cannot resurrect a terminal rapport — the status/stage writes stay on the
+  leased `uppdateraLeasadRapport`, and a result that arrives after an
+  invalidate is dropped.
+- **Edge.** Nothing new to configure: `pdf-lib` is already bundled as
+  `npm:pdf-lib@<lockfile version>` (external, like `unpdf`); the scan path uses
+  no `Buffer`/`process`/`fs` (`toBase64` is `btoa`-based). The inline Edge env is
+  unchanged (the stage reuses `ANTHROPIC_EFFORT_GROUNDING`). Wall clock: the
+  slowest of 7 parallel chunk calls was 26 s (measured 2026-10-09), the whole
+  tick 29.5 s, against the 150 s limit.
 
 ### Reads
 

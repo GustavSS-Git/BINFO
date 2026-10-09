@@ -16,7 +16,8 @@
  */
 
 import type { AnalysErrorCode, RapportErrorCode } from "./portar";
-import { ScannedPdfError } from "@/lib/analysis/runExtraction";
+import { ScannedPdfError, TomTranskriptionError } from "@/lib/analysis/runExtraction";
+import { TranskriberingMarkorFelError } from "@/lib/analysis/transkribering";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
@@ -31,6 +32,10 @@ export interface FelResultat {
 
 const GENERISKT_FEL_MEDDELANDE =
   "Analysen kunde inte slutföras på grund av ett internt fel. Försök igen, och kontakta oss om felet kvarstår.";
+
+const SKANNAD_OLASLIG_MEDDELANDE =
+  "Vi kunde inte läsa av de skannade sidorna tillförlitligt. " +
+  "Försök gärna med en digital version av årsredovisningen.";
 
 /**
  * Kastas av spend-guard-lagret (kommande `src/server/spend.ts`) för att
@@ -63,6 +68,18 @@ export function tolkaFel(error: unknown): FelResultat {
     // köparsäkert. Att skriva om det hade bara dupliceats texten. Passera
     // igenom oförändrat.
     return { errorCode: "scanned_pdf", message: error.message };
+  }
+
+  if (error instanceof TranskriberingMarkorFelError || error instanceof TomTranskriptionError) {
+    // BESLUT: de skannade sidorna gick inte att läsa av tillförlitligt (felaktiga
+    // sidmarkörer efter ett omförsök, eller en transkription utan text). Ingen
+    // ny felkod: UI:ts spegel av AnalysErrorCode (src/lib/analysStatusCopy.ts)
+    // måste vara exakt lika med serverns union, och dess `scanned_pdf`-text
+    // ("går inte att läsa maskinellt … be om den digitala originalfilen") är
+    // precis rådet som hjälper köparen här — `validation` skulle i stället
+    // skicka köparen tillbaka till formuläret. Felklassernas egna meddelanden
+    // nämner sidnummer och markörer och passerar därför INTE igenom.
+    return { errorCode: "scanned_pdf", message: SKANNAD_OLASLIG_MEDDELANDE };
   }
 
   if (error instanceof KostnadsgransOverskriden) {

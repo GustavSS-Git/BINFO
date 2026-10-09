@@ -36,6 +36,8 @@ import type {
   RapportFilRad,
   RapportFilter,
   RapportRad,
+  Sidtext,
+  SidtextKalla,
   SkapaRapportResultat,
 } from "../portar";
 
@@ -99,6 +101,8 @@ export interface FakeDatabas extends Databas {
   _allaRapportFiler(): RapportFilRad[];
   _allaAnalyser(): AnalysRad[];
   _allaAdresser(): Array<NyForeningAdress & { forstSedd: string; senastSedd: string }>;
+  /** Every sidtext row of one rapport, with its kalla. */
+  _allaSidtext(rapportId: string): Array<Sidtext & { kalla: SidtextKalla }>;
   /** The LIVE `analys` table (not a copy). Shared with the konto fake
    *  (`skapaFakeKontoDatabas({ analyser: lager.db._analysTabell() })`) so a
    *  principal merge or erasure acts on the same rows the job code reads —
@@ -119,6 +123,8 @@ function skapaFakeDatabas(): FakeDatabas {
   const rapportFiler = new Map<string, RapportFilRad>();
   const foreningar = new Map<string, ForeningRad>();
   const adresser = new Map<string, NyForeningAdress & { forstSedd: string; senastSedd: string }>();
+  /** rapport_id -> sida -> row (pk (rapport_id, sida)). */
+  const sidtext = new Map<string, Map<number, { text: string; kalla: SidtextKalla }>>();
 
   let nastaId = 1;
   let nastaRapportId = 1;
@@ -388,6 +394,7 @@ function skapaFakeDatabas(): FakeDatabas {
         [...rapporter.values()].some((r) => r.ersattAv === id);
       if (refererad) throw new Error(`Fake: rapport ${id} är refererad (FK) och kan inte raderas.`);
       rapporter.delete(id);
+      sidtext.delete(id); // on delete cascade
     },
 
     async listaRapporter(filter: RapportFilter): Promise<RapportRad[]> {
@@ -535,6 +542,34 @@ function skapaFakeDatabas(): FakeDatabas {
       });
     },
 
+    async hamtaSidtext(rapportId: string): Promise<Sidtext[]> {
+      const rader = sidtext.get(rapportId);
+      if (!rader) return [];
+      return [...rader.entries()]
+        .map(([sida, rad]) => ({ sida, text: rad.text }))
+        .sort((a, b) => a.sida - b.sida);
+    },
+
+    async sparaSidtext(
+      rapportId: string,
+      sidor: readonly Sidtext[],
+      kalla: SidtextKalla,
+    ): Promise<void> {
+      if (!rapporter.has(rapportId)) {
+        throw new Error(`Fake: sidtext.rapport_id pekar på okänd rapport ${rapportId} (FK).`);
+      }
+      // Validate the whole batch first: one statement, all or nothing.
+      for (const s of sidor) {
+        if (!Number.isInteger(s.sida) || s.sida < 1) {
+          throw new Error(`Fake: sidtext_sida_check — sida måste vara >= 1, fick ${s.sida}.`);
+        }
+      }
+      const rader =
+        sidtext.get(rapportId) ?? new Map<number, { text: string; kalla: SidtextKalla }>();
+      for (const s of sidor) rader.set(s.sida, { text: s.text, kalla });
+      sidtext.set(rapportId, rader);
+    },
+
     async listaExtraktionCache(promptVersion: string): Promise<ExtraktionCacheListRad[]> {
       const rader: ExtraktionCacheListRad[] = [];
       for (const [nyckel, rad] of extraktionCache) {
@@ -549,6 +584,10 @@ function skapaFakeDatabas(): FakeDatabas {
     _allaRapportFiler: () => [...rapportFiler.values()],
     _allaAnalyser: () => [...analysRader.values()],
     _allaAdresser: () => [...adresser.values()],
+    _allaSidtext: (rapportId) =>
+      [...(sidtext.get(rapportId) ?? [])]
+        .map(([sida, rad]) => ({ sida, text: rad.text, kalla: rad.kalla }))
+        .sort((a, b) => a.sida - b.sida),
     _analysTabell: () => analysRader,
   };
 }

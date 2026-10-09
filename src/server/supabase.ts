@@ -40,6 +40,8 @@ import type {
   RapportRad,
   RapportStage,
   RapportStatus,
+  Sidtext,
+  SidtextKalla,
   SkapaRapportResultat,
   Textlager,
 } from "./portar";
@@ -643,6 +645,32 @@ function skapaDatabas(sb: SupabaseClient): Databas {
         p_kalla: rad.kalla,
       });
       if (error) throw new Error(`registreraForeningAdress misslyckades: ${error.message}`);
+    },
+
+    async hamtaSidtext(rapportId: string): Promise<Sidtext[]> {
+      const { data, error } = await sb
+        .from("sidtext")
+        .select("sida, text")
+        .eq("rapport_id", rapportId)
+        .order("sida", { ascending: true });
+      if (error) throw new Error(`hamtaSidtext misslyckades: ${error.message}`);
+      return (data as Array<{ sida: number; text: string }>).map((rad) => ({
+        sida: rad.sida,
+        text: rad.text,
+      }));
+    },
+
+    async sparaSidtext(
+      rapportId: string,
+      sidor: readonly Sidtext[],
+      kalla: SidtextKalla,
+    ): Promise<void> {
+      if (sidor.length === 0) return;
+      const { error } = await sb.from("sidtext").upsert(
+        sidor.map((s) => ({ rapport_id: rapportId, sida: s.sida, text: s.text, kalla })),
+        { onConflict: "rapport_id,sida" },
+      );
+      if (error) throw new Error(`sparaSidtext misslyckades: ${error.message}`);
     },
 
     async listaExtraktionCache(promptVersion: string): Promise<ExtraktionCacheListRad[]> {

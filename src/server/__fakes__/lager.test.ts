@@ -474,3 +474,91 @@ describe("hamtaSpendForDag", () => {
     expect(await db.hamtaSpendForDag("2026-10-09")).toBe(3);
   });
 });
+
+describe("sidtext (WS1, scan transcriptions)", () => {
+  async function medRapport() {
+    const lager = skapaFakeLager();
+    const skapad = await lager.db.skapaRapport({
+      orgnr: null,
+      rakenskapsar: null,
+      pipelineVersion: "p-test",
+      model: "m",
+      textlager: "saknas",
+      status: "queued",
+      stage: "transkribering",
+      pdfHash: "h",
+    });
+    if (!skapad.ok) throw new Error("kunde inte skapa rapport");
+    return { lager, rapportId: skapad.id };
+  }
+
+  it("hamtaSidtext: tom lista utan rader, annars sorterad på sida", async () => {
+    const { lager, rapportId } = await medRapport();
+    expect(await lager.db.hamtaSidtext(rapportId)).toEqual([]);
+    await lager.db.sparaSidtext(
+      rapportId,
+      [
+        { sida: 6, text: "sex" },
+        { sida: 1, text: "ett" },
+      ],
+      "transkribering",
+    );
+    expect(await lager.db.hamtaSidtext(rapportId)).toEqual([
+      { sida: 1, text: "ett" },
+      { sida: 6, text: "sex" },
+    ]);
+  });
+
+  it("sparaSidtext är en upsert på (rapport_id, sida): en omskrivning ersätter, andra rader rörs inte", async () => {
+    const { lager, rapportId } = await medRapport();
+    await lager.db.sparaSidtext(
+      rapportId,
+      [
+        { sida: 1, text: "gammal" },
+        { sida: 2, text: "två" },
+      ],
+      "transkribering",
+    );
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "ny" }], "transkribering");
+    expect(await lager.db.hamtaSidtext(rapportId)).toEqual([
+      { sida: 1, text: "ny" },
+      { sida: 2, text: "två" },
+    ]);
+  });
+
+  it("en tom text är en giltig sida (en blank sida behålls)", async () => {
+    const { lager, rapportId } = await medRapport();
+    await lager.db.sparaSidtext(rapportId, [{ sida: 3, text: "" }], "transkribering");
+    expect(await lager.db.hamtaSidtext(rapportId)).toEqual([{ sida: 3, text: "" }]);
+  });
+
+  it("rapporterna är isolerade från varandra", async () => {
+    const { lager, rapportId } = await medRapport();
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering");
+    expect(await lager.db.hamtaSidtext("fake-rapport-999")).toEqual([]);
+  });
+
+  it("FK: en okänd rapport nekas, sida < 1 nekas (som CHECK i migrationen)", async () => {
+    const { lager, rapportId } = await medRapport();
+    await expect(
+      lager.db.sparaSidtext("fake-rapport-999", [{ sida: 1, text: "x" }], "transkribering"),
+    ).rejects.toThrow(/FK|okänd/);
+    await expect(
+      lager.db.sparaSidtext(rapportId, [{ sida: 0, text: "x" }], "transkribering"),
+    ).rejects.toThrow(/sida/);
+  });
+
+  it("on delete cascade: raderaRapport tar sidtexten med sig", async () => {
+    const { lager, rapportId } = await medRapport();
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering");
+    await lager.db.raderaRapport(rapportId);
+    expect(await lager.db.hamtaSidtext(rapportId)).toEqual([]);
+  });
+
+  it("skriver aldrig om rapportens status (en terminal rapport väcks inte till liv)", async () => {
+    const { lager, rapportId } = await medRapport();
+    await lager.db.uppdateraRapport(rapportId, { status: "failed" });
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering");
+    expect((await lager.db.hamtaRapport(rapportId))?.status).toBe("failed");
+  });
+});

@@ -54,6 +54,43 @@ export const UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK = 1;
 export const UPPSKATTAD_KOSTNAD_BEDOMNING_SEK = 1.5;
 
 /**
+ * Transkribering av en skannad rapport (WS1, docs/PLAN-v2.md §1.9): kostnaden
+ * växer med sidantalet, så reservationen görs per sida.
+ *
+ * Reservationen är avsiktligt REALISTISK, inte värsta fallet: uppmätt
+ * 0,105 kr/sida inkl. headers (Sonnet 5.5, effort medium, 5-sidors chunkar;
+ * prislista $2/$10 per Mtok, 9,7 kr/USD, costGuard.ts) → 0,15 kr/sida ger ca
+ * 40 % marginal. Värsta fallet per chunk (8,6k in + 8k ut = ~0,94 kr) skulle
+ * för en 34-sidig rapport reservera ~6,6 kr mot en verklig kostnad på ~3,6 kr
+ * och blockera onödigt mycket av dagens tak. Reservationen stäms av mot den
+ * faktiska kostnaden efter steget, som för alla steg.
+ */
+export const UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA = 0.15;
+
+/**
+ * Värsta fallet för EN chunk-anrop: 8,6k in-tokens (uppmätt max för 5 sidor) +
+ * `TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK` ut ≈ 0,94 kr. Förhandskontrollen i
+ * `transkribera` är värsta fallet för SAMTLIGA parallella chunkar tillsammans
+ * (ingen får överskrida taket tillsammans), så taket för steget måste skala med
+ * antalet chunkar — se `transkriberingsTak`.
+ */
+export const TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK = 1.0;
+
+/** `max_tokens` per chunk. Uppmätt maximum 5,1k (tänkande inräknat) för 5 sidor. */
+export const TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK = 8000;
+
+/** Reservation för att transkribera `antalSidor` sidor (0 sidor = 0 kr). */
+export function uppskattadKostnadTranskribering(antalSidor: number): number {
+  return antalSidor * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA;
+}
+
+/** Budget för `transkribera`: aldrig lägre än per-analys-taket, och aldrig
+ *  lägre än värsta fallet för alla chunkar som ska göras. */
+export function transkriberingsTak(maxCostPerAnalysisSek: number, antalChunkar: number): number {
+  return Math.max(maxCostPerAnalysisSek, antalChunkar * TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK);
+}
+
+/**
  * Dagens datum som "YYYY-MM-DD", i Europe/Stockholm — inte UTC. Ett
  * medvetet men lågstakes-val: köparna och spendet hör hemma i svensk tid,
  * så dygnsgränsen för det dagliga taket ska följa den, inte UTC (som annars

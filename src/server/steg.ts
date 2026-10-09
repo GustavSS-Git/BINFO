@@ -53,7 +53,8 @@
  *
  *   identifiering ──(träff i registret)──► status 'ersatt' (analys-rader pekas om)
  *        │
- *        ├─(textlager 'saknas')─► transkribering (stub tills WS1) ─► grundning
+ *        ├─(textlager 'saknas')─► transkribering (WS1, parallella 5-sidors chunkar,
+ *        │                         sidorna sparas i `sidtext`) ─► grundning (på sidtexten)
  *        ▼
  *   grundning ─► extraktion ─► bedomning ─► klar (status 'done')
  *
@@ -70,6 +71,7 @@ import { AssemblyValidationError, assembleraAnalys } from "@/lib/analysis/assemb
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
 import { errorHasKnownSpend, type ModelCallMetrics } from "@/lib/analysis/callMetrics";
+import { PDFDocument } from "pdf-lib";
 import { namnLiknar as namnLiknarStandard, type Rapportidentitet } from "@/lib/analysis/identitet";
 import { identifieraMedModell as identifieraMedModellStandard } from "@/lib/analysis/identitetModell";
 import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
@@ -77,9 +79,12 @@ import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import {
   ModelRefusedError,
   runGrounding,
+  runGroundingFranTranskription,
   runStructuredExtraction,
   type AnthropicClientLike,
+  type RunGroundingResult,
 } from "@/lib/analysis/runExtraction";
+import { STANDARD_CHUNKSTORLEK, transkribera } from "@/lib/analysis/transkribering";
 import {
   hamtaAnalysFranCache,
   hamtaExtraktionFranCache,
@@ -116,6 +121,9 @@ import {
   UPPSKATTAD_KOSTNAD_BEDOMNING_SEK,
   UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK,
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
+  TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+  transkriberingsTak,
+  uppskattadKostnadTranskribering,
 } from "./spend";
 
 export interface KorNastaStegOptions {
@@ -872,23 +880,105 @@ async function korIdentifiering(
   return rapportResultat(r);
 }
 
-/** Steg 0b — transkribering av skannade rapporter (WS1). Inte implementerad:
- *  så länge SKANNADE_RAPPORTER_AKTIVA är av når ingen rapport hit (skapaAnalys
- *  nekar textlager 'saknas'); gör en ändå det, misslyckas den synligt. */
-async function korTranskribering(lager: Lager, r: RapportRad): Promise<KorNastaStegResultat> {
-  await rapportFel(
-    lager,
-    r,
-    0,
-    new Error(
-      "Transkribering av skannade rapporter är inte implementerad än " +
-        "(SKANNADE_RAPPORTER_AKTIVA, src/server/register.ts).",
-    ),
-  );
+/** Antal sidor i rapportens PDF: den räknade siffran från uppladdningen
+ *  (`rapport_fil.sidor`), annars räknas de ur bytes. Bara en uppskattningsgrund —
+ *  själva uppdelningen gör `transkribera`. */
+async function antalSidorForRapport(
+  lager: Lager,
+  r: RapportRad,
+  pdfBytes: Uint8Array,
+): Promise<number> {
+  const fil = r.pdfHash === null ? null : await lager.db.hamtaRapportFil(r.pdfHash);
+  if (fil?.sidor && fil.sidor > 0) return fil.sidor;
+  return (await PDFDocument.load(pdfBytes.slice())).getPageCount();
+}
+
+/** Hur mycket som återstår att transkribera: sidor utan sparad text och de
+ *  chunkar (`STANDARD_CHUNKSTORLEK` sidor) som har minst en sådan sida — samma
+ *  uppdelning som `transkribera` gör, som hoppar över en chunk först när ALLA
+ *  dess sidor finns. */
+function aterstaendeTranskribering(
+  antalSidor: number,
+  klara: ReadonlyMap<number, string>,
+): { sidor: number; chunkar: number } {
+  let sidor = 0;
+  let chunkar = 0;
+  for (let fran = 1; fran <= antalSidor; fran += STANDARD_CHUNKSTORLEK) {
+    let saknas = 0;
+    for (let n = fran; n < Math.min(antalSidor + 1, fran + STANDARD_CHUNKSTORLEK); n++) {
+      if (!klara.has(n)) saknas++;
+    }
+    sidor += saknas;
+    if (saknas > 0) chunkar++;
+  }
+  return { sidor, chunkar };
+}
+
+/**
+ * Steg 0b — transkribering av en skannad rapport (textlager 'saknas', WS1,
+ * docs/PLAN-v2.md §1.9). `transkribera` delar PDF:en i 5-sidors chunkar och kör
+ * dem parallellt (ett modellanrop per chunk, alla inom DEN HÄR Edge-invokeringen);
+ * varje färdig chunk sparas i `sidtext` direkt, så ett omförsök efter ett fel
+ * bara gör de chunkar som saknas — och bara de reserveras och betalas.
+ *
+ * Spend: reservationen är REALISTISK (0,15 kr/sida × sidor kvar, se spend.ts) och
+ * stäms av mot den faktiska kostnaden. Budgeten till `transkribera` är däremot
+ * `max(MAX_COST_PER_ANALYSIS_SEK, chunkar × 1,0 kr)`: förhandskontrollen där
+ * summerar värsta fallet för ALLA parallella chunkar (≈0,94 kr var vid 8,6k in /
+ * 8k ut), så en 34-sidig rapport (7 chunkar ≈ 6,6 kr värsta fall) skulle annars
+ * aldrig rymmas under ett tak på 5 kr trots att den kostar ≈ 3,6 kr.
+ *
+ * Ett misslyckande går den vanliga vägen (tre försök, verklig spend bokförd via
+ * felets annotering). Sidorna sparas utan lease-vakt (se `sparaSidtext` i
+ * portar.ts); rapportens tillstånd skrivs bara via de leasade skrivningarna.
+ */
+async function korTranskribering(
+  lager: Lager,
+  env: Env,
+  r: RapportRad,
+  options: KorNastaStegOptions | undefined,
+): Promise<KorNastaStegResultat> {
+  let reserverat = 0;
+  let spend: KandSpend = INGEN_SPEND;
+  try {
+    const pdfBytes = await lasRapportPdf(lager, r);
+    const klara = new Map((await lager.db.hamtaSidtext(r.id)).map((s) => [s.sida, s.text]));
+    const antalSidor = await antalSidorForRapport(lager, r, pdfBytes);
+    const kvar = aterstaendeTranskribering(antalSidor, klara);
+
+    if (kvar.sidor > 0) {
+      const belopp = uppskattadKostnadTranskribering(kvar.sidor);
+      const reservation = await reserveraForSteg(lager.db, env, belopp);
+      if (!reservation.ok) return refuseraRapport(lager, r);
+      reserverat = belopp;
+    }
+
+    const resultat = await transkribera(pdfBytes, {
+      model: r.model,
+      maxCostSek: transkriberingsTak(env.maxCostPerAnalysisSek, kvar.chunkar),
+      effort: env.effortGrounding,
+      apiKey: env.anthropicApiKey,
+      maxOutputTokensPerChunk: TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+      redanKlara: klara,
+      sparaSidor: (sidor) => lager.db.sparaSidtext(r.id, sidor, "transkribering"),
+      ...(options?.client ? { client: options.client } : {}),
+    });
+    spend = { spentSek: resultat.spentSek, calls: resultat.calls };
+    const skrivet = await rapportFramgang(lager, r, reserverat, spend, { stage: "grundning" });
+    if (skrivet) trigger(options);
+  } catch (error) {
+    await rapportFel(lager, r, reserverat, error, spend);
+  }
   return rapportResultat(r);
 }
 
-/** Steg 1 — grundning, på rapportens egen PDF (via rapport_fil). */
+/**
+ * Steg 1 — grundning. Skannad rapport (textlager 'saknas'): på den sparade
+ * transkriptionen (`sidtext`, i sidordning) med `runGroundingFranTranskription`.
+ * Allt annat — 'ok' och 'trasigt' — på rapportens egen PDF (via rapport_fil) med
+ * `runGrounding`: ett trasigt textlager stannar medvetet på den vanliga vägen
+ * (uppmätt bättre än skannvägen, docs/PLAN-v2.md §1.9).
+ */
 async function korRapportGrundning(
   lager: Lager,
   env: Env,
@@ -900,13 +990,23 @@ async function korRapportGrundning(
 
   let spend: KandSpend = INGEN_SPEND;
   try {
-    const pdfBytes = await lasRapportPdf(lager, r);
-    const result = await runGrounding(pdfBytes, {
+    const grundningsval = {
       model: r.model,
       maxCostSek: env.maxCostPerAnalysisSek,
       effort: env.effortGrounding,
       ...(options?.client ? { client: options.client } : {}),
-    });
+    };
+    let result: RunGroundingResult;
+    if (r.textlager === "saknas") {
+      // hamtaSidtext är sorterad på sida; ingen sparad text -> TomTranskriptionError
+      // före något anrop (fel.ts: köparsäkert).
+      result = await runGroundingFranTranskription(await lager.db.hamtaSidtext(r.id), {
+        ...grundningsval,
+        apiKey: env.anthropicApiKey,
+      });
+    } else {
+      result = await runGrounding(await lasRapportPdf(lager, r), grundningsval);
+    }
     spend = { spentSek: result.spentSek, calls: result.calls };
     const skrivet = await rapportFramgang(lager, r, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, spend, {
       stage: "extraktion",
@@ -958,10 +1058,15 @@ async function korRapportExtraktion(
 
   let spend: KandSpend = INGEN_SPEND;
   try {
+    // Samma regel som grundningen: bara 'saknas' tog skannvägen. Då är texten
+    // avläst ur sidbilder: datakvalitet.kalla = 'skannad', konfidensen kapas vid
+    // 'medel' (runStructuredExtraction).
+    const skannad = r.textlager === "saknas";
     const result = await runStructuredExtraction(r.grundtext ?? "", {
       model: r.model,
       maxCostSek: env.maxCostPerAnalysisSek,
-      pdfSaknarTextlager: false,
+      pdfSaknarTextlager: skannad,
+      kalla: skannad ? "skannad" : "textlager",
       effort: env.effortExtraction,
       ...(options?.client ? { client: options.client } : {}),
     });
@@ -1102,7 +1207,7 @@ async function korRapportSteg(
     case "identifiering":
       return korIdentifiering(lager, env, r, options);
     case "transkribering":
-      return korTranskribering(lager, r);
+      return korTranskribering(lager, env, r, options);
     case "grundning":
       return korRapportGrundning(lager, env, r, options);
     case "extraktion":

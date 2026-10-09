@@ -81,6 +81,27 @@ export async function kontrolleraUppladdningskvot(
   return { ok: true };
 }
 
+/**
+ * Gives back the upload quota `kontrolleraUppladdningskvot` took (the device
+ * key, and the IP key when there is an IP). Used when the upload turned out to
+ * cost nothing: served instantly from the register, or joined to a report that
+ * is already being analysed. Best effort — the buyer's analysis already exists,
+ * so a failed refund is logged, never thrown.
+ */
+export async function aterlamnaUppladdningskvot(db: KontoDatabas, kontext: Kontext): Promise<void> {
+  try {
+    await db.aterlamnaKvot(kvotNyckel("uppladdning", "enhet", kontext.enhetId), DAG_SEK);
+    if (kontext.ipHash !== null) {
+      await db.aterlamnaKvot(kvotNyckel("uppladdning", "ip", kontext.ipHash), DAG_SEK);
+    }
+  } catch (fel) {
+    console.warn(
+      "[kvot] Kunde inte återlämna uppladdningskvot: " +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
+}
+
 /** Price-estimate limit: 60 per IP per hour (device key when no IP). */
 export async function kontrolleraPrisuppskattningskvot(
   db: KontoDatabas,

@@ -479,7 +479,7 @@ describe("skapaAnalys — registret", () => {
     expect((await lager.db.hamtaRapportFil(await sha256Hex(pdf)))?.rapportId).toBe(rad.rapportId);
   });
 
-  it("en skannad PDF nekas fortfarande utan sidoeffekter (SKANNADE_RAPPORTER_AKTIVA av)", async () => {
+  it("en skannad PDF köas (SKANNADE_RAPPORTER_AKTIVA på): textlager 'saknas', identifiering först", async () => {
     const lager = skapaFakeLager();
     const doc = await PDFDocument.create();
     doc.addPage();
@@ -489,8 +489,25 @@ describe("skapaAnalys — registret", () => {
       { pdfBytes: await doc.save(), propertyInput },
       lokalIdentitet(null),
     );
-    expect(resultat).toMatchObject({ ok: false, errorCode: "scanned_pdf" });
-    expect(lager.db._allaRapporter()).toHaveLength(0);
+    expect(resultat.ok).toBe(true);
+    expect(lager.db._allaRapporter()).toEqual([
+      expect.objectContaining({ textlager: "saknas", stage: "identifiering", status: "queued" }),
+    ]);
+  });
+
+  it("en skannad PDF med lokal identitet går direkt till transkribering, inte grundning", async () => {
+    const lager = skapaFakeLager();
+    const doc = await PDFDocument.create();
+    doc.addPage();
+    await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await doc.save(), propertyInput },
+      lokalIdentitet(KASTANJEN),
+    );
+    expect(lager.db._allaRapporter()).toEqual([
+      expect.objectContaining({ textlager: "saknas", stage: "transkribering" }),
+    ]);
   });
 });
 
@@ -1067,23 +1084,6 @@ describe("korNastaSteg — registrets kö", () => {
     expect((await bas.db.hamtaAnalys(b.rad.id))?.rapportId).toBe(a.rad.rapportId);
   });
 
-  it("transkribering är en stub som misslyckas synligt", async () => {
-    const lager = skapaFakeLager();
-    const id = await seedaKlarRapport(lager, {
-      pdfHash: "skannad",
-      identitet: null,
-      status: "queued",
-      stage: "transkribering",
-      extraction: null,
-      judgement: null,
-    });
-    await korNastaSteg(lager, buildEnv());
-    expect(await lager.db.hamtaRapport(id)).toMatchObject({
-      status: "queued",
-      errorCode: "unknown",
-    });
-  });
-
   it("den gamla kön dräneras när ingen rapport finns att klaima, och rapporter går först", async () => {
     const lager = skapaFakeLager();
     const { id: legacyId } = await lager.db.skapaAnalys({
@@ -1099,12 +1099,18 @@ describe("korNastaSteg — registrets kö", () => {
       pdfHash: "ny",
       identitet: null,
       status: "queued",
-      stage: "transkribering",
+      stage: "identifiering",
       extraction: null,
       judgement: null,
     });
 
-    expect((await korNastaSteg(lager, buildEnv())).rapportId).toBe(rapportId);
+    expect(
+      (
+        await korNastaSteg(lager, buildEnv(), {
+          identifieraMedModell: fakeIdentifierare(null),
+        })
+      ).rapportId,
+    ).toBe(rapportId);
     await lager.db.uppdateraRapport(rapportId, { status: "failed" });
     const fel = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await korNastaSteg(lager, buildEnv())).toEqual({

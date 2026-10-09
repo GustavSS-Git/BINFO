@@ -8,7 +8,13 @@ import {
   UPPSKATTAD_KOSTNAD_BEDOMNING_SEK,
   UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK,
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
+  UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
+  TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+  TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK,
+  transkriberingsTak,
+  uppskattadKostnadTranskribering,
 } from "./spend";
+import { estimateCostSek, prissattningForModell, STANDARD_MODELL } from "@/lib/analysis/costGuard";
 
 /** Minimal Env-liknande objekt — testerna behöver bara de två fält
  *  spend-vakten faktiskt läser. */
@@ -128,5 +134,31 @@ describe("kontrolleraDagligtTak", () => {
     expect(
       (await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 0.5 }), "2026-01-01")).ok,
     ).toBe(true);
+  });
+});
+
+describe("transkribering (WS1): reservation och tak", () => {
+  it("reserverar realistiskt per sida (mätt 0,105 kr/sida inkl. headers → 0,15), inte värsta fallet", () => {
+    expect(UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA).toBe(0.15);
+    expect(uppskattadKostnadTranskribering(34)).toBeCloseTo(5.1, 10);
+    expect(uppskattadKostnadTranskribering(0)).toBe(0);
+  });
+
+  it("värsta fallet per chunk (8,6k in / 8k ut på Sonnet 5.5) ryms i 1,0 kr; max_tokens är 8000", () => {
+    expect(TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK).toBe(8000);
+    const varsta = estimateCostSek(
+      8_600,
+      TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+      prissattningForModell(STANDARD_MODELL),
+    );
+    expect(varsta).toBeGreaterThan(0.9);
+    expect(varsta).toBeLessThanOrEqual(TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK);
+  });
+
+  it("taket är max(per-analys-taket, antal chunkar × 1,0)", () => {
+    expect(transkriberingsTak(5, 7)).toBe(7); // 34 sidor = 7 chunkar
+    expect(transkriberingsTak(5, 3)).toBe(5);
+    expect(transkriberingsTak(10, 7)).toBe(10);
+    expect(transkriberingsTak(5, 0)).toBe(5);
   });
 });

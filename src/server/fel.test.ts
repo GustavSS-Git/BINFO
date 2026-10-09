@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { ScannedPdfError } from "@/lib/analysis/runExtraction";
+import { ScannedPdfError, TomTranskriptionError } from "@/lib/analysis/runExtraction";
+import { TranskriberingMarkorFelError } from "@/lib/analysis/transkribering";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ExtractionValidationError, ModelTruncatedError } from "@/lib/analysis/extract";
 import { AnalysValidationError } from "@/lib/analysis/analyze";
@@ -48,6 +49,28 @@ describe("tolkaFel", () => {
     // saknar textlager. Att skriva ett nytt meddelande hade bara duplicerat
     // texten utan att göra den säkrare, så vi passerar igenom den oförändrad.
     expect(resultat.message).toBe(error.message);
+  });
+
+  it("mappar TranskriberingMarkorFelError till scanned_pdf med ett fast köparsäkert meddelande (inga sidnummer eller markördetaljer)", () => {
+    const error = new TranskriberingMarkorFelError(6, 10, [
+      "sidmarkören 7 saknas",
+      "oväntad sidmarkör 1",
+    ]);
+    const resultat = tolkaFel(error);
+    expect(resultat.errorCode).toBe("scanned_pdf");
+    expect(resultat.message).toBe(
+      "Vi kunde inte läsa av de skannade sidorna tillförlitligt. " +
+        "Försök gärna med en digital version av årsredovisningen.",
+    );
+    expect(resultat.message).not.toContain(error.message);
+    expect(resultat.message).not.toMatch(/sidmarkör|\d/);
+  });
+
+  it("mappar TomTranskriptionError till samma köparsäkra scanned_pdf-svar", () => {
+    const resultat = tolkaFel(new TomTranskriptionError());
+    expect(resultat.errorCode).toBe("scanned_pdf");
+    expect(resultat.message).toMatch(/skannade sidorna/);
+    expect(resultat.message).not.toMatch(/API-anrop|Transkriptionen innehåller/);
   });
 
   it("mappar KostnadsgransOverskriden till cost_cap utan att läcka interna variabelnamn", () => {

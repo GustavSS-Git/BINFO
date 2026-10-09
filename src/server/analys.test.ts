@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import { skapaFakeLager } from "./__fakes__/lager";
 import { skapaFakeKontoDatabas, type FakeKontoDatabas } from "./__fakes__/konto";
@@ -20,6 +21,7 @@ import {
   UPPLADDNINGAR_PER_IP_OCH_DAG,
 } from "./kvot";
 import type { Anropare } from "./portar";
+import { FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE, MAX_SIDOR_SKANNAD_RAPPORT } from "./register";
 import type { Env } from "./env";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { sparaAnalysICache, sparaExtraktionICache } from "./cache";
@@ -47,6 +49,20 @@ const fixturePath = (name: string) =>
 
 async function medTextPdf(): Promise<Uint8Array> {
   return new Uint8Array(await readFile(fixturePath("med-text.pdf")));
+}
+
+/** A text-bearing PDF that differs per `n` (different bytes, so a different
+ *  hash and its own rapport). */
+async function unikTextPdf(n: number): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  doc.addPage([595, 842]).drawText(`Arsredovisning nummer ${n} for Brf Test`, {
+    x: 50,
+    y: 780,
+    size: 12,
+    font,
+  });
+  return doc.save();
 }
 
 async function utanTextPdf(): Promise<Uint8Array> {
@@ -212,26 +228,49 @@ describe("skapaAnalys", () => {
     expect(await hamtaStatus(lager, resultat.analysisId)).toMatchObject({ status: "queued" });
   });
 
-  it("avvisar en skannad PDF utan textlager, utan att ladda upp eller skapa någon rad", async () => {
+  it("tar emot en skannad PDF utan textlager (WS1): rapporten köas med textlager 'saknas' och PDF:en laddas upp", async () => {
     const lager = skapaFakeLager();
     const env = buildEnv();
     const pdfBytes = await utanTextPdf();
     const pdfHash = await sha256Hex(pdfBytes);
 
-    const resultat = await skapaAnalys(lager, env, {
-      pdfBytes,
-      propertyInput,
-    });
+    const resultat = await skapaAnalys(lager, env, { pdfBytes, propertyInput });
+
+    expect(resultat.ok).toBe(true);
+    await expect(lager.filer.hamta(`${pdfHash}.pdf`)).resolves.toBeDefined();
+    const [rapport] = lager.db._allaRapporter();
+    expect(rapport).toMatchObject({ textlager: "saknas", status: "queued", pdfHash });
+  });
+
+  it("avvisar en skannad PDF med fler sidor än MAX_SIDOR_SKANNAD_RAPPORT, utan uppladdning eller rad", async () => {
+    const lager = skapaFakeLager();
+    const env = buildEnv();
+    const doc = await PDFDocument.create();
+    for (let i = 0; i < MAX_SIDOR_SKANNAD_RAPPORT + 1; i++) doc.addPage();
+    const pdfBytes = new Uint8Array(await doc.save());
+    const pdfHash = await sha256Hex(pdfBytes);
+
+    const resultat = await skapaAnalys(lager, env, { pdfBytes, propertyInput });
 
     expect(resultat).toEqual({
       ok: false,
       errorCode: "scanned_pdf",
-      errorMessage: expect.any(String),
+      errorMessage: FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE,
     });
-    if (resultat.ok) throw new Error("unreachable");
-    expect(resultat.errorMessage.length).toBeGreaterThan(0);
-
     await expect(lager.filer.hamta(`${pdfHash}.pdf`)).rejects.toThrow();
+    expect(lager.db._allaRapporter()).toHaveLength(0);
+  });
+
+  it("tar emot en skannad PDF med exakt MAX_SIDOR_SKANNAD_RAPPORT sidor", async () => {
+    const lager = skapaFakeLager();
+    const env = buildEnv();
+    const doc = await PDFDocument.create();
+    for (let i = 0; i < MAX_SIDOR_SKANNAD_RAPPORT; i++) doc.addPage();
+    const pdfBytes = new Uint8Array(await doc.save());
+
+    const resultat = await skapaAnalys(lager, env, { pdfBytes, propertyInput });
+
+    expect(resultat.ok).toBe(true);
   });
 
   it("avvisar innehåll som inte börjar med %PDF, utan uppladdning eller radskapande", async () => {
@@ -749,18 +788,47 @@ describe("skapaAnalys med anropare", () => {
     expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(0);
   });
 
-  it("den sjätte uppladdningen samma dag nekas — de fem första går igenom", async () => {
+  it("den sjätte uppladdningen samma dag nekas — de fem första (olika rapporter) går igenom", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    for (let i = 0; i < UPPLADDNINGAR_PER_ENHET_OCH_DAG; i++) {
+      const pdfBytes = await unikTextPdf(i);
+      const ok = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+      expect(ok.ok).toBe(true);
+    }
+    const sjatte = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await unikTextPdf(99), propertyInput },
+      { anropare },
+    );
+    expect(sjatte).toMatchObject({ ok: false, errorCode: "kvot" });
+    expect(lager.db._allaAnalyser()).toHaveLength(UPPLADDNINGAR_PER_ENHET_OCH_DAG);
+  });
+
+  it("en uppladdning som bara ansluter till en rapport som redan analyseras (vantarPaRapport) ger tillbaka kvoten — ingen ny kostnad uppstår", async () => {
     const { lager, konto } = skapaDeladeFakes();
     const anropare = skapaAnropare(konto);
     const pdfBytes = await medTextPdf();
-    for (let i = 0; i < UPPLADDNINGAR_PER_ENHET_OCH_DAG; i++) {
-      const ok = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
-      // Samma rapport analyseras redan (ingen klar) — det kostar kvot.
-      expect(ok.ok).toBe(true);
+
+    const forsta = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+    expect(forsta).toMatchObject({ ok: true });
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+
+    for (let i = 0; i < 3; i++) {
+      const vantar = await skapaAnalys(
+        lager,
+        buildEnv(),
+        { pdfBytes, propertyInput },
+        { anropare },
+      );
+      expect(vantar).toMatchObject({ ok: true, vantarPaRapport: true });
     }
-    const sjatte = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
-    expect(sjatte).toMatchObject({ ok: false, errorCode: "kvot" });
-    expect(lager.db._allaAnalyser()).toHaveLength(UPPLADDNINGAR_PER_ENHET_OCH_DAG);
+    // Bara den första (som startade en riktig analys) räknas, varken per enhet eller IP.
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+    expect(kvotAnvand(konto, IP_NYCKEL)).toBe(1);
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect(lager.db._allaAnalyser()).toHaveLength(4);
   });
 
   it("en uppladdning som serveras direkt ur registret (ateranvand) ger tillbaka kvoten", async () => {
@@ -791,6 +859,98 @@ describe("skapaAnalys med anropare", () => {
     expect((await lager.db.hamtaAnalys(andra.analysisId))?.principalId).toBe(
       forstaRad?.principalId,
     );
+  });
+
+  describe("dagens spend-tak och hash-träffar", () => {
+    async function medKlarRapport() {
+      const { lager, konto } = skapaDeladeFakes();
+      const pdfBytes = await medTextPdf();
+      const forsta = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput });
+      if (!forsta.ok) throw new Error(forsta.errorMessage);
+      const rad = await lager.db.hamtaAnalys(forsta.analysisId);
+      await lager.db.uppdateraRapport(rad?.rapportId ?? "", {
+        status: "done",
+        stage: "klar",
+        extraction: extraktion,
+        judgement: minimalJudgement(),
+        finishedAt: new Date(Date.now() - 1000).toISOString(),
+      });
+      return { lager, konto, pdfBytes, rapportId: rad?.rapportId ?? "" };
+    }
+
+    /** Dagens spend över taket (10) — samma datum som spend.ts använder. */
+    async function fyllDagensTak(lager: ReturnType<typeof skapaFakeLager>) {
+      const idag = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Stockholm" }).format(
+        new Date(),
+      );
+      await lager.db.reserveraSpend(idag, 50, 100);
+    }
+
+    it("en hash-träff på en klar, kompatibel rapport nekas INTE av dagens tak (det kostar inget) — och tar ingen kvot", async () => {
+      const { lager, konto, pdfBytes } = await medKlarRapport();
+      await fyllDagensTak(lager);
+      const resultat = await skapaAnalys(
+        lager,
+        buildEnv({ maxDailySpendSek: 10 }),
+        { pdfBytes, propertyInput },
+        { anropare: skapaAnropare(konto) },
+      );
+      expect(resultat).toMatchObject({ ok: true, ateranvand: true });
+      expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(0);
+    });
+
+    it("samma sak utan anropare (operatörens CLI)", async () => {
+      const { lager, pdfBytes } = await medKlarRapport();
+      await fyllDagensTak(lager);
+      const resultat = await skapaAnalys(lager, buildEnv({ maxDailySpendSek: 10 }), {
+        pdfBytes,
+        propertyInput,
+      });
+      expect(resultat).toMatchObject({ ok: true, ateranvand: true });
+    });
+
+    it("en NY PDF nekas fortfarande av taket, med samma tak som träffen slapp igenom", async () => {
+      const { lager, konto } = await medKlarRapport();
+      await fyllDagensTak(lager);
+      const nekad = await skapaAnalys(
+        lager,
+        buildEnv({ maxDailySpendSek: 10 }),
+        { pdfBytes: await unikTextPdf(7), propertyInput },
+        { anropare: skapaAnropare(konto) },
+      );
+      expect(nekad).toMatchObject({ ok: false, errorCode: "daily_cap" });
+      expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(0);
+    });
+
+    it("en hash-träff på en rapport som INTE går att servera (klar men oläsbar → en omkörning skulle kosta) nekas av taket", async () => {
+      const { lager, pdfBytes, rapportId } = await medKlarRapport();
+      await lager.db.uppdateraRapport(rapportId, { extraction: { trasig: true } });
+      const resultat = await skapaAnalys(lager, buildEnv({ maxDailySpendSek: 0 }), {
+        pdfBytes,
+        propertyInput,
+      });
+      expect(resultat).toMatchObject({ ok: false, errorCode: "daily_cap" });
+    });
+
+    it("en hash-träff på en rapport som fortfarande pågår nekas av taket (den kan inte serveras direkt)", async () => {
+      const lager = skapaFakeLager();
+      const pdfBytes = await medTextPdf();
+      await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput });
+      const resultat = await skapaAnalys(lager, buildEnv({ maxDailySpendSek: 0 }), {
+        pdfBytes,
+        propertyInput,
+      });
+      expect(resultat).toMatchObject({ ok: false, errorCode: "daily_cap" });
+    });
+
+    it("kill switch gäller även för en hash-träff", async () => {
+      const { lager, pdfBytes } = await medKlarRapport();
+      const resultat = await skapaAnalys(lager, buildEnv({ killSwitchPa: true }), {
+        pdfBytes,
+        propertyInput,
+      });
+      expect(resultat).toMatchObject({ ok: false });
+    });
   });
 
   it("utan IP (lokal utveckling) tas och återlämnas bara enhetens kvot", async () => {

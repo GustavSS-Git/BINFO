@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fonsterStart, skapaFakeKontoDatabas } from "./__fakes__/konto";
 import type { Kontext } from "./kontext";
 import {
@@ -8,6 +8,7 @@ import {
   TIMME_SEK,
   UPPLADDNINGAR_PER_ENHET_OCH_DAG,
   UPPLADDNINGAR_PER_IP_OCH_DAG,
+  aterlamnaUppladdningskvot,
   kontrolleraPrisuppskattningskvot,
   kontrolleraUppladdningskvot,
   kvotNyckel,
@@ -170,5 +171,42 @@ describe("kontrolleraPrisuppskattningskvot", () => {
     const db = skapaFakeKontoDatabas();
     for (let i = 0; i < 5; i++) await kontrolleraUppladdningskvot(db, kontext("e1", "ip"));
     expect((await kontrolleraPrisuppskattningskvot(db, kontext("e1", "ip"))).ok).toBe(true);
+  });
+});
+
+describe("aterlamnaUppladdningskvot", () => {
+  const start = fonsterStart(FAST_NU, DAG_SEK);
+  const antal = (db: ReturnType<typeof skapaFakeKontoDatabas>, typ: "enhet" | "ip", id: string) =>
+    db.kvot.get(`${kvotNyckel("uppladdning", typ, id)}|${start}`)?.antal;
+
+  it("ger tillbaka både enhetens och IP:ns uttag", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    const k = kontext("e1", "ip1");
+    await kontrolleraUppladdningskvot(db, k);
+    await kontrolleraUppladdningskvot(db, k);
+    expect([antal(db, "enhet", "e1"), antal(db, "ip", "ip1")]).toEqual([2, 2]);
+
+    await aterlamnaUppladdningskvot(db, k);
+    expect([antal(db, "enhet", "e1"), antal(db, "ip", "ip1")]).toEqual([1, 1]);
+  });
+
+  it("utan IP återlämnas bara enhetens uttag", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    const k = kontext("e1", null);
+    await kontrolleraUppladdningskvot(db, k);
+    await aterlamnaUppladdningskvot(db, k);
+    expect(antal(db, "enhet", "e1")).toBe(0);
+    expect([...db.kvot.values()].every((r) => !r.nyckel.includes(":ip:"))).toBe(true);
+  });
+
+  it("bästa försök: ett fel i kontolagret loggas men kastas aldrig", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    const varna = vi.spyOn(console, "warn").mockImplementation(() => {});
+    db.aterlamnaKvot = async () => {
+      throw new Error("databasen nere");
+    };
+    await expect(aterlamnaUppladdningskvot(db, kontext("e1", "ip1"))).resolves.toBeUndefined();
+    expect(varna).toHaveBeenCalledWith(expect.stringContaining("databasen nere"));
+    varna.mockRestore();
   });
 });

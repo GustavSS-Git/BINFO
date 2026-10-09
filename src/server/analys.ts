@@ -73,7 +73,7 @@ import {
   tolkaSpendSkal,
 } from "./fel";
 import { SaknarBehorighetError, type Formaga } from "./behorighet";
-import { DAG_SEK, kontrolleraUppladdningskvot, kvotNyckel } from "./kvot";
+import { aterlamnaUppladdningskvot, kontrolleraUppladdningskvot } from "./kvot";
 import { medPrincipal } from "./principal";
 import { kontrolleraDagligtTak } from "./spend";
 import {
@@ -88,6 +88,8 @@ import {
   nyareArSkal,
   registreraAnvandarAdress,
   SKANNADE_RAPPORTER_AKTIVA,
+  MAX_SIDOR_SKANNAD_RAPPORT,
+  FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE,
   tillAnalysStage,
   valjLasbarRapport,
   type IdentitetsBeroenden,
@@ -140,24 +142,25 @@ async function provaBehorighet(
 }
 
 /**
- * Gives back the upload quota `kontrolleraUppladdningskvot` took (the device
- * key, and the IP key when there is an IP). Used when the upload turned out
- * to cost nothing: served instantly from the register. Best effort — the
- * buyer's analysis already exists, so a failed refund is logged, never
- * thrown.
+ * True when this exact PDF is already analysed and servable (done, and its
+ * stored result parses with the running code — the same test
+ * `kopplaUppladdning` applies): the upload will be answered from the register
+ * at no cost, so today's spend cap has no reason to refuse it. A cheap read;
+ * never throws — on any failure the answer is "no" and the normal cap check
+ * decides.
  */
-async function aterlamnaUppladdningskvot(anropare: Anropare): Promise<void> {
-  const { kontext, konto } = anropare;
+async function kanServerasUtanKostnad(lager: Lager, pdfHash: string): Promise<boolean> {
   try {
-    await konto.aterlamnaKvot(kvotNyckel("uppladdning", "enhet", kontext.enhetId), DAG_SEK);
-    if (kontext.ipHash !== null) {
-      await konto.aterlamnaKvot(kvotNyckel("uppladdning", "ip", kontext.ipHash), DAG_SEK);
-    }
+    const fil = await lager.db.hamtaRapportFil(pdfHash);
+    if (!fil) return false;
+    const rapport = await foljErsattAv(lager.db, await lager.db.hamtaRapport(fil.rapportId));
+    return rapport !== null && (await valjLasbarRapport(lager.db, rapport)) !== null;
   } catch (fel) {
     console.warn(
-      "[kvot] Kunde inte återlämna uppladdningskvot: " +
+      "[register] Kunde inte slå upp hash-träffen före spend-taket: " +
         (fel instanceof Error ? fel.message : String(fel)),
     );
+    return false;
   }
 }
 
@@ -180,11 +183,12 @@ function harPdfMagicBytes(bytes: Uint8Array): boolean {
  * Skapar ett analysjobb. Ordningen på kontrollerna nedan är medveten:
  * behörighet (`ladda_upp_analys`) → validering → hash (på ORIGINALA byten,
  * innan något annat rör dem) → magic bytes → storlek → kill switch →
- * textlagerkontroll → dagens spend-tak (läsning, ingen reservation) →
- * uppladdningskvoten → principal → uppladdning → registret
+ * textlagerkontroll → dagens spend-tak (läsning, ingen reservation; hoppas
+ * över för en hash-träff på en klar rapport) → uppladdningskvoten → principal → uppladdning → registret
  * (`kopplaUppladdning`, register.ts: hash-träff, lokal identitet, eller en ny
  * rapport) → analys-raden (med `principal_id`) → föreningens område (bästa
- * försök) → kvoten tillbaka om analysen serverades direkt ur registret.
+ * försök) → kvoten tillbaka om analysen serverades direkt ur registret eller
+ * anslöt till en rapport som redan analyseras.
  *
  * Varje nekande före uppladdningen lämnar noll sidoeffekter: ingen fil,
  * ingen rad, ingen principal — och ingen förbrukad kvot, eftersom kvoten tas
@@ -242,8 +246,9 @@ export async function skapaAnalys(
     return { ok: false, errorCode, errorMessage: message };
   }
 
-  // Textlagerkontroll INNAN något laddas upp eller sätts in — en skannad PDF
-  // ska lämna noll sidoeffekter så länge skannade rapporter inte stöds.
+  // Textlagerkontroll INNAN något laddas upp eller sätts in. Skannade
+  // rapporter (textlager 'saknas') stöds sedan WS1 (transkribering, steg.ts);
+  // SKANNADE_RAPPORTER_AKTIVA är kvar som nödbroms i koden.
   // .slice() kopierar: extractPdfText detacherar sin input (pdf.js/unpdf),
   // och args.pdfBytes behövs oförändrad för uppladdningen nedan.
   const { pages, totalPages } = await extractPdfText(args.pdfBytes.slice());
@@ -252,14 +257,25 @@ export async function skapaAnalys(
     const { errorCode, message } = tolkaFel(new ScannedPdfError());
     return { ok: false, errorCode, errorMessage: message };
   }
+  if (textlager === "saknas" && totalPages > MAX_SIDOR_SKANNAD_RAPPORT) {
+    return {
+      ok: false,
+      errorCode: "scanned_pdf",
+      errorMessage: FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE,
+    };
+  }
 
   // Dagens spend-tak, i förväg: annars köar analysen tyst till i morgon (se
   // `kontrolleraDagligtTak`). Före kvoten, så ett nekande inte kostar köparen
-  // något.
-  const tak = await kontrolleraDagligtTak(lager.db, env);
-  if (!tak.ok) {
-    const { errorCode, message } = tolkaSpendSkal(tak.skal ?? "daily_cap");
-    return { ok: false, errorCode, errorMessage: message };
+  // något. Undantag: en hash-träff på en redan klar, kompatibel rapport
+  // serveras direkt ur registret och kostar inget — den nekas inte av taket
+  // (kill switchen ovan gäller däremot alla).
+  if (!(await kanServerasUtanKostnad(lager, pdfHash))) {
+    const tak = await kontrolleraDagligtTak(lager.db, env);
+    if (!tak.ok) {
+      const { errorCode, message } = tolkaSpendSkal(tak.skal ?? "daily_cap");
+      return { ok: false, errorCode, errorMessage: message };
+    }
   }
 
   let principalId: string | null = null;
@@ -324,8 +340,11 @@ export async function skapaAnalys(
     }
   }
 
-  // Serverad direkt ur registret: noll kostnad, så ingen kvot heller.
-  if (koppling.ateranvand && anropare) await aterlamnaUppladdningskvot(anropare);
+  // Serverad direkt ur registret, eller ansluten till en rapport som redan
+  // analyseras: ingen ny kostnad uppstår, så ingen kvot heller.
+  if ((koppling.ateranvand || koppling.vantarPaRapport) && anropare) {
+    await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext);
+  }
 
   return {
     ok: true,

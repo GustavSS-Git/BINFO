@@ -241,6 +241,16 @@ export interface RapportFilter {
   limit?: number;
 }
 
+/** One transcribed page (`sidtext`): original 1-based page number + text. */
+export interface Sidtext {
+  sida: number;
+  text: string;
+}
+
+/** `sidtext.kalla`: where the page text came from. Only the scan
+ *  transcription (WS1) writes it today. */
+export type SidtextKalla = "transkribering";
+
 /** `extraktion_cache` row plus its key — for the one-off legacy backfill. */
 export interface ExtraktionCacheListRad extends ExtraktionCacheRad {
   pdfHash: string;
@@ -391,6 +401,17 @@ export interface Databas {
   hamtaForening(orgnr: string): Promise<ForeningRad | null>;
   /** Wraps `registrera_forening_adress` (upsert on the natural key). */
   registreraForeningAdress(rad: NyForeningAdress): Promise<void>;
+
+  /** The transcribed pages of a rapport (`sidtext`), ordered by page. Empty
+   *  when nothing has been transcribed yet. */
+  hamtaSidtext(rapportId: string): Promise<Sidtext[]>;
+  /** Upsert on (rapport_id, sida): a rewrite replaces the page. Deliberately
+   *  NOT lease-guarded: a page is paid-for output of the same bytes, so one
+   *  that finishes after the worker lost its lease is kept for the next
+   *  attempt instead of being transcribed (and paid for) twice. It never
+   *  touches the rapport row, so it cannot resurrect a terminal rapport —
+   *  that stays with the leased `uppdateraLeasadRapport`. */
+  sparaSidtext(rapportId: string, sidor: readonly Sidtext[], kalla: SidtextKalla): Promise<void>;
 
   /** All `extraktion_cache` rows for one prompt version (legacy backfill). */
   listaExtraktionCache(promptVersion: string): Promise<ExtraktionCacheListRad[]>;

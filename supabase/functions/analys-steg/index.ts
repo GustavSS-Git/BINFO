@@ -99,6 +99,8 @@ interface InlineEnv {
   killSwitchPa: boolean;
   anthropicApiKey: string;
   maxCostPerAnalysisSek: number;
+  // effortGrounding is also what the scan 'transkribering' stage uses (WS1,
+  // src/server/steg.ts) — no separate variable.
   // Task 1.2 — mirrors Env.effortGrounding/effortExtraction/effortJudging in
   // src/server/env.ts (see that file for why each stage has its own
   // variable). Always set (default STANDARD_EFFORT, from ./effort.ts) —
@@ -778,6 +780,35 @@ function byggLager(sb: any) {
           p_kalla: rad.kalla,
         });
         if (error) throw new Error(`registreraForeningAdress misslyckades: ${error.message}`);
+      },
+
+      // WS1 scan transcriptions — mirrors hamtaSidtext/sparaSidtext in
+      // src/server/supabase.ts (upsert on (rapport_id, sida); deliberately not
+      // lease-guarded, see the port's comment in src/server/portar.ts).
+      async hamtaSidtext(rapportId: string): Promise<Array<{ sida: number; text: string }>> {
+        const { data, error } = await sb
+          .from("sidtext")
+          .select("sida, text")
+          .eq("rapport_id", rapportId)
+          .order("sida", { ascending: true });
+        if (error) throw new Error(`hamtaSidtext misslyckades: ${error.message}`);
+        return (data as Array<{ sida: number; text: string }>).map((rad) => ({
+          sida: rad.sida,
+          text: rad.text,
+        }));
+      },
+
+      async sparaSidtext(
+        rapportId: string,
+        sidor: ReadonlyArray<{ sida: number; text: string }>,
+        kalla: string,
+      ): Promise<void> {
+        if (sidor.length === 0) return;
+        const { error } = await sb.from("sidtext").upsert(
+          sidor.map((s) => ({ rapport_id: rapportId, sida: s.sida, text: s.text, kalla })),
+          { onConflict: "rapport_id,sida" },
+        );
+        if (error) throw new Error(`sparaSidtext misslyckades: ${error.message}`);
       },
 
       async listaExtraktionCache(promptVersion: string) {
