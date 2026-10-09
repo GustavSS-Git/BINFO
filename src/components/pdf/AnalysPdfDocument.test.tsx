@@ -212,3 +212,38 @@ describe("AnalysPdfDocument — utanför Stockholms län", () => {
     );
   }, 30_000);
 });
+
+describe("AnalysPdfDocument — v2: osäker, skannad och andel av föreningens lån", () => {
+  it("prints the osäker reason, the scanned-report notice and the debt line as visible text", async () => {
+    registerPdfFonts(await loadTestFontSources());
+    const analys = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
+          kf.id === "skuldsattning_per_m2_brf_yta"
+            ? { ...kf, figure: { ...kf.figure, osaker: "Skuldsättningen verkar vara i tusental." } }
+            : kf,
+        ),
+      },
+      prisanalys: {
+        ...sampleAnalysis.prisanalys,
+        andelAvForeningensSkuld: {
+          value: 485_460,
+          unit: "kr" as const,
+          source: "berakning" as const,
+          ref: { page: 9 },
+        },
+      },
+      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "skannad" as const },
+    };
+    const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(doc, { mergePages: true });
+    const flat = text.replace(/\s+/g, " ");
+    expect(flat).toContain("Osäker: Skuldsättningen verkar vara i tusental.");
+    expect(flat).toContain("Årsredovisningen var skannad");
+    expect(flat).toContain("Lägenhetens ungefärliga andel av föreningens lån");
+    expect(flat).toContain("Ingår inte i värderingen");
+  }, 30_000);
+});

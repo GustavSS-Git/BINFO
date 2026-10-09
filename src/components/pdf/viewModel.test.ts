@@ -344,3 +344,169 @@ describe("buildPdfViewModel — valuation coverage tier", () => {
     expect(u?.omradeText).toBe("Nacka");
   });
 });
+
+describe("buildPdfViewModel — andel av föreningens lån (v2)", () => {
+  const medAndel = (andel: Figure | undefined): AnalysisResult => {
+    const { andelAvForeningensSkuld: _borta, ...utanAndel } = sampleAnalysis.prisanalys;
+    return {
+      ...sampleAnalysis,
+      prisanalys: { ...utanAndel, ...(andel ? { andelAvForeningensSkuld: andel } : {}) },
+    };
+  };
+
+  it("has no debt row when the analysis has no andelAvForeningensSkuld", () => {
+    expect(buildPdfViewModel(medAndel(undefined)).prisanalys.andelAvSkuld).toBeUndefined();
+    expect(buildPdfViewModel(sampleAnalysis).prisanalys.andelAvSkuld).toBeUndefined();
+  });
+
+  it("writes skuld/m² × boarea (from the nyckeltal), says it is not part of the valuation, and cites the page", () => {
+    // sample: 8 990 kr/m² (nyckeltalet) × 54 m² = 485 460 kr
+    const vm = buildPdfViewModel(
+      medAndel({
+        value: 485_460,
+        unit: "kr",
+        source: "berakning",
+        ref: { page: 9, excerpt: "Skuldsättning / kvm upplåten bostadsrätt, kr 8 990" },
+      }),
+    );
+    // sv-SE separates thousands with a non-breaking space; compare with plain spaces.
+    expect(vm.prisanalys.andelAvSkuld?.text.replace(/\s/g, " ")).toBe(
+      "Lägenhetens ungefärliga andel av föreningens lån: ca 485 460 kr " +
+        "(8 990 kr/m² × 54,0 m²). Ingår inte i värderingen.",
+    );
+    expect(vm.prisanalys.andelAvSkuld?.pageRef).toBe("s. 9");
+    expect(vm.prisanalys.andelAvSkuld?.osaker).toBeUndefined();
+  });
+
+  it("reads 0 kr as a debt-free association, not as '0 kr'", () => {
+    const vm = buildPdfViewModel(
+      medAndel({ value: 0, unit: "kr", source: "berakning", ref: { page: 12 } }),
+    );
+    expect(vm.prisanalys.andelAvSkuld?.text).toBe(
+      "Föreningen har inga räntebärande lån enligt årsredovisningen.",
+    );
+    expect(vm.prisanalys.andelAvSkuld?.pageRef).toBe("s. 12");
+  });
+
+  it("omits the row when the figure has no value", () => {
+    const vm = buildPdfViewModel(medAndel({ value: null, unit: "kr", source: "berakning" }));
+    expect(vm.prisanalys.andelAvSkuld).toBeUndefined();
+  });
+
+  it("never changes the valuation text", () => {
+    const utan = buildPdfViewModel(medAndel(undefined)).prisanalys;
+    const med = buildPdfViewModel(
+      medAndel({ value: 485_460, unit: "kr", source: "berakning", ref: { page: 9 } }),
+    ).prisanalys;
+    expect(med.externVardering).toEqual(utan.externVardering);
+    expect(med.avvikelseText).toBe(utan.avvikelseText);
+    expect(med.slutsats).toBe(utan.slutsats);
+  });
+});
+
+describe("buildPdfViewModel — osäker-markering (v2)", () => {
+  it("carries a key figure's osaker reason, and undefined when there is none", () => {
+    const forst = sampleAnalysis.forening.keyFigures.find((kf) => kf.status !== "okant");
+    if (!forst) throw new Error("sample has no shown key figure");
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
+          kf.id === forst.id
+            ? { ...kf, figure: { ...kf.figure, osaker: "Stämmer inte med årsavgifterna." } }
+            : kf,
+        ),
+      },
+    };
+    const vm = buildPdfViewModel(analys);
+    expect(vm.keyFigures.find((kf) => kf.id === forst.id)?.osaker).toBe(
+      "Stämmer inte med årsavgifterna.",
+    );
+    expect(
+      vm.keyFigures.filter((kf) => kf.id !== forst.id).every((kf) => kf.osaker === undefined),
+    ).toBe(true);
+  });
+
+  it("carries osaker on an antal figure", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        antalMedlemmar: {
+          value: 72,
+          unit: "antal",
+          source: "arsredovisning",
+          ref: { page: 8 },
+          osaker: "Skiljer sig från antalet lägenheter.",
+        },
+      },
+    };
+    const antal = buildPdfViewModel(analys).ovrigInfo?.antal.find(
+      (a) => a.label === "Antal medlemmar",
+    );
+    expect(antal?.osaker).toBe("Skiljer sig från antalet lägenheter.");
+  });
+
+  it("flags the debt row as osäker when the figure is", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      prisanalys: {
+        ...sampleAnalysis.prisanalys,
+        andelAvForeningensSkuld: {
+          value: 100_000,
+          unit: "kr",
+          source: "berakning",
+          osaker: "Skuldsättningen verkar vara i tusental kronor.",
+        },
+      },
+    };
+    expect(buildPdfViewModel(analys).prisanalys.andelAvSkuld?.osaker).toBe(
+      "Skuldsättningen verkar vara i tusental kronor.",
+    );
+  });
+});
+
+describe("buildPdfViewModel — skannad årsredovisning (v2)", () => {
+  const SKANNAD =
+    "Årsredovisningen var skannad; siffrorna är avlästa från sidbilderna och kan innehålla fel – " +
+    "kontrollera de viktigaste mot rapporten.";
+
+  it("adds the notice when datakvalitet.kalla is 'skannad'", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "skannad" },
+    };
+    expect(buildPdfViewModel(analys).ovrigInfo?.skannadNotis).toBe(SKANNAD);
+  });
+
+  it("shows the section for a scanned report even when nothing else would be shown", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        namn: sampleAnalysis.forening.namn,
+        orgnr: sampleAnalysis.forening.orgnr,
+        akta: sampleAnalysis.forening.akta,
+        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
+        keyFigures: sampleAnalysis.forening.keyFigures,
+      },
+      datakvalitet: {
+        ...sampleAnalysis.datakvalitet,
+        extraktionKonfidens: { niva: "hog" },
+        kalla: "skannad",
+      },
+    };
+    const ovrig = buildPdfViewModel(analys).ovrigInfo;
+    expect(ovrig).toBeDefined();
+    expect(ovrig?.skannadNotis).toBe(SKANNAD);
+  });
+
+  it("has no notice for a text-layer report or when kalla is absent (old analyses)", () => {
+    expect(buildPdfViewModel(sampleAnalysis).ovrigInfo?.skannadNotis).toBeUndefined();
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "textlager" },
+    };
+    expect(buildPdfViewModel(analys).ovrigInfo?.skannadNotis).toBeUndefined();
+  });
+});

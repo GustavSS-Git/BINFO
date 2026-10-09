@@ -8,6 +8,8 @@
  */
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
+  andelAvSkuldRad,
+  arSkannad,
   formatDrivareLabel,
   formatBudpremieText,
   formatDataperiod,
@@ -15,6 +17,7 @@ import {
   formatSkapadDatum,
   formatVarde,
   OMRADESINDELNING_ATTRIBUTION,
+  SKANNAD_NOTIS,
   varderingsTackningText,
 } from "@/lib/analysisView";
 import type {
@@ -81,6 +84,8 @@ export interface PdfKeyFigure {
   forklaring: string;
   pageRef: string | undefined;
   isSchablon: boolean;
+  /** Skäl från rimlighetskontrollerna; visas som "Osäker: …" i PDF:en. */
+  osaker: string | undefined;
 }
 
 export interface PdfVarderingsdrivare {
@@ -102,6 +107,13 @@ export interface PdfVarderingsunderlag {
   attributionText: string;
 }
 
+/** Raden "Lägenhetens ungefärliga andel av föreningens lån" (bara full analys). */
+export interface PdfAndelAvSkuld {
+  text: string;
+  pageRef: string | undefined;
+  osaker: string | undefined;
+}
+
 export interface PdfPrisanalys {
   utgangspris: string;
   prisPerM2: string;
@@ -116,6 +128,9 @@ export interface PdfPrisanalys {
   /** Present only when externVardering kom från Binfos värderingsmodell —
    *  se Prisanalys.varderingsunderlag i src/types/analysis.ts. */
   varderingsunderlag: PdfVarderingsunderlag | undefined;
+  /** Kommentar under värderingen; ingår inte i värderingen. Saknas när
+   *  föreningens skuld per m² inte gick att läsa ut. */
+  andelAvSkuld: PdfAndelAvSkuld | undefined;
   /** Task 5: hur mycket bostäder i området sålts över/under utgångspriset. */
   budpremieText: string | undefined;
   slutsats: string;
@@ -153,6 +168,7 @@ export interface PdfOvrigInfoAntal {
   label: string;
   valueText: string;
   pageRef: string | undefined;
+  osaker: string | undefined;
 }
 
 /** One fee-inclusion row — mirrors AnalysRapport.tsx's avgiftPoster shape. */
@@ -182,6 +198,8 @@ export interface PdfOvrigInfo {
   avgiftPoster: PdfOvrigInfoAvgiftPost[];
   handelser: PdfOvrigInfoHandelse[];
   datakvalitetSkal: string[];
+  /** Satt när årsredovisningen var skannad (datakvalitet.kalla). */
+  skannadNotis: string | undefined;
 }
 
 export interface PdfViewModel {
@@ -255,6 +273,7 @@ function buildKeyFigures(analys: AnalysisResult): PdfKeyFigure[] {
       forklaring: kf.forklaring,
       pageRef: formatPageRef(kf.figure.ref),
       isSchablon: kf.figure.source === "schablon",
+      osaker: kf.figure.osaker,
     }));
 }
 
@@ -297,6 +316,7 @@ function buildVarderingsunderlag(
 
 function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
   const p = analys.prisanalys;
+  const skuld = andelAvSkuldRad(analys);
   const avvikelseText =
     p.avvikelseMotVardering !== undefined
       ? `Utgångspriset ligger ${Math.abs(p.avvikelseMotVardering).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % ${
@@ -307,6 +327,9 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
   return {
     utgangspris: formatFigureVarde(p.utgangspris),
     prisPerM2: formatFigureVarde(p.prisPerM2),
+    andelAvSkuld: skuld
+      ? { text: skuld.text, pageRef: formatPageRef(skuld.ref), osaker: skuld.osaker }
+      : undefined,
     externVardering: p.externVardering
       ? {
           value: formatFigureVarde(p.externVardering),
@@ -390,6 +413,7 @@ function buildOvrigInfo(analys: AnalysisResult): PdfOvrigInfo | undefined {
       label: p.label,
       valueText: formatFigureVarde(p.figure),
       pageRef: formatPageRef(p.figure.ref),
+      osaker: p.figure.osaker,
     }));
 
   const visaAvgiftPoster = f.avgiftInkluderarEnligtForening !== undefined;
@@ -418,14 +442,23 @@ function buildOvrigInfo(analys: AnalysisResult): PdfOvrigInfo | undefined {
 
   const datakvalitetSkal = analys.datakvalitet.extraktionKonfidens.skal ?? [];
 
+  const skannad = arSkannad(analys);
+
   const harNagot =
     antal.length > 0 ||
     avgiftPoster.length > 0 ||
     handelser.length > 0 ||
-    datakvalitetSkal.length > 0;
+    datakvalitetSkal.length > 0 ||
+    skannad;
   if (!harNagot) return undefined;
 
-  return { antal, avgiftPoster, handelser, datakvalitetSkal };
+  return {
+    antal,
+    avgiftPoster,
+    handelser,
+    datakvalitetSkal,
+    skannadNotis: skannad ? SKANNAD_NOTIS : undefined,
+  };
 }
 
 export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {

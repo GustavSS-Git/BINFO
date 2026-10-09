@@ -112,6 +112,16 @@ export interface AnalyseraFormFel {
   ort: string | null;
 }
 
+/** Felet för ett obligatoriskt postnummer (`null` = giltigt). Delas av
+ *  /analysera och /vardering (src/lib/varderingForm.ts). */
+export function valideraPostnummer(rått: string): string | null {
+  const postnummer = rått.trim();
+  if (postnummer === "") return "Ange postnummer.";
+  return /^\d{3} ?\d{2}$/.test(postnummer)
+    ? null
+    : "Ange ett postnummer med fem siffror, t.ex. 116 25.";
+}
+
 export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFel {
   return {
     utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
@@ -120,12 +130,7 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
-    postnummer:
-      f.postnummer.trim() === ""
-        ? "Ange postnummer."
-        : /^\d{3} ?\d{2}$/.test(f.postnummer.trim())
-          ? null
-          : "Ange ett postnummer med fem siffror, t.ex. 116 25.",
+    postnummer: valideraPostnummer(f.postnummer),
     ort: f.ort.trim() === "" ? "Ange ort." : null,
   };
 }

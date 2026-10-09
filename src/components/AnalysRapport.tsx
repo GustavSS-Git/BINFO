@@ -15,18 +15,24 @@ import {
   formatDrivareLabel,
   formatBudpremieText,
   formatDataperiod,
+  andelAvSkuldRad,
+  arSkannad,
   varderingsTackningText,
   formatFigureVarde,
   formatVarde,
   OMRADESINDELNING_ATTRIBUTION,
+  SKANNAD_NOTIS,
   toppRodaFlaggor,
+  type AndelAvSkuldRad,
   VARDERINGSDRIVARE_CAVEAT,
 } from "@/lib/analysisView";
 import { veljRantekanslighetForSok, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import type {
   AnalysisResult,
   FeeInclusion,
+  Figure,
   Fraga,
+  PrisanalysUtanForening,
   RantestressScenario,
   Severity,
   Tristate,
@@ -104,7 +110,7 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
 
       <Foreningsekonomi analys={analys} />
       <OvrigInfo analys={analys} />
-      <Prisrimlighet analys={analys} />
+      <Prisrimlighet prisanalys={analys.prisanalys} skuldrad={andelAvSkuldRad(analys)} />
       <Rantestress analys={analys} />
       <Fragor analys={analys} />
 
@@ -201,7 +207,7 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
                   </span>
                 ) : null}
               </p>
-              {kf.figure.source === "schablon" || kf.figure.ref ? (
+              {kf.figure.source === "schablon" || kf.figure.ref || kf.figure.osaker ? (
                 <div className="mt-2 flex items-center gap-2">
                   {kf.figure.source === "schablon" ? <Tag>Schablon</Tag> : null}
                   {kf.figure.ref ? (
@@ -209,6 +215,7 @@ function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
                       <Tag>s. {kf.figure.ref.page}</Tag>
                     </span>
                   ) : null}
+                  <OsakerMarkering figure={kf.figure} />
                 </div>
               ) : null}
             </Card>
@@ -270,12 +277,14 @@ function OvrigInfo({ analys }: { analys: AnalysisResult }) {
 
   const handelser = f.vasentligaHandelser ?? [];
   const datakvalitetSkal = analys.datakvalitet.extraktionKonfidens.skal ?? [];
+  const skannad = arSkannad(analys);
 
   const harNagot =
     antalPoster.length > 0 ||
     visaAvgiftPoster ||
     handelser.length > 0 ||
-    datakvalitetSkal.length > 0;
+    datakvalitetSkal.length > 0 ||
+    skannad;
 
   if (!harNagot) return null;
 
@@ -299,6 +308,7 @@ function OvrigInfo({ analys }: { analys: AnalysisResult }) {
                     <Tag>s. {p.figure.ref.page}</Tag>
                   </span>
                 ) : null}
+                <OsakerMarkering figure={p.figure} />
               </div>
             ))}
           </div>
@@ -360,6 +370,14 @@ function OvrigInfo({ analys }: { analys: AnalysisResult }) {
         </Card>
       ) : null}
 
+      {skannad ? (
+        <div className={datakvalitetSkal.length > 0 ? "mb-4" : undefined}>
+          <Callout variant="flag" title="Skannad årsredovisning">
+            <p>{SKANNAD_NOTIS}</p>
+          </Callout>
+        </div>
+      ) : null}
+
       {datakvalitetSkal.length > 0 ? (
         <Card>
           <h3 className="mb-3 text-sm font-semibold text-foreground">
@@ -376,16 +394,46 @@ function OvrigInfo({ analys }: { analys: AnalysisResult }) {
   );
 }
 
-function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
-  const p = analys.prisanalys;
+/** "Osäker"-markering på en uppgift som rimlighetskontrollerna
+ *  (src/lib/analysis/rimlighet.ts) stämplat — orsaken visas vid hovring.
+ *  Uppgiften visas ändå; frånvaro betyder bara att ingen kontroll slog till. */
+function OsakerMarkering({ figure }: { figure: Pick<Figure, "osaker"> }) {
+  if (!figure.osaker) return null;
+  return (
+    <span title={figure.osaker}>
+      <Badge tone="warning">Osäker</Badge>
+    </span>
+  );
+}
+
+/**
+ * Värderingssektionen — delas av den fullständiga rapporten ("Är priset
+ * rimligt?") och den fristående priskollen (`/vardering`). Tar
+ * `PrisanalysUtanForening`: utan utgångspris utelämnas prisraderna och
+ * rubriken ändras, i övrigt är renderingen identisk. `skuldrad` finns bara i
+ * den fullständiga analysen (se andelAvSkuldRad i analysisView.ts).
+ */
+export function Prisrimlighet({
+  prisanalys: p,
+  skuldrad,
+}: {
+  prisanalys: PrisanalysUtanForening;
+  skuldrad?: AndelAvSkuldRad | undefined;
+}) {
   const u = p.varderingsunderlag;
   const tackningText = u ? varderingsTackningText(u) : null;
   const varderingslabel =
     p.externVardering?.source === "schablon" ? "Binfos värdering" : "Extern värdering";
   return (
     <section className="mb-10">
-      <SectionTitle hint="Jämförelse mot Binfos värderingsmodell och pris per kvadratmeter.">
-        Är priset rimligt?
+      <SectionTitle
+        hint={
+          p.utgangspris
+            ? "Jämförelse mot Binfos värderingsmodell och pris per kvadratmeter."
+            : "Binfos uppskattning utifrån lägenhetens egna uppgifter."
+        }
+      >
+        {p.utgangspris ? "Är priset rimligt?" : "Binfos värdering"}
       </SectionTitle>
       {tackningText?.typ === "utanfor_lan" ? (
         <div className="mb-4">
@@ -396,16 +444,22 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
       ) : null}
       <Card>
         <div className="divide-y divide-border">
-          <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
-            <p className="text-sm font-medium text-foreground">Utgångspris</p>
-            <p className="font-display text-xl text-foreground">
-              {formatFigureVarde(p.utgangspris)}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
-            <p className="text-sm font-medium text-foreground">Pris per kvadratmeter</p>
-            <p className="font-display text-xl text-foreground">{formatFigureVarde(p.prisPerM2)}</p>
-          </div>
+          {p.utgangspris ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
+              <p className="text-sm font-medium text-foreground">Utgångspris</p>
+              <p className="font-display text-xl text-foreground">
+                {formatFigureVarde(p.utgangspris)}
+              </p>
+            </div>
+          ) : null}
+          {p.prisPerM2 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
+              <p className="text-sm font-medium text-foreground">Pris per kvadratmeter</p>
+              <p className="font-display text-xl text-foreground">
+                {formatFigureVarde(p.prisPerM2)}
+              </p>
+            </div>
+          ) : null}
 
           {p.externVardering ? (
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
@@ -457,6 +511,24 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
               </p>
             </div>
           )}
+
+          {skuldrad ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
+              <p className="max-w-xl text-sm text-muted-foreground">{skuldrad.text}</p>
+              <div className="flex items-center gap-2">
+                {skuldrad.ref ? (
+                  <span title={skuldrad.ref.excerpt}>
+                    <Tag>s. {skuldrad.ref.page}</Tag>
+                  </span>
+                ) : null}
+                {skuldrad.osaker ? (
+                  <span title={skuldrad.osaker}>
+                    <Badge tone="warning">Osäker</Badge>
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {u ? (

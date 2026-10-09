@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hamtaStatusFn } from "@/server/analysFn";
-import { Card, LinkButton, PageHeader } from "@/components/ui/binfo";
+import { Callout, Card, LinkButton, PageHeader } from "@/components/ui/binfo";
+import { FELKOD_INNEHALL, type AnalysErrorCode } from "@/lib/analysStatusCopy";
 import {
-  FELKOD_INNEHALL,
-  STEG_TEXT,
-  stegAndel,
-  type AnalysErrorCode,
-  type AnalysStage,
-} from "@/lib/analysStatusCopy";
+  arSkannadRapport,
+  stegAndelFor,
+  stegTextFor,
+  vantaNotiser,
+  type StatusVyIndata,
+} from "@/lib/analysStatusVy";
 
 /**
  * Delad väntnings-/felskärm för jobbpollning av en analys — används av både
@@ -87,7 +88,7 @@ export function AnalysStatusVakt({
   }
 
   if (status.status !== "done") {
-    return <Pagar stage={status.stage} />;
+    return <Pagar status={status} />;
   }
 
   return <>{children()}</>;
@@ -104,14 +105,22 @@ export function Vantar({ text }: { text: string }) {
 /** Väntskärmen medan jobbet pollas — det steg som faktiskt pågår, ett
  *  ärligt tidsspann, och en enkel förloppsstapel. Aldrig ett löfte om att
  *  det snart är klart. */
-export function Pagar({ stage }: { stage: AnalysStage }) {
-  const andelProcent = Math.round(stegAndel(stage) * 100);
+export function Pagar({ status }: { status: StatusVyIndata }) {
+  const andelProcent = Math.round(stegAndelFor(status) * 100);
+  const notiser = vantaNotiser(status);
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-14">
       <PageHeader eyebrow="Analyserar" title="Din analys pågår" />
+      {notiser.map((notis) => (
+        <div key={notis.titel} className="mb-4">
+          <Callout variant="tip" title={notis.titel}>
+            <p>{notis.text}</p>
+          </Callout>
+        </div>
+      ))}
       <Card>
-        <p className="text-base font-medium text-foreground">{STEG_TEXT[stage]}</p>
+        <p className="text-base font-medium text-foreground">{stegTextFor(status)}</p>
         <div className="mt-4 h-1.5 w-full rounded-full bg-secondary">
           <div
             className="h-1.5 rounded-full bg-primary transition-[width]"
@@ -119,8 +128,14 @@ export function Pagar({ stage }: { stage: AnalysStage }) {
           />
         </div>
         <p className="mt-6 text-sm text-muted-foreground">
-          Det här tar normalt <strong className="font-medium text-foreground">3–5 minuter</strong> —
-          vi läser hela årsredovisningen och räknar på alla sju nyckeltal. Du kan gärna lämna den
+          Det här tar normalt <strong className="font-medium text-foreground">3–5 minuter</strong>
+          {arSkannadRapport(status) ? (
+            <>
+              , för en skannad årsredovisning{" "}
+              <strong className="font-medium text-foreground">några minuter extra</strong>
+            </>
+          ) : null}{" "}
+          — vi läser hela årsredovisningen och räknar på alla sju nyckeltal. Du kan gärna lämna den
           här fliken öppen; sidan uppdateras automatiskt så fort analysen är klar.
         </p>
       </Card>
