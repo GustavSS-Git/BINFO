@@ -146,51 +146,53 @@ describe("skapaAnalys", () => {
     expect(uppladdad.byteLength).toBeGreaterThan(0);
   });
 
-  it("dedupe: båda cacharna träffade ger status done/complete direkt, kostnadsfritt", async () => {
+  it("dedupe sker i registret: samma bytes som en klar rapport ger en klar analys direkt, kostnadsfritt", async () => {
+    const lager = skapaFakeLager();
+    const env = buildEnv();
+    const pdfBytes = await medTextPdf();
+
+    const forsta = await skapaAnalys(lager, env, { pdfBytes, propertyInput });
+    if (!forsta.ok) throw new Error("unreachable");
+    const forstaRad = await lager.db.hamtaAnalys(forsta.analysisId);
+    // Markera rapporten klar, som om workern kört den (se register.test.ts
+    // för hela livscykeln).
+    await lager.db.uppdateraRapport(forstaRad?.rapportId ?? "", {
+      status: "done",
+      stage: "klar",
+      extraction: extraktion,
+      judgement: minimalJudgement(),
+      finishedAt: new Date(Date.now() - 1000).toISOString(),
+    });
+
+    const resultat = await skapaAnalys(lager, env, { pdfBytes, propertyInput });
+    expect(resultat).toMatchObject({ ok: true, ateranvand: true });
+    if (!resultat.ok) throw new Error("unreachable");
+
+    const rad = await lager.db.hamtaAnalys(resultat.analysisId);
+    expect(rad?.rapportId).toBe(forstaRad?.rapportId);
+    // Den här köparen betalade 0 kr — skapaAnalys anropar aldrig modellen.
+    expect(rad?.costSek).toBe(0);
+    expect(await hamtaStatus(lager, resultat.analysisId)).toMatchObject({
+      status: "done",
+      stage: "complete",
+    });
+  });
+
+  it("legacy-cacharna konsulteras inte vid uppladdning — de flyttas in i registret av `register backfill-legacy`", async () => {
     const lager = skapaFakeLager();
     const env = buildEnv();
     const pdfBytes = await medTextPdf();
     const pdfHash = await sha256Hex(pdfBytes);
     const nyckel = { pdfHash, model: env.anthropicModel, promptVersion: PROMPT_VERSION };
-
     await sparaExtraktionICache(lager.db, nyckel, extraktion, 1.23);
     await sparaAnalysICache(lager.db, nyckel, minimalJudgement(), 0.45);
 
-    const resultat = await skapaAnalys(lager, env, {
-      pdfBytes,
-      propertyInput,
-    });
-
-    expect(resultat.ok).toBe(true);
+    const resultat = await skapaAnalys(lager, env, { pdfBytes, propertyInput });
     if (!resultat.ok) throw new Error("unreachable");
 
     const rad = await lager.db.hamtaAnalys(resultat.analysisId);
-    expect(rad?.status).toBe("done");
-    expect(rad?.stage).toBe("complete");
-    // Den här köparen betalade 0 kr — skapaAnalys anropar aldrig modellen.
-    expect(rad?.costSek).toBe(0);
-  });
-
-  it("dedupe: bara extraktionen cachad ger stage judging", async () => {
-    const lager = skapaFakeLager();
-    const env = buildEnv();
-    const pdfBytes = await medTextPdf();
-    const pdfHash = await sha256Hex(pdfBytes);
-    const nyckel = { pdfHash, model: env.anthropicModel, promptVersion: PROMPT_VERSION };
-
-    await sparaExtraktionICache(lager.db, nyckel, extraktion, 1.23);
-
-    const resultat = await skapaAnalys(lager, env, {
-      pdfBytes,
-      propertyInput,
-    });
-
-    expect(resultat.ok).toBe(true);
-    if (!resultat.ok) throw new Error("unreachable");
-
-    const rad = await lager.db.hamtaAnalys(resultat.analysisId);
-    expect(rad?.status).toBe("queued");
-    expect(rad?.stage).toBe("judging");
+    expect(rad?.rapportId).not.toBeNull();
+    expect(await hamtaStatus(lager, resultat.analysisId)).toMatchObject({ status: "queued" });
   });
 
   it("avvisar en skannad PDF utan textlager, utan att ladda upp eller skapa någon rad", async () => {

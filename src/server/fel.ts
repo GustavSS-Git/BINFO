@@ -15,7 +15,7 @@
  * information får aldrig nå en köpares skärm.
  */
 
-import type { AnalysErrorCode } from "./portar";
+import type { AnalysErrorCode, RapportErrorCode } from "./portar";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
@@ -166,6 +166,54 @@ export function versionskonfliktResultat(): FelResultat {
     message:
       "Binfo uppdaterades medan din analys väntade i kön. Ladda upp årsredovisningen igen om en " +
       "stund, så körs den med den senaste versionen.",
+  };
+}
+
+/**
+ * En registerrapport som en administratör ogiltigförklarat
+ * (`npm run register -- invalidate`, error_code `ogiltigforklarad`). Koden är
+ * intern — den finns inte i UI:ts `AnalysErrorCode`-spegel
+ * (src/lib/analysStatusCopy.ts), så en köpare får `versionskonflikt`, vars
+ * skärm redan säger det enda köparen kan göra: ladda upp igen. Meddelandet är
+ * däremot eget och sant (inte "Binfo uppdaterades").
+ */
+export function ogiltigforklaradResultat(): FelResultat {
+  return {
+    errorCode: "versionskonflikt",
+    message:
+      "Analysen av den här årsredovisningen har dragits tillbaka. Ladda upp den igen, så görs " +
+      "en ny analys.",
+  };
+}
+
+/**
+ * Ett lagrat registerresultat som inte går att läsa med den körande koden
+ * (schemat har ändrats) OCH inte går att köra om, eftersom PDF:en inte längre
+ * finns i lagringen. Samma köparhandling som en versionskonflikt.
+ */
+export function omkorningOmojligResultat(): FelResultat {
+  return {
+    errorCode: "versionskonflikt",
+    message:
+      "Analysen gjordes med en tidigare version av Binfo och behöver göras om. Ladda upp " +
+      "årsredovisningen igen.",
+  };
+}
+
+/**
+ * Översätter en `rapport`-rads lagrade felkod + meddelande till det en köpare
+ * ser i `hamtaStatus`. Meddelandet på raden är redan köparsäkert (skrivet av
+ * `tolkaFel`/`versionskonfliktResultat` i steg.ts) — utom för den interna
+ * koden `ogiltigforklarad`, som får sitt eget meddelande ovan.
+ */
+export function tolkaRapportFel(
+  code: RapportErrorCode | null,
+  message: string | null,
+): FelResultat {
+  if (code === "ogiltigforklarad") return ogiltigforklaradResultat();
+  return {
+    errorCode: code ?? "unknown",
+    message: message ?? GENERISKT_FEL_MEDDELANDE,
   };
 }
 

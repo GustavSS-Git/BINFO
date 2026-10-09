@@ -22,6 +22,7 @@ function installeradVersion(paket: string): string {
 
 const ANTHROPIC_VERSION = installeradVersion("@anthropic-ai/sdk");
 const UNPDF_VERSION = installeradVersion("unpdf");
+const PDF_LIB_VERSION = installeradVersion("pdf-lib");
 
 describe("byggEdgeBundle", () => {
   it("lyckas och producerar icke-tom kod utan att röra filsystemet", async () => {
@@ -42,6 +43,20 @@ describe("byggEdgeBundle", () => {
     const { code } = await byggEdgeBundle({ write: false });
     const forvantad = new RegExp(`from\\s*"npm:unpdf@${UNPDF_VERSION}"`);
     expect(code).toMatch(forvantad);
+  });
+
+  it("skriver om pdf-lib till en pinnad npm:-specifier (identitetssteget, v2)", async () => {
+    const { code } = await byggEdgeBundle({ write: false });
+    const forvantad = new RegExp(`from\\s*"npm:pdf-lib@${PDF_LIB_VERSION.replace(/\./g, "\\.")}"`);
+    expect(code).toMatch(forvantad);
+    // Aldrig inbundlad: pdf-lib:s egna källfiler får inte finnas i bundlen.
+    expect(code).not.toMatch(/node_modules\/pdf-lib/);
+  });
+
+  it("bundlar registret och registrets kö (claim_next_rapport_steg via Lager)", async () => {
+    const { code } = await byggEdgeBundle({ write: false });
+    expect(code).toContain("klaimaNastaRapportSteg");
+    expect(code).toContain("PIPELINE_VERSION");
   });
 
   it("innehåller aldrig en node:-importspecifier", async () => {

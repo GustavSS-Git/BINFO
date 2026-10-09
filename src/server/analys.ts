@@ -19,33 +19,86 @@
  * det returneras — se den typens kontraktskommentar i
  * src/types/analysis.ts för varför detta är en egen funktion och inte en
  * flagga på hamtaResultat.
+ *
+ * REGISTRET (v2, se register.ts): en ny analys-rad pekar på en delad
+ * `rapport` (`rapport_id`) och allt — status, steg, extraktion, bedömning —
+ * härleds därifrån. Rader utan `rapport_id` (skapade före registret) läses
+ * exakt som förut, från extraktion_cache/analys_cache.
  */
 
-import type { AnalysisResult, Forhandsvisning, PropertyInput } from "@/types/analysis";
+import type {
+  AnalysisResult,
+  ExtractionResult,
+  Forhandsvisning,
+  PropertyInput,
+} from "@/types/analysis";
 import { PropertyInputSchema } from "@/lib/analysis/schema";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { extractPdfText } from "@/lib/analysis/pdf";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
 import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
+import type { AnalysJudgement } from "@/lib/analysis/analyze";
+import {
+  identifieraLokalt as identifieraLokaltStandard,
+  namnLiknar as namnLiknarStandard,
+} from "@/lib/analysis/identitet";
 import type { Env } from "./env";
-import type { AnalysErrorCode, AnalysStage, AnalysStatus, Lager } from "./portar";
+import type {
+  AnalysErrorCode,
+  AnalysRad,
+  AnalysStage,
+  AnalysStatus,
+  Lager,
+  RapportRad,
+  RapportStage,
+  Textlager,
+} from "./portar";
 import { lasPropertyInputFranRad } from "./lagratInput";
 import { hamtaAnalysFranCache, hamtaExtraktionFranCache } from "./cache";
-import { tolkaFel, tolkaSpendSkal } from "./fel";
+import { omkorningOmojligResultat, tolkaFel, tolkaRapportFel, tolkaSpendSkal } from "./fel";
+import {
+  ALDRE_VERSION_SKAL,
+  arPagaende,
+  foljErsattAv,
+  hittaNyareAr,
+  hittaOmkorning,
+  klassificeraTextlager,
+  koaOmkorning,
+  kopplaUppladdning,
+  nyareArSkal,
+  registreraAnvandarAdress,
+  SKANNADE_RAPPORTER_AKTIVA,
+  tillAnalysStage,
+  valjLasbarRapport,
+  type IdentitetsBeroenden,
+  type LasbarRapport,
+} from "./register";
 
 // ---------------------------------------------------------------------------
 // skapaAnalys
 // ---------------------------------------------------------------------------
 
 export type SkapaAnalysResultat =
-  | { ok: true; analysisId: string }
+  | {
+      ok: true;
+      analysisId: string;
+      /** Linked to an already finished report in the register — the result
+       *  is available immediately, at no cost. */
+      ateranvand?: boolean;
+      /** Linked to a report someone else's upload is already analysing —
+       *  "Rapporten analyseras redan — din analys blir klar samtidigt." */
+      vantarPaRapport?: boolean;
+    }
   | { ok: false; errorCode: AnalysErrorCode; errorMessage: string };
 
 export interface SkapaAnalysArgs {
   pdfBytes: Uint8Array;
   propertyInput: unknown;
 }
+
+/** Injected for tests; production uses src/lib/analysis/identitet.ts. */
+export type SkapaAnalysBeroenden = Partial<IdentitetsBeroenden>;
 
 const MAX_PDF_STORLEK_BYTES = 25 * 1024 * 1024;
 // "%PDF" — de fyra inledande byten en giltig PDF-fil alltid börjar med.
@@ -65,14 +118,16 @@ function harPdfMagicBytes(bytes: Uint8Array): boolean {
 /**
  * Skapar ett analysjobb. Ordningen på kontrollerna nedan är medveten (se
  * uppgiftens spec): validering → hash (på ORIGINALA byten, innan något
- * annat rör dem) → magic bytes → storlek → kill switch → skann-kontroll
- * (INNAN någon uppladdning eller radskapande) → dedupe-koll → uppladdning
- * → radskapande.
+ * annat rör dem) → magic bytes → storlek → kill switch → textlagerkontroll
+ * (INNAN någon uppladdning eller radskapande) → uppladdning → registret
+ * (`kopplaUppladdning`, register.ts: hash-träff, lokal identitet, eller en ny
+ * rapport) → analys-raden → föreningens område (bästa försök).
  */
 export async function skapaAnalys(
   lager: Lager,
   env: Env,
   args: SkapaAnalysArgs,
+  beroenden: SkapaAnalysBeroenden = {},
 ): Promise<SkapaAnalysResultat> {
   const parsedInput = PropertyInputSchema.safeParse(args.propertyInput);
   if (!parsedInput.success) {
@@ -114,51 +169,72 @@ export async function skapaAnalys(
     return { ok: false, errorCode, errorMessage: message };
   }
 
-  // Skann-kontroll INNAN något laddas upp eller sätts in — en skannad PDF
-  // ska lämna noll sidoeffekter. .slice() kopierar: extractPdfText detacherar
-  // sin input (pdf.js/unpdf), och args.pdfBytes behövs oförändrad för
-  // uppladdningen nedan.
-  const { pdfSaknarTextlager } = await extractPdfText(args.pdfBytes.slice());
-  if (pdfSaknarTextlager) {
+  // Textlagerkontroll INNAN något laddas upp eller sätts in — en skannad PDF
+  // ska lämna noll sidoeffekter så länge skannade rapporter inte stöds.
+  // .slice() kopierar: extractPdfText detacherar sin input (pdf.js/unpdf),
+  // och args.pdfBytes behövs oförändrad för uppladdningen nedan.
+  const { pages, totalPages } = await extractPdfText(args.pdfBytes.slice());
+  const textlager = klassificeraTextlager(pages);
+  if (textlager === "saknas" && !SKANNADE_RAPPORTER_AKTIVA) {
     const { errorCode, message } = tolkaFel(new ScannedPdfError());
     return { ok: false, errorCode, errorMessage: message };
   }
 
-  const nyckel = { pdfHash, model: env.anthropicModel, promptVersion: PROMPT_VERSION };
-  const [cachedExtraktion, cachedAnalys] = await Promise.all([
-    hamtaExtraktionFranCache(lager.db, nyckel),
-    hamtaAnalysFranCache(lager.db, nyckel),
-  ]);
+  // Alltid ladda upp, även vid en träff i registret — innehållsadresserad
+  // lagring tolererar en dubblett, och en PDF som en äldre retention-regel
+  // raderat återställs på köpet (registret behåller PDF:er).
+  const pdfPath = `${pdfHash}.pdf`;
+  await lager.filer.laggUpp(pdfPath, args.pdfBytes);
 
-  // Alltid försöka ladda upp, oavsett dedupe-utfall — innehållsadresserad
-  // lagring tolererar en dubblett, och pdf_path ska alltid vara satt för
-  // retention-bokföringen.
-  await lager.filer.laggUpp(`${pdfHash}.pdf`, args.pdfBytes);
+  const koppling = await kopplaUppladdning(
+    lager,
+    {
+      pdfHash,
+      pdfPath,
+      sidor: pages,
+      antalSidor: totalPages,
+      bytes: args.pdfBytes.byteLength,
+      textlager,
+      model: env.anthropicModel,
+    },
+    {
+      identifieraLokalt: beroenden.identifieraLokalt ?? identifieraLokaltStandard,
+      namnLiknar: beroenden.namnLiknar ?? namnLiknarStandard,
+    },
+  );
 
-  let status: AnalysStatus;
-  let stage: AnalysStage;
-  if (cachedExtraktion !== null && cachedAnalys !== null) {
-    status = "done";
-    stage = "complete";
-  } else if (cachedExtraktion !== null) {
-    status = "queued";
-    stage = "judging";
-  } else {
-    status = "queued";
-    stage = "uploaded";
-  }
-
+  // Radens egna status/stage används inte för en registerlänkad rad (allt
+  // härleds från rapporten, se hamtaStatus) — de sätts bara till sina
+  // startvärden för att uppfylla kolumnernas not null.
   const { id } = await lager.db.skapaAnalys({
     pdfHash,
-    pdfPath: `${pdfHash}.pdf`,
+    pdfPath,
     propertyInput,
     model: env.anthropicModel,
     promptVersion: PROMPT_VERSION,
-    status,
-    stage,
+    status: "queued",
+    stage: "uploaded",
+    rapportId: koppling.rapportId,
   });
 
-  return { ok: true, analysisId: id };
+  if (koppling.orgnr !== null && propertyInput.postnummer !== "") {
+    try {
+      await registreraAnvandarAdress(lager.db, koppling.orgnr, propertyInput.postnummer);
+    } catch (fel) {
+      // Bästa försök: en köpares analys får aldrig falla på områdesregistret.
+      console.warn(
+        `[register] Kunde inte registrera område för analys ${id}: ` +
+          (fel instanceof Error ? fel.message : String(fel)),
+      );
+    }
+  }
+
+  return {
+    ok: true,
+    analysisId: id,
+    ...(koppling.ateranvand ? { ateranvand: true } : {}),
+    ...(koppling.vantarPaRapport ? { vantarPaRapport: true } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,9 +243,96 @@ export async function skapaAnalys(
 
 export interface AnalysStatusSvar {
   status: AnalysStatus;
+  /** For a register-linked analysis: the rapport's stage mapped onto this
+   *  legacy union (see `tillAnalysStage` in register.ts); the real one is
+   *  `rapportSteg`. */
   stage: AnalysStage;
   errorCode?: AnalysErrorCode;
   errorMessage?: string;
+  /** Register-linked analyses only (all four fields). */
+  textlager?: Textlager;
+  /** The report was already analysed when this analysis was created. */
+  ateranvand?: boolean;
+  /** Waiting on a report another upload started. */
+  vantarPaRapport?: boolean;
+  rapportSteg?: RapportStage;
+}
+
+/**
+ * Status för en registerlänkad analys, härledd från rapporten:
+ *   - något läsbart finns (valjLasbarRapport) → done/complete (en äldre
+ *     version köar en lat omkörning, samma som läsvägen);
+ *   - rapporten pågår → dess status och mappade steg;
+ *   - rapporten är klar men oläsbar med den körande koden → omkörningens
+ *     förlopp (köas här om ingen finns), eller ett synligt fel om PDF:en
+ *     saknas;
+ *   - misslyckad → dess (köparsäkra) fel.
+ */
+async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysStatusSvar> {
+  const lankad = await hamtaLankadRapport(lager, rad);
+  const lasbar = await valjLasbarRapport(lager.db, lankad);
+
+  if (lasbar) {
+    if (lasbar.aldreVersion) await koaOmkorningSakert(lager, lasbar.rapport);
+    const ateranvand =
+      lasbar.rapport.finishedAt !== null &&
+      Date.parse(lasbar.rapport.finishedAt) <= Date.parse(rad.createdAt);
+    return {
+      status: "done",
+      stage: "complete",
+      textlager: lasbar.rapport.textlager,
+      ateranvand,
+      vantarPaRapport: false,
+      rapportSteg: lasbar.rapport.stage,
+    };
+  }
+
+  let aktuell: RapportRad = lankad;
+  if (!arPagaende(lankad) && lankad.status !== "done") {
+    // Misslyckad (t.ex. ogiltigförklarad) — men pågår en nyare körning av
+    // samma rapport (någon laddade upp den igen), visa dess förlopp: den
+    // serveras av läsvägen så fort den är klar.
+    const nyare = await foljErsattAv(lager.db, await hittaOmkorning(lager.db, lankad));
+    if (nyare && arPagaende(nyare)) aktuell = nyare;
+  }
+  if (lankad.status === "done") {
+    // Klar men oläsbar (inkompatibel) — följ omkörningen i stället.
+    const utfall = await koaOmkorningSakert(lager, lankad);
+    if (utfall === "pdf_saknas") {
+      const { errorCode, message } = omkorningOmojligResultat();
+      return {
+        status: "failed",
+        stage: tillAnalysStage(lankad.stage),
+        errorCode,
+        errorMessage: message,
+        textlager: lankad.textlager,
+        ateranvand: false,
+        vantarPaRapport: false,
+        rapportSteg: lankad.stage,
+      };
+    }
+    aktuell = (await foljErsattAv(lager.db, await hittaOmkorning(lager.db, lankad))) ?? lankad;
+  }
+
+  const bas = {
+    stage: tillAnalysStage(aktuell.stage),
+    textlager: aktuell.textlager,
+    ateranvand: false,
+    rapportSteg: aktuell.stage,
+  };
+
+  if (arPagaende(aktuell)) {
+    const [forsta] = await lager.db.hamtaAnalyserForRapport(aktuell.id, 1);
+    return {
+      ...bas,
+      status: aktuell.status === "running" ? "running" : "queued",
+      vantarPaRapport: forsta !== undefined && forsta.id !== rad.id,
+    };
+  }
+
+  // failed, or an 'ersatt' row whose target is missing (should not happen).
+  const { errorCode, message } = tolkaRapportFel(aktuell.errorCode, aktuell.errorMessage);
+  return { ...bas, status: "failed", vantarPaRapport: false, errorCode, errorMessage: message };
 }
 
 export async function hamtaStatus(
@@ -178,6 +341,7 @@ export async function hamtaStatus(
 ): Promise<AnalysStatusSvar | null> {
   const rad = await lager.db.hamtaAnalys(analysisId);
   if (!rad) return null;
+  if (rad.rapportId !== null) return hamtaRapportStatus(lager, rad);
 
   return {
     status: rad.status,
@@ -207,19 +371,47 @@ export class AnalysInteKlarError extends Error {
   }
 }
 
-/**
- * Hämtar ett färdigt AnalysisResult. Monterar om det på varje anrop
- * (assembleraAnalys) i stället för att lagra det färdiga JSON:et — se
- * assemble.ts/cache.ts. Idempotent så länge `analysisId`/`skapad` alltid
- * kommer från raden, aldrig genereras på nytt av assembleraAnalys.
- */
-export async function hamtaResultat(lager: Lager, analysisId: string): Promise<AnalysisResult> {
-  const rad = await lager.db.hamtaAnalys(analysisId);
-  if (!rad) {
-    throw new AnalysHittadesInteError(analysisId);
+/** The rapport a register-linked analys reads from, after following
+ *  `ersatt_av`. A missing one is an inconsistency, not a user state. */
+async function hamtaLankadRapport(lager: Lager, rad: AnalysRad): Promise<RapportRad> {
+  const rapportId = rad.rapportId;
+  if (rapportId === null) throw new Error(`Analys ${rad.id} är inte länkad till registret.`);
+  const lankad = await foljErsattAv(lager.db, await lager.db.hamtaRapport(rapportId));
+  if (!lankad) {
+    throw new Error(`Internt inkonsistent tillstånd: analys ${rad.id} pekar på en saknad rapport.`);
   }
+  return lankad;
+}
+
+/**
+ * Lazy re-run, never allowed to break a read: a failure is logged and the
+ * read goes on. Re-runs use the source rapport's own model — the read paths
+ * have no Env (analysFn.ts's signatures are fixed), and the model is not part
+ * of the version key anyway.
+ */
+async function koaOmkorningSakert(
+  lager: Lager,
+  kalla: RapportRad,
+): Promise<"koad" | "finns" | "pdf_saknas" | "fel"> {
+  try {
+    return (await koaOmkorning(lager, kalla, kalla.model)).utfall;
+  } catch (fel) {
+    console.error(`[register] Kunde inte köa omkörning av rapport ${kalla.id}:`, fel);
+    return "fel";
+  }
+}
+
+interface Underlag {
+  extraction: ExtractionResult;
+  judgement: AnalysJudgement;
+  /** Extra confidence notes for the buyer (register reads only). */
+  extraSkal: string[];
+}
+
+/** Legacy read: exactly the pre-register cache path. */
+async function hamtaLegacyUnderlag(lager: Lager, rad: AnalysRad): Promise<Underlag> {
   if (rad.status !== "done") {
-    throw new AnalysInteKlarError(analysisId, rad.stage);
+    throw new AnalysInteKlarError(rad.id, rad.stage);
   }
 
   const nyckel = { pdfHash: rad.pdfHash, model: rad.model, promptVersion: rad.promptVersion };
@@ -230,23 +422,89 @@ export async function hamtaResultat(lager: Lager, analysisId: string): Promise<A
 
   if (extraction === null || judgement === null) {
     throw new Error(
-      `Internt inkonsistent tillstånd: analys ${analysisId} är markerad 'done' men saknar ` +
+      `Internt inkonsistent tillstånd: analys ${rad.id} är markerad 'done' men saknar ` +
         `${extraction === null ? "extraktion" : "analys"} i cachen (pdf_hash=${rad.pdfHash}, ` +
         `model=${rad.model}, prompt_version=${rad.promptVersion}).`,
     );
   }
+  return { extraction, judgement, extraSkal: [] };
+}
+
+/**
+ * Register read (see register.ts's file comment): the newest done rapport at
+ * the current version for the same report; else the linked one if it still
+ * parses — with a note and a lazy re-run; a stored result that does not parse
+ * is never served: a re-run is queued and the buyer waits
+ * (AnalysInteKlarError, which sends the UI back to the polling preview).
+ */
+async function hamtaRegisterUnderlag(lager: Lager, rad: AnalysRad): Promise<Underlag> {
+  const lankad = await hamtaLankadRapport(lager, rad);
+  const lasbar: LasbarRapport | null = await valjLasbarRapport(lager.db, lankad);
+  if (!lasbar) {
+    if (lankad.status === "done") await koaOmkorningSakert(lager, lankad);
+    throw new AnalysInteKlarError(rad.id, tillAnalysStage(lankad.stage));
+  }
+
+  const extraSkal: string[] = [];
+  if (lasbar.aldreVersion) {
+    extraSkal.push(ALDRE_VERSION_SKAL);
+    await koaOmkorningSakert(lager, lasbar.rapport);
+  }
+  const nyareAr = await hittaNyareAr(lager.db, lasbar.rapport);
+  if (nyareAr !== null) extraSkal.push(nyareArSkal(nyareAr));
+
+  return { ...lasbar.innehall, extraSkal };
+}
+
+/** Shared by hamtaResultat and hamtaForhandsvisning: row lookup, the right
+ *  read path, assembly, and the register's extra notes. */
+async function monteraResultat(lager: Lager, analysisId: string): Promise<AnalysisResult> {
+  const rad = await lager.db.hamtaAnalys(analysisId);
+  if (!rad) {
+    throw new AnalysHittadesInteError(analysisId);
+  }
+  const underlag =
+    rad.rapportId === null
+      ? await hamtaLegacyUnderlag(lager, rad)
+      : await hamtaRegisterUnderlag(lager, rad);
 
   const input = lasPropertyInputFranRad(rad);
   const prisdatakalla = new ModellPrisdatakalla();
 
-  return assembleraAnalys({
-    extraction,
+  const resultat = await assembleraAnalys({
+    extraction: underlag.extraction,
     input,
     prisdatakalla,
-    analys: judgement,
+    analys: underlag.judgement,
     analysisId: rad.id,
     skapad: rad.createdAt,
   });
+  return medExtraSkal(resultat, underlag.extraSkal);
+}
+
+/** Appends notes to datakvalitet.extraktionKonfidens.skal without mutating
+ *  the assembled object. No-op (same object) when there are none, so legacy
+ *  reads stay byte-identical. */
+function medExtraSkal(resultat: AnalysisResult, extraSkal: readonly string[]): AnalysisResult {
+  if (extraSkal.length === 0) return resultat;
+  const konfidens = resultat.datakvalitet.extraktionKonfidens;
+  return {
+    ...resultat,
+    datakvalitet: {
+      ...resultat.datakvalitet,
+      extraktionKonfidens: { ...konfidens, skal: [...(konfidens.skal ?? []), ...extraSkal] },
+    },
+  };
+}
+
+/**
+ * Hämtar ett färdigt AnalysisResult. Monterar om det på varje anrop
+ * (assembleraAnalys) i stället för att lagra det färdiga JSON:et — se
+ * assemble.ts/cache.ts. Idempotent så länge `analysisId`/`skapad` alltid
+ * kommer från raden, aldrig genereras på nytt av assembleraAnalys.
+ */
+export async function hamtaResultat(lager: Lager, analysisId: string): Promise<AnalysisResult> {
+  return monteraResultat(lager, analysisId);
 }
 
 // ---------------------------------------------------------------------------
@@ -306,39 +564,7 @@ export async function hamtaForhandsvisning(
   lager: Lager,
   analysisId: string,
 ): Promise<Forhandsvisning> {
-  const rad = await lager.db.hamtaAnalys(analysisId);
-  if (!rad) {
-    throw new AnalysHittadesInteError(analysisId);
-  }
-  if (rad.status !== "done") {
-    throw new AnalysInteKlarError(analysisId, rad.stage);
-  }
-
-  const nyckel = { pdfHash: rad.pdfHash, model: rad.model, promptVersion: rad.promptVersion };
-  const [extraction, judgement] = await Promise.all([
-    hamtaExtraktionFranCache(lager.db, nyckel),
-    hamtaAnalysFranCache(lager.db, nyckel),
-  ]);
-
-  if (extraction === null || judgement === null) {
-    throw new Error(
-      `Internt inkonsistent tillstånd: analys ${analysisId} är markerad 'done' men saknar ` +
-        `${extraction === null ? "extraktion" : "analys"} i cachen (pdf_hash=${rad.pdfHash}, ` +
-        `model=${rad.model}, prompt_version=${rad.promptVersion}).`,
-    );
-  }
-
-  const input = lasPropertyInputFranRad(rad);
-  const prisdatakalla = new ModellPrisdatakalla();
-
-  const fullResultat = await assembleraAnalys({
-    extraction,
-    input,
-    prisdatakalla,
-    analys: judgement,
-    analysisId: rad.id,
-    skapad: rad.createdAt,
-  });
+  const fullResultat = await monteraResultat(lager, analysisId);
 
   return {
     schemaVersion: fullResultat.schemaVersion,

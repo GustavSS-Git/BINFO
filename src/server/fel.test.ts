@@ -170,3 +170,23 @@ describe("arRetrybar", () => {
     expect(arRetrybar("unknown")).toBe(false);
   });
 });
+
+describe("registrets felkoder", () => {
+  it("ogiltigforklarad visas aldrig som sig själv: versionskonflikt med eget, sant meddelande", async () => {
+    const { tolkaRapportFel, ogiltigforklaradResultat } = await import("./fel");
+    expect(tolkaRapportFel("ogiltigforklarad", "internt")).toEqual(ogiltigforklaradResultat());
+    expect(ogiltigforklaradResultat().errorCode).toBe("versionskonflikt");
+    expect(ogiltigforklaradResultat().message).toMatch(/dragits tillbaka/);
+  });
+
+  it("andra rapportkoder passerar med radens (redan köparsäkra) meddelande", async () => {
+    const { tolkaRapportFel } = await import("./fel");
+    expect(tolkaRapportFel("cost_cap", "Taket nått.")).toEqual({
+      errorCode: "cost_cap",
+      message: "Taket nått.",
+    });
+    const utan = tolkaRapportFel(null, null);
+    expect(utan.errorCode).toBe("unknown");
+    expect(utan.message.length).toBeGreaterThan(0);
+  });
+});

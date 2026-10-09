@@ -13,6 +13,14 @@
  * enda källan som har den EXAKTA upplösta versionen — `package.json` har bara
  * ett semver-intervall) och skrivs in explicit i importsökvägen.
  *
+ * `pdf-lib` (sedan v2: identitetssteget skär ut sida 1–3, se
+ * src/lib/analysis/identitetModell.ts) hålls också extern som `npm:pdf-lib@…`.
+ * Paketet är ren JS, men saknar ett `exports`-fält och pekar bara ut sina
+ * builds via `main`/`module` — som esbuilds `platform: "neutral"` medvetet
+ * inte läser (inga mainFields), så det går inte att lösa för bundling utan
+ * att ändra plattformen för hela bundlen. Deno läser det däremot direkt via
+ * sitt npm-lager, pinnat på samma sätt som de två andra.
+ *
  * `@supabase/supabase-js` bundlas normalt (den är ren `fetch`-baserad, inga
  * Node-API:er) — inte täckt av spiken, men `steg.ts` importerar den inte ändå
  * (produktionens `Databas`/`Filarkiv` injiceras via `Lager`, se `./portar`),
@@ -51,8 +59,8 @@ const RESOLVE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
 /** Paket som Deno löser via sitt eget npm-kompatibilitetslager (se
  *  filkommentaren) — dessa hålls externa och skrivs om till en pinnad
  *  `npm:paket@version`-specifier i stället för att bundlas. */
-const DENO_NATIVA_PAKET = ["@anthropic-ai/sdk", "unpdf"] as const;
-const DENO_NPM_SPECIFIER_FILTER = /^(@anthropic-ai\/sdk|unpdf)(\/.*)?$/;
+const DENO_NATIVA_PAKET = ["@anthropic-ai/sdk", "unpdf", "pdf-lib"] as const;
+const DENO_NPM_SPECIFIER_FILTER = /^(@anthropic-ai\/sdk|unpdf|pdf-lib)(\/.*)?$/;
 
 /**
  * Läser den faktiskt installerade (upplösta) versionen av `paket` ur

@@ -43,14 +43,39 @@
  * cache, modellanrop) — och låter jobbet misslyckas direkt utan omkö vid en
  * mismatch (se `avslutaMedVersionskonflikt` nedan). Ett nytt försök kan inte
  * hjälpa förrän båda sidor är på samma version igen.
+ *
+ * REGISTRET (v2, se register.ts): jobbet ligger numera på en delad
+ * `rapport`-rad, inte på köparens `analys`-rad. Varje tick försöker FÖRST
+ * klaima en rapport (`claim_next_rapport_steg`) och faller bara om ingen
+ * finns tillbaka på den gamla `analys`-kön — så gamla rader som köades före
+ * registret dräneras oförändrat (`claim_next_steg` hoppar sedan migrationen
+ * över rader med `rapport_id`). Rapportens state machine:
+ *
+ *   identifiering ──(träff i registret)──► status 'ersatt' (analys-rader pekas om)
+ *        │
+ *        ├─(textlager 'saknas')─► transkribering (stub tills WS1) ─► grundning
+ *        ▼
+ *   grundning ─► extraktion ─► bedomning ─► klar (status 'done')
+ *
+ * Samma mönster per steg som ovan (spend-reservation och avstämning,
+ * felmappning, tre försök per steg, nollställda försök vid stegbyte,
+ * reinvoke), samma versionsvakt — mot `rapport.pipeline_version` och
+ * `PIPELINE_VERSION` — och resultaten (grundtext, extraktion, bedömning)
+ * skrivs på rapportraden, inte i extraktion_cache/analys_cache (som nu bara
+ * läses för legacy-rader).
  */
 
-import { runAnalys } from "@/lib/analysis/analyze";
-import { assembleraAnalys } from "@/lib/analysis/assemble";
-import { errorHasKnownSpend } from "@/lib/analysis/callMetrics";
+import { runAnalys, type AnalysJudgement } from "@/lib/analysis/analyze";
+import { AssemblyValidationError, assembleraAnalys } from "@/lib/analysis/assemble";
+import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
+import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
+import { errorHasKnownSpend, type ModelCallMetrics } from "@/lib/analysis/callMetrics";
+import { namnLiknar as namnLiknarStandard, type Rapportidentitet } from "@/lib/analysis/identitet";
+import { identifieraMedModell as identifieraMedModellStandard } from "@/lib/analysis/identitetModell";
 import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import {
+  ModelRefusedError,
   runGrounding,
   runStructuredExtraction,
   type AnthropicClientLike,
@@ -60,12 +85,31 @@ import {
   hamtaExtraktionFranCache,
   sparaAnalysICache,
   sparaExtraktionICache,
+  tolkaLagradBedomning,
+  tolkaLagradExtraktion,
   type CacheNyckel,
 } from "./cache";
 import { lasPropertyInputFranRad } from "./lagratInput";
 import type { Env } from "./env";
 import { tolkaFel, versionskonfliktResultat } from "./fel";
-import type { AnalysRad, AnalysStage, Lager } from "./portar";
+import type {
+  AnalysRad,
+  AnalysStage,
+  Lager,
+  RapportDelta,
+  RapportRad,
+  RapportStage,
+} from "./portar";
+import {
+  arGiltigIdentitet,
+  ersattRapport,
+  hittaRegistertraff,
+  PIPELINE_VERSION,
+  rapportensPdfSokvag,
+  registreraAnvandarAdress,
+  stegEfterIdentifiering,
+  UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK,
+} from "./register";
 import {
   reserveraForSteg,
   stamAvSteg,
@@ -95,12 +139,25 @@ export interface KorNastaStegOptions {
    * "complete" (nothing left to advance).
    */
   reinvoke?: () => void;
+  /** Injected for tests; production uses the real model-based identity call
+   *  (src/lib/analysis/identitetModell.ts). */
+  identifieraMedModell?: typeof identifieraMedModellStandard;
+  /** Injected for tests; production uses `namnLiknar` from identitet.ts. */
+  namnLiknar?: (a: string, b: string) => boolean;
+  /** Injected for tests (the register's dry assembly); production uses
+   *  `assembleraAnalys`. */
+  monteraAnalys?: typeof assembleraAnalys;
 }
 
 export interface KorNastaStegResultat {
   claimed: boolean;
+  /** Legacy queue: the analys row that was advanced. */
   analysisId?: string;
   stage?: AnalysStage;
+  /** Register queue: the rapport that was advanced, and the stage it was
+   *  claimed at. */
+  rapportId?: string;
+  rapportSteg?: RapportStage;
 }
 
 /** See `KorNastaStegOptions.reinvoke`'s doc comment — this is just the
@@ -456,6 +513,13 @@ export async function korNastaSteg(
   env: Env,
   options?: KorNastaStegOptions,
 ): Promise<KorNastaStegResultat> {
+  // Registret först; den gamla kön bara när ingen rapport är klaimbar (se
+  // filkommentaren, "REGISTRET").
+  const rapport = await lager.db.klaimaNastaRapportSteg();
+  if (rapport) {
+    return korRapportSteg(lager, env, rapport, options);
+  }
+
   const rad = await lager.db.klaimaNastaSteg();
   if (!rad) {
     return { claimed: false };
@@ -490,5 +554,564 @@ export async function korNastaSteg(
       // är det en bugg i klaim-frågan, inte något det här steget ska
       // försöka reparera.
       return { claimed: true, analysisId: rad.id, stage: rad.stage };
+  }
+}
+
+// ===========================================================================
+// Registrets kö: ett steg för en `rapport`-rad. Se filkommentaren
+// ("REGISTRET") för state machine; varje funktion nedan speglar sin
+// legacy-motsvarighet ovan, men läser och skriver rapportraden.
+//
+// LEASADE SKRIVNINGAR: varje skrivning workern gör på en klaimad rapport går
+// via `uppdateraLeasadRapport` — den gäller bara medan raden fortfarande är
+// 'running' under just den lease workern klaimade den med. Har någon annan
+// ändrat raden under tiden (en administratör ogiltigförklarade den, reapern
+// fällde den, eller leasen gick ut och en annan tick klaimade om den) släpps
+// stegets resultat i stället för att skriva över ett avslutat tillstånd.
+// Spend stäms ändå alltid av mot det som faktiskt betalats.
+// ===========================================================================
+
+function rapportResultat(r: RapportRad): KorNastaStegResultat {
+  return { claimed: true, rapportId: r.id, rapportSteg: r.stage };
+}
+
+interface KandSpend {
+  spentSek: number;
+  calls: readonly ModelCallMetrics[];
+}
+
+const INGEN_SPEND: KandSpend = { spentSek: 0, calls: [] };
+
+/** Rapportens kostnad och prompt-cache-tokens efter `spend` — summeras från
+ *  anropens egna metrics (cache_read_input_tokens / cache_creation_input_tokens). */
+function kostnadsDelta(r: RapportRad, spend: KandSpend): RapportDelta {
+  return {
+    costSek: r.costSek + spend.spentSek,
+    cacheReadTokens:
+      r.cacheReadTokens + spend.calls.reduce((s, c) => s + c.cacheReadInputTokens, 0),
+    cacheWriteTokens:
+      r.cacheWriteTokens + spend.calls.reduce((s, c) => s + c.cacheCreationInputTokens, 0),
+  };
+}
+
+/** Leasad skrivning (se sektionskommentaren). False = raden ändrades av någon
+ *  annan; det loggas och stegets resultat släpps. */
+async function skrivLeasad(lager: Lager, r: RapportRad, delta: RapportDelta): Promise<boolean> {
+  const skrivet = await lager.db.uppdateraLeasadRapport(r.id, r.leaseUntil, delta);
+  if (!skrivet) {
+    console.warn(
+      `[register] Rapport ${r.id} ändrades av någon annan medan steget '${r.stage}' kördes ` +
+        "(ogiltigförklarad, reapad eller omklaimad) — stegets resultat skrivs inte.",
+    );
+  }
+  return skrivet;
+}
+
+/** Se `avslutaMedFramgang` — samma regler (släpp leasen, köa, nollställ
+ *  försöken, släck gamla felfält), för en rapport. False = raden ändrades
+ *  under steget; anroparen ska då inte trigga nästa steg. */
+async function rapportFramgang(
+  lager: Lager,
+  r: RapportRad,
+  reserveratSek: number,
+  spend: KandSpend,
+  delta: RapportDelta,
+): Promise<boolean> {
+  if (reserveratSek > 0) {
+    await stamAvSteg(lager.db, reserveratSek, spend.spentSek);
+  }
+  return skrivLeasad(lager, r, {
+    status: "queued",
+    leaseUntil: null,
+    attempts: 0,
+    ...delta,
+    ...kostnadsDelta(r, spend),
+    errorCode: null,
+    errorMessage: null,
+  });
+}
+
+/** Se `avslutaMedFel` — samma regler för en rapport. `redanBokford` = stegets
+ *  kostnad står redan på raden (bedömningen sparas före den torra
+ *  sammanställningen), så den läggs inte på en gång till. */
+async function rapportFel(
+  lager: Lager,
+  r: RapportRad,
+  reserveratSek: number,
+  error: unknown,
+  kand: KandSpend = INGEN_SPEND,
+  redanBokford = false,
+): Promise<void> {
+  const faktiskt: KandSpend = errorHasKnownSpend(error)
+    ? { spentSek: error.spentSek, calls: error.calls }
+    : kand;
+  if (reserveratSek > 0) {
+    await stamAvSteg(lager.db, reserveratSek, faktiskt.spentSek);
+  }
+  const { errorCode, message } = tolkaFel(error);
+  const kostnad = redanBokford ? {} : kostnadsDelta(r, faktiskt);
+  if (r.attempts < 3) {
+    // Tillbaka i kön utan att återlämna försöket (samma som slapp_rapport_steg
+    // med p_ateranvand_forsok = false, men leasad).
+    await skrivLeasad(lager, r, {
+      status: "queued",
+      leaseUntil: null,
+      errorCode,
+      errorMessage: message,
+      ...kostnad,
+    });
+  } else {
+    await skrivLeasad(lager, r, {
+      status: "failed",
+      leaseUntil: null,
+      errorCode,
+      errorMessage: message,
+      ...kostnad,
+      finishedAt: new Date().toISOString(),
+    });
+  }
+}
+
+/** Ett nekat spend-tak är inte rapportens fel: tillbaka i kön med försöket
+ *  återlämnat, felfälten orörda. */
+async function refuseraRapport(lager: Lager, r: RapportRad): Promise<KorNastaStegResultat> {
+  await skrivLeasad(lager, r, {
+    status: "queued",
+    leaseUntil: null,
+    attempts: Math.max(r.attempts - 1, 0),
+  });
+  return rapportResultat(r);
+}
+
+/** Versionsvakten för registret — se `avslutaMedVersionskonflikt`. En rapport
+ *  som misslyckas frigör sina unika platser (indexen gäller bara levande
+ *  rader), så nästa uppladdning kan registrera om den. */
+async function rapportVersionskonflikt(lager: Lager, r: RapportRad): Promise<void> {
+  console.error(
+    `[versionskonflikt] Rapport ${r.id} har pipeline_version="${r.pipelineVersion}" men ` +
+      `körande kod har PIPELINE_VERSION="${PIPELINE_VERSION}" — avbryter utan att köra.`,
+  );
+  const { errorCode, message } = versionskonfliktResultat();
+  await skrivLeasad(lager, r, {
+    status: "failed",
+    leaseUntil: null,
+    errorCode,
+    errorMessage: message,
+    finishedAt: new Date().toISOString(),
+  });
+}
+
+async function lasRapportPdf(lager: Lager, r: RapportRad): Promise<Uint8Array> {
+  const sokvag = await rapportensPdfSokvag(lager.db, r);
+  if (sokvag === null) {
+    throw new Error(`Rapport ${r.id} saknar en lagrad PDF (pdf_hash är null).`);
+  }
+  return lager.filer.hamta(sokvag);
+}
+
+/** Bästa-försök: en köpares postnummer → forening_adress för föreningen.
+ *  Får aldrig fälla ett steg. */
+async function registreraAdresserForRapport(
+  lager: Lager,
+  rapportId: string,
+  orgnr: string,
+): Promise<void> {
+  try {
+    for (const analys of await lager.db.hamtaAnalyserForRapport(rapportId, 50)) {
+      const postnummer = (analys.propertyInput as { postnummer?: unknown }).postnummer;
+      if (typeof postnummer === "string" && postnummer !== "") {
+        await registreraAnvandarAdress(lager.db, orgnr, postnummer);
+      }
+    }
+  } catch (fel) {
+    console.warn(
+      `[register] Kunde inte registrera adresser för rapport ${rapportId}: ` +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
+}
+
+type IdentitetsUtfall = { typ: "ersatt"; malId: string } | { typ: "satt" } | { typ: "utan" };
+
+/**
+ * Efter modellens identitet, med samma namnregel som uppladdningen:
+ *   - träff (båda namnen kända och lika) → ersätt med den befintliga;
+ *   - namnkonflikt → fortsätt utan identitet;
+ *   - kandidat men ett namn okänt → slå INTE ihop; behåll rapporten och sätt
+ *     identiteten bara om platsen är ledig (den är det inte — kandidaten
+ *     håller den — så i praktiken: utan identitet);
+ *   - miss → ta platsen (krock = någon hann före → slå upp igen).
+ */
+async function kopplaIdentitet(
+  lager: Lager,
+  r: RapportRad,
+  identitet: Rapportidentitet,
+  namnLiknar: (a: string, b: string) => boolean,
+): Promise<IdentitetsUtfall> {
+  const { db } = lager;
+  const uppslag = { namnLiknar, uteslutId: r.id, tillatAldreVersion: false };
+  const traff = await hittaRegistertraff(db, identitet, uppslag);
+  if (traff.typ === "traff") return { typ: "ersatt", malId: traff.rapport.id };
+  if (traff.typ === "namnkonflikt") {
+    console.warn(
+      `[identifiering] Rapport ${r.id}: namnet "${identitet.namn}" stämmer inte med föreningen ` +
+        `${identitet.orgnr} i registret — fortsätter utan identitet.`,
+    );
+    return { typ: "utan" };
+  }
+  if (traff.typ === "miss") await db.registreraForening(identitet.orgnr, identitet.namn);
+  if (await db.sattRapportIdentitet(r.id, identitet.orgnr, identitet.rakenskapsar, r.leaseUntil)) {
+    return { typ: "satt" };
+  }
+  if (traff.typ === "namnOkant") return { typ: "utan" };
+  const igen = await hittaRegistertraff(db, identitet, uppslag);
+  return igen.typ === "traff" ? { typ: "ersatt", malId: igen.rapport.id } : { typ: "utan" };
+}
+
+/**
+ * Deterministiska utfall av identitetsanropet — ett nytt försök ger samma
+ * svar, så de sväljs och rapporten fortsätter utan identitet direkt: ett
+ * ogiltigt eller avklippt svar (ModelValidationError, ModelTruncatedError —
+ * det senare ett komplett, betalt svar mot ett fast tokentak), kostnadsspärren
+ * och en vägran. Allt annat — Anthropics APIError/APIConnectionError (429,
+ * 5xx, 529 overloaded), nätverksfel och okända fel — räknas som transient och
+ * kastas vidare till den vanliga tre-försöks-logiken.
+ */
+function arDeterministisktIdentitetsfel(fel: unknown): boolean {
+  return (
+    fel instanceof ModelValidationError ||
+    fel instanceof ModelTruncatedError ||
+    fel instanceof KostnadsgransOverskriden ||
+    fel instanceof ModelRefusedError
+  );
+}
+
+/**
+ * Steg 0 — identifiering (rapporter vars identitet inte gick att läsa lokalt
+ * vid uppladdningen). Ett billigt modellanrop på sida 1–3. Identiteten fäller
+ * ALDRIG jobbet: ett deterministiskt utfall (se ovan) fortsätter direkt utan
+ * identitet; ett transient fel prövas om (tre försök, som varje steg) och
+ * fortsätter utan identitet först när försöken är slut. En rapport utan
+ * identitet kan bara återanvändas via sin hash.
+ */
+async function korIdentifiering(
+  lager: Lager,
+  env: Env,
+  r: RapportRad,
+  options: KorNastaStegOptions | undefined,
+): Promise<KorNastaStegResultat> {
+  const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK);
+  if (!reservation.ok) return refuseraRapport(lager, r);
+  const reserverat = UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK;
+
+  let spend: KandSpend = INGEN_SPEND;
+  try {
+    const pdfBytes = await lasRapportPdf(lager, r);
+
+    let identitet: Rapportidentitet | null = null;
+    try {
+      const identifiera = options?.identifieraMedModell ?? identifieraMedModellStandard;
+      const svar = await identifiera(pdfBytes, {
+        apiKey: env.anthropicApiKey,
+        maxCostSek: env.maxCostPerAnalysisSek,
+        ...(options?.client ? { client: options.client } : {}),
+      });
+      spend = { spentSek: svar.spentSek, calls: svar.calls };
+      if (svar.identitet && arGiltigIdentitet(svar.identitet)) identitet = svar.identitet;
+    } catch (fel) {
+      if (errorHasKnownSpend(fel)) spend = { spentSek: fel.spentSek, calls: fel.calls };
+      const transient = !arDeterministisktIdentitetsfel(fel);
+      // Transient och försök kvar: till den vanliga felvägen (omförsök).
+      if (transient && r.attempts < 3) throw fel;
+      console.warn(
+        `[identifiering] Rapport ${r.id}: identitetsanropet misslyckades` +
+          (transient ? " för tredje gången" : " deterministiskt") +
+          ` — fortsätter utan identitet: ${fel instanceof Error ? fel.message : String(fel)}`,
+      );
+    }
+
+    let utfall: IdentitetsUtfall = { typ: "utan" };
+    if (identitet) {
+      utfall = await kopplaIdentitet(
+        lager,
+        r,
+        identitet,
+        options?.namnLiknar ?? namnLiknarStandard,
+      );
+    }
+
+    if (utfall.typ === "ersatt") {
+      const ersatt = await ersattRapport(lager.db, r, utfall.malId, {
+        attempts: 0,
+        ...kostnadsDelta(r, spend),
+      });
+      try {
+        await stamAvSteg(lager.db, reserverat, spend.spentSek);
+      } catch (fel) {
+        // Raden är redan avslutad — en misslyckad avstämning får inte leda in
+        // i felvägen (som skulle avstämma en gång till).
+        console.error(`[spend] Avstämning efter ersättning av rapport ${r.id} misslyckades:`, fel);
+      }
+      if (ersatt && identitet) {
+        await registreraAdresserForRapport(lager, utfall.malId, identitet.orgnr);
+      }
+      return rapportResultat(r);
+    }
+
+    const skrivet = await rapportFramgang(lager, r, reserverat, spend, {
+      stage: stegEfterIdentifiering(r.textlager),
+    });
+    if (!skrivet) return rapportResultat(r);
+    if (utfall.typ === "satt" && identitet) {
+      await registreraAdresserForRapport(lager, r.id, identitet.orgnr);
+    }
+    trigger(options);
+  } catch (error) {
+    await rapportFel(lager, r, reserverat, error, spend);
+  }
+  return rapportResultat(r);
+}
+
+/** Steg 0b — transkribering av skannade rapporter (WS1). Inte implementerad:
+ *  så länge SKANNADE_RAPPORTER_AKTIVA är av når ingen rapport hit (skapaAnalys
+ *  nekar textlager 'saknas'); gör en ändå det, misslyckas den synligt. */
+async function korTranskribering(lager: Lager, r: RapportRad): Promise<KorNastaStegResultat> {
+  await rapportFel(
+    lager,
+    r,
+    0,
+    new Error(
+      "Transkribering av skannade rapporter är inte implementerad än " +
+        "(SKANNADE_RAPPORTER_AKTIVA, src/server/register.ts).",
+    ),
+  );
+  return rapportResultat(r);
+}
+
+/** Steg 1 — grundning, på rapportens egen PDF (via rapport_fil). */
+async function korRapportGrundning(
+  lager: Lager,
+  env: Env,
+  r: RapportRad,
+  options: KorNastaStegOptions | undefined,
+): Promise<KorNastaStegResultat> {
+  const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK);
+  if (!reservation.ok) return refuseraRapport(lager, r);
+
+  let spend: KandSpend = INGEN_SPEND;
+  try {
+    const pdfBytes = await lasRapportPdf(lager, r);
+    const result = await runGrounding(pdfBytes, {
+      model: r.model,
+      maxCostSek: env.maxCostPerAnalysisSek,
+      effort: env.effortGrounding,
+      ...(options?.client ? { client: options.client } : {}),
+    });
+    spend = { spentSek: result.spentSek, calls: result.calls };
+    const skrivet = await rapportFramgang(lager, r, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, spend, {
+      stage: "extraktion",
+      grundtext: result.groundingText,
+    });
+    if (skrivet) trigger(options);
+  } catch (error) {
+    await rapportFel(lager, r, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, error, spend);
+  }
+  return rapportResultat(r);
+}
+
+/** En rapport som fortfarande saknar identitet efter identifieringen får den
+ *  från sin egen extraktion, om orgnr klarar Luhn, namnregeln tillåter och
+ *  platsen är ledig. Bästa försök: en krock eller ett fel lämnar den bara utan
+ *  identitet — stegets resultat är redan sparat. */
+async function forsokIdentitetFranExtraktion(
+  lager: Lager,
+  r: RapportRad,
+  identitet: Rapportidentitet,
+  namnLiknar: (a: string, b: string) => boolean,
+): Promise<void> {
+  if (!arGiltigIdentitet(identitet)) return;
+  try {
+    const forening = await lager.db.hamtaForening(identitet.orgnr);
+    if (forening?.namn && identitet.namn && !namnLiknar(forening.namn, identitet.namn)) return;
+    await lager.db.registreraForening(identitet.orgnr, identitet.namn);
+    if (await lager.db.sattRapportIdentitet(r.id, identitet.orgnr, identitet.rakenskapsar)) {
+      await registreraAdresserForRapport(lager, r.id, identitet.orgnr);
+    }
+  } catch (fel) {
+    console.warn(
+      `[register] Rapport ${r.id}: kunde inte sätta identitet från extraktionen: ` +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
+}
+
+/** Steg 2 — strukturerad extraktion. Resultatet sparas på rapportraden i
+ *  samma (leasade) uppdatering som stegbytet. */
+async function korRapportExtraktion(
+  lager: Lager,
+  env: Env,
+  r: RapportRad,
+  options: KorNastaStegOptions | undefined,
+): Promise<KorNastaStegResultat> {
+  const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK);
+  if (!reservation.ok) return refuseraRapport(lager, r);
+
+  let spend: KandSpend = INGEN_SPEND;
+  try {
+    const result = await runStructuredExtraction(r.grundtext ?? "", {
+      model: r.model,
+      maxCostSek: env.maxCostPerAnalysisSek,
+      pdfSaknarTextlager: false,
+      effort: env.effortExtraction,
+      ...(options?.client ? { client: options.client } : {}),
+    });
+    spend = { spentSek: result.spentSek, calls: result.calls };
+    const skrivet = await rapportFramgang(lager, r, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, spend, {
+      stage: "bedomning",
+      grundtext: null,
+      extraction: result.extraction,
+    });
+    if (!skrivet) return rapportResultat(r);
+    if (r.orgnr === null) {
+      const { orgnr, rakenskapsar, namn } = result.extraction.forening;
+      await forsokIdentitetFranExtraktion(
+        lager,
+        r,
+        { orgnr, rakenskapsar, namn: namn.trim() === "" ? null : namn },
+        options?.namnLiknar ?? namnLiknarStandard,
+      );
+    }
+    trigger(options);
+  } catch (error) {
+    await rapportFel(lager, r, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, error, spend);
+  }
+  return rapportResultat(r);
+}
+
+/**
+ * Steg 3 — bedömning, sedan en TORR sammanställning (se korBedomningssteg).
+ * Den torra sammanställningen behöver en köpares PropertyInput; den tar den
+ * äldsta länkade analys-raden. En rapport utan länkad analys (en lat
+ * omkörning eller `npm run register -- rerun`, vars köpare fortfarande pekar
+ * på den gamla rapporten) hoppar över den — dess resultat sammanställs ändå
+ * vid varje läsning. Bedömningen sparas på raden direkt efter modellanropet,
+ * så ett senare fel aldrig betalar för den två gånger.
+ *
+ * Ett AssemblyValidationError från den torra sammanställningen fäller INTE
+ * den delade rapporten: det kan bero på just den köparens input, och andra
+ * köpare ska inte förlora en betald, giltig extraktion + bedömning för det.
+ * Rapporten blir klar, felet loggas, och syns per läsning för den köparen
+ * (som ett fel från hamtaResultat, aldrig som en tyst tom analys).
+ */
+async function korRapportBedomning(
+  lager: Lager,
+  env: Env,
+  r: RapportRad,
+  options: KorNastaStegOptions | undefined,
+): Promise<KorNastaStegResultat> {
+  let judgement: AnalysJudgement | null = tolkaLagradBedomning(r.judgement);
+  let reserveratSek = 0;
+  if (!judgement) {
+    const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_BEDOMNING_SEK);
+    if (!reservation.ok) return refuseraRapport(lager, r);
+    reserveratSek = UPPSKATTAD_KOSTNAD_BEDOMNING_SEK;
+  }
+
+  let spend: KandSpend = INGEN_SPEND;
+  let rad = r;
+  let bokford = false;
+  try {
+    const extraction = tolkaLagradExtraktion(r.extraction);
+    if (!extraction) {
+      throw new Error(
+        `Rapport ${r.id} i steget 'bedomning' saknar en extraktion som matchar schemat.`,
+      );
+    }
+
+    if (!judgement) {
+      const result = await runAnalys(extraction, {
+        apiKey: env.anthropicApiKey,
+        model: r.model,
+        maxCostSek: env.maxCostPerAnalysisSek,
+        effort: env.effortJudging,
+        ...(options?.client ? { client: options.client } : {}),
+      });
+      judgement = result.analys;
+      spend = { spentSek: result.spentSek, calls: result.calls };
+      const kostnad = kostnadsDelta(r, spend);
+      if (!(await skrivLeasad(lager, r, { judgement, ...kostnad }))) {
+        if (reserveratSek > 0) await stamAvSteg(lager.db, reserveratSek, spend.spentSek);
+        return rapportResultat(r);
+      }
+      rad = { ...r, ...kostnad, judgement };
+      bokford = true;
+    }
+
+    const [forsta] = await lager.db.hamtaAnalyserForRapport(r.id, 1);
+    if (forsta) {
+      const montera = options?.monteraAnalys ?? assembleraAnalys;
+      try {
+        await montera({
+          extraction,
+          input: lasPropertyInputFranRad(forsta),
+          prisdatakalla: new ModellPrisdatakalla(),
+          analys: judgement,
+          analysisId: forsta.id,
+          skapad: forsta.createdAt,
+        });
+      } catch (fel) {
+        if (!(fel instanceof AssemblyValidationError)) throw fel;
+        console.error(
+          `[register] Rapport ${r.id}: den torra sammanställningen för analys ${forsta.id} ` +
+            "misslyckades — rapporten markeras ändå klar (felet syns vid läsning för den köparen):",
+          fel,
+        );
+      }
+    }
+
+    if (reserveratSek > 0) await stamAvSteg(lager.db, reserveratSek, spend.spentSek);
+    reserveratSek = 0;
+    await skrivLeasad(lager, rad, {
+      status: "done",
+      stage: "klar",
+      leaseUntil: null,
+      attempts: 0,
+      errorCode: null,
+      errorMessage: null,
+      finishedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    await rapportFel(lager, rad, reserveratSek, error, spend, bokford);
+  }
+  return rapportResultat(r);
+}
+
+async function korRapportSteg(
+  lager: Lager,
+  env: Env,
+  r: RapportRad,
+  options: KorNastaStegOptions | undefined,
+): Promise<KorNastaStegResultat> {
+  // VERSIONSVAKT — före allt annat, se filkommentaren.
+  if (r.pipelineVersion !== PIPELINE_VERSION) {
+    await rapportVersionskonflikt(lager, r);
+    return rapportResultat(r);
+  }
+
+  switch (r.stage) {
+    case "identifiering":
+      return korIdentifiering(lager, env, r, options);
+    case "transkribering":
+      return korTranskribering(lager, r);
+    case "grundning":
+      return korRapportGrundning(lager, env, r, options);
+    case "extraktion":
+      return korRapportExtraktion(lager, env, r, options);
+    case "bedomning":
+      return korRapportBedomning(lager, env, r, options);
+    case "klar":
+    default:
+      // Aldrig klaimbar (`stage <> 'klar'` i claim_next_rapport_steg).
+      return rapportResultat(r);
   }
 }

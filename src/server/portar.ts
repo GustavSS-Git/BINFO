@@ -39,7 +39,9 @@ export type AnalysErrorCode =
   | "versionskonflikt"
   | "unknown";
 
-/** One row of the `analys` table — a single buyer's analysis job. */
+/** One row of the `analys` table — a single buyer's analysis job (legacy
+ *  rows) or a single buyer's REQUEST linked to a shared `rapport` (v2 rows,
+ *  `rapportId` set — see src/server/register.ts). */
 export interface AnalysRad {
   id: string;
   status: AnalysStatus;
@@ -71,6 +73,12 @@ export interface AnalysRad {
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+
+  /** The shared register report this request reads from. Null = legacy row:
+   *  it is processed by `claim_next_steg` and read from the caches, exactly
+   *  as before the register existed. Non-null = its own status/stage/
+   *  grundtext columns are unused; everything derives from the rapport. */
+  rapportId: string | null;
 }
 
 /** Fields needed to insert a new job row. Dedupe logic upstream (matching on
@@ -85,6 +93,140 @@ export interface NyAnalysRad {
   promptVersion: string;
   status: AnalysStatus;
   stage: AnalysStage;
+  /** Omitted (or null) = legacy row. See `AnalysRad.rapportId`. */
+  rapportId?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// The register: forening, rapport, rapport_fil, forening_adress
+// (supabase/migrations/20261009120000_register.sql)
+// ---------------------------------------------------------------------------
+
+export type RapportStatus = "queued" | "running" | "done" | "failed" | "ersatt";
+export type RapportStage =
+  "identifiering" | "transkribering" | "grundning" | "extraktion" | "bedomning" | "klar";
+
+/** How usable the PDF's own text layer is — see `klassificeraTextlager` in
+ *  register.ts. */
+export type Textlager = "ok" | "saknas" | "trasigt";
+
+/** `rapport.error_code` (plain text column). Everything an analys can carry,
+ *  plus the admin-only `ogiltigforklarad` (`npm run register -- invalidate`),
+ *  which is never shown to a buyer as such — hamtaStatus maps it, see
+ *  `ogiltigforklaradResultat` in fel.ts. */
+export type RapportErrorCode = AnalysErrorCode | "ogiltigforklarad";
+
+/** One row of `rapport` — one analysis of one årsredovisning, shared by every
+ *  buyer who uploads that report. */
+export interface RapportRad {
+  id: string;
+  /** Identity: both set or both null (CHECK in the migration). */
+  orgnr: string | null;
+  rakenskapsar: number | null;
+  pipelineVersion: string;
+  model: string;
+  textlager: Textlager;
+  status: RapportStatus;
+  stage: RapportStage;
+  /** The exact bytes this rapport runs on (a `rapport_fil` key). Null only for
+   *  rows created outside the normal paths. */
+  pdfHash: string | null;
+  leaseUntil: string | null;
+  attempts: number;
+  grundtext: string | null;
+  /** Raw jsonb. Untrusted until parsed — see `tolkaRapportInnehall` in
+   *  register.ts. Never served without parsing. */
+  extraction: unknown;
+  judgement: unknown;
+  errorCode: RapportErrorCode | null;
+  errorMessage: string | null;
+  costSek: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** Set together with status 'ersatt': the rapport this one turned out to
+   *  duplicate. Readers follow it (see `foljErsattAv`). */
+  ersattAv: string | null;
+}
+
+export interface NyRapportRad {
+  orgnr: string | null;
+  rakenskapsar: number | null;
+  pipelineVersion: string;
+  model: string;
+  textlager: Textlager;
+  status: RapportStatus;
+  stage: RapportStage;
+  pdfHash: string | null;
+  /** A short "setup lease" so no worker claims the row before skapaAnalys has
+   *  linked its file (see register.ts). */
+  leaseUntil?: string | null;
+  extraction?: unknown;
+  judgement?: unknown;
+  costSek?: number;
+  finishedAt?: string | null;
+}
+
+/** The fields of a rapport that may be changed by a plain update. Identity
+ *  goes through `sattRapportIdentitet` (it can hit the unique index). */
+export type RapportDelta = Partial<
+  Omit<RapportRad, "id" | "orgnr" | "rakenskapsar" | "createdAt" | "pipelineVersion">
+>;
+
+/** Which partial unique index rejected an insert:
+ *  `identitetskonflikt` = rapport_identitet_uniq (orgnr, rakenskapsar, version);
+ *  `filkonflikt`        = rapport_fil_version_uniq (pdf_hash, version).
+ *  Either way the caller links to the live rapport holding the slot. */
+export type RapportKonflikt = "identitetskonflikt" | "filkonflikt";
+
+export type SkapaRapportResultat = { ok: true; id: string } | { ok: false; orsak: RapportKonflikt };
+
+/** One row of `rapport_fil` — one byte version (sha256) of a report. */
+export interface RapportFilRad {
+  pdfHash: string;
+  rapportId: string;
+  pdfPath: string;
+  sidor: number | null;
+  bytes: number | null;
+  uppladdad: string;
+}
+
+export type NyRapportFilRad = Omit<RapportFilRad, "uppladdad">;
+
+export interface ForeningRad {
+  orgnr: string;
+  namn: string | null;
+  forstSedd: string;
+  senastSedd: string;
+}
+
+export interface NyForeningAdress {
+  orgnr: string;
+  postnummer: string | null;
+  kommunKod: string | null;
+  omrade: string | null;
+  /** Always null for kalla 'anvandare' (CHECK in the migration): a buyer's
+   *  street address is per-user data and stays in analys.property_input. */
+  adress: string | null;
+  kalla: "rapport" | "anvandare";
+}
+
+/** Filter for `listaRapporter`. Results are newest first. */
+export interface RapportFilter {
+  orgnr?: string;
+  rakenskapsar?: number;
+  pdfHash?: string;
+  limit?: number;
+}
+
+/** `extraktion_cache` row plus its key — for the one-off legacy backfill. */
+export interface ExtraktionCacheListRad extends ExtraktionCacheRad {
+  pdfHash: string;
+  model: string;
+  promptVersion: string;
+  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +306,69 @@ export interface Databas {
    *  last analysis referencing that PDF's content hash, meaning the caller
    *  should also delete the storage object. */
   raderaAnalys(id: string): Promise<{ pdfBlevForlorad: boolean }>;
+
+  // -------------------------------------------------------------------------
+  // Register (v2). See register.ts for the semantics built on these.
+  // -------------------------------------------------------------------------
+
+  /** Insert. `{ ok: false }` when the partial unique index on
+   *  (orgnr, rakenskapsar, pipeline_version) rejects it — the concurrency
+   *  lock; the caller links to the existing rapport instead. */
+  skapaRapport(rad: NyRapportRad): Promise<SkapaRapportResultat>;
+  hamtaRapport(id: string): Promise<RapportRad | null>;
+  uppdateraRapport(id: string, delta: RapportDelta): Promise<void>;
+  /** The worker's write: applies `delta` only while the row is still
+   *  'running' under the lease the worker claimed it with
+   *  (`status = 'running' and lease_until = lease`). False = someone else
+   *  (an admin invalidate, the reaper, a re-claim after lease expiry) changed
+   *  the row since — the worker's result is dropped, never written over a
+   *  terminal state. */
+  uppdateraLeasadRapport(id: string, lease: string | null, delta: RapportDelta): Promise<boolean>;
+  /** Sets orgnr + rakenskapsar. False = the identity index rejected it, or
+   *  (when `lease` is given — the worker) the row is no longer 'running'
+   *  under that lease. */
+  sattRapportIdentitet(
+    id: string,
+    orgnr: string,
+    rakenskapsar: number,
+    lease?: string | null,
+  ): Promise<boolean>;
+  /** Only for a rapport nothing references yet (lost a setup race). */
+  raderaRapport(id: string): Promise<void>;
+  /** Newest first (created_at desc). Every given filter field must match. */
+  listaRapporter(filter: RapportFilter): Promise<RapportRad[]>;
+  /** Wraps `claim_next_rapport_steg` — same semantics as `klaimaNastaSteg`. */
+  klaimaNastaRapportSteg(leaseSekunder?: number): Promise<RapportRad | null>;
+  /** Wraps `slapp_rapport_steg` — same semantics as `slappSteg`. */
+  slappRapportSteg(id: string, ateranvandForsok: boolean): Promise<void>;
+
+  hamtaRapportFil(pdfHash: string): Promise<RapportFilRad | null>;
+  /** Insert on conflict (pdf_hash) do nothing, then returns the row that is
+   *  actually stored — the caller's own, or a concurrent winner's. */
+  skapaRapportFil(rad: NyRapportFilRad): Promise<RapportFilRad>;
+  /** Compare-and-set: re-points one file from `franRapportId` to
+   *  `tillRapportId`. False = it no longer pointed at `franRapportId`. */
+  bytRapportForFil(pdfHash: string, franRapportId: string, tillRapportId: string): Promise<boolean>;
+  /** Re-points every file of one rapport to another (an 'ersatt' rapport). */
+  flyttaRapportFiler(franRapportId: string, tillRapportId: string): Promise<void>;
+  listaRapportFiler(rapportId: string): Promise<RapportFilRad[]>;
+
+  /** `update analys set rapport_id = till where rapport_id = fran`. */
+  lankaOmAnalyser(franRapportId: string, tillRapportId: string): Promise<void>;
+  /** Oldest first. */
+  hamtaAnalyserForRapport(rapportId: string, limit: number): Promise<AnalysRad[]>;
+  /** A legacy PDF path for a content hash (from `analys.pdf_path`), or null. */
+  hamtaPdfSokvagForHash(pdfHash: string): Promise<string | null>;
+
+  /** Wraps `registrera_forening`: insert, or bump senast_sedd and take a
+   *  non-null name. */
+  registreraForening(orgnr: string, namn: string | null): Promise<void>;
+  hamtaForening(orgnr: string): Promise<ForeningRad | null>;
+  /** Wraps `registrera_forening_adress` (upsert on the natural key). */
+  registreraForeningAdress(rad: NyForeningAdress): Promise<void>;
+
+  /** All `extraktion_cache` rows for one prompt version (legacy backfill). */
+  listaExtraktionCache(promptVersion: string): Promise<ExtraktionCacheListRad[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +381,8 @@ export interface Filarkiv {
   laggUpp(sokvag: string, bytes: Uint8Array): Promise<void>;
   hamta(sokvag: string): Promise<Uint8Array>;
   ta_bort(sokvag: string): Promise<void>;
+  /** Whether an object exists (register inspection, lazy re-runs). */
+  finns(sokvag: string): Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------
