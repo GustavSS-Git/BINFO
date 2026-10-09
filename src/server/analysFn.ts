@@ -44,16 +44,22 @@ import { skapaLager } from "./supabase";
 import { skapaKontoDatabas } from "./supabaseKonto";
 
 /** Production policy (STANDARD_POLICY): today everything is granted. */
-const BEHORIGHET = skapaBehorighet();
-
 /** Who is asking — the first call in every handler. The single insertion
  *  point for Supabase Auth is inside `losKontext`, not here. */
 function kontextFor(env: Env): Promise<Kontext> {
   return losKontext({ kallor: tanstackKontextKallor(), hemlighet: env.supabaseSecretKey });
 }
 
+// The policy is built per call, never at module scope: a module-level value
+// would keep the server-only `./behorighet` import alive in the client graph
+// (this file's handler bodies are stripped from the client, its top level is
+// not), which import protection rejects in `npm run dev`.
 async function anropareFor(env: Env): Promise<Anropare> {
-  return { kontext: await kontextFor(env), konto: skapaKontoDatabas(env), behorighet: BEHORIGHET };
+  return {
+    kontext: await kontextFor(env),
+    konto: skapaKontoDatabas(env),
+    behorighet: skapaBehorighet(),
+  };
 }
 
 /**
