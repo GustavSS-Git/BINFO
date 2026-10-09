@@ -2,172 +2,389 @@
 
 Independent buyer-side decision support for Swedish bostadsrätter
 (https://binfo.slanesens.com). A buyer uploads the BRF's årsredovisning and gets
-a BRF analysis (the seven statutory nyckeltal, flags, questions for the
-styrelse), a price check, a bolånekalkyl and a köpguide. Competitors (Lusa, AI
-BRF, Allabrf) already grade the *cooperative*; Binfo's point is grading the
-*transaction* — price, per-apartment cost in kronor, what to do before bidding.
+a BRF analysis (the seven statutory nyckeltal, grade, red flags, questions for
+the styrelse), a price check against Binfo's own valuation model, a
+bolånekalkyl and a köpguide. Competitors (Lusa, AI BRF, Allabrf) grade the
+*cooperative*; Binfo's point is grading the *transaction*: price,
+per-apartment cost in kronor, and what to do before bidding.
 
 ## Stack
 
 - Vite + React 19 + TypeScript (strict, `noUncheckedIndexedAccess`,
   `exactOptionalPropertyTypes`), TanStack Start/Router (file routes), TanStack
-  Query, Tailwind 4. **Not Next.js** — no app router, `/pages`, `server-only`.
+  Query, Tailwind 4. **Not Next.js**: no app router, `/pages` or `server-only`.
 - `vite.config.ts` is a thin wrapper around `@lovable.dev/vite-tanstack-config`
   (Lovable-owned). `vitest.config.ts` is deliberately separate from it.
-- Node 22 (`.nvmrc`). Dev server is always `localhost:8080` (forced by the wrapper).
-- Backend: Supabase (Postgres + pg_cron + one Edge Function) and the Anthropic
-  API via `@anthropic-ai/sdk`. Zod v3 (pinned deliberately). PDF text via `unpdf`.
+- **Hosting:**
+  - The web app (SSR + server functions) is built by Lovable for Cloudflare
+    Workers (nitro `cloudflare-module`). Use web APIs only on the server path: no
+    `Buffer`, no native modules.
+  - The background worker is one Supabase Edge Function (Deno 2), `analys-steg`.
+- **Backend:** Supabase (Postgres + pg_cron + pg_net + Storage + Vault), the
+  Anthropic API via `@anthropic-ai/sdk` 0.125, Zod v3 (pinned deliberately) and
+  `unpdf` (pdf.js) for PDF text.
+- **Offline ML:** Python in `ml/` (pandas, LightGBM, pytest; venv at `ml/.venv`).
+  The exported model JSON is evaluated in TypeScript at runtime. There is no
+  Python in production.
+- Node 22 (`.nvmrc`). The shell default may be Node 24, so prefix commands with
+  `PATH=$HOME/.nvm/versions/node/v22.23.2/bin:$PATH` or run `nvm use`. The dev
+  server always runs on `localhost:8080` (forced by the wrapper).
 
 ## Directory map
 
 | Path | Contents |
 |---|---|
-| `src/routes/` | File routes. `routeTree.gen.ts` is generated — never edit it. |
-| `src/components/` | `AnalysRapport`, `AnalysStatus` (polling/wait/error states), `PropertySummary`, `SiteNav` |
-| `src/components/ui/binfo.tsx` | Binfo UI kit (Card, Button, Field, Badge, TristateChoice, …). Other `ui/*.tsx` are shadcn primitives. |
-| `src/lib/` | Client-safe helpers: `uppgifter.ts` (module-level store via `useSyncExternalStore`, shared across routes, in-memory only), `bolanekalkyl.ts`, `skatt2026.ts`, `analysisView.ts`, `analysStatusCopy.ts`, `propertyType.ts` |
-| `src/lib/analysis/` | Extraction + analysis pipeline, `calc/` (pure calculators), `benchmarks.ts`, `prisdata.ts` (price source) |
-| `src/server/` | Server-only: job state machine (`steg.ts`), caches, spend guard, env, Supabase access. `analysFn.ts` is the only client-importable file. |
+| `src/routes/` | File routes. `routeTree.gen.ts` is generated; never edit it. |
+| `src/components/` | `AnalysRapport` (full report), `AnalysStatus` (polling, waiting, `Misslyckad`, `HittadesInte`), `PropertySummary`, `SiteNav`, `pdf/` (PDF export via `@react-pdf/renderer`, lazy-loaded client-only, `viewModel.ts` is the pure data layer) |
+| `src/components/ui/binfo.tsx` | Binfo UI kit (Card, Button, LinkButton, Field, Badge, Callout, TristateChoice, Tag, Toggle, PageHeader…). Other `ui/*.tsx` files are shadcn primitives. |
+| `src/lib/` | Client-safe helpers: `uppgifter.ts` (in-memory module store via `useSyncExternalStore`, shared across routes), `analyseraForm.ts` (upload form parsing/validation → `PropertyInput`), `senasteAnalyser.ts` (localStorage "recent analyses", the only browser persistence), `bolanekalkyl.ts`, `skatt2026.ts`, `analysisView.ts`, `analysStatusCopy.ts` (stage/error copy, hand-mirrors server unions), `propertyType.ts`, `error-*.ts` |
+| `src/lib/analysis/` | Pipeline: `pdf.ts` (text layer and scan detection), `runExtraction.ts` (grounding + structured extraction), `analyze.ts` (judging), `prompts.ts` (+ `PROMPT_VERSION`), `schema.ts` (Zod mirror of the contract), `tolkaVarde.ts` (deterministic number parsing, debt-free derivation), `benchmarks.ts`, `assemble.ts` (final `AnalysisResult`), `prisdata.ts` (price source → valuation), `costGuard.ts`, `callMetrics.ts`, `calc/` (pure calculators), CLIs `cli.ts` and `verifyAnswerKey.ts` |
+| `src/lib/vardering/` | **Server-only** valuation engine: TS evaluator of the exported LightGBM trees (`tree.ts`, `vardera.ts`), tiering (`tackning.ts`), drivers, budpremie, postcode/kommun maps. `data/*.data.ts` is generated by `npm run build:vardering-data`; never hand-edit it. |
+| `src/server/` | Server-only: `analys.ts` (create/status/result/preview), `steg.ts` (job state machine), `cache.ts`, `spend.ts`, `fel.ts` (error → buyer-safe Swedish), `env.ts`, `portar.ts` (`Lager` port), `supabase.ts` (adapter), `__fakes__/lager.ts` (in-memory fake for tests), `cli/`, `edge/build.ts` (bundles `steg.ts` for Deno). `analysFn.ts` is the only client-importable file. |
 | `src/types/analysis.ts` | **The contract** for an analysis result, shared by client and server |
-| `src/data/` | `sampleAnalysis.ts` (static demo on `/exempel`), `mockData.ts` (calculator defaults). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`. |
-| `supabase/` | SQL migrations and the Edge Function `analys-steg` |
-| `fixtures/answer-key/` | Hand-verified nyckeltal per test report |
-| `annual reports examples/` | Real test PDFs — gitignored, never commit |
+| `src/data/` | `sampleAnalysis.ts` (static demo on `/exempel`), `mockData.ts` (calculator defaults + legacy demo `property`). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`. |
+| `supabase/` | Migrations (3 applied) and the Edge Function `analys-steg/` (`index.ts` is Deno glue; it imports the esbuild bundle `_bundle/steg.js`, which is gitignored) |
+| `ml/` | Training (`train_valuation_v3.py`, `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3/` incl. `MODEL_CARD.md`), pytest suite |
+| `data/raw/` | Svensk Mäklarstatistik transaction xlsx (committed, not confidential); `data/derived/` holds the mapping CSVs and price levels |
+| `fixtures/answer-key/` | Hand-verified nyckeltal per test report (`<orgnr>.json`) |
+| `annual reports examples/` | Real test PDFs. Gitignored; never commit. The subfolder `annual reports pdf as image example/` holds the two image-only test reports. |
+| `docs/` | `PLAN-v2.md` (current plan + status) and `api-test-log.md` (every paid API test run, running total) |
 
 ## Routes
 
-`/` landing · `/analysera` upload form → `skapaAnalysFn` → `/forhandsvisning/$analysisId`
-(polls status, free preview) → `/analys/$analysisId` (full report; loader calls
-`hamtaResultatFn`, redirects to the preview until the job is done) · `/exempel`
-static demo report · `/bolanekalkyl` client-only calculator (optional
-`?manadsavgift=`/`?rantekanslighet=` prefill) · `/guide` buying guide.
+- `/`: landing page.
+- `/analysera`: upload form.
+  - Required fields: pris, boarea, våning, avgift, rum, adress, postnummer, ort.
+  - Optional: byggår, hiss, balkong.
+  - Submits PDF + `PropertyInput` JSON as FormData to `skapaAnalysFn`.
+  - On success it goes to `/forhandsvisning/$analysisId`. That page polls
+    `hamtaStatusFn` every 5 s until done or failed, then shows the free preview
+    (grade + top 2 flags via `hamtaForhandsvisningFn`).
+  - From there the user goes to `/analys/$analysisId`, the full report. Its loader
+    calls `hamtaResultatFn`; any error redirects to the preview.
+- `/exempel`: static demo report.
+- `/bolanekalkyl`: client-only calculator. Optional search params `manadsavgift`,
+  `rantekanslighet`, `pris`, `boarea`, `prisUppskattning`.
+- `/guide`: buying guide.
+
+## Data flow of a full analysis (today)
+
+1. **`skapaAnalys`** (`src/server/analys.ts`, runs in the Worker). Steps, in order:
+   1. Zod-validate `PropertyInput`.
+   2. SHA-256 the bytes.
+   3. Check the `%PDF` magic bytes.
+   4. Enforce ≤ 25 MB.
+   5. Check the kill switch.
+   6. Run `extractPdfText`. **If every page is empty, return `scanned_pdf` before
+      anything is stored.**
+   7. Look up the cache by `(pdf_hash, model, PROMPT_VERSION)`.
+   8. Upload `<hash>.pdf` to the private bucket `arsredovisningar`.
+   9. Insert an `analys` row. The row starts `done` if both caches hit, at
+      `judging` if only the extraction hits, otherwise at `uploaded`.
+2. **pg_cron `binfo-tick`** (every minute, 3 POSTs) calls `analys-steg`. The
+   function checks the `apikey` header against `AUTOMATIONS_KEY`, then runs
+   `korNastaSteg` (`src/server/steg.ts`). That function:
+   - claims one row (`claim_next_steg`: `FOR UPDATE SKIP LOCKED`, 300 s lease,
+     max 3 attempts per stage);
+   - runs a version guard (`row.prompt_version` must equal the running
+     `PROMPT_VERSION`, else the job fails with `versionskonflikt`);
+   - advances the row **one stage, i.e. one Anthropic call**;
+   - on success, reinvokes itself (a fire-and-forget POST) so the next stage
+     starts immediately.
+3. **The stages.** Each one reserves daily spend first (`reservera_spend`) and
+   reconciles it after (`avstam_spend`). They run strictly in sequence:
+   1. `uploaded` → **grounding**: the PDF as a `document` block with
+      `citations` enabled (`runGrounding`). Findings plus the API-verified
+      `page_location` are stored in `analys.grundtext`. Not cached.
+   2. `extracting` → **structured extraction**: text-only, JSON, Zod-validated,
+      one retry (`runStructuredExtraction`). Then a deterministic
+      reconciliation: `tolkaNyckeltal` → `harledSkuldfriaNyckeltal` →
+      `berikaNyckeltal`. Cached in `extraktion_cache`.
+   3. `judging` → **judgement**: text-only, Zod-validated (`runAnalys`), cached in
+      `analys_cache`. Then a dry `assembleraAnalys` to surface assembly errors.
+      The row ends `done`.
+4. **Reads.** `hamtaResultat` and `hamtaForhandsvisning` re-assemble on every
+   read from `property_input` plus the two cache rows. The final result is never
+   stored, so benchmark changes regrade old analyses for free. The valuation
+   (`ModellPrisdatakalla` → `src/lib/vardering`) runs inside `assembleraAnalys`
+   and uses **only `PropertyInput`**, never the extraction.
+5. **Retention** (`binfo-retention`, daily): after 30 days the PDF is deleted
+   and `adress`/`postnummer`/`orgnr` are blanked in `property_input`. The
+   reaper fails stuck rows.
+
+Measured (Sept–Oct 2026, `claude-sonnet-5`, effort `medium`):
+
+| Measure | Value |
+|---|---|
+| End-to-end, live | 164–215 s |
+| Cost per cold report | 3.3–4.3 kr |
+| Input tokens, grounding | 29–102k (the whole PDF) |
+| Input tokens, extraction | 12–24k |
+| Input tokens, judging | ~9k |
+| Prompt caching | none; all cache fields are 0 |
+| Cost of a cache hit | 0 kr |
+
+## Database (Supabase, see `SUPABASE.md`)
+
+- **Tables:**
+  - `analys`: one row per buyer job. Columns include `status`, `stage`,
+    `pdf_hash`, `pdf_path`, `property_input`, `model`, `prompt_version`,
+    `grundtext`, lease/attempt fields, `error_code`/`error_message`, `cost_sek`
+    and timestamps. `lan_underlag` is dead.
+  - `extraktion_cache` and `analys_cache`: PK `(pdf_hash, model,
+    prompt_version)`. `orgnr`/`rakenskapsar` are denormalised into
+    `extraktion_cache` but are unindexed and unvalidated.
+  - `spend_day`.
+- **Enums:** `analys_status`, `analys_stage`.
+- **Access:** RLS is on with zero policies. The browser has no Supabase client;
+  all access goes through server functions using the secret key.
+- **Identity:** none. The UUID `analysisId` is the only access capability.
+  There is no rate limiting except the global daily spend cap and the kill
+  switch.
+- **Cron jobs:** `binfo-tick`, `binfo-reaper` (every 5 min), `binfo-retention`,
+  `binfo-keep-alive`. Vault holds `project_url` and `automations_key`.
+- **Valuation coverage** (`src/lib/vardering/tackning.ts`, model card
+  `ml/artifacts/valuation-v3/`):
+  - Stockholms kommun → an area model trained on Jan–Aug 2026 sales: LightGBM
+    on log kr/m², CV MAPE 9.8 %, interval coverage 88.5 %.
+  - Rest of Stockholms län → general relationships × the kommun's 12-month
+    average kr/m² (Svensk Mäklarstatistik).
+  - Outside the län → × the national average. Still estimated, but with a
+    disclaimer shown first.
+  - Confidence is never 'hog'; outside Stockholms kommun it is always 'lag'.
+  - Training data has a monthly fee but **no BRF identity and no BRF debt**.
 
 ## Commands
 
 ```
 npm install
 npm run dev                 # localhost:8080
-npm run build               # vite build
-npm run lint                # eslint .
+npm run build               # vite build (Cloudflare Worker output in .output/)
+npm run lint                # eslint . (baseline: 0 errors, 7 warnings)
 npm run typecheck           # tsc --noEmit
-npm test                    # vitest run
-npm run extract -- <pdf> [input.json]      # run the pipeline standalone (real Anthropic spend)
-npm run verify-extraction -- <dir>         # score extraction against fixtures/answer-key
+npm test                    # vitest run (baseline 2026-10-09: 47 files, 1013 tests)
+npm run extract -- <pdf> [input.json]      # pipeline standalone (REAL Anthropic spend)
+npm run verify-extraction -- <dir>         # score extraction against fixtures/answer-key (spend)
 npm run analys -- <pdf> <input.json>       # LIVE Supabase job + Anthropic spend
-npm run verify-rls                         # LIVE: checks RLS with secret vs publishable key
-npm run build:edge / deploy:edge           # bundle / deploy the analys-steg Edge Function
+npm run verify-rls                         # LIVE: RLS with secret vs publishable key
+npm run build:edge / deploy:edge           # bundle / deploy analys-steg (deploy needs owner OK)
+npm run build:vardering-data               # regenerate src/lib/vardering/data from ml artifacts
+cd ml && .venv/bin/pytest                  # ML tests
 ```
 
-## Environment variables (names only — values live in `.env.local` / Lovable Secrets / Supabase secrets)
+- **Sandbox:** inside the Claude Code sandbox, `npx tsx` fails with EPERM on its
+  IPC pipe. Use `node --import tsx <file.ts>` instead. `.env.local` is not
+  readable from the sandbox, so commands that spend need the key provided
+  explicitly.
+- **Workerd:** to test uploads against local workerd (catches
+  Worker-only bundling bugs), run `npm run build`, then `npx wrangler dev`, with a
+  temporary `.dev.vars` in `.output/server`.
 
-`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `MAX_COST_PER_ANALYSIS_SEK`, `PROJECT_URL`,
-`PROJECT_SECRET_KEY`, `PROJECT_PUBLISHABLE_KEY`, `MAX_DAILY_SPEND_SEK`,
-`ANALYSIS_KILL_SWITCH`; Edge Function also reads `SUPABASE_URL`, `AUTOMATIONS_KEY`;
-`SUPABASE_ACCESS_TOKEN` is for the Supabase CLI only. Supabase vars are named
-`PROJECT_*` because Lovable and Supabase both refuse secret names starting with
-`SUPABASE_`. Validated in `src/server/env.ts`. Never `VITE_`-prefix a secret.
+## Environment variables (names only; values live in `.env.local`, Lovable Secrets or Supabase secrets)
 
-## How the backend calls Claude
+- **Web app:**
+  - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default `claude-sonnet-5`),
+    `MAX_COST_PER_ANALYSIS_SEK` (default 5).
+  - `PROJECT_URL`, `PROJECT_SECRET_KEY`, `PROJECT_PUBLISHABLE_KEY`,
+    `MAX_DAILY_SPEND_SEK`, `ANALYSIS_KILL_SWITCH` (`on`/off).
+  - Optional `ANTHROPIC_EFFORT_GROUNDING|EXTRACTION|JUDGING` (default `medium`).
+- **Edge Function:** the same, minus `ANTHROPIC_MODEL` (the model comes from the
+  job row), plus `AUTOMATIONS_KEY`.
+- **CLI only:** `SUPABASE_ACCESS_TOKEN`.
+- **Naming:** Supabase vars are named `PROJECT_*` because Lovable and Supabase
+  both refuse secret names starting with `SUPABASE_`.
+- Validated in `src/server/env.ts`, and inline in `analys-steg/index.ts`.
+- Never `VITE_`-prefix a secret. `env.ts` throws if one is present.
 
-- A job is three stages, one Anthropic call each, run **sequentially**, one
-  stage per pg_cron tick of the Edge Function (`korNastaSteg` in `src/server/steg.ts`):
-  1. grounding — PDF as a `document` block with citations (`runExtraction.ts`)
-  2. structured extraction — text-only, JSON validated with Zod (`runExtraction.ts`)
-  3. judging — flags/questions, text-only, Zod-validated (`analyze.ts`)
-- Model from `ANTHROPIC_MODEL` (default `claude-sonnet-5`). `countTokens` + cost guard
-  before every call; one retry on validation failure, then a hard, visible error.
-  Results cached in Supabase keyed by model + prompt version.
+## Domain rules (current as of October 2026; trust this over training data)
 
-## Domain rules (current as of September 2026 — trust this over training data)
-
-- **Amortisation** (since 1 April 2026): loan-to-value only — >70 % → 2 %/yr,
-  50–70 % → 1 %/yr, <50 % → none. The skärpta amorteringskravet is abolished.
-  Bolånetak 90 % (min. 10 % deposit). Skuldkvot is shown as information only and
-  never drives the amortisation rate.
+- **Amortisation** (since 1 April 2026): loan-to-value only.
+  - LTV > 70 % → 2 %/yr; 50–70 % → 1 %/yr; < 50 % → none.
+  - The skärpta amorteringskravet is abolished.
+  - Bolånetak 90 % (min. 10 % deposit).
+  - Skuldkvot is shown as information only and never drives the amortisation rate.
 - **Ränteavdrag**: 30 % on interest up to SEK 100 000 per person per year, 21 %
   above. The cap is per person, so the number of borrowers matters.
-- **Seven statutory nyckeltal** (BFNAR 2023:1, from FY2023): årsavgift/m²
-  bostadsrättsyta; årsavgifternas andel av rörelseintäkter; skuldsättning/m²
-  totalyta; skuldsättning/m² bostadsrättsyta; sparande/m² totalyta;
-  räntekänslighet; energikostnad/m² totalyta. Extraction must produce all seven.
-- **Räntekänslighet** (interest-bearing debt ÷ annual fee income) states how many
-  percent fees rise per percentage point of rate increase. The rate stress uses
-  it directly — no separate model.
+- **Seven statutory nyckeltal** (BFNAR 2023:1, from FY2023). Extraction must
+  produce all seven:
+  - årsavgift/m² bostadsrättsyta
+  - årsavgifternas andel av rörelseintäkter
+  - skuldsättning/m² totalyta
+  - skuldsättning/m² bostadsrättsyta
+  - sparande/m² totalyta
+  - räntekänslighet
+  - energikostnad/m² totalyta
+
+  In the text reports seen so far they sit on 1–2 pages (förvaltningsberättelse
+  / flerårsöversikt).
+- **Räntekänslighet** (interest-bearing debt ÷ annual fee income) states how
+  many percent fees rise per percentage point of rate increase. The rate stress
+  uses it directly; there is no separate model.
 - Lagfart/pantbrev: houses only. Board approval of membership: bostadsrätter only.
-- Nyckeltal thresholds are product decisions in `BENCHMARKS.md`, mirrored in `benchmarks.ts`.
+- Nyckeltal thresholds are product decisions in `BENCHMARKS.md`, mirrored in
+  `benchmarks.ts`. Negative sparande is graded svag, not kritisk.
 - A debt-per-m² figure with an unclear basis (e.g. "Lån per kvm bostadsyta") is
-  reported as skuldsättning per m² bostadsrättsyta — a number beats none here.
-- A debt-free association (the report shows no interest-bearing debt, cited)
-  has räntekänslighet and both skuldsättning/m² = 0 (`source: 'berakning'`),
-  not "missing". A genuinely missing räntekänslighet never fails the analysis:
-  only the rate stress is disabled, and the gap becomes a question for the visning.
-- Valuation coverage (`src/lib/vardering/tackning.ts`, model card in
-  `ml/artifacts/valuation-v3/`): Stockholms kommun → area model trained on its
-  sales; rest of Stockholms län → general relationships × the kommun's 12-month
-  average kr/m² (Svensk Mäklarstatistik); outside the län → × the national
-  average, still estimated but with a disclaimer shown first. Confidence is
-  never 'hog'; outside Stockholms kommun always 'lag'.
-- Never present a statistical association as causation: an effect whose sign
-  contradicts the obvious direction (e.g. "no lift" raising price) is replaced by
-  the broader estimate or omitted.
+  reported as skuldsättning per m² bostadsrättsyta. A number beats none here.
+- **Debt-free association:** if the report shows no interest-bearing debt, cited,
+  then räntekänslighet and both skuldsättning/m² = 0 (`source: 'berakning'`),
+  not "missing".
+- **Missing räntekänslighet:** a genuinely missing value never fails the
+  analysis. Only the rate stress is disabled (`rantekanslighetProcent: null`),
+  and the gap becomes a question for the visning. The `saknar_rantekanslighet`
+  error code remains only for old failed jobs.
+- Never present a statistical association as causation. An effect whose sign
+  contradicts the obvious direction (e.g. "no lift" raising price) is replaced
+  by the broader estimate or omitted.
 
 ## Conventions
 
-- All user-facing text in Swedish; code, comments, identifiers, commits in English.
-- Unknown ≠ false: use `Tristate = 'ja' | 'nej' | 'okant'`, never `boolean | null`.
-- Estimates are labelled: `source: 'schablon'` renders distinct from
+- All user-facing text is in Swedish. Code, comments, identifiers and commits are
+  in English. Many older pipeline/server comments are in Swedish; match the
+  surrounding file.
+- **Unknown ≠ false.** Use `Tristate = 'ja' | 'nej' | 'okant'`, never
+  `boolean | null`.
+- **Estimates are labelled.** `source: 'schablon'` renders distinct from
   `'arsredovisning'` / `'anvandare'`. A guess must never look like a fact.
-- Every extracted figure carries its page reference; no citation, no display.
-- SEK as integers; areas in m² with one decimal. Never invent domain numbers
-  (thresholds, benchmarks, schablons): cite a source or mark `// TODO: unverified placeholder`.
-- Model output is untrusted: Zod-validate everything; handle scanned PDFs,
-  missing figures and malformed responses explicitly. Silent empty analysis is
-  the worst failure; visible failure is fine.
-- Tests first for anything with a correct answer (extraction, calculators,
-  valuation). Before claiming done, run `npm run typecheck`, `npm test`,
-  `npm run lint` (and `npm run dev` for UI) and report the real output.
+- **Every extracted figure carries its page reference.** No citation, no display.
+  Page numbers must come from the API (citations), never be self-reported by
+  the model.
+- SEK as integers; areas in m² with one decimal.
+- **Never invent domain numbers** (thresholds, benchmarks, schablons). Cite a
+  source or mark `// TODO: unverified placeholder`.
+- **Model output is untrusted.** Zod-validate everything. Handle scanned PDFs,
+  missing figures and malformed responses explicitly. A silent empty analysis is
+  the worst failure; a visible failure is fine.
+- **`PROMPT_VERSION`** (`prompts.ts`) is part of the cache key. Bump it whenever
+  any prompt text changes (`prompts.test.ts` enforces this). A bump requires
+  deploying the web app and the Edge Function close together, otherwise
+  in-flight jobs fail with `versionskonflikt`.
+- **Tests first** for anything with a correct answer (extraction, calculators,
+  valuation).
+- Before claiming done, run `npm run typecheck`, `npm test` and `npm run lint`
+  (and `npm run dev` for UI), and report the real output.
+- Every paid API run is logged in `docs/api-test-log.md`.
 - Ask when a spec or domain rule is ambiguous; don't guess.
+
+## Gotchas
+
+- **Edge glue duplication.** `supabase/functions/analys-steg/index.ts` duplicates
+  `Env`/`Lager`/row mapping by hand, because Deno has no `@/` alias. Any new
+  `analys` column or `Databas` method used by `steg.ts` must be mirrored in
+  three places: `index.ts`, `src/server/supabase.ts` and
+  `src/server/__fakes__/lager.ts`. Types will not catch Edge drift.
+- **Edge bundle contents.** It bundles everything `steg.ts` imports
+  transitively, including `src/lib/vardering` (~930 KB). `@anthropic-ai/sdk` and
+  `unpdf` stay external, as pinned `npm:` specifiers taken from
+  `package-lock.json`.
+- **Edge limits.** Free plan: 150 s wall clock and 2 s CPU per invocation, hence
+  one Anthropic call per stage. A cut-off invocation holds its lease for 300 s.
+- **pdf.js detaches buffers.** Always pass `bytes.slice()` to `extractPdfText`.
+- **No uniqueness at job creation.** Concurrent identical uploads each pay for
+  grounding. Dedupe happens only against already-written cache rows.
+- **Daily cap is checked late.** It is enforced only in the tick, not at upload.
+  Over-cap jobs sit queued without an error.
+
+## Known limitations (October 2026)
+
+- **Scanned / image-only PDFs are refused** (`scanned_pdf`).
+  - Two flavours exist in the test set:
+    - pure raster scans (`SBC 2`);
+    - vector-outlined text with no fonts (`annual reports pdf as image
+      example/*`). These yield 0 characters per page.
+  - Citations do not work on PDFs without extractable text (Anthropic docs), so
+    the grounding stage cannot simply be pointed at them.
+- `test_rapport.pdf` has a garbled text layer (single-char tokens). The
+  heuristic `bedomTextkvalitet` exists but gates nothing.
+- **Price estimate requires a full PDF job.** It is computed only at read time,
+  ignores BRF data, and has no standalone endpoint.
+- **No register keyed on orgnr + räkenskapsår.** A re-exported copy of the same
+  report is a cache miss.
+- **No accounts, owner, session, entitlement layer or rate limiting.** The
+  deletion RPC `radera_analys` exists but nothing calls it.
+- **No prompt caching.** The grounding system prompt is ~420 tokens, below the
+  Sonnet 5 minimum of 1024.
+
+## Workstreams (v2, October 2026; plan and status in `docs/PLAN-v2.md`)
+
+1. **Image-only reports**: detect early and route to a fallback path instead of
+   erroring. Show a "skannad rapport, tar längre tid" status. Add sanity checks
+   (the balance sheet balances, units are plausible) and surface low
+   confidence.
+2. **Decouple the price estimate**: separate `price_estimate` and
+   `brf_analysis` services. The full analysis orchestrates both. The estimate
+   improves with BRF data (register, cheap nyckeltal pass, full analysis). Any
+   debt adjustment needs explicit owner approval before implementation.
+3. **Register of analysed reports**: canonical identity is orgnr + räkenskapsår.
+   The file hash is a fast pre-check. Covers versioning and re-analysis,
+   kommun/district, multiple fiscal years, admin visibility, and a concurrency
+   lock.
+4. **Account-ready infrastructure**: a users concept, a user↔analysis link
+   table, an anonymous device/session id, an entitlement layer (everything
+   granted for now), auth-insertable server functions, rate limiting on
+   expensive endpoints, and a GDPR design. Auth provider: Supabase Auth (not
+   enabled yet).
+5. **Prompt caching** where it produces real hits (stable instruction prefixes,
+   multi-pass over the same document), instrumented via the usage cache fields.
 
 ## Visual boundary
 
-Visual boundary: do NOT change visual design (styling, layout, colours,
-typography, spacing, animations, images, or components in @/components/ui/binfo)
-unless I explicitly ask. When a feature needs new UI, build it functionally from
-existing components and existing patterns with minimal new styling, and add it
-to a list "For Lovable to polish" that you report at the end. Exception: the PDF
-export layout (task 3) is yours to design, kept simple and consistent with the site.
+Do NOT change visual design unless the owner explicitly asks. That covers
+styling, layout, colours, typography, spacing, animations, images, and the
+components in `@/components/ui/binfo`. When a feature needs new UI, build it
+functionally from existing components and patterns with minimal new styling,
+and add it to a "For Lovable to polish" list reported at the end. Exception: the
+PDF export layout is ours to design, kept simple and consistent with the site.
+
+Owner-hidden elements are kept in the DOM with `hidden`: the valuation
+provider line, the valuation range and the drivers caveat. Do not unhide them.
 
 ## Lovable sync workflow
 
 The frontend is also edited in Lovable, which pushes to `main` on GitHub.
-`git pull` before starting work; push when done; never edit the same files in
-Lovable and Claude Code at the same time. Don't rename, move or restructure
-frontend files beyond what a task needs.
+- `git pull` before starting work; push when done.
+- Never edit the same files in Lovable and Claude Code at the same time.
+- Don't rename, move or restructure frontend files beyond what a task needs.
+- Never rewrite pushed history (no force push, no amend or rebase of pushed
+  commits).
+- Publishing in Lovable is a manual UI step by the owner.
 
 ## Working model (supervisor + subagents)
 
-- The main session is supervisor: plan, order, decisions, integration, commits,
-  checkpoints. Working plan lives in `.claude/working-plan.md` (gitignored) —
-  keep it updated so it survives compaction.
-- Subagents (definitions in `.claude/agents/`, run on Sonnet) get self-contained
-  briefs, never edit overlapping files concurrently, never commit, never change
-  shared contracts (report back instead), and stop rather than guess. The
-  supervisor reviews every diff and re-runs the checks before accepting it.
+- **The main session is supervisor.** It owns plan, order, decisions,
+  integration, commits and checkpoints. The working plan lives in
+  `docs/PLAN-v2.md` (status) and `.claude/working-plan.md` (gitignored notes).
+  Keep both updated so they survive compaction.
+- **Subagents** (definitions in `.claude/agents/`, run on Sonnet) get
+  self-contained briefs. They:
+  - never edit overlapping files concurrently;
+  - never commit;
+  - never run `git stash`/`checkout`/`reset` on the shared tree;
+  - never change shared contracts (report back instead);
+  - stop rather than guess.
+- The supervisor reviews every diff and re-runs the checks before accepting it.
+- **Deploys** (`supabase db push`, `deploy:edge`) and pushes to `main` need the
+  owner's explicit OK.
 
 ## Don't touch
 
 - `AGENTS.md` and `.lovable/` (Lovable-managed); `src/routeTree.gen.ts`.
-- Applied migrations in `supabase/migrations/` — add a new migration instead.
-- `.env*` files and lockfiles by hand; never commit secrets.
-- The server boundary: `src/server/` is client-forbidden via `importProtection`
-  in `vite.config.ts` and `no-restricted-imports` in `eslint.config.js`. Both
-  carve out `src/server/analysFn.ts` and nothing else — never widen either.
-  Nothing outside `src/server/` imports from it except through `analysFn.ts`.
-- `src/types/analysis.ts`: changing it breaks both sides at once — stop and flag
-  before editing.
+- Applied migrations in `supabase/migrations/`. Add a new migration instead.
+- `.env*` files and lockfiles by hand. Never commit secrets.
+- **The server boundary.** `src/server/` and `src/lib/vardering` are
+  client-forbidden, via `importProtection` in `vite.config.ts` and
+  `no-restricted-imports` in `eslint.config.js`. Both carve out
+  `src/server/analysFn.ts` and nothing else; never widen either. Nothing outside
+  `src/server/` imports from it except through `analysFn.ts`.
+- **`src/types/analysis.ts`.** Changing it breaks both sides at once, so stop and
+  flag before editing. Never widen `Forhandsvisning`.
 
 ## Reference docs
 
-`SUPABASE.md` (schema, job orchestration, live verification), `PIPELINE.md`
-(pipeline design rationale), `BENCHMARKS.md` (nyckeltal thresholds). When a
-reference doc and the code disagree, the code wins — fix the doc.
+- `SUPABASE.md`: schema, job orchestration, live verification. Partly stale on
+  retention and bundling.
+- `PIPELINE.md`: pipeline design rationale.
+- `BENCHMARKS.md`: nyckeltal thresholds.
+- `ml/artifacts/valuation-v3/MODEL_CARD.md`: valuation model.
+- `ml/REGIONAL_DESIGN.md`: regional design.
+
+When a reference doc and the code disagree, the code wins. Fix the doc.
