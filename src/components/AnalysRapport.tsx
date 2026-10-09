@@ -414,7 +414,13 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                   {varderingslabel}
                   {p.externVardering.source === "schablon" ? <Tag>Estimat</Tag> : null}
                 </p>
-                <p className="text-xs text-muted-foreground">{p.externVardering.leverantor}</p>
+                {/* Dold rad (ägarens beslut 2026-10-09): leverantören av
+                    värderingen visas inte i rapporten. Uppgiften finns kvar i
+                    analysdatat och kan tas fram igen genom att ta bort
+                    dölj-klassen. */}
+                <p className="hidden text-xs text-muted-foreground">
+                  {p.externVardering.leverantor}
+                </p>
               </div>
               <div className="text-right">
                 <p className="font-display text-xl text-foreground">
