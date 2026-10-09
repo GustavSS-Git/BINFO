@@ -151,7 +151,12 @@ describe("analysFn — kontext först i varje handler", () => {
     const ipHash = await hashaIp(IP, "test-hemlighet");
     const nycklar = [...konto().kvot.values()].map((r) => r.nyckel).sort();
     expect(nycklar).toEqual(
-      [kvotNyckel("uppladdning", "enhet", ENHET), kvotNyckel("uppladdning", "ip", ipHash)].sort(),
+      [
+        kvotNyckel("uppladdning", "enhet", ENHET),
+        kvotNyckel("uppladdning", "ip", ipHash),
+        kvotNyckel("uppladdning_los", "enhet", ENHET),
+        kvotNyckel("uppladdning_los", "ip", ipHash),
+      ].sort(),
     );
     expect(nycklar.join(" ")).not.toContain(IP);
     // Befintlig giltig cookie: ingen ny sätts.
@@ -186,5 +191,64 @@ describe("analysFn — kontext först i varje handler", () => {
     expect([...konto().kvot.values()]).toEqual([
       expect.objectContaining({ nyckel: kvotNyckel("prisuppskattning", "ip", ipHash), antal: 1 }),
     ]);
+  });
+});
+
+describe("analysFn — inga interna feltexter når klienten", () => {
+  const GENERISKT =
+    "Analysen kunde inte slutföras på grund av ett internt fel. Försök igen, och kontakta oss om felet kvarstår.";
+
+  it("skapaAnalysFn: ett oväntat kast (t.ex. Supabase) blir det generiska köparsäkra svaret, loggas på servern och tar ingen kvot", async () => {
+    const logg = vi.spyOn(console, "error").mockImplementation(() => {});
+    lager().filer.laggUpp = async () => {
+      throw new Error("StorageApiError: bucket arsredovisningar hemlig-intern-detalj");
+    };
+    const svar = await skapaAnalysFn({ data: await formData() });
+    expect(svar).toEqual({ ok: false, errorCode: "unknown", errorMessage: GENERISKT });
+    expect(JSON.stringify(svar)).not.toMatch(/Storage|bucket|hemlig/);
+    expect(logg).toHaveBeenCalledWith(
+      expect.stringContaining("skapaAnalysFn"),
+      expect.objectContaining({ message: expect.stringContaining("hemlig-intern-detalj") }),
+    );
+    expect(kvotTotalt()).toBe(0);
+    logg.mockRestore();
+  });
+
+  it("skapaAnalysFn: ett fält som saknas i FormData ger också det generiska svaret", async () => {
+    const logg = vi.spyOn(console, "error").mockImplementation(() => {});
+    const svar = await skapaAnalysFn({ data: new FormData() });
+    expect(svar).toEqual({ ok: false, errorCode: "unknown", errorMessage: GENERISKT });
+    logg.mockRestore();
+  });
+
+  it("läs-handlers: ett okänt kast blir ett Error med bara det generiska meddelandet", async () => {
+    const logg = vi.spyOn(console, "error").mockImplementation(() => {});
+    lager().db.hamtaAnalys = async () => {
+      throw new Error("hamtaAnalys misslyckades: relation analys does not exist");
+    };
+    for (const anrop of [
+      () => hamtaStatusFn({ data: { analysisId: "x" } }),
+      () => hamtaResultatFn({ data: { analysisId: "x" } }),
+      () => hamtaForhandsvisningFn({ data: { analysisId: "x" } }),
+    ]) {
+      const fel = await anrop().catch((e: unknown) => e);
+      expect(fel).toBeInstanceOf(Error);
+      expect((fel as Error).message).toBe(GENERISKT);
+    }
+    logg.mockRestore();
+  });
+
+  it("kända fel som klienten känner igen på namn passerar oförändrade (id saknas, inte klar, nekad behörighet)", async () => {
+    const saknas = await hamtaResultatFn({ data: { analysisId: "finns-inte" } }).catch(
+      (e: unknown) => e,
+    );
+    expect((saknas as Error).name).toBe("AnalysHittadesInteError");
+    const { rad } = await (async () => {
+      const svar = await skapaAnalysFn({ data: await formData() });
+      if (!svar.ok) throw new Error(svar.errorMessage);
+      return { rad: svar.analysisId };
+    })();
+    const inteKlar = await hamtaResultatFn({ data: { analysisId: rad } }).catch((e: unknown) => e);
+    expect((inteKlar as Error).name).toBe("AnalysInteKlarError");
   });
 });

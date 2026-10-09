@@ -146,24 +146,33 @@ describe("IP-hash", () => {
     expect(kontext.ipHash).toBeNull();
   });
 
-  it("föredrar cf-connecting-ip, annars första x-forwarded-for", () => {
+  it("läser bara cf-connecting-ip (satt av Cloudflares edge); x-forwarded-for kan klienten förfalska och ignoreras", () => {
+    expect(losIp(fakeKallor({ "cf-connecting-ip": " 1.1.1.1 " }))).toBe("1.1.1.1");
     expect(losIp(fakeKallor({ "cf-connecting-ip": "1.1.1.1", "x-forwarded-for": "2.2.2.2" }))).toBe(
       "1.1.1.1",
     );
-    expect(losIp(fakeKallor({ "x-forwarded-for": " 2.2.2.2 , 3.3.3.3" }))).toBe("2.2.2.2");
-    expect(losIp(fakeKallor({ "x-forwarded-for": "" }))).toBeNull();
+    expect(losIp(fakeKallor({ "x-forwarded-for": "2.2.2.2, 3.3.3.3" }))).toBeNull();
+    expect(losIp(fakeKallor({ "cf-connecting-ip": "" }))).toBeNull();
     expect(losIp(fakeKallor())).toBeNull();
   });
 
-  it("samma IP via cf-connecting-ip och x-forwarded-for ger samma hash", async () => {
-    const a = await losKontext({
-      kallor: fakeKallor({ "cf-connecting-ip": "1.2.3.4" }),
-      hemlighet: HEMLIGHET,
-    });
-    const b = await losKontext({
+  it("utan cf-connecting-ip är ipHash null även om x-forwarded-for finns (bara enhetsgränserna gäller då)", async () => {
+    const kontext = await losKontext({
       kallor: fakeKallor({ "x-forwarded-for": "1.2.3.4, 10.0.0.1" }),
       hemlighet: HEMLIGHET,
     });
-    expect(a.ipHash).toBe(b.ipHash);
+    expect(kontext.ipHash).toBeNull();
+  });
+
+  it("samma IP ger samma hash, och en annan IP en annan", async () => {
+    const hash = async (ip: string) =>
+      (
+        await losKontext({
+          kallor: fakeKallor({ "cf-connecting-ip": ip }),
+          hemlighet: HEMLIGHET,
+        })
+      ).ipHash;
+    expect(await hash("1.2.3.4")).toBe(await hash("1.2.3.4"));
+    expect(await hash("1.2.3.4")).not.toBe(await hash("1.2.3.5"));
   });
 });

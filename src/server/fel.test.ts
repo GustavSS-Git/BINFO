@@ -7,6 +7,7 @@ import { ExtractionValidationError, ModelTruncatedError } from "@/lib/analysis/e
 import { AnalysValidationError } from "@/lib/analysis/analyze";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
+import { SidtextOfullstandigError } from "./register";
 import { arRetrybar, tolkaFel, tolkaKvot, tolkaSpendSkal } from "./fel";
 import { SaknarBehorighetError } from "./behorighet";
 import { KVOT_MEDDELANDE } from "./kvot";
@@ -71,6 +72,13 @@ describe("tolkaFel", () => {
     expect(resultat.errorCode).toBe("scanned_pdf");
     expect(resultat.message).toMatch(/skannade sidorna/);
     expect(resultat.message).not.toMatch(/API-anrop|Transkriptionen innehåller/);
+  });
+
+  it("mappar SidtextOfullstandigError (ofullständig transkription vid grundning) till samma köparsäkra scanned_pdf-svar", () => {
+    const resultat = tolkaFel(new SidtextOfullstandigError(3, 34));
+    expect(resultat.errorCode).toBe("scanned_pdf");
+    expect(resultat.message).toMatch(/skannade sidorna/);
+    expect(resultat.message).not.toMatch(/\d/);
   });
 
   it("mappar KostnadsgransOverskriden till cost_cap utan att läcka interna variabelnamn", () => {

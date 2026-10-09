@@ -6,6 +6,8 @@ import {
   KVOT_MEDDELANDE,
   PRISUPPSKATTNINGAR_PER_IP_OCH_TIMME,
   TIMME_SEK,
+  UPPLADDNINGAR_LOSA_PER_ENHET_OCH_DAG,
+  UPPLADDNINGAR_LOSA_PER_IP_OCH_DAG,
   UPPLADDNINGAR_PER_ENHET_OCH_DAG,
   UPPLADDNINGAR_PER_IP_OCH_DAG,
   aterlamnaUppladdningskvot,
@@ -208,5 +210,81 @@ describe("aterlamnaUppladdningskvot", () => {
     await expect(aterlamnaUppladdningskvot(db, kontext("e1", "ip1"))).resolves.toBeUndefined();
     expect(varna).toHaveBeenCalledWith(expect.stringContaining("databasen nere"));
     varna.mockRestore();
+  });
+});
+
+describe("den lösa kvoten på uppladdningar (aldrig återlämnad)", () => {
+  const start = fonsterStart(FAST_NU, DAG_SEK);
+  const losNyckel = (typ: "enhet" | "ip", id: string) =>
+    `${kvotNyckel("uppladdning_los", typ, id)}|${start}`;
+
+  it("gränserna är 30 per enhet och 100 per IP och dag (produktbeslut, supervisor 2026-10-09)", () => {
+    expect(UPPLADDNINGAR_LOSA_PER_ENHET_OCH_DAG).toBe(30);
+    expect(UPPLADDNINGAR_LOSA_PER_IP_OCH_DAG).toBe(100);
+  });
+
+  it("varje uppladdning tar även en lös användning, enhet och IP", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    await kontrolleraUppladdningskvot(db, kontext("e1", "ip1"));
+    expect(db.kvot.get(losNyckel("enhet", "e1"))?.antal).toBe(1);
+    expect(db.kvot.get(losNyckel("ip", "ip1"))?.antal).toBe(1);
+  });
+
+  it("återlämningen rör bara den stränga kvoten: den lösa räknar även uppladdningar som servades gratis", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    const k = kontext("e1", "ip1");
+    for (let i = 0; i < 3; i++) {
+      expect((await kontrolleraUppladdningskvot(db, k)).ok).toBe(true);
+      await aterlamnaUppladdningskvot(db, k);
+    }
+    expect(db.kvot.get(`${kvotNyckel("uppladdning", "enhet", "e1")}|${start}`)?.antal).toBe(0);
+    expect(db.kvot.get(losNyckel("enhet", "e1"))?.antal).toBe(3);
+    expect(db.kvot.get(losNyckel("ip", "ip1"))?.antal).toBe(3);
+  });
+
+  it("den 31:a uppladdningen från en enhet nekas även om alla tidigare servades gratis (strikta kvoten är då tom)", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    const k = kontext("e1", "ip1");
+    for (let i = 0; i < UPPLADDNINGAR_LOSA_PER_ENHET_OCH_DAG; i++) {
+      expect((await kontrolleraUppladdningskvot(db, k)).ok).toBe(true);
+      await aterlamnaUppladdningskvot(db, k);
+    }
+    expect(await kontrolleraUppladdningskvot(db, k)).toEqual({
+      ok: false,
+      errorCode: "kvot",
+      message: KVOT_MEDDELANDE.uppladdningEnhetTotalt,
+    });
+    // The refused attempt took nothing: neither the strict nor the loose quota.
+    expect(db.kvot.get(`${kvotNyckel("uppladdning", "enhet", "e1")}|${start}`)?.antal).toBe(0);
+    expect(db.kvot.get(losNyckel("enhet", "e1"))?.antal).toBe(30);
+    expect(db.kvot.get(losNyckel("ip", "ip1"))?.antal).toBe(30);
+  });
+
+  it("100 per IP och dag över flera enheter; en nekad IP återlämnar enhetens lösa och stränga uttag", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    for (let i = 0; i < UPPLADDNINGAR_LOSA_PER_IP_OCH_DAG; i++) {
+      const k = kontext(`enhet-${i}`, "delad-ip");
+      expect((await kontrolleraUppladdningskvot(db, k)).ok).toBe(true);
+      await aterlamnaUppladdningskvot(db, k);
+    }
+    const sista = kontext("enhet-ny", "delad-ip");
+    expect(await kontrolleraUppladdningskvot(db, sista)).toEqual({
+      ok: false,
+      errorCode: "kvot",
+      message: KVOT_MEDDELANDE.uppladdningIpTotalt,
+    });
+    expect(db.kvot.get(losNyckel("enhet", "enhet-ny"))?.antal).toBe(0);
+    expect(db.kvot.get(`${kvotNyckel("uppladdning", "enhet", "enhet-ny")}|${start}`)?.antal).toBe(
+      0,
+    );
+    // Another network is unaffected.
+    expect((await kontrolleraUppladdningskvot(db, kontext("enhet-ny", "annan-ip"))).ok).toBe(true);
+  });
+
+  it("utan IP gäller bara de två enhetskvoterna", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    await kontrolleraUppladdningskvot(db, kontext("e1", null));
+    expect([...db.kvot.values()].every((r) => r.nyckel.includes(":enhet:"))).toBe(true);
+    expect(db.kvot.size).toBe(2);
   });
 });

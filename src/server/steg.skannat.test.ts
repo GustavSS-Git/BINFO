@@ -27,8 +27,14 @@ import { skapaFakeLager, type FakeLager } from "./__fakes__/lager";
 import { hamtaResultat, hamtaStatus, skapaAnalys, type SkapaAnalysBeroenden } from "./analys";
 import type { Env } from "./env";
 import type { RapportRad, RapportStage } from "./portar";
-import { PIPELINE_VERSION } from "./register";
 import {
+  koaOmkorning,
+  MAX_SIDOR_SKANNAD_RAPPORT,
+  PIPELINE_VERSION,
+  TRANSKRIBERING_KALLA,
+} from "./register";
+import {
+  MAX_TRANSKRIBERING_SEK,
   TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
   UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
 } from "./spend";
@@ -123,6 +129,12 @@ interface Styrning {
   felaktigaMarkorer?: Set<number>;
   /** Runs inside a transcription call, before it answers. */
   innanTranskribering?: (anrop: Anrop) => Promise<void>;
+  /** forstaSidor whose call never answers until the request is aborted. */
+  hang?: Set<number>;
+  /** forstaSidor whose answer is cut off at max_tokens. */
+  avkortad?: Set<number>;
+  /** forstaSidor whose answer is a refusal. */
+  vagrad?: Set<number>;
 }
 
 const USAGE = { cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
@@ -158,7 +170,7 @@ function skapaKlient(styr: Styrning = {}) {
   const kvarAttKasta = new Map(styr.kasta ?? []);
   const countTokens = vi.fn(async () => ({ input_tokens: styr.inputTokens ?? 100 }));
 
-  const create = vi.fn(async (raw: unknown) => {
+  const create = vi.fn(async (raw: unknown, alternativ?: { signal?: AbortSignal }) => {
     const params = raw as Params;
     const kind = klassa(params);
     const post: Anrop = { kind, params };
@@ -170,6 +182,13 @@ function skapaKlient(styr: Styrning = {}) {
       post.antalSidor = Number(/innehåller (\d+) sida/.exec(text)?.[1]);
       post.forstaSida = Number(/originalnummer (\d+)/.exec(text)?.[1]);
       await styr.innanTranskribering?.(post);
+      if (styr.hang?.has(post.forstaSida)) {
+        return new Promise<never>((_, avvisa) => {
+          alternativ?.signal?.addEventListener("abort", () =>
+            avvisa(new Error("Request was aborted.")),
+          );
+        });
+      }
       const kvar = kvarAttKasta.get(post.forstaSida) ?? 0;
       if (kvar > 0) {
         kvarAttKasta.set(post.forstaSida, kvar - 1);
@@ -179,7 +198,11 @@ function skapaKlient(styr: Styrning = {}) {
       const felaktig = styr.felaktigaMarkorer?.has(post.forstaSida) ?? false;
       return {
         usage: { input_tokens: 2000, output_tokens: 800, ...USAGE },
-        stop_reason: "end_turn",
+        stop_reason: styr.avkortad?.has(post.forstaSida)
+          ? "max_tokens"
+          : styr.vagrad?.has(post.forstaSida)
+            ? "refusal"
+            : "end_turn",
         content: [
           {
             type: "text",
@@ -364,7 +387,8 @@ describe("skannad rapport — hela livscykeln", () => {
     // Every page persisted, source recorded.
     const sidtext = lager.db._allaSidtext(rapport.id);
     expect(sidtext.map((s) => s.sida)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-    expect(new Set(sidtext.map((s) => s.kalla))).toEqual(new Set(["transkribering"]));
+    expect(new Set(sidtext.map((s) => s.kalla))).toEqual(new Set([TRANSKRIBERING_KALLA]));
+    expect(TRANSKRIBERING_KALLA).toBe("transkribering:v1");
     expect(sidtext[6]?.text).toBe("Sida 7: Brf Kastanjen\nÅrsavgift | 700 kr");
 
     // Grounding ran on the transcription (a custom-content document), not the PDF.
@@ -532,7 +556,7 @@ describe("transkriberingssteget", () => {
     expect(await korNastaSteg(lager, buildEnv(), options)).toEqual({ claimed: false });
   });
 
-  it("felaktiga sidmarkörer även efter omförsöket: scanned_pdf med fast text, båda anropens kostnad bokförd", async () => {
+  it("felaktiga sidmarkörer även efter omförsöket: TERMINALT (inget jobbomförsök), scanned_pdf med fast text, båda anropens kostnad bokförd", async () => {
     const lager = skapaFakeLager();
     const spend = spionera(lager);
     const klient = skapaKlient({ felaktigaMarkorer: new Set([1]) });
@@ -542,8 +566,9 @@ describe("transkriberingssteget", () => {
 
     expect(klient.ofKind("transkribering")).toHaveLength(2);
     const r = await rapportNu(lager, rapportId);
+    // Deterministic: another attempt would pay for the same wrong answer again.
     expect(r).toMatchObject({
-      status: "queued",
+      status: "failed",
       stage: "transkribering",
       errorCode: "scanned_pdf",
     });
@@ -591,26 +616,69 @@ describe("transkriberingssteget", () => {
     });
   });
 
-  it("budgeten är max(per-analys-taket, chunkar × 1,0 kr): ryms värsta fallet går det, annars synligt cost_cap före första anropet", async () => {
-    // 12 sidor = 3 chunkar; med 8 600 in-tokens är värsta fallet ~0,94 kr per chunk (2,83 kr
-    // totalt) — över ett per-analys-tak på 1 kr, men under max(1, 3 × 1,0).
+  it("budgeten till transkribera är det som återstår av stegets tak (15 kr), inte per-analys-taket: värsta fallet räknas ur countTokens", async () => {
+    // 12 sidor = 3 chunkar; med 8 600 in-tokens och 12 000 ut är värsta fallet ~1,33 kr per chunk
+    // (4,0 kr totalt) — över ett per-analys-tak på 1 kr, men långt under 15 kr.
     const lager = skapaFakeLager();
     const klient = skapaKlient({ inputTokens: 8_600 });
     const { rapportId } = await skannadVidTranskribering(lager, 12);
     await korNastaSteg(lager, buildEnv({ maxCostPerAnalysisSek: 1 }), alternativ(klient));
     expect(klient.ofKind("transkribering")).toHaveLength(3);
     expect((await rapportNu(lager, rapportId)).stage).toBe("grundning");
+  });
 
-    // Med 12 000 in-tokens är värsta fallet ~1,01 kr per chunk = 3,03 kr > 3 kr.
-    const lager2 = skapaFakeLager();
-    const klient2 = skapaKlient({ inputTokens: 12_000 });
-    const { rapportId: id2 } = await skannadVidTranskribering(lager2, 12);
-    await korNastaSteg(lager2, buildEnv({ maxCostPerAnalysisSek: 1 }), alternativ(klient2));
-    expect(klient2.create).not.toHaveBeenCalled();
-    expect(await rapportNu(lager2, id2)).toMatchObject({
+  it("taket gäller summan av spenderat över ALLA försök (rapport.cost_sek): när det som återstår inte ryms värsta fallet är det terminalt cost_cap före första anropet", async () => {
+    expect(MAX_TRANSKRIBERING_SEK).toBeCloseTo(15, 10);
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ inputTokens: 8_600 });
+    const { rapportId } = await skannadVidTranskribering(lager, 12);
+    // 3 chunkar × ~1,33 kr = ~4,0 kr värsta fall; 12 kr redan spenderade lämnar 3 kr.
+    await lager.db.uppdateraRapport(rapportId, { costSek: 12 });
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.create).not.toHaveBeenCalled();
+    expect(await rapportNu(lager, rapportId)).toMatchObject({
+      status: "failed",
       stage: "transkribering",
       errorCode: "cost_cap",
+      costSek: 12,
+    });
+  });
+
+  it("konstanterna (10 000 max_tokens, 15 kr tak) rymmer MAX_SIDOR_SKANNAD_RAPPORT (60 sidor) vid 8,6k in-tokens per chunk", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ inputTokens: 8_600 });
+    const { rapportId } = await skannadVidTranskribering(lager, MAX_SIDOR_SKANNAD_RAPPORT);
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.ofKind("transkribering")).toHaveLength(12);
+    expect((await rapportNu(lager, rapportId)).stage).toBe("grundning");
+  });
+
+  it("en chunk vars in-tokens spränger stegets tak ger synligt terminalt cost_cap utan spend", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ inputTokens: 20_000 });
+    const { rapportId } = await skannadVidTranskribering(lager, MAX_SIDOR_SKANNAD_RAPPORT);
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.create).not.toHaveBeenCalled();
+    expect(await rapportNu(lager, rapportId)).toMatchObject({
+      status: "failed",
+      errorCode: "cost_cap",
       costSek: 0,
+    });
+  });
+
+  it("är taket redan nått (cost_sek >= 15) görs inget anrop och inget försök till", async () => {
+    const lager = skapaFakeLager();
+    const spend = spionera(lager);
+    const klient = skapaKlient();
+    const { rapportId } = await skannadVidTranskribering(lager, 5);
+    await lager.db.uppdateraRapport(rapportId, { costSek: MAX_TRANSKRIBERING_SEK });
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.create).not.toHaveBeenCalled();
+    expect(klient.countTokens).not.toHaveBeenCalled();
+    expect(spend.reservationer).toEqual([]);
+    expect(await rapportNu(lager, rapportId)).toMatchObject({
+      status: "failed",
+      errorCode: "cost_cap",
     });
   });
 
@@ -640,7 +708,7 @@ describe("transkriberingssteget", () => {
     await lager.db.sparaSidtext(
       rapportId,
       Array.from({ length: 7 }, (_, i) => ({ sida: i + 1, text: `redan ${i + 1}` })),
-      "transkribering",
+      TRANSKRIBERING_KALLA,
     );
 
     await korNastaSteg(lager, buildEnv(), alternativ(klient));
@@ -664,8 +732,197 @@ describe("transkriberingssteget", () => {
   });
 });
 
+describe("transkriberingssteget — deterministiska fel är terminala, övergående fel och tidsgräns går att göra om", () => {
+  it("avkortat svar (max_tokens): rapporten failas direkt, kostnaden bokförd, inget jobbomförsök", async () => {
+    const lager = skapaFakeLager();
+    const spend = spionera(lager);
+    const klient = skapaKlient({ avkortad: new Set([1]) });
+    const { rapportId } = await skannadVidTranskribering(lager, 5);
+
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+
+    expect(klient.ofKind("transkribering")).toHaveLength(1);
+    const r = await rapportNu(lager, rapportId);
+    expect(r).toMatchObject({ status: "failed", stage: "transkribering", errorCode: "validation" });
+    expect(r.costSek).toBeCloseTo(KOSTNAD_PER_TRANSKRIBERINGSANROP, 9);
+    expect(spend.avstamningar).toHaveLength(1);
+    expect(await korNastaSteg(lager, buildEnv(), alternativ(klient))).toEqual({ claimed: false });
+  });
+
+  it("vägran (refusal): rapporten failas direkt efter ett betalt försök, inget jobbomförsök", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ vagrad: new Set([1]) });
+    const { rapportId } = await skannadVidTranskribering(lager, 5);
+
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+
+    expect(klient.ofKind("transkribering")).toHaveLength(1);
+    expect(await rapportNu(lager, rapportId)).toMatchObject({ status: "failed" });
+    expect(await korNastaSteg(lager, buildEnv(), alternativ(klient))).toEqual({ claimed: false });
+  });
+
+  it("övergående API-fel (529) går den vanliga tre-försöks-vägen", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    klient.create.mockRejectedValue(Object.assign(new Error("overloaded"), { status: 529 }));
+    const { rapportId } = await skannadVidTranskribering(lager, 5);
+    for (let i = 0; i < 2; i++) {
+      await korNastaSteg(
+        lager,
+        buildEnv(),
+        alternativ(klient, { transkriberingsFordrojningMs: 0 }),
+      );
+      expect((await rapportNu(lager, rapportId)).status).toBe("queued");
+    }
+    await korNastaSteg(lager, buildEnv(), alternativ(klient, { transkriberingsFordrojningMs: 0 }));
+    expect((await rapportNu(lager, rapportId)).status).toBe("failed");
+  });
+
+  it("tidsgränsen: pågående anrop avbryts, färdiga sidor ligger kvar sparade, rapporten köas för nästa försök (inte terminalt) och nästa försök gör bara det som saknas", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ hang: new Set([6]) });
+    const { rapportId } = await skannadVidTranskribering(lager, 12);
+
+    await korNastaSteg(lager, buildEnv(), alternativ(klient, { transkriberingsTidsgransMs: 40 }));
+
+    expect(lager.db._allaSidtext(rapportId).map((s) => s.sida)).toEqual([1, 2, 3, 4, 5, 11, 12]);
+    const efter = await rapportNu(lager, rapportId);
+    expect(efter).toMatchObject({
+      status: "queued",
+      stage: "transkribering",
+      errorCode: "unknown",
+    });
+    expect(efter.costSek).toBeCloseTo(2 * KOSTNAD_PER_TRANSKRIBERINGSANROP, 9);
+
+    // Next attempt (nothing hangs now): only chunk 6–10.
+    const klient2 = skapaKlient();
+    await korNastaSteg(lager, buildEnv(), alternativ(klient2));
+    expect(klient2.ofKind("transkribering").map((a) => a.forstaSida)).toEqual([6]);
+    expect((await rapportNu(lager, rapportId)).stage).toBe("grundning");
+  });
+});
+
+describe("återanvändning av transkriptioner mellan rapporter med samma bytes", () => {
+  async function klarSkanning(
+    lager: FakeLager,
+    klient: ReturnType<typeof skapaKlient>,
+    sidor = 12,
+  ) {
+    const pdf = await skannadPdf(sidor);
+    const { rapport } = await laddaUpp(lager, pdf);
+    await korTillsTomt(lager, alternativ(klient));
+    return { pdf, forsta: rapport.id };
+  }
+
+  it("en uppladdning av samma bytes efter ett misslyckande återanvänder sidorna: 0 transkriberingsanrop, inget betalt för dem", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const { pdf, forsta } = await klarSkanning(lager, klient);
+    expect(klient.ofKind("transkribering")).toHaveLength(3);
+    // The first rapport is invalidated; its slot is free for a new analysis of the same bytes.
+    await lager.db.uppdateraRapport(forsta, { status: "failed", errorCode: "ogiltigforklarad" });
+
+    const { rapport } = await laddaUpp(lager, pdf);
+    expect(rapport.id).not.toBe(forsta);
+    const spend = spionera(lager);
+    await korTillsTomt(lager, alternativ(klient));
+
+    expect(klient.ofKind("transkribering")).toHaveLength(3); // unchanged
+    expect(
+      spend.reservationer.every((b) => b !== 12 * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA),
+    ).toBe(true);
+    const ny = await rapportNu(lager, rapport.id);
+    expect(ny.status).toBe("done");
+    expect(lager.db._allaSidtext(rapport.id)).toHaveLength(12);
+    expect(new Set(lager.db._allaSidtext(rapport.id).map((s) => s.kalla))).toEqual(
+      new Set([TRANSKRIBERING_KALLA]),
+    );
+    // Its cost holds identification + grounding + extraction + judging, no transcription.
+    expect(ny.costSek).toBeLessThan(klient.ofKind("grundning").length * 10);
+    expect(ny.costSek).toBeLessThan(3 * KOSTNAD_PER_TRANSKRIBERINGSANROP + 3);
+  });
+
+  it("en versionshöjd omkörning (koaOmkorning) av en skanning gör 0 transkriberingsanrop", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const { forsta } = await klarSkanning(lager, klient);
+    const gammal = await rapportNu(lager, forsta);
+    const anropFore = klient.ofKind("transkribering").length;
+
+    const utfall = await koaOmkorning(lager, gammal, MODEL);
+    // Same version + live rapport: it would be 'finns'. Make the old one history first.
+    expect(utfall.utfall).toBe("finns");
+    await lager.db.uppdateraRapport(forsta, { status: "failed", errorCode: "ogiltigforklarad" });
+    const igen = await koaOmkorning(lager, gammal, MODEL);
+    expect(igen.utfall).toBe("koad");
+    await korTillsTomt(lager, alternativ(klient));
+
+    expect(klient.ofKind("transkribering")).toHaveLength(anropFore);
+    const nyId = (igen as { rapportId: string }).rapportId;
+    expect(await rapportNu(lager, nyId)).toMatchObject({ status: "done" });
+  });
+
+  it("en delvis donator (misslyckad rapport med 7 av 12 sidor) ger sina sidor: bara den saknade chunken transkriberas", async () => {
+    const lager = skapaFakeLager();
+    const pdf = await skannadPdf(12);
+    const klient1 = skapaKlient({ kasta: new Map([[6, 99]]) });
+    const { rapport } = await laddaUpp(lager, pdf);
+    await lager.db.uppdateraRapport(rapport.id, { stage: "transkribering" });
+    for (let i = 0; i < 3; i++) await korNastaSteg(lager, buildEnv(), alternativ(klient1));
+    expect((await rapportNu(lager, rapport.id)).status).toBe("failed");
+    expect(lager.db._allaSidtext(rapport.id).map((s) => s.sida)).toEqual([1, 2, 3, 4, 5, 11, 12]);
+
+    const { rapport: ny } = await laddaUpp(lager, pdf);
+    await lager.db.uppdateraRapport(ny.id, { stage: "transkribering" });
+    const klient2 = skapaKlient();
+    await korNastaSteg(lager, buildEnv(), alternativ(klient2));
+    expect(klient2.ofKind("transkribering").map((a) => [a.forstaSida, a.antalSidor])).toEqual([
+      [6, 5],
+    ]);
+    expect(lager.db._allaSidtext(ny.id)).toHaveLength(12);
+  });
+
+  it("sidor skrivna med en annan transkriptionsprompt-version återanvänds inte", async () => {
+    const lager = skapaFakeLager();
+    const pdf = await skannadPdf(7);
+    const { rapport: gammal } = await laddaUpp(lager, pdf);
+    await lager.db.sparaSidtext(
+      gammal.id,
+      Array.from({ length: 7 }, (_, i) => ({ sida: i + 1, text: `gammal ${i + 1}` })),
+      "transkribering:v0",
+    );
+    await lager.db.uppdateraRapport(gammal.id, { status: "failed" });
+
+    const { rapport: ny } = await laddaUpp(lager, pdf);
+    await lager.db.uppdateraRapport(ny.id, { stage: "transkribering" });
+    const klient = skapaKlient();
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.ofKind("transkribering")).toHaveLength(2); // all 7 pages, 5 + 2
+    expect(lager.db._allaSidtext(ny.id)[0]?.text).not.toBe("gammal 1");
+  });
+
+  it("en rapport som redan har egen sidtext hämtar ingen från en annan rapport", async () => {
+    const lager = skapaFakeLager();
+    const pdf = await skannadPdf(5);
+    const { rapport: a } = await laddaUpp(lager, pdf);
+    await lager.db.sparaSidtext(a.id, [{ sida: 1, text: "donator" }], TRANSKRIBERING_KALLA);
+    await lager.db.uppdateraRapport(a.id, { status: "failed" });
+    const { rapport: b } = await laddaUpp(lager, pdf);
+    await lager.db.uppdateraRapport(b.id, { stage: "transkribering" });
+    await lager.db.sparaSidtext(
+      b.id,
+      Array.from({ length: 5 }, (_, i) => ({ sida: i + 1, text: `egen ${i + 1}` })),
+      TRANSKRIBERING_KALLA,
+    );
+    const klient = skapaKlient();
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.create).not.toHaveBeenCalled();
+    expect(lager.db._allaSidtext(b.id)[0]?.text).toBe("egen 1");
+  });
+});
+
 describe("grundning på transkriptionen", () => {
-  it("en skannad rapport utan sparad sidtext misslyckas synligt före något anrop (scanned_pdf), spend återställd", async () => {
+  it("en skannad rapport utan sparad sidtext misslyckas synligt och terminalt före något anrop (scanned_pdf), spend återställd", async () => {
     const lager = skapaFakeLager();
     const spend = spionera(lager);
     const klient = skapaKlient();
@@ -676,7 +933,7 @@ describe("grundning på transkriptionen", () => {
 
     expect(klient.create).not.toHaveBeenCalled();
     expect(await rapportNu(lager, rapport.id)).toMatchObject({
-      status: "queued",
+      status: "failed",
       stage: "grundning",
       errorCode: "scanned_pdf",
       costSek: 0,
@@ -691,9 +948,13 @@ describe("grundning på transkriptionen", () => {
     await lager.db.sparaSidtext(
       rapport.id,
       [{ sida: 2, text: "Andra sidan | 2" }],
-      "transkribering",
+      TRANSKRIBERING_KALLA,
     );
-    await lager.db.sparaSidtext(rapport.id, [{ sida: 1, text: "Första sidan" }], "transkribering");
+    await lager.db.sparaSidtext(
+      rapport.id,
+      [{ sida: 1, text: "Första sidan" }],
+      TRANSKRIBERING_KALLA,
+    );
     await lager.db.uppdateraRapport(rapport.id, { stage: "grundning" });
 
     await korNastaSteg(lager, buildEnv(), alternativ(klient));
@@ -708,6 +969,123 @@ describe("grundning på transkriptionen", () => {
       "Andra sidan | 2",
     ]);
     expect((await rapportNu(lager, rapport.id)).stage).toBe("extraktion");
+  });
+});
+
+describe("grundning kräver full täckning av sidtexten (fynd 10)", () => {
+  it("saknas en sida: terminalt synligt fel (scanned_pdf) före något anrop, inte grundning på partiell text", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const { rapport } = await laddaUpp(lager, await skannadPdf(4));
+    await lager.db.sparaSidtext(
+      rapport.id,
+      [1, 2, 4].map((n) => ({ sida: n, text: `Sida ${n} | 1` })),
+      TRANSKRIBERING_KALLA,
+    );
+    await lager.db.uppdateraRapport(rapport.id, { stage: "grundning" });
+
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+
+    expect(klient.create).not.toHaveBeenCalled();
+    expect(await rapportNu(lager, rapport.id)).toMatchObject({
+      status: "failed",
+      stage: "grundning",
+      errorCode: "scanned_pdf",
+      costSek: 0,
+    });
+  });
+
+  it("sidor från en annan transkriptionsprompt-version räknas inte som täckning", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const { rapport } = await laddaUpp(lager, await skannadPdf(2));
+    await lager.db.sparaSidtext(
+      rapport.id,
+      [1, 2].map((n) => ({ sida: n, text: `Sida ${n} | 1` })),
+      "transkribering:v0",
+    );
+    await lager.db.uppdateraRapport(rapport.id, { stage: "grundning" });
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(klient.create).not.toHaveBeenCalled();
+    expect((await rapportNu(lager, rapport.id)).status).toBe("failed");
+  });
+});
+
+describe("blandade dokument tar skannvägen (fynd 4)", () => {
+  it("1 textsida + 4 tomma → textlager 'saknas', transkribering, grundning på sidtexten — runGrounding nås aldrig", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const doc = await PDFDocument.load(await textPdf(["Omslag: Arsredovisning for Brf Kastanjen"]));
+    for (let i = 0; i < 4; i++) doc.addPage([200, 200]);
+    const { rapport } = await laddaUpp(lager, await doc.save());
+    expect(rapport.textlager).toBe("saknas");
+
+    const steg = await korTillsTomt(lager, alternativ(klient));
+    expect(steg).toEqual([
+      "identifiering",
+      "transkribering",
+      "grundning",
+      "extraktion",
+      "bedomning",
+    ]);
+    const dokument = (
+      klient.ofKind("grundning")[0]?.params.messages[0]?.content as Array<Record<string, unknown>>
+    )[0];
+    expect(dokument).toMatchObject({ source: { type: "content" } });
+    const extraction = (await rapportNu(lager, rapport.id)).extraction as ExtractionResult;
+    expect(extraction.datakvalitet.kalla).toBe("skannad");
+  });
+});
+
+describe("stämmer av spenden exakt en gång per stegförsök (fynd 6)", () => {
+  it("ett skrivfel efter lyckad grundning: reservationen stäms av en gång, inte både i framgångs- och felvägen", async () => {
+    const lager = skapaFakeLager();
+    const spend = spionera(lager);
+    const klient = skapaKlient();
+    const { rapport } = await laddaUpp(lager, await skannadPdf(2));
+    await lager.db.sparaSidtext(
+      rapport.id,
+      [1, 2].map((n) => ({ sida: n, text: `Sida ${n}: Brf Kastanjen` })),
+      TRANSKRIBERING_KALLA,
+    );
+    await lager.db.uppdateraRapport(rapport.id, { stage: "grundning" });
+
+    const riktig = lager.db.uppdateraLeasadRapport.bind(lager.db);
+    let forsta = true;
+    lager.db.uppdateraLeasadRapport = async (id, lease, delta) => {
+      if (forsta) {
+        forsta = false;
+        throw new Error("databasen blinkade");
+      }
+      return riktig(id, lease, delta);
+    };
+
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+
+    expect(klient.ofKind("grundning")).toHaveLength(1);
+    expect(spend.avstamningar).toHaveLength(1);
+    expect(spend.avstamningar[0]?.reserverat).toBe(3);
+    expect(spend.avstamningar[0]?.faktiskt).toBeGreaterThan(0);
+  });
+
+  it("samma för transkriberingen", async () => {
+    const lager = skapaFakeLager();
+    const spend = spionera(lager);
+    const klient = skapaKlient();
+    const { rapportId } = await skannadVidTranskribering(lager, 5);
+    const riktig = lager.db.uppdateraLeasadRapport.bind(lager.db);
+    let forsta = true;
+    lager.db.uppdateraLeasadRapport = async (id, lease, delta) => {
+      if (forsta) {
+        forsta = false;
+        throw new Error("databasen blinkade");
+      }
+      return riktig(id, lease, delta);
+    };
+    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    expect(spend.avstamningar).toHaveLength(1);
+    expect(spend.avstamningar[0]?.faktiskt).toBeCloseTo(KOSTNAD_PER_TRANSKRIBERINGSANROP, 9);
+    expect((await rapportNu(lager, rapportId)).status).toBe("queued");
   });
 });
 

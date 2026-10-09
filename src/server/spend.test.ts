@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { skapaFakeLager } from "./__fakes__/lager";
+import { MAX_SIDOR_SKANNAD_RAPPORT } from "./register";
 import type { Env } from "./env";
 import {
   kontrolleraDagligtTak,
@@ -10,7 +11,7 @@ import {
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
   UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
   TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
-  TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK,
+  MAX_TRANSKRIBERING_SEK,
   transkriberingsTak,
   uppskattadKostnadTranskribering,
 } from "./spend";
@@ -144,21 +145,24 @@ describe("transkribering (WS1): reservation och tak", () => {
     expect(uppskattadKostnadTranskribering(0)).toBe(0);
   });
 
-  it("värsta fallet per chunk (8,6k in / 8k ut på Sonnet 5.5) ryms i 1,0 kr; max_tokens är 8000", () => {
-    expect(TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK).toBe(8000);
+  it("max_tokens per chunk är 10 000 (knappt 2x marginal över uppmätta 5,1k); 12 chunkar (60 sidor) ryms under stegets tak", () => {
+    expect(TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK).toBe(10_000);
     const varsta = estimateCostSek(
       8_600,
       TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
       prissattningForModell(STANDARD_MODELL),
     );
-    expect(varsta).toBeGreaterThan(0.9);
-    expect(varsta).toBeLessThanOrEqual(TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK);
+    // 8 600 × $2 + 10 000 × $10 per Mtok = $0.1172 → 1.137 SEK at 9.7
+    expect(varsta).toBeCloseTo(1.137, 2);
+    expect(12 * varsta).toBeLessThan(MAX_TRANSKRIBERING_SEK);
   });
 
-  it("taket är max(per-analys-taket, antal chunkar × 1,0)", () => {
-    expect(transkriberingsTak(5, 7)).toBe(7); // 34 sidor = 7 chunkar
-    expect(transkriberingsTak(5, 3)).toBe(5);
-    expect(transkriberingsTak(10, 7)).toBe(10);
-    expect(transkriberingsTak(5, 0)).toBe(5);
+  it("stegets hårda tak = MAX_SIDOR_SKANNAD_RAPPORT × 0,25 = 15 kr; återstoden är taket minus det som redan spenderats (över alla försök)", () => {
+    expect(MAX_SIDOR_SKANNAD_RAPPORT).toBe(60);
+    expect(MAX_TRANSKRIBERING_SEK).toBeCloseTo(15, 10);
+    expect(transkriberingsTak(0)).toBeCloseTo(15, 10);
+    expect(transkriberingsTak(3.6)).toBeCloseTo(11.4, 10);
+    expect(transkriberingsTak(15)).toBe(0);
+    expect(transkriberingsTak(99)).toBe(0);
   });
 });

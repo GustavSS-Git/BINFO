@@ -591,7 +591,7 @@ describe("granskningsfynd — uppladdning och läsväg", () => {
     });
     const { rad } = await laddaUpp(
       lager,
-      await skapaPdf(["Annan utgava"]),
+      await skapaPdf(["Annan utgava av Arsredovisning for Brf Kastanjen"]),
       lokalIdentitet(KASTANJEN),
     );
     expect(rad.rapportId).not.toBe(trasig);
@@ -882,7 +882,10 @@ describe("korNastaSteg — registrets kö", () => {
       pdfHash: "forsta-utgavan",
       identitet: { ...KASTANJEN, namn: null },
     });
-    const { rad } = await laddaUpp(lager, await skapaPdf(["Annan utgava"]));
+    const { rad } = await laddaUpp(
+      lager,
+      await skapaPdf(["Annan utgava av Arsredovisning for Brf Kastanjen"]),
+    );
     await korNastaSteg(lager, buildEnv(), { identifieraMedModell: fakeIdentifierare(KASTANJEN) });
 
     const egen = await lager.db.hamtaRapport(rad.rapportId ?? "");

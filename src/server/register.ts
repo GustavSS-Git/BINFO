@@ -38,7 +38,7 @@
  * here that would use identity falls back to `pdf_hash` for it.
  */
 
-import { PROMPT_VERSION } from "@/lib/analysis/prompts";
+import { PROMPT_VERSION, TRANSKRIPTION_PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { IDENTITET_PROMPT_VERSION } from "@/lib/analysis/identitetModell";
 import {
   arGiltigtOrgnr,
@@ -60,6 +60,7 @@ import type {
   RapportFilRad,
   RapportRad,
   RapportStage,
+  SidtextKalla,
   Textlager,
 } from "./portar";
 
@@ -76,6 +77,33 @@ import type {
  * and `ScannedPdfError` also stay for old failed rows.
  */
 export const SKANNADE_RAPPORTER_AKTIVA = true;
+
+/**
+ * `sidtext.kalla` of the pages the current code writes and accepts:
+ * "transkribering:v<TRANSKRIPTION_PROMPT_VERSION>". Another rapport of the SAME
+ * bytes (a version-bump re-run, a re-upload after a failure) copies pages with
+ * exactly this kalla instead of paying for them again.
+ */
+export const TRANSKRIBERING_KALLA: SidtextKalla = `transkribering:v${TRANSKRIPTION_PROMPT_VERSION}`;
+
+/**
+ * A scanned rapport reached grounding without a complete, current-version
+ * transcription (a page missing, or written by another prompt version).
+ * Grounding on partial text would silently drop figures, so the step fails
+ * visibly instead — terminal: another grounding attempt cannot fill the gap.
+ */
+export class SidtextOfullstandigError extends Error {
+  constructor(
+    public readonly saknade: number,
+    public readonly antalSidor: number,
+  ) {
+    super(
+      `Transkriptionen täcker inte hela rapporten (${saknade} av ${antalSidor} sidor saknas). ` +
+        "Grundningen avbryts i stället för att utgå från ofullständig text.",
+    );
+    this.name = "SidtextOfullstandigError";
+  }
+}
 
 /**
  * Interim guard on the scan path (supervisor, 2026-10-09 — product limit
@@ -562,6 +590,12 @@ export interface Koppling {
   /** Linked to a rapport someone else's upload already started. */
   vantarPaRapport: boolean;
   orgnr: string | null;
+  /** The link was found through the EXACT bytes (`rapport_fil.pdf_hash`), not
+   *  through the report's identity. Only then is the strict upload quota given
+   *  back for a free upload: a changed file (another byte version of the same
+   *  report) must still cost quota, or altering one byte would make uploads
+   *  free for ever. */
+  viaHash: boolean;
 }
 
 /** How an upload can join an existing rapport, or null when it cannot (failed,
@@ -575,10 +609,17 @@ async function befintligKoppling(db: Databas, r: RapportRad): Promise<Koppling |
       ateranvand: true,
       vantarPaRapport: false,
       orgnr: lasbar.rapport.orgnr,
+      viaHash: false,
     };
   }
   if (arPagaende(r) && r.pipelineVersion === PIPELINE_VERSION) {
-    return { rapportId: r.id, ateranvand: false, vantarPaRapport: true, orgnr: r.orgnr };
+    return {
+      rapportId: r.id,
+      ateranvand: false,
+      vantarPaRapport: true,
+      orgnr: r.orgnr,
+      viaHash: false,
+    };
   }
   return null;
 }
@@ -609,7 +650,13 @@ async function kopplingViaOmkorning(
     const ny = await foljErsattAv(db, await db.hamtaRapport(utfall.rapportId));
     if (!ny) return null;
     if (utfall.utfall === "koad") {
-      return { rapportId: ny.id, ateranvand: false, vantarPaRapport: false, orgnr: ny.orgnr };
+      return {
+        rapportId: ny.id,
+        ateranvand: false,
+        vantarPaRapport: false,
+        orgnr: ny.orgnr,
+        viaHash: true,
+      };
     }
     return befintligKoppling(db, ny);
   } catch (fel) {
@@ -621,11 +668,14 @@ async function kopplingViaOmkorning(
 /** Joining the live rapport that holds a slot we were refused. */
 async function kopplingTillInnehavare(db: Databas, h: Platshallare): Promise<Koppling> {
   return (
-    (await befintligKoppling(db, h.rapport)) ?? {
+    (await befintligKoppling(db, h.rapport).then(
+      (k) => k && { ...k, viaHash: h.via === "fil" },
+    )) ?? {
       rapportId: h.rapport.id,
       ateranvand: false,
       vantarPaRapport: arPagaende(h.rapport),
       orgnr: h.rapport.orgnr,
+      viaHash: h.via === "fil",
     }
   );
 }
@@ -636,12 +686,14 @@ async function kopplingForFil(db: Databas, pdfHash: string): Promise<Koppling> {
   if (!fil) throw new Error(`rapport_fil för ${pdfHash} försvann mitt i en uppladdning.`);
   const r = await foljErsattAv(db, await db.hamtaRapport(fil.rapportId));
   if (!r) throw new Error(`rapport_fil ${pdfHash} pekar på en saknad rapport ${fil.rapportId}.`);
+  // Found through the file row: the exact bytes.
   return (
-    (await befintligKoppling(db, r)) ?? {
+    (await befintligKoppling(db, r).then((k) => k && { ...k, viaHash: true })) ?? {
       rapportId: r.id,
       ateranvand: false,
       vantarPaRapport: arPagaende(r),
       orgnr: r.orgnr,
+      viaHash: true,
     }
   );
 }
@@ -726,6 +778,7 @@ async function skapaNyRapport(
     ateranvand: false,
     vantarPaRapport: false,
     orgnr: anvandIdentitet?.orgnr ?? null,
+    viaHash: false,
   };
   const kopplad = await kopplaFil(db, upp, befintligFil, egen);
   if (kopplad.rapportId !== id) {
@@ -762,7 +815,8 @@ export async function kopplaUppladdning(
     const k = r
       ? ((await befintligKoppling(db, r)) ?? (await kopplingViaOmkorning(lager, r, upp.model)))
       : null;
-    if (k) return k;
+    // Found through the exact bytes (rapport_fil), not through the identity.
+    if (k) return { ...k, viaHash: true };
   }
 
   const lokal = beroenden.identifieraLokalt(upp.sidor);

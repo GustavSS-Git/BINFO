@@ -89,15 +89,21 @@ describe("npm run konto", () => {
     const kod = await korKontoKommando(db, ["radera", konto], u.skriv, { kravUuid: false });
     expect(kod).toBe(0);
     expect(u.fel.join("\n")).toMatch(
-      /2 principal\(er\), 2 analys\(er\), 1 behörighet\(er\), 1 kvotrad\(er\)/,
+      /2 principal\(er\), 2 analys\(er\), 1 behörighet\(er\), 2 kvotrad\(er\)/,
     );
 
     expect([...db.principaler.keys()]).toEqual([annan]);
     expect([...db.analyser.keys()]).toEqual(["a3"]);
     expect(db.behorigheter.size).toBe(0);
     const kvarvarande = [...db.kvot.values()].map((r) => r.nyckel).sort();
-    // The other device's row and the IP-keyed row stay.
-    expect(kvarvarande).toEqual(["uppladdning:enhet:enhet_C-3", "uppladdning:ip:ip"]);
+    // The device's strict and loose rows go; the other device's rows and the
+    // IP-keyed rows (not tied to a person) stay.
+    expect(kvarvarande).toEqual([
+      "uppladdning:enhet:enhet_C-3",
+      "uppladdning:ip:ip",
+      "uppladdning_los:enhet:enhet_C-3",
+      "uppladdning_los:ip:ip",
+    ]);
   });
 
   it("okänd principal: exit 1, inget raderas", async () => {

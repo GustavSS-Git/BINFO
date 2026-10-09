@@ -24,13 +24,14 @@ import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
 import { SAKNAR_BEHORIGHET_MEDDELANDE, SaknarBehorighetError } from "./behorighet";
 import type { KvotUtfall } from "./kvot";
+import { SidtextOfullstandigError } from "./register";
 
 export interface FelResultat {
   errorCode: AnalysErrorCode;
   message: string;
 }
 
-const GENERISKT_FEL_MEDDELANDE =
+export const GENERISKT_FEL_MEDDELANDE =
   "Analysen kunde inte slutföras på grund av ett internt fel. Försök igen, och kontakta oss om felet kvarstår.";
 
 const SKANNAD_OLASLIG_MEDDELANDE =
@@ -70,7 +71,11 @@ export function tolkaFel(error: unknown): FelResultat {
     return { errorCode: "scanned_pdf", message: error.message };
   }
 
-  if (error instanceof TranskriberingMarkorFelError || error instanceof TomTranskriptionError) {
+  if (
+    error instanceof TranskriberingMarkorFelError ||
+    error instanceof TomTranskriptionError ||
+    error instanceof SidtextOfullstandigError
+  ) {
     // BESLUT: de skannade sidorna gick inte att läsa av tillförlitligt (felaktiga
     // sidmarkörer efter ett omförsök, eller en transkription utan text). Ingen
     // ny felkod: UI:ts spegel av AnalysErrorCode (src/lib/analysStatusCopy.ts)
@@ -265,4 +270,39 @@ export function tolkaRapportFel(
  */
 export function arRetrybar(code: AnalysErrorCode): boolean {
   return code === "daily_cap" || code === "kvot";
+}
+
+/**
+ * Errors the client recognises BY NAME (`.name` survives the server-function
+ * serialisation, see arAnalysHittadesInteFel in src/lib/analysStatusCopy.ts and
+ * the loaders): they carry a Swedish, buyer-safe message and pass through.
+ * Names, not classes: fel.ts cannot import analys.ts (it imports this file).
+ */
+const KANDA_KLIENTFEL = new Set([
+  "AnalysHittadesInteError",
+  "AnalysInteKlarError",
+  "SaknarBehorighetError",
+]);
+
+/**
+ * The last line of defence in every server-function handler (analysFn.ts): an
+ * error nobody mapped — a Supabase/Storage/network message, a Zod dump — must
+ * never reach the browser. It is logged server-side with its handler name, and
+ * the client gets an Error with only the generic buyer-safe message.
+ */
+export function sakertFel(handler: string, error: unknown): Error {
+  if (error instanceof Error && KANDA_KLIENTFEL.has(error.name)) return error;
+  console.error(`[${handler}] oväntat fel:`, error);
+  return new Error(GENERISKT_FEL_MEDDELANDE);
+}
+
+/** `sakertFel` for `skapaAnalysFn`, whose result type has an error variant:
+ *  the same logging, returned instead of thrown. */
+export function sakertSkapaFel(handler: string, error: unknown) {
+  console.error(`[${handler}] oväntat fel:`, error);
+  return {
+    ok: false as const,
+    errorCode: "unknown" as const,
+    errorMessage: GENERISKT_FEL_MEDDELANDE,
+  };
 }

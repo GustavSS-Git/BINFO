@@ -861,6 +861,99 @@ describe("skapaAnalys med anropare", () => {
     );
   });
 
+  it("en identitets-träff med ANDRA bytes (inte exakt samma fil) ger inte tillbaka den stränga kvoten — bara en exakt hash-träff gör det", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    const identitet = { orgnr: "769616-0253", rakenskapsar: 2025, namn: "Brf Kastanjen" };
+    const beroenden = {
+      anropare,
+      identifieraLokalt: () => ({ identitet, orgnrKandidater: [], arKandidater: [], skal: [] }),
+      namnLiknar: (a: string, b: string) => a === b,
+    };
+    const forsta = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await unikTextPdf(1), propertyInput },
+      beroenden,
+    );
+    if (!forsta.ok) throw new Error(forsta.errorMessage);
+    const rad = await lager.db.hamtaAnalys(forsta.analysisId);
+    await lager.db.uppdateraRapport(rad?.rapportId ?? "", {
+      status: "done",
+      stage: "klar",
+      extraction: extraktion,
+      judgement: minimalJudgement(),
+      finishedAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+
+    // Same report, other bytes: served instantly, but the strict quota stays taken.
+    const andra = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await unikTextPdf(2), propertyInput },
+      beroenden,
+    );
+    expect(andra).toMatchObject({ ok: true, ateranvand: true });
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(2);
+    expect(kvotAnvand(konto, IP_NYCKEL)).toBe(2);
+
+    // Exactly the same file again: refunded.
+    const tredje = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await unikTextPdf(2), propertyInput },
+      beroenden,
+    );
+    expect(tredje).toMatchObject({ ok: true, ateranvand: true });
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(2);
+  });
+
+  it("den lösa kvoten återlämnas aldrig: 30 gratis-uppladdningar av samma klara rapport från en enhet, sedan nekas den 31:a", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    const pdfBytes = await medTextPdf();
+    const forsta = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+    if (!forsta.ok) throw new Error(forsta.errorMessage);
+    const rad = await lager.db.hamtaAnalys(forsta.analysisId);
+    await lager.db.uppdateraRapport(rad?.rapportId ?? "", {
+      status: "done",
+      stage: "klar",
+      extraction: extraktion,
+      judgement: minimalJudgement(),
+      finishedAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    for (let i = 0; i < 29; i++) {
+      const r = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+      expect(r).toMatchObject({ ok: true, ateranvand: true });
+    }
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1); // strict: refunded each time
+    const trettioforsta = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes, propertyInput },
+      { anropare },
+    );
+    expect(trettioforsta).toMatchObject({
+      ok: false,
+      errorCode: "kvot",
+      errorMessage: KVOT_MEDDELANDE.uppladdningEnhetTotalt,
+    });
+  });
+
+  it("ett oväntat kast efter att kvoten tagits ger tillbaka den (stränga och lösa) och kastar vidare", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    lager.filer.laggUpp = async () => {
+      throw new Error("Supabase Storage: intern detalj");
+    };
+    await expect(
+      skapaAnalys(lager, buildEnv(), { pdfBytes: await medTextPdf(), propertyInput }, { anropare }),
+    ).rejects.toThrow("Supabase Storage: intern detalj");
+    expect([...konto.kvot.values()].reduce((summa, r) => summa + r.antal, 0)).toBe(0);
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+  });
+
   describe("dagens spend-tak och hash-träffar", () => {
     async function medKlarRapport() {
       const { lager, konto } = skapaDeladeFakes();

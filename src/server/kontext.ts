@@ -18,8 +18,8 @@
  *   database.
  * - `ipHash` — hex HMAC-SHA256 of the client IP, keyed by a key derived from
  *   PROJECT_SECRET_KEY. The raw IP is never returned, stored or logged. Used
- *   only as a rate-limit key (`./kvot.ts`). Null when no IP header exists
- *   (local CLI/dev).
+ *   only as a rate-limit key (`./kvot.ts`). Null when there is no
+ *   `cf-connecting-ip` header (local CLI/dev).
  *
  * Web APIs only (Cloudflare Workers): crypto.getRandomValues, crypto.subtle,
  * btoa, TextEncoder — no Buffer, no node:crypto.
@@ -123,16 +123,16 @@ export function losEnhetId(
 }
 
 /**
- * Client IP: Cloudflare's `cf-connecting-ip` (set by Cloudflare's edge, not
- * by the client), else the first entry of `x-forwarded-for` (only
- * trustworthy behind a proxy that overwrites it — relevant off Cloudflare
- * only). Null when neither is present.
+ * Client IP: Cloudflare's `cf-connecting-ip` only — set by Cloudflare's edge,
+ * never by the client. `x-forwarded-for` is deliberately NOT read: outside
+ * Cloudflare any client can send it, which would let one forge a fresh IP per
+ * request and slip past the per-IP limits. No `cf-connecting-ip` (local
+ * dev/CLI) → null, and only the per-device limits apply.
  */
 export function losIp(kallor: KontextKallor): string | null {
   const cf = kallor.lasHeader("cf-connecting-ip")?.trim();
   if (cf) return cf;
-  const forsta = kallor.lasHeader("x-forwarded-for")?.split(",")[0]?.trim();
-  return forsta ? forsta : null;
+  return null;
 }
 
 const kodare = new TextEncoder();

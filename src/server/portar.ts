@@ -247,9 +247,11 @@ export interface Sidtext {
   text: string;
 }
 
-/** `sidtext.kalla`: where the page text came from. Only the scan
- *  transcription (WS1) writes it today. */
-export type SidtextKalla = "transkribering";
+/** `sidtext.kalla`: where the page text came from and, for a transcription,
+ *  with which prompt version ("transkribering:v1", see
+ *  `TRANSKRIBERING_KALLA` in register.ts). A page is reused by another rapport
+ *  of the same bytes only when its kalla equals the current one. */
+export type SidtextKalla = `transkribering:v${string}`;
 
 /** `extraktion_cache` row plus its key — for the one-off legacy backfill. */
 export interface ExtraktionCacheListRad extends ExtraktionCacheRad {
@@ -403,8 +405,9 @@ export interface Databas {
   registreraForeningAdress(rad: NyForeningAdress): Promise<void>;
 
   /** The transcribed pages of a rapport (`sidtext`), ordered by page. Empty
-   *  when nothing has been transcribed yet. */
-  hamtaSidtext(rapportId: string): Promise<Sidtext[]>;
+   *  when nothing has been transcribed yet. With `kalla`, only pages with
+   *  exactly that kalla (a page written by another prompt version is stale). */
+  hamtaSidtext(rapportId: string, kalla?: SidtextKalla): Promise<Sidtext[]>;
   /** Upsert on (rapport_id, sida): a rewrite replaces the page. Deliberately
    *  NOT lease-guarded: a page is paid-for output of the same bytes, so one
    *  that finishes after the worker lost its lease is kept for the next

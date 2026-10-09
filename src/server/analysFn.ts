@@ -36,6 +36,7 @@ import {
   type SkapaAnalysArgs,
 } from "./analys";
 import { skapaBehorighet } from "./behorighet";
+import { sakertFel, sakertSkapaFel } from "./fel";
 import { envFromProcess, type Env } from "./env";
 import { losKontext, tanstackKontextKallor, type Kontext } from "./kontext";
 import type { Anropare } from "./portar";
@@ -99,39 +100,56 @@ function tolkaJson(falt: string, rå: string): unknown {
 export const skapaAnalysFn = createServerFn({ method: "POST" })
   .inputValidator((data: FormData) => data)
   .handler(async ({ data }) => {
-    const env = envFromProcess();
-    const anropare = await anropareFor(env);
+    try {
+      const env = envFromProcess();
+      const anropare = await anropareFor(env);
 
-    const { pdf, propertyInputRaw } = extraheraSkapaAnalysArgs(data);
-    const pdfBytes = new Uint8Array(await pdf.arrayBuffer());
-    const propertyInput = tolkaJson("propertyInput", propertyInputRaw);
+      const { pdf, propertyInputRaw } = extraheraSkapaAnalysArgs(data);
+      const pdfBytes = new Uint8Array(await pdf.arrayBuffer());
+      const propertyInput = tolkaJson("propertyInput", propertyInputRaw);
 
-    const args: SkapaAnalysArgs = { pdfBytes, propertyInput };
-    return skapaAnalysImpl(skapaLager(env), env, args, { anropare });
+      const args: SkapaAnalysArgs = { pdfBytes, propertyInput };
+      return await skapaAnalysImpl(skapaLager(env), env, args, { anropare });
+    } catch (fel) {
+      // Inget internt (Supabase, lagring, nätverk) når köparen — se sakertFel.
+      return sakertSkapaFel("skapaAnalysFn", fel);
+    }
   });
 
 export const hamtaStatusFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
-    const env = envFromProcess();
-    await kontextFor(env);
-    return hamtaStatusImpl(skapaLager(env), data.analysisId);
+    try {
+      const env = envFromProcess();
+      await kontextFor(env);
+      return await hamtaStatusImpl(skapaLager(env), data.analysisId);
+    } catch (fel) {
+      throw sakertFel("hamtaStatusFn", fel);
+    }
   });
 
 export const hamtaResultatFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
-    const env = envFromProcess();
-    const anropare = await anropareFor(env);
-    return hamtaResultatImpl(skapaLager(env), data.analysisId, anropare);
+    try {
+      const env = envFromProcess();
+      const anropare = await anropareFor(env);
+      return await hamtaResultatImpl(skapaLager(env), data.analysisId, anropare);
+    } catch (fel) {
+      throw sakertFel("hamtaResultatFn", fel);
+    }
   });
 
 export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
-    const env = envFromProcess();
-    await kontextFor(env);
-    return hamtaForhandsvisningImpl(skapaLager(env), data.analysisId);
+    try {
+      const env = envFromProcess();
+      await kontextFor(env);
+      return await hamtaForhandsvisningImpl(skapaLager(env), data.analysisId);
+    } catch (fel) {
+      throw sakertFel("hamtaForhandsvisningFn", fel);
+    }
   });
 
 /**
@@ -146,6 +164,10 @@ export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
 export const hamtaPrisuppskattningFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => data)
   .handler(async ({ data }) => {
-    const anropare = await anropareFor(envFromProcess());
-    return hamtaPrisuppskattning(data, { anropare });
+    try {
+      const anropare = await anropareFor(envFromProcess());
+      return await hamtaPrisuppskattning(data, { anropare });
+    } catch (fel) {
+      throw sakertFel("hamtaPrisuppskattningFn", fel);
+    }
   });

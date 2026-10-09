@@ -127,36 +127,64 @@ rapport someone else already started (`vantarPaRapport`).
 
 ### Scanned reports (WS1)
 
-A PDF with no text layer (`textlager 'saknas'`) is accepted
-(`SKANNADE_RAPPORTER_AKTIVA = true` in `register.ts`; set it to `false` and
-`skapaAnalys` refuses such a PDF again with `scanned_pdf`, as a code-level
-emergency brake). Its rapport runs
-`identifiering` (unchanged; pages 1–3 as a native document) →
-**`transkribering`** → `grundning` → `extraktion` → `bedomning`. A garbled text
-layer (`trasigt`) stays on the normal path (measured better,
-docs/PLAN-v2.md §1.9).
+A PDF with no usable text layer is accepted (`SKANNADE_RAPPORTER_AKTIVA = true`
+in `register.ts`; `false` makes `skapaAnalys` refuse it again with `scanned_pdf`,
+a code-level emergency brake) up to `MAX_SIDOR_SKANNAD_RAPPORT` (60) pages.
+**`textlager = 'saknas'` when ≥ 50 % of the pages are empty** (< 20 characters
+after trim; `klassificeraTextlager`, the single source in
+`src/lib/analysis/textlager.ts`) — a scan with a text cover page is still a scan,
+since scanned pages are not citable on the native route. Such a rapport runs
+`identifiering` (unchanged) → **`transkribering`** → `grundning` → `extraktion` →
+`bedomning`. A garbled text layer (`trasigt`) stays on the normal path (measured
+better, docs/PLAN-v2.md §1.9). `runGrounding`'s own guard (`ScannedPdfError` when
+*every* page is empty) cannot fire for what reaches it: anything not `saknas` has
+a page with text.
 
 - **`transkribering`** (`korTranskribering`, `steg.ts` → `transkribera`): the PDF
   from storage is split with `pdf-lib` into 5-page chunks, run **in parallel in
   one invocation**, one Sonnet call per chunk (model = `rapport.model`, effort =
-  `ANTHROPIC_EFFORT_GROUNDING`, `max_tokens` 8000). Each finished chunk is
+  `ANTHROPIC_EFFORT_GROUNDING`, `max_tokens` 12 000). Each finished chunk is
   upserted into `sidtext` at once (`sparaSidtext`, on `(rapport_id, sida)`), so
   a retry reads the stored pages (`hamtaSidtext` → `redanKlara`) and redoes only
   chunks with a missing page. Page markers are validated per chunk (one retry,
   then `TranskriberingMarkorFelError`).
+- **Reuse across rapporter of the same bytes.** `sidtext.kalla` is
+  `transkribering:v<TRANSKRIPTION_PROMPT_VERSION>` (`prompts.ts`; a hash test
+  fails if the transcription prompt changes without a bump). A rapport with no
+  `sidtext` of its own first copies the pages of the newest *other* rapport with
+  the same `pdf_hash` whose `kalla` equals the current one (`ateranvandTranskription`):
+  a version-bump re-run, or a re-upload after a failure, transcribes 0 pages (or only
+  the missing chunks of a partial donor). Pages written by another prompt version
+  are ignored. No schema change.
 - **Spend.** The daily reservation is realistic, `0.15 kr × pages still to do`
   (measured 0.105 kr/page incl. headers: 34 pages = 3.58 kr), reconciled to the
-  real cost. The step's own budget for `transkribera` is
-  `max(MAX_COST_PER_ANALYSIS_SEK, chunks × 1.0 kr)` because its pre-flight sums
-  the worst case of all parallel chunks (≈ 0.94 kr each at 8.6k in / 8k out, price
-  table in `costGuard.ts`); with the default 5 kr a 34-page scan (7 chunks, worst
-  case ≈ 6.6 kr) would otherwise never start.
-- **Failure** takes the normal path (3 attempts per stage, real spend booked via
-  the error's annotation). `TranskriberingMarkorFelError` and
-  `TomTranskriptionError` become `scanned_pdf` with a fixed buyer-safe message
-  (`fel.ts`); no new error code, since the UI's code union must stay equal to the
+  real cost **exactly once per step attempt** (a `Reservation` object guards every
+  stage, so a failing write after a successful reconcile cannot reconcile twice).
+  `transkribera`'s pre-flight sums the worst case of all parallel chunks, each
+  from its own `countTokens` (`estimateCostSek(input, 12 000)`, ≈ 1.33 kr at 8.6k
+  in-tokens; price table in `costGuard.ts`) and must fit the **stage ceiling**
+  `MAX_TRANSKRIBERING_SEK` = `MAX_SIDOR_SKANNAD_RAPPORT × 0.25` = 15 kr (a product
+  guard, not a measurement), less what the rapport already cost over all attempts
+  (`rapport.cost_sek`). Consequence: at 8.6k in-tokens per chunk at most ~55 pages
+  pass the pre-flight (11 × 1.33 = 14.6 kr); see the report for the 56–60 page gap.
+- **Deadline.** `transkribera` aborts in-flight chunk calls after 110 s
+  (`AbortController`, `signal` passed to the SDK call), keeps the finished pages
+  saved and throws a transient `TranskriberingTidsgransError` annotated with the
+  real spend; the next attempt continues. (A call aborted mid-flight is billed
+  by Anthropic for tokens already generated, which the client cannot see: that
+  slice is not in `cost_sek`.)
+- **Failure.** Transient errors (API 429/5xx/529, network, the deadline) take the
+  normal path (3 attempts per stage, real spend booked via the error's annotation).
+  **Deterministic ones are terminal** — `ModelTruncatedError`,
+  `TranskriberingMarkorFelError` and `KostnadsgransOverskriden` fail the rapport
+  at once (another attempt would pay for the same wrong answer). The page-marker
+  and empty-transcription errors become `scanned_pdf` with a fixed buyer-safe
+  message (`fel.ts`); no new error code, since the UI's code union must equal the
   server's.
-- **`grundning` for `saknas`** reads `sidtext` ordered by page and runs
+- **`grundning` for `saknas`** first checks that `sidtext` (current prompt
+  version) covers **every page 1..`rapport_fil.sidor`**; otherwise it fails
+  visibly and terminally (`SidtextOfullstandigError` → `scanned_pdf`) instead of
+  grounding on partial text. Then it reads the pages in order and runs
   `runGroundingFranTranskription` (custom-content document; page numbers only
   from the block→page map). **`extraktion`** passes `kalla 'skannad'` →
   `datakvalitet.kalla = 'skannad'` and confidence capped at `medel`.
@@ -169,9 +197,25 @@ docs/PLAN-v2.md §1.9).
 - **Edge.** Nothing new to configure: `pdf-lib` is already bundled as
   `npm:pdf-lib@<lockfile version>` (external, like `unpdf`); the scan path uses
   no `Buffer`/`process`/`fs` (`toBase64` is `btoa`-based). The inline Edge env is
-  unchanged (the stage reuses `ANTHROPIC_EFFORT_GROUNDING`). Wall clock: the
-  slowest of 7 parallel chunk calls was 26 s (measured 2026-10-09), the whole
-  tick 29.5 s, against the 150 s limit.
+  unchanged (the stage reuses `ANTHROPIC_EFFORT_GROUNDING`). The slowest of 7
+  parallel chunk calls measured 26 s, the whole tick 29.5 s, against the 150 s
+  limit and the 110 s deadline.
+
+### Upload limits
+
+Strict quota (refunded when the upload costs nothing): 5 per device, 10 per IP
+per day. **Loose quota (never refunded): 30 per device, 100 per IP per day**
+(`uppladdning_los:*` keys; product limits). They are taken together
+(`kontrolleraUppladdningskvot`); the first refusal gives back every use taken in
+that call. The strict quota is refunded only for an **exact hash hit** (`ateranvand`
+or `vantarPaRapport` reached through `rapport_fil.pdf_hash`, `Koppling.viaHash`),
+not for a link found only through the report's identity (another byte version).
+If `skapaAnalys` throws after the quota was taken, strict and loose are both
+given back and the error is rethrown; `analysFn.ts` then returns/throws only the
+generic buyer-safe message (`sakertFel`/`sakertSkapaFel` in `fel.ts`), logging the
+real error server-side. The client IP comes only from `cf-connecting-ip`
+(Cloudflare); there is no `x-forwarded-for` fallback, so without that header only
+the per-device limits apply.
 
 ### Reads
 

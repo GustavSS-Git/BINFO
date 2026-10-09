@@ -13,10 +13,13 @@ export interface PdfTextExtraction {
 /**
  * A page with zero extractable text is indistinguishable, for our purposes,
  * from an image-only scan of that page — pdf.js only returns text items
- * when the page has an actual text layer. The whole document counts as
- * "saknar textlager" only when EVERY page is empty; a report with a few
- * scanned attachment pages among otherwise-real text should still proceed
- * to extraction with whatever text is available.
+ * when the page has an actual text layer. This is the STRICT test (every page
+ * empty) behind `runGrounding`'s hard `ScannedPdfError` guard: the native-PDF
+ * route cannot cite anything in such a document. The product's routing
+ * decision is the wider `klassificeraTextlager` (textlager.ts): a document with
+ * half or more empty pages is 'saknas' and takes the transcription path, so it
+ * never reaches `runGrounding`; what does reach it ('ok'/'trasigt') always has
+ * at least one page with text, i.e. this guard cannot fire for it.
  */
 export function pdfHasNoTextLayer(pages: string[]): boolean {
   return pages.every((page) => page.trim().length === 0);

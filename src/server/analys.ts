@@ -279,79 +279,95 @@ export async function skapaAnalys(
   }
 
   let principalId: string | null = null;
+  let kvotTagen = false;
   if (anropare) {
     const kvot = await kontrolleraUppladdningskvot(anropare.konto, anropare.kontext);
     if (!kvot.ok) {
       const { errorCode, message } = tolkaKvot(kvot);
       return { ok: false, errorCode, errorMessage: message };
     }
-    // Principalen skapas först här — vid den första dyra handlingen, aldrig
-    // vid ett sidbesök (se principal.ts).
-    principalId = (await medPrincipal(anropare.konto, anropare.kontext)).principalId;
+    kvotTagen = true;
   }
 
-  // Alltid ladda upp, även vid en träff i registret — innehållsadresserad
-  // lagring tolererar en dubblett, och en PDF som en äldre retention-regel
-  // raderat återställs på köpet (registret behåller PDF:er).
-  const pdfPath = `${pdfHash}.pdf`;
-  await lager.filer.laggUpp(pdfPath, args.pdfBytes);
+  // Allt efter att kvoten tagits: ett oväntat kast (lagring, databas, ...) får
+  // aldrig kosta köparen kvot för en analys som aldrig skapades. Kvoten (även den
+  // lösa) lämnas tillbaka och felet kastas vidare — analysFn.ts mappar det till
+  // ett köparsäkert svar.
+  try {
+    if (anropare) {
+      // Principalen skapas först här — vid den första dyra handlingen, aldrig
+      // vid ett sidbesök (se principal.ts).
+      principalId = (await medPrincipal(anropare.konto, anropare.kontext)).principalId;
+    }
 
-  const koppling = await kopplaUppladdning(
-    lager,
-    {
+    // Alltid ladda upp, även vid en träff i registret — innehållsadresserad
+    // lagring tolererar en dubblett, och en PDF som en äldre retention-regel
+    // raderat återställs på köpet (registret behåller PDF:er).
+    const pdfPath = `${pdfHash}.pdf`;
+    await lager.filer.laggUpp(pdfPath, args.pdfBytes);
+
+    const koppling = await kopplaUppladdning(
+      lager,
+      {
+        pdfHash,
+        pdfPath,
+        sidor: pages,
+        antalSidor: totalPages,
+        bytes: args.pdfBytes.byteLength,
+        textlager,
+        model: env.anthropicModel,
+      },
+      {
+        identifieraLokalt: beroenden.identifieraLokalt ?? identifieraLokaltStandard,
+        namnLiknar: beroenden.namnLiknar ?? namnLiknarStandard,
+      },
+    );
+
+    // Radens egna status/stage används inte för en registerlänkad rad (allt
+    // härleds från rapporten, se hamtaStatus) — de sätts bara till sina
+    // startvärden för att uppfylla kolumnernas not null.
+    const { id } = await lager.db.skapaAnalys({
       pdfHash,
       pdfPath,
-      sidor: pages,
-      antalSidor: totalPages,
-      bytes: args.pdfBytes.byteLength,
-      textlager,
+      propertyInput,
       model: env.anthropicModel,
-    },
-    {
-      identifieraLokalt: beroenden.identifieraLokalt ?? identifieraLokaltStandard,
-      namnLiknar: beroenden.namnLiknar ?? namnLiknarStandard,
-    },
-  );
+      promptVersion: PROMPT_VERSION,
+      status: "queued",
+      stage: "uploaded",
+      rapportId: koppling.rapportId,
+      principalId,
+    });
 
-  // Radens egna status/stage används inte för en registerlänkad rad (allt
-  // härleds från rapporten, se hamtaStatus) — de sätts bara till sina
-  // startvärden för att uppfylla kolumnernas not null.
-  const { id } = await lager.db.skapaAnalys({
-    pdfHash,
-    pdfPath,
-    propertyInput,
-    model: env.anthropicModel,
-    promptVersion: PROMPT_VERSION,
-    status: "queued",
-    stage: "uploaded",
-    rapportId: koppling.rapportId,
-    principalId,
-  });
-
-  if (koppling.orgnr !== null && propertyInput.postnummer !== "") {
-    try {
-      await registreraAnvandarAdress(lager.db, koppling.orgnr, propertyInput.postnummer);
-    } catch (fel) {
-      // Bästa försök: en köpares analys får aldrig falla på områdesregistret.
-      console.warn(
-        `[register] Kunde inte registrera område för analys ${id}: ` +
-          (fel instanceof Error ? fel.message : String(fel)),
-      );
+    if (koppling.orgnr !== null && propertyInput.postnummer !== "") {
+      try {
+        await registreraAnvandarAdress(lager.db, koppling.orgnr, propertyInput.postnummer);
+      } catch (fel) {
+        // Bästa försök: en köpares analys får aldrig falla på områdesregistret.
+        console.warn(
+          `[register] Kunde inte registrera område för analys ${id}: ` +
+            (fel instanceof Error ? fel.message : String(fel)),
+        );
+      }
     }
-  }
 
-  // Serverad direkt ur registret, eller ansluten till en rapport som redan
-  // analyseras: ingen ny kostnad uppstår, så ingen kvot heller.
-  if ((koppling.ateranvand || koppling.vantarPaRapport) && anropare) {
-    await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext);
-  }
+    // Serverad direkt ur registret, eller ansluten till en rapport som redan
+    // analyseras: ingen ny kostnad uppstår, så ingen kvot heller.
+    if ((koppling.ateranvand || koppling.vantarPaRapport) && koppling.viaHash && anropare) {
+      await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext);
+    }
 
-  return {
-    ok: true,
-    analysisId: id,
-    ...(koppling.ateranvand ? { ateranvand: true } : {}),
-    ...(koppling.vantarPaRapport ? { vantarPaRapport: true } : {}),
-  };
+    return {
+      ok: true,
+      analysisId: id,
+      ...(koppling.ateranvand ? { ateranvand: true } : {}),
+      ...(koppling.vantarPaRapport ? { vantarPaRapport: true } : {}),
+    };
+  } catch (fel) {
+    if (anropare && kvotTagen) {
+      await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext, { aven_losa: true });
+    }
+    throw fel;
+  }
 }
 
 // ---------------------------------------------------------------------------

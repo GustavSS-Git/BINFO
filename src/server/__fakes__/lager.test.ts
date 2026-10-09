@@ -501,11 +501,25 @@ describe("sidtext (WS1, scan transcriptions)", () => {
         { sida: 6, text: "sex" },
         { sida: 1, text: "ett" },
       ],
-      "transkribering",
+      "transkribering:v1",
     );
     expect(await lager.db.hamtaSidtext(rapportId)).toEqual([
       { sida: 1, text: "ett" },
       { sida: 6, text: "sex" },
+    ]);
+  });
+
+  it("hamtaSidtext med kalla returnerar bara sidor med exakt den kallan (en annan prompt-version är gammal)", async () => {
+    const { lager, rapportId } = await medRapport();
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "ny" }], "transkribering:v2");
+    await lager.db.sparaSidtext(rapportId, [{ sida: 2, text: "gammal" }], "transkribering:v1");
+    expect(await lager.db.hamtaSidtext(rapportId, "transkribering:v2")).toEqual([
+      { sida: 1, text: "ny" },
+    ]);
+    expect((await lager.db.hamtaSidtext(rapportId)).map((s) => s.sida)).toEqual([1, 2]);
+    expect(lager.db._allaSidtext(rapportId).map((s) => s.kalla)).toEqual([
+      "transkribering:v2",
+      "transkribering:v1",
     ]);
   });
 
@@ -517,9 +531,9 @@ describe("sidtext (WS1, scan transcriptions)", () => {
         { sida: 1, text: "gammal" },
         { sida: 2, text: "två" },
       ],
-      "transkribering",
+      "transkribering:v1",
     );
-    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "ny" }], "transkribering");
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "ny" }], "transkribering:v1");
     expect(await lager.db.hamtaSidtext(rapportId)).toEqual([
       { sida: 1, text: "ny" },
       { sida: 2, text: "två" },
@@ -528,29 +542,29 @@ describe("sidtext (WS1, scan transcriptions)", () => {
 
   it("en tom text är en giltig sida (en blank sida behålls)", async () => {
     const { lager, rapportId } = await medRapport();
-    await lager.db.sparaSidtext(rapportId, [{ sida: 3, text: "" }], "transkribering");
+    await lager.db.sparaSidtext(rapportId, [{ sida: 3, text: "" }], "transkribering:v1");
     expect(await lager.db.hamtaSidtext(rapportId)).toEqual([{ sida: 3, text: "" }]);
   });
 
   it("rapporterna är isolerade från varandra", async () => {
     const { lager, rapportId } = await medRapport();
-    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering");
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering:v1");
     expect(await lager.db.hamtaSidtext("fake-rapport-999")).toEqual([]);
   });
 
   it("FK: en okänd rapport nekas, sida < 1 nekas (som CHECK i migrationen)", async () => {
     const { lager, rapportId } = await medRapport();
     await expect(
-      lager.db.sparaSidtext("fake-rapport-999", [{ sida: 1, text: "x" }], "transkribering"),
+      lager.db.sparaSidtext("fake-rapport-999", [{ sida: 1, text: "x" }], "transkribering:v1"),
     ).rejects.toThrow(/FK|okänd/);
     await expect(
-      lager.db.sparaSidtext(rapportId, [{ sida: 0, text: "x" }], "transkribering"),
+      lager.db.sparaSidtext(rapportId, [{ sida: 0, text: "x" }], "transkribering:v1"),
     ).rejects.toThrow(/sida/);
   });
 
   it("on delete cascade: raderaRapport tar sidtexten med sig", async () => {
     const { lager, rapportId } = await medRapport();
-    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering");
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering:v1");
     await lager.db.raderaRapport(rapportId);
     expect(await lager.db.hamtaSidtext(rapportId)).toEqual([]);
   });
@@ -558,7 +572,7 @@ describe("sidtext (WS1, scan transcriptions)", () => {
   it("skriver aldrig om rapportens status (en terminal rapport väcks inte till liv)", async () => {
     const { lager, rapportId } = await medRapport();
     await lager.db.uppdateraRapport(rapportId, { status: "failed" });
-    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering");
+    await lager.db.sparaSidtext(rapportId, [{ sida: 1, text: "a" }], "transkribering:v1");
     expect((await lager.db.hamtaRapport(rapportId))?.status).toBe("failed");
   });
 });

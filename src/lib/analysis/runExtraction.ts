@@ -134,16 +134,23 @@ export interface AnthropicClientLike {
       system: SystemParam;
       messages: Array<{ role: "user"; content: unknown }>;
     }): Promise<{ input_tokens: number }>;
-    create(params: {
-      model: string;
-      max_tokens: number;
-      system: SystemParam;
-      messages: Array<{ role: "user"; content: unknown }>;
-      /** Reasoning depth — see `ModelEffort`. Omitted entirely (not just
-       *  `undefined`) unless a caller opts in, so the default adaptive-thinking
-       *  behaviour is unaffected when nobody asks for anything different. */
-      output_config?: { effort?: ModelEffort };
-    }): Promise<{
+    create(
+      params: {
+        model: string;
+        max_tokens: number;
+        system: SystemParam;
+        messages: Array<{ role: "user"; content: unknown }>;
+        /** Reasoning depth — see `ModelEffort`. Omitted entirely (not just
+         *  `undefined`) unless a caller opts in, so the default adaptive-thinking
+         *  behaviour is unaffected when nobody asks for anything different. */
+        output_config?: { effort?: ModelEffort };
+      },
+      options?: {
+        /** Aborts the request (the real SDK accepts request options as the second
+         *  argument). Used by `transkribera`'s overall deadline. */
+        signal?: AbortSignal;
+      },
+    ): Promise<{
       usage: {
         input_tokens: number;
         output_tokens: number;

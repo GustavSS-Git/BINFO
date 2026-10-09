@@ -198,7 +198,8 @@ describe("Edge-limmet speglar porten", () => {
     const adapter = readFileSync(path.resolve(process.cwd(), "src/server/supabase.ts"), "utf-8");
     for (const kalla of [limmet, adapter]) {
       expect(kalla).toContain('.from("sidtext")');
-      expect(kalla).toContain('.select("sida, text")');
+      expect(kalla).toContain('.select("sida, text").eq("rapport_id", rapportId)');
+      expect(kalla).toContain('q = q.eq("kalla", kalla)');
       expect(kalla).toContain('onConflict: "rapport_id,sida"');
       expect(kalla).toMatch(/rapport_id: rapportId, sida: \w+\.sida, text: \w+\.text, kalla/);
     }

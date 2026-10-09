@@ -23,6 +23,7 @@
 
 import type { Databas } from "./portar";
 import type { Env } from "./env";
+import { MAX_SIDOR_SKANNAD_RAPPORT } from "./register";
 
 export type SpendSkal = "daily_cap" | "kill_switch";
 
@@ -67,27 +68,36 @@ export const UPPSKATTAD_KOSTNAD_BEDOMNING_SEK = 1.5;
  */
 export const UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA = 0.15;
 
-/**
- * Värsta fallet för EN chunk-anrop: 8,6k in-tokens (uppmätt max för 5 sidor) +
- * `TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK` ut ≈ 0,94 kr. Förhandskontrollen i
- * `transkribera` är värsta fallet för SAMTLIGA parallella chunkar tillsammans
- * (ingen får överskrida taket tillsammans), så taket för steget måste skala med
- * antalet chunkar — se `transkriberingsTak`.
- */
-export const TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK = 1.0;
+/** `max_tokens` per chunk. Uppmätt maximum 5,1k (tänkande inräknat) för 5 sidor;
+ *  10 000 ger knappt 2x marginal och håller värsta fallet för
+ *  MAX_SIDOR_SKANNAD_RAPPORT (60 sidor = 12 chunkar) under stegets tak:
+ *  ≈1,14 kr per chunk vid 8,6k in-tokens → ≈13,6 kr < 15 kr. Värsta fallet
+ *  räknas i `transkribera` ur chunkens verkliga `countTokens` (prislista i
+ *  costGuard.ts). Med 12 000 nåddes 60 sidor aldrig (≈16 kr > 15 kr). */
+export const TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK = 10_000;
 
-/** `max_tokens` per chunk. Uppmätt maximum 5,1k (tänkande inräknat) för 5 sidor. */
-export const TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK = 8000;
+/**
+ * Hårt tak för HELA transkriberingssteget, oberoende av antalet chunkar —
+ * PRODUKTBESLUT (supervisor 2026-10-09), inte ett uppmätt värde: 0,25 kr per
+ * tillåten sida (uppmätt kostnad är 0,105 kr/sida, alltså drygt 2x marginal) gånger
+ * MAX_SIDOR_SKANNAD_RAPPORT = 15 kr. Gäller summan av spenderat över ALLA
+ * försök (`rapport.cost_sek`) och är den övre gränsen som ges till
+ * `transkribera` (vars förhandskontroll summerar värsta fallet för alla
+ * parallella chunkar). OBS: vid 12 000 max_tokens är värsta fallet ≈1,33 kr per
+ * chunk, så förhandskontrollen släpper igenom högst ca 55 sidor vid 8,6k
+ * in-tokens per chunk (11 × 1,33 = 14,6 kr) — se rapporten.
+ */
+export const MAX_TRANSKRIBERING_SEK = MAX_SIDOR_SKANNAD_RAPPORT * 0.25;
 
 /** Reservation för att transkribera `antalSidor` sidor (0 sidor = 0 kr). */
 export function uppskattadKostnadTranskribering(antalSidor: number): number {
   return antalSidor * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA;
 }
 
-/** Budget för `transkribera`: aldrig lägre än per-analys-taket, och aldrig
- *  lägre än värsta fallet för alla chunkar som ska göras. */
-export function transkriberingsTak(maxCostPerAnalysisSek: number, antalChunkar: number): number {
-  return Math.max(maxCostPerAnalysisSek, antalChunkar * TRANSKRIBERING_VARSTA_FALL_SEK_PER_CHUNK);
+/** Det som återstår av stegets hårda tak, givet vad rapporten redan kostat
+ *  (`rapport.cost_sek`, alla försök). 0 när taket är nått. */
+export function transkriberingsTak(redanSpenderatSek: number): number {
+  return Math.max(0, MAX_TRANSKRIBERING_SEK - redanSpenderatSek);
 }
 
 /**

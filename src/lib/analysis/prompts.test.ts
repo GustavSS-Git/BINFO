@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALLA_NYCKELTAL,
   PROMPT_VERSION,
+  TRANSKRIPTION_PROMPT_VERSION,
   buildAnalysSystemPrompt,
   buildAnalysUserPrompt,
   buildExtractionSystemPrompt,
@@ -492,5 +493,29 @@ describe("PROMPT_VERSION", () => {
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
     expect(hash).toBe("ed3f3a431162cea47f9104e74a3cf1bbda6d6d9e46d34b385d29c56f08431b57");
+  });
+});
+
+describe("TRANSKRIPTION_PROMPT_VERSION", () => {
+  // Sparade sidor återanvänds bara om de skrevs med samma transkriptionsprompt.
+  // Ändrar du medvetet transkriptionsprompten: höj TRANSKRIPTION_PROMPT_VERSION
+  // i prompts.ts OCH lägg till den nya versionens hash här (behåll de gamla).
+  const HASHAR: Record<string, string> = {
+    "1": "a25895199cf34c44a600920f56674dce0b73e6a731fee4bc5ddb24200d47281e",
+  };
+
+  it("är en icke-tom sträng med en känd hash", () => {
+    expect(TRANSKRIPTION_PROMPT_VERSION.length).toBeGreaterThan(0);
+    expect(HASHAR[TRANSKRIPTION_PROMPT_VERSION]).toBeDefined();
+  });
+
+  it("larmar om transkriptionsprompten ändras utan att TRANSKRIPTION_PROMPT_VERSION höjs", () => {
+    const utdata = [
+      buildTranskriberingSystemPrompt(),
+      buildTranskriberingUserPrompt(6, 5),
+      buildTranskriberingUserPrompt(1, 1),
+    ].join("\n---\n");
+    const hash = createHash("sha256").update(utdata).digest("hex");
+    expect(hash).toBe(HASHAR[TRANSKRIPTION_PROMPT_VERSION]);
   });
 });

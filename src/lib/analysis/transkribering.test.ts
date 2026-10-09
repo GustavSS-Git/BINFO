@@ -9,7 +9,9 @@ import {
   arOvergaendeApiFel,
   delaPdf,
   parseTranskription,
+  STANDARD_DEADLINE_MS,
   TranskriberingMarkorFelError,
+  TranskriberingTidsgransError,
   transkribera,
 } from "./transkribering";
 
@@ -467,5 +469,91 @@ describe("transkribera", () => {
     });
     const r = await transkribera(await pdfMedSidor(2), { maxCostSek: 20, client });
     expect(r.sidor.map((s) => s.text)).toEqual(["A", "B"]);
+  });
+});
+
+describe("transkribera — totalgräns i tid (deadline)", () => {
+  it("förvalet är 110 s och varje anrop får en AbortSignal som inte är avbruten i det normala fallet", async () => {
+    expect(STANDARD_DEADLINE_MS).toBe(110_000);
+    const client = okKlient();
+    await transkribera(await pdfMedSidor(3), { maxCostSek: 20, client });
+    const [, alternativ] = client.messages.create.mock.calls[0]!;
+    expect(alternativ?.signal).toBeInstanceOf(AbortSignal);
+    expect(alternativ?.signal?.aborted).toBe(false);
+  });
+
+  it("vid tidsgränsen avbryts anropen under flygning, färdiga sidor behålls (sparade) och felet är övergående och annoterat med verklig kostnad", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 8500 });
+    client.messages.create.mockImplementation(async (params, alternativ) => {
+      const { forsta, antal } = delenIFraga(params);
+      if (forsta === 1) return svar(korrektSvar(forsta, antal));
+      // The slow chunks never answer; they end when the deadline aborts them.
+      return new Promise((_, avvisa) => {
+        alternativ?.signal?.addEventListener("abort", () =>
+          avvisa(new Error("Request was aborted.")),
+        );
+      });
+    });
+    const sparade: number[] = [];
+    const fel = await transkribera(await pdfMedSidor(12), {
+      maxCostSek: 20,
+      client,
+      deadlineMs: 40,
+      omforsokFordrojningMs: 0,
+      sparaSidor: async (s) => {
+        sparade.push(...s.map((x) => x.sida));
+      },
+    }).catch((e: unknown) => e);
+
+    expect(fel).toBeInstanceOf(TranskriberingTidsgransError);
+    expect(arOvergaendeApiFel(fel)).toBe(true);
+    expect(sparade).toEqual([1, 2, 3, 4, 5]);
+    // No retry of an aborted chunk: chunk 1 once, chunks 2 and 3 once each.
+    expect(client.messages.create).toHaveBeenCalledTimes(3);
+    expect(errorHasKnownSpend(fel)).toBe(true);
+    if (errorHasKnownSpend(fel)) {
+      expect(fel.calls).toHaveLength(1);
+      expect(fel.spentSek).toBeGreaterThan(0);
+    }
+  });
+
+  it("ett omförsök startas inte efter tidsgränsen", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 8500 });
+    client.messages.create.mockImplementation(async (_params, alternativ) => {
+      // Fails transiently only after the deadline has passed.
+      await new Promise((r) => setTimeout(r, 30));
+      expect(alternativ?.signal?.aborted).toBe(true);
+      throw Object.assign(new Error("overloaded"), { status: 529 });
+    });
+    const fel = await transkribera(await pdfMedSidor(2), {
+      maxCostSek: 20,
+      client,
+      deadlineMs: 10,
+      omforsokFordrojningMs: 0,
+    }).catch((e: unknown) => e);
+    expect(fel).toBeInstanceOf(TranskriberingTidsgransError);
+    expect(client.messages.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("ett markörfel (deterministiskt) går före tidsgränsfelet när båda finns", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 8500 });
+    client.messages.create.mockImplementation(async (params, alternativ) => {
+      const { forsta } = delenIFraga(params);
+      if (forsta === 6) {
+        return new Promise((_, avvisa) => {
+          alternativ?.signal?.addEventListener("abort", () => avvisa(new Error("aborted")));
+        });
+      }
+      return svar("=== SIDA 99 ===\nfel");
+    });
+    const fel = await transkribera(await pdfMedSidor(10), {
+      maxCostSek: 20,
+      client,
+      deadlineMs: 40,
+    }).catch((e: unknown) => e);
+    expect(fel).toBeInstanceOf(TranskriberingMarkorFelError);
   });
 });

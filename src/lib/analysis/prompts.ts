@@ -129,6 +129,17 @@ export function formatGroundingForExtraction(findings: Grundfynd[]): string {
 // are the only source of page numbers: transkribering.ts validates them.
 // ---------------------------------------------------------------------------
 
+/**
+ * Version of the transcription prompts below. Stored with every transcribed
+ * page (`sidtext.kalla`, "transkribering:v<version>") so a page is reused for
+ * another rapport of the SAME bytes only when it was written with the same
+ * prompt. Bump it by hand whenever `buildTranskriberingSystemPrompt` or
+ * `buildTranskriberingUserPrompt` changes (prompts.test.ts fails otherwise).
+ * Independent of PROMPT_VERSION: a PROMPT_VERSION bump for the extraction or
+ * judging prompts must NOT make an already paid-for transcription stale.
+ */
+export const TRANSKRIPTION_PROMPT_VERSION = "1";
+
 export function buildTranskriberingSystemPrompt(): string {
   return `Du är en exakt transkriberare av skannade svenska årsredovisningar. Du ska skriva av texten på varje sida ordagrant, inget annat.
 

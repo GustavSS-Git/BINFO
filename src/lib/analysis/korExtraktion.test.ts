@@ -2,6 +2,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
 import { errorHasKnownSpend } from "./callMetrics";
 import { korExtraktion } from "./korExtraktion";
@@ -11,6 +12,20 @@ import { ALLA_NYCKELTAL } from "./prompts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = async (n: string) =>
   new Uint8Array(await readFile(path.join(here, "__fixtures__", n)));
+
+/** A one-page PDF with a real text layer of more than 20 characters (the
+ *  fixture med-text.pdf says only "Hej varlden", which counts as an empty page). */
+async function medLangText(): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  doc.addPage([595, 842]).drawText("Arsredovisning for Brf Skannad, raakenskapsaaret 2025", {
+    x: 50,
+    y: 780,
+    size: 12,
+    font,
+  });
+  return doc.save();
+}
 
 type CountTokens = AnthropicClientLike["messages"]["countTokens"];
 type Create = AnthropicClientLike["messages"]["create"];
@@ -140,7 +155,7 @@ describe("korExtraktion", () => {
 
   it("en PDF med textlager tar den vanliga vägen: ingen transkribering, kalla 'textlager'", async () => {
     const { client, stages } = klient();
-    const r = await korExtraktion(await fixture("med-text.pdf"), { ...grund, client });
+    const r = await korExtraktion(await medLangText(), { ...grund, client });
     expect(r.textlager).toBe("ok");
     expect(stages).toEqual(["grundning", "extraktion"]);
     expect(r.extraction.datakvalitet.kalla).toBe("textlager");
@@ -156,7 +171,7 @@ describe("korExtraktion", () => {
       client,
     });
     expect(skannad.tak).toBe(25);
-    const text = await korExtraktion(await fixture("med-text.pdf"), {
+    const text = await korExtraktion(await medLangText(), {
       ...grund,
       maxCostSek: 5,
       maxCostSekSkannad: 25,

@@ -31,6 +31,15 @@ import {
 export const STANDARD_CHUNKSTORLEK = 5;
 
 /**
+ * Overall wall-clock limit for one `transkribera` run. The Supabase Edge
+ * Function is cut at 150 s (docs/PLAN-v2.md §1.6); measured chunk calls take
+ * 10–26 s, so 110 s leaves room to save what finished and write the result.
+ * At the deadline in-flight calls are aborted (AbortController) and the next
+ * attempt continues with the pages that are already saved.
+ */
+export const STANDARD_DEADLINE_MS = 110_000;
+
+/**
  * Worst-case output tokens assumed per chunk call. Measured 2026-10-09
  * (docs/PLAN-v2.md §1.9, Sonnet 5.5 effort medium, 5-page chunks): 1 009 to
  * 5 093 output tokens (thinking included). 16 000 leaves >3x headroom; a call
@@ -155,11 +164,25 @@ export class TranskriberingMarkorFelError extends Error {
   }
 }
 
+/** The run hit its overall deadline (`deadlineMs`). Transient by definition: the
+ *  finished pages are saved, so the next job attempt continues where this one
+ *  stopped. */
+export class TranskriberingTidsgransError extends Error {
+  constructor(public readonly deadlineMs: number) {
+    super(
+      `Transkriberingen nådde tidsgränsen på ${Math.round(deadlineMs / 1000)} s; sidorna som hann bli ` +
+        "klara är sparade och nästa försök fortsätter därifrån.",
+    );
+    this.name = "TranskriberingTidsgransError";
+  }
+}
+
 /** Transient API failure worth exactly one retry of the chunk: connection
  *  errors (measured: 2 of 7 chunks once failed with "Connection error"),
  *  429, 5xx and 529 (overloaded). Duck-typed so test doubles need no SDK class. */
 export function arOvergaendeApiFel(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
+  if (error instanceof TranskriberingTidsgransError) return true;
   const status = (error as { status?: unknown }).status;
   if (typeof status === "number") return status === 429 || status >= 500;
   if (error.name === "APIConnectionError" || error.name === "APIConnectionTimeoutError")
@@ -197,6 +220,8 @@ export interface TranskriberaOptions {
   /** Pause before the single retry of a chunk after a transient API error.
    *  Default 1000 ms; tests pass 0. */
   omforsokFordrojningMs?: number;
+  /** Overall deadline for the whole run, default STANDARD_DEADLINE_MS. */
+  deadlineMs?: number;
 }
 
 export interface TranskriberaResultat {
@@ -246,6 +271,7 @@ export async function transkribera(
     redanKlara,
     sparaSidor,
     omforsokFordrojningMs = 1000,
+    deadlineMs = STANDARD_DEADLINE_MS,
   } = options;
 
   const bitar = await delaPdf(pdfBytes, chunkStorlek);
@@ -266,137 +292,152 @@ export async function transkribera(
   // Worst case of calls currently in flight (released when a call finishes).
   let reserveratSek = 0;
   const nyaSidor: TranskriberadSida[] = [];
+  const avbryt = new AbortController();
+  const tidsgrans = setTimeout(() => avbryt.abort(), deadlineMs);
 
-  if (attGora.length > 0) {
-    const client = resolveClient(options);
-    const system = buildTranskriberingSystemPrompt();
+  try {
+    if (attGora.length > 0) {
+      const client = resolveClient(options);
+      const system = buildTranskriberingSystemPrompt();
 
-    const forberedda = attGora.map((bit) => ({
-      bit,
-      messages: [
-        {
-          role: "user" as const,
-          content: [
-            {
-              type: "document" as const,
-              source: {
-                type: "base64" as const,
-                media_type: "application/pdf" as const,
-                data: toBase64(bit.bytes),
+      const forberedda = attGora.map((bit) => ({
+        bit,
+        messages: [
+          {
+            role: "user" as const,
+            content: [
+              {
+                type: "document" as const,
+                source: {
+                  type: "base64" as const,
+                  media_type: "application/pdf" as const,
+                  data: toBase64(bit.bytes),
+                },
               },
-            },
-            {
-              type: "text" as const,
-              text: buildTranskriberingUserPrompt(bit.forstaSida, bit.sidor),
-            },
-          ],
-        },
-      ],
-    }));
+              {
+                type: "text" as const,
+                text: buildTranskriberingUserPrompt(bit.forstaSida, bit.sidor),
+              },
+            ],
+          },
+        ],
+      }));
 
-    // Free pre-flight for every chunk before the first paid call.
-    const antalTokens = await Promise.all(
-      forberedda.map((f) => client.messages.countTokens({ model, system, messages: f.messages })),
-    );
-    const varstaFall = antalTokens.map((c) =>
-      estimateCostSek(c.input_tokens, maxOutputTokensPerChunk, pricing),
-    );
-    const summaVarstaFall = varstaFall.reduce((a, b) => a + b, 0);
-    if (summaVarstaFall > maxCostSek) {
-      throw new KostnadsgransOverskriden(summaVarstaFall, maxCostSek);
-    }
-
-    const korChunk = async (index: number): Promise<void> => {
-      const { bit, messages } = forberedda[index]!;
-      const sistaSida = bit.forstaSida + bit.sidor - 1;
-      const inputTokens = antalTokens[index]!.input_tokens;
-      let overgaendeFelAnvant = false;
-      let markorOmforsokAnvant = false;
-
-      // At most 3 attempts: the first, one retry after a transient API error,
-      // one retry after wrong page markers (each kind of retry at most once).
-      for (let forsok = 0; ; forsok++) {
-        const varsta = estimateCostSek(inputTokens, maxOutputTokensPerChunk, pricing);
-        if (forsok > 0) {
-          // A retry: its own worst case must fit next to what is spent and in flight.
-          enforceCostLimit(
-            inputTokens,
-            maxOutputTokensPerChunk,
-            maxCostSek - spentSek - reserveratSek,
-            pricing,
-          );
-        }
-        reserveratSek += varsta;
-
-        let svar;
-        const start = performance.now();
-        try {
-          svar = await client.messages.create({
-            model,
-            max_tokens: maxOutputTokensPerChunk,
-            system,
-            messages,
-            output_config: { effort },
-          });
-        } catch (error) {
-          reserveratSek -= varsta;
-          if (arOvergaendeApiFel(error) && !overgaendeFelAnvant) {
-            overgaendeFelAnvant = true;
-            await sov(omforsokFordrojningMs);
-            continue;
-          }
-          throw error;
-        }
-        const latencyMs = performance.now() - start;
-        reserveratSek -= varsta;
-
-        const metrics = buildCallMetrics({
-          stage: "transkribering",
-          model,
-          latencyMs,
-          usage: svar.usage,
-          stopReason: svar.stop_reason,
-          pricing,
-        });
-        calls.push(metrics);
-        spentSek += metrics.costSek;
-
-        if (svar.stop_reason === "refusal") {
-          throw annotateSpend(new ModelRefusedError("Transkriberingen"), spentSek, calls);
-        }
-        if (svar.stop_reason === "max_tokens") {
-          throw annotateSpend(
-            new ModelTruncatedError("Transkriberingen", maxOutputTokensPerChunk),
-            spentSek,
-            calls,
-          );
-        }
-
-        const text = svar.content
-          .filter((b) => b.type === "text" && typeof b.text === "string")
-          .map((b) => b.text as string)
-          .join("\n");
-        const tolkning = parseTranskription(text, bit.forstaSida, bit.sidor);
-        if (tolkning.ok) {
-          nyaSidor.push(...tolkning.sidor);
-          if (sparaSidor) await sparaSidor(tolkning.sidor);
-          return;
-        }
-        if (markorOmforsokAnvant) {
-          throw new TranskriberingMarkorFelError(bit.forstaSida, sistaSida, tolkning.fel);
-        }
-        markorOmforsokAnvant = true;
+      // Free pre-flight for every chunk before the first paid call.
+      const antalTokens = await Promise.all(
+        forberedda.map((f) => client.messages.countTokens({ model, system, messages: f.messages })),
+      );
+      const varstaFall = antalTokens.map((c) =>
+        estimateCostSek(c.input_tokens, maxOutputTokensPerChunk, pricing),
+      );
+      const summaVarstaFall = varstaFall.reduce((a, b) => a + b, 0);
+      if (summaVarstaFall > maxCostSek) {
+        throw new KostnadsgransOverskriden(summaVarstaFall, maxCostSek);
       }
-    };
 
-    const utfall = await Promise.allSettled(forberedda.map((_, i) => korChunk(i)));
-    const forstaFel = utfall.find((u): u is PromiseRejectedResult => u.status === "rejected");
-    if (forstaFel) {
-      const reason: unknown = forstaFel.reason;
-      throw reason instanceof Error ? annotateSpend(reason, spentSek, calls) : reason;
+      const korChunk = async (index: number): Promise<void> => {
+        const { bit, messages } = forberedda[index]!;
+        const sistaSida = bit.forstaSida + bit.sidor - 1;
+        const inputTokens = antalTokens[index]!.input_tokens;
+        let overgaendeFelAnvant = false;
+        let markorOmforsokAnvant = false;
+
+        // At most 3 attempts: the first, one retry after a transient API error,
+        // one retry after wrong page markers (each kind of retry at most once).
+        for (let forsok = 0; ; forsok++) {
+          if (avbryt.signal.aborted) throw new TranskriberingTidsgransError(deadlineMs);
+          const varsta = estimateCostSek(inputTokens, maxOutputTokensPerChunk, pricing);
+          if (forsok > 0) {
+            // A retry: its own worst case must fit next to what is spent and in flight.
+            enforceCostLimit(
+              inputTokens,
+              maxOutputTokensPerChunk,
+              maxCostSek - spentSek - reserveratSek,
+              pricing,
+            );
+          }
+          reserveratSek += varsta;
+
+          let svar;
+          const start = performance.now();
+          try {
+            svar = await client.messages.create(
+              {
+                model,
+                max_tokens: maxOutputTokensPerChunk,
+                system,
+                messages,
+                output_config: { effort },
+              },
+              { signal: avbryt.signal },
+            );
+          } catch (error) {
+            reserveratSek -= varsta;
+            if (avbryt.signal.aborted) throw new TranskriberingTidsgransError(deadlineMs);
+            if (arOvergaendeApiFel(error) && !overgaendeFelAnvant) {
+              overgaendeFelAnvant = true;
+              await sov(omforsokFordrojningMs);
+              continue;
+            }
+            throw error;
+          }
+          const latencyMs = performance.now() - start;
+          reserveratSek -= varsta;
+
+          const metrics = buildCallMetrics({
+            stage: "transkribering",
+            model,
+            latencyMs,
+            usage: svar.usage,
+            stopReason: svar.stop_reason,
+            pricing,
+          });
+          calls.push(metrics);
+          spentSek += metrics.costSek;
+
+          if (svar.stop_reason === "refusal") {
+            throw annotateSpend(new ModelRefusedError("Transkriberingen"), spentSek, calls);
+          }
+          if (svar.stop_reason === "max_tokens") {
+            throw annotateSpend(
+              new ModelTruncatedError("Transkriberingen", maxOutputTokensPerChunk),
+              spentSek,
+              calls,
+            );
+          }
+
+          const text = svar.content
+            .filter((b) => b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text as string)
+            .join("\n");
+          const tolkning = parseTranskription(text, bit.forstaSida, bit.sidor);
+          if (tolkning.ok) {
+            nyaSidor.push(...tolkning.sidor);
+            if (sparaSidor) await sparaSidor(tolkning.sidor);
+            return;
+          }
+          if (markorOmforsokAnvant) {
+            throw new TranskriberingMarkorFelError(bit.forstaSida, sistaSida, tolkning.fel);
+          }
+          markorOmforsokAnvant = true;
+        }
+      };
+
+      const utfall = await Promise.allSettled(forberedda.map((_, i) => korChunk(i)));
+      // A deterministic failure (wrong markers, truncation, refusal) is reported in
+      // preference to the deadline: it will not go away on another attempt.
+      const avvisade = utfall.filter((u): u is PromiseRejectedResult => u.status === "rejected");
+      const forstaFel =
+        avvisade.find((u) => !(u.reason instanceof TranskriberingTidsgransError)) ?? avvisade[0];
+      if (forstaFel) {
+        const reason: unknown = forstaFel.reason;
+        throw reason instanceof Error ? annotateSpend(reason, spentSek, calls) : reason;
+      }
     }
-  }
 
-  const sidor = [...klaraSidor, ...nyaSidor].sort((a, b) => a.sida - b.sida);
-  return { sidor, spentSek, calls };
+    const sidor = [...klaraSidor, ...nyaSidor].sort((a, b) => a.sida - b.sida);
+    return { sidor, spentSek, calls };
+  } finally {
+    clearTimeout(tidsgrans);
+  }
 }

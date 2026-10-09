@@ -542,10 +542,11 @@ function skapaFakeDatabas(): FakeDatabas {
       });
     },
 
-    async hamtaSidtext(rapportId: string): Promise<Sidtext[]> {
+    async hamtaSidtext(rapportId: string, kalla?: SidtextKalla): Promise<Sidtext[]> {
       const rader = sidtext.get(rapportId);
       if (!rader) return [];
       return [...rader.entries()]
+        .filter(([, rad]) => kalla === undefined || rad.kalla === kalla)
         .map(([sida, rad]) => ({ sida, text: rad.text }))
         .sort((a, b) => a.sida - b.sida);
     },

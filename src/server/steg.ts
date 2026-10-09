@@ -84,7 +84,11 @@ import {
   type AnthropicClientLike,
   type RunGroundingResult,
 } from "@/lib/analysis/runExtraction";
-import { STANDARD_CHUNKSTORLEK, transkribera } from "@/lib/analysis/transkribering";
+import {
+  STANDARD_CHUNKSTORLEK,
+  TranskriberingMarkorFelError,
+  transkribera,
+} from "@/lib/analysis/transkribering";
 import {
   hamtaAnalysFranCache,
   hamtaExtraktionFranCache,
@@ -100,6 +104,7 @@ import { tolkaFel, versionskonfliktResultat } from "./fel";
 import type {
   AnalysRad,
   AnalysStage,
+  Databas,
   Lager,
   RapportDelta,
   RapportRad,
@@ -111,6 +116,8 @@ import {
   hittaRegistertraff,
   PIPELINE_VERSION,
   rapportensPdfSokvag,
+  SidtextOfullstandigError,
+  TRANSKRIBERING_KALLA,
   registreraAnvandarAdress,
   stegEfterIdentifiering,
   UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK,
@@ -121,10 +128,31 @@ import {
   UPPSKATTAD_KOSTNAD_BEDOMNING_SEK,
   UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK,
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
+  MAX_TRANSKRIBERING_SEK,
   TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
   transkriberingsTak,
   uppskattadKostnadTranskribering,
 } from "./spend";
+
+/**
+ * One spend reservation of one step attempt, reconciled AT MOST ONCE. The
+ * success path reconciles inside `avslutaMedFramgang`/`rapportFramgang`; if the
+ * write that follows then fails, the error path reaches the same reservation
+ * and must not reconcile it a second time (that would subtract the
+ * reservation from the day's total twice and under-count the day's spend).
+ */
+class Reservation {
+  private avstamd = false;
+  constructor(readonly belopp: number) {}
+
+  async avstam(db: Databas, faktisktSek: number): Promise<void> {
+    if (this.belopp <= 0 || this.avstamd) return;
+    await stamAvSteg(db, this.belopp, faktisktSek);
+    // Only after the RPC succeeded: a failed reconcile was not applied, so the
+    // error path may (and must) try once more.
+    this.avstamd = true;
+  }
+}
 
 export interface KorNastaStegOptions {
   /** Injected for tests; production omits this and each step builds a real
@@ -155,6 +183,11 @@ export interface KorNastaStegOptions {
   /** Injected for tests (the register's dry assembly); production uses
    *  `assembleraAnalys`. */
   monteraAnalys?: typeof assembleraAnalys;
+  /** Tests only: `transkribera`'s overall deadline (production: its 110 s default). */
+  transkriberingsTidsgransMs?: number;
+  /** Tests only: pause before a chunk's one retry after a transient API error
+   *  (production: `transkribera`'s 1 s default). */
+  transkriberingsFordrojningMs?: number;
 }
 
 export interface KorNastaStegResultat {
@@ -205,13 +238,11 @@ function trigger(options: KorNastaStegOptions | undefined): void {
 async function avslutaMedFramgang(
   lager: Lager,
   rad: AnalysRad,
-  reserveratSek: number,
+  reservation: Reservation,
   spentSek: number,
   uppdatering: Partial<AnalysRad>,
 ): Promise<void> {
-  if (reserveratSek > 0) {
-    await stamAvSteg(lager.db, reserveratSek, spentSek);
-  }
+  await reservation.avstam(lager.db, spentSek);
   await lager.db.uppdateraAnalys(rad.id, {
     status: "queued",
     leaseUntil: null,
@@ -258,14 +289,12 @@ async function avslutaMedFramgang(
 async function avslutaMedFel(
   lager: Lager,
   rad: AnalysRad,
-  reserveratSek: number,
+  reservation: Reservation,
   error: unknown,
   knownSpentSek = 0,
 ): Promise<void> {
   const faktisktSpenderatSek = errorHasKnownSpend(error) ? error.spentSek : knownSpentSek;
-  if (reserveratSek > 0) {
-    await stamAvSteg(lager.db, reserveratSek, faktisktSpenderatSek);
-  }
+  await reservation.avstam(lager.db, faktisktSpenderatSek);
   const { errorCode, message } = tolkaFel(error);
   if (rad.attempts < 3) {
     // Släpp tillbaka till kön UTAN att återlämna försöket — det är genuint
@@ -331,6 +360,7 @@ async function korGrundningssteg(
   if (!reservation.ok) {
     return refuseraOchAterlamna(lager, rad);
   }
+  const res = new Reservation(UPPSKATTAD_KOSTNAD_GRUNDNING_SEK);
 
   // Hålls i funktionens ytterscope (inte inuti try) så catch-blocket känner
   // till den redan spenderade kostnaden även om felet kommer EFTER ett lyckat
@@ -355,7 +385,7 @@ async function korGrundningssteg(
     });
     spentSek = result.spentSek;
 
-    await avslutaMedFramgang(lager, rad, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, spentSek, {
+    await avslutaMedFramgang(lager, rad, res, spentSek, {
       stage: "extracting",
       grundtext: result.groundingText,
     });
@@ -363,7 +393,7 @@ async function korGrundningssteg(
     // arbete kvar direkt, inte nästa cron-tick. Se KorNastaStegOptions.reinvoke.
     trigger(options);
   } catch (error) {
-    await avslutaMedFel(lager, rad, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, error, spentSek);
+    await avslutaMedFel(lager, rad, res, error, spentSek);
   }
 
   return { claimed: true, analysisId: rad.id, stage: rad.stage };
@@ -381,7 +411,10 @@ async function korExtraktionssteg(
 ): Promise<KorNastaStegResultat> {
   const cachad = await hamtaExtraktionFranCache(lager.db, nyckel);
   if (cachad) {
-    await avslutaMedFramgang(lager, rad, 0, 0, { stage: "judging", grundtext: null });
+    await avslutaMedFramgang(lager, rad, new Reservation(0), 0, {
+      stage: "judging",
+      grundtext: null,
+    });
     trigger(options); // se kommentaren i korGrundningssteg — cache-träffen är lika "klar direkt".
     return { claimed: true, analysisId: rad.id, stage: rad.stage };
   }
@@ -390,6 +423,7 @@ async function korExtraktionssteg(
   if (!reservation.ok) {
     return refuseraOchAterlamna(lager, rad);
   }
+  const res = new Reservation(UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK);
 
   // Se korGrundningssteg — samma anledning till att spentSek lever utanför try.
   let spentSek = 0;
@@ -411,13 +445,13 @@ async function korExtraktionssteg(
     // BETALADES för av runStructuredExtraction ovan — spentSek är redan känd
     // och skickas med till avslutaMedFel, inte 0 kr.
     await sparaExtraktionICache(lager.db, nyckel, result.extraction, spentSek);
-    await avslutaMedFramgang(lager, rad, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, spentSek, {
+    await avslutaMedFramgang(lager, rad, res, spentSek, {
       stage: "judging",
       grundtext: null,
     });
     trigger(options); // klar vid "judging" — mer arbete kvar direkt.
   } catch (error) {
-    await avslutaMedFel(lager, rad, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, error, spentSek);
+    await avslutaMedFel(lager, rad, res, error, spentSek);
   }
 
   return { claimed: true, analysisId: rad.id, stage: rad.stage };
@@ -436,14 +470,14 @@ async function korBedomningssteg(
   options: KorNastaStegOptions | undefined,
 ): Promise<KorNastaStegResultat> {
   let judgement = await hamtaAnalysFranCache(lager.db, nyckel);
-  let reserveratSek = 0;
+  let res = new Reservation(0);
 
   if (!judgement) {
     const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_BEDOMNING_SEK);
     if (!reservation.ok) {
       return refuseraOchAterlamna(lager, rad);
     }
-    reserveratSek = UPPSKATTAD_KOSTNAD_BEDOMNING_SEK;
+    res = new Reservation(UPPSKATTAD_KOSTNAD_BEDOMNING_SEK);
   }
 
   let spentSek = 0;
@@ -499,13 +533,13 @@ async function korBedomningssteg(
       skapad: rad.createdAt,
     });
 
-    await avslutaMedFramgang(lager, rad, reserveratSek, spentSek, {
+    await avslutaMedFramgang(lager, rad, res, spentSek, {
       stage: "complete",
       status: "done",
       finishedAt: new Date().toISOString(),
     });
   } catch (error) {
-    await avslutaMedFel(lager, rad, reserveratSek, error, spentSek);
+    await avslutaMedFel(lager, rad, res, error, spentSek);
   }
 
   return { claimed: true, analysisId: rad.id, stage: rad.stage };
@@ -621,13 +655,11 @@ async function skrivLeasad(lager: Lager, r: RapportRad, delta: RapportDelta): Pr
 async function rapportFramgang(
   lager: Lager,
   r: RapportRad,
-  reserveratSek: number,
+  reservation: Reservation,
   spend: KandSpend,
   delta: RapportDelta,
 ): Promise<boolean> {
-  if (reserveratSek > 0) {
-    await stamAvSteg(lager.db, reserveratSek, spend.spentSek);
-  }
+  await reservation.avstam(lager.db, spend.spentSek);
   return skrivLeasad(lager, r, {
     status: "queued",
     leaseUntil: null,
@@ -641,24 +673,25 @@ async function rapportFramgang(
 
 /** Se `avslutaMedFel` — samma regler för en rapport. `redanBokford` = stegets
  *  kostnad står redan på raden (bedömningen sparas före den torra
- *  sammanställningen), så den läggs inte på en gång till. */
+ *  sammanställningen), så den läggs inte på en gång till. `terminal` = felet är
+ *  deterministiskt: ett nytt försök skulle ge samma svar (och betala igen), så
+ *  rapporten blir `failed` direkt i stället för att köas om. */
 async function rapportFel(
   lager: Lager,
   r: RapportRad,
-  reserveratSek: number,
+  reservation: Reservation,
   error: unknown,
   kand: KandSpend = INGEN_SPEND,
   redanBokford = false,
+  terminal = false,
 ): Promise<void> {
   const faktiskt: KandSpend = errorHasKnownSpend(error)
     ? { spentSek: error.spentSek, calls: error.calls }
     : kand;
-  if (reserveratSek > 0) {
-    await stamAvSteg(lager.db, reserveratSek, faktiskt.spentSek);
-  }
+  await reservation.avstam(lager.db, faktiskt.spentSek);
   const { errorCode, message } = tolkaFel(error);
   const kostnad = redanBokford ? {} : kostnadsDelta(r, faktiskt);
-  if (r.attempts < 3) {
+  if (r.attempts < 3 && !terminal) {
     // Tillbaka i kön utan att återlämna försöket (samma som slapp_rapport_steg
     // med p_ateranvand_forsok = false, men leasad).
     await skrivLeasad(lager, r, {
@@ -810,7 +843,7 @@ async function korIdentifiering(
 ): Promise<KorNastaStegResultat> {
   const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK);
   if (!reservation.ok) return refuseraRapport(lager, r);
-  const reserverat = UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK;
+  const res = new Reservation(UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK);
 
   let spend: KandSpend = INGEN_SPEND;
   try {
@@ -854,7 +887,7 @@ async function korIdentifiering(
         ...kostnadsDelta(r, spend),
       });
       try {
-        await stamAvSteg(lager.db, reserverat, spend.spentSek);
+        await res.avstam(lager.db, spend.spentSek);
       } catch (fel) {
         // Raden är redan avslutad — en misslyckad avstämning får inte leda in
         // i felvägen (som skulle avstämma en gång till).
@@ -866,7 +899,7 @@ async function korIdentifiering(
       return rapportResultat(r);
     }
 
-    const skrivet = await rapportFramgang(lager, r, reserverat, spend, {
+    const skrivet = await rapportFramgang(lager, r, res, spend, {
       stage: stegEfterIdentifiering(r.textlager),
     });
     if (!skrivet) return rapportResultat(r);
@@ -875,22 +908,24 @@ async function korIdentifiering(
     }
     trigger(options);
   } catch (error) {
-    await rapportFel(lager, r, reserverat, error, spend);
+    await rapportFel(lager, r, res, error, spend);
   }
   return rapportResultat(r);
 }
 
 /** Antal sidor i rapportens PDF: den räknade siffran från uppladdningen
- *  (`rapport_fil.sidor`), annars räknas de ur bytes. Bara en uppskattningsgrund —
- *  själva uppdelningen gör `transkribera`. */
+ *  (`rapport_fil.sidor`), annars räknas de ur bytes (PDF:en hämtas då, eller
+ *  återanvänds om anroparen redan har den). Grunden för uppskattningen och för
+ *  täckningskontrollen före grundningen — själva uppdelningen gör `transkribera`. */
 async function antalSidorForRapport(
   lager: Lager,
   r: RapportRad,
-  pdfBytes: Uint8Array,
+  pdfBytes?: Uint8Array,
 ): Promise<number> {
   const fil = r.pdfHash === null ? null : await lager.db.hamtaRapportFil(r.pdfHash);
   if (fil?.sidor && fil.sidor > 0) return fil.sidor;
-  return (await PDFDocument.load(pdfBytes.slice())).getPageCount();
+  const bytes = pdfBytes ?? (await lasRapportPdf(lager, r));
+  return (await PDFDocument.load(bytes.slice())).getPageCount();
 }
 
 /** Hur mycket som återstår att transkribera: sidor utan sparad text och de
@@ -915,22 +950,67 @@ function aterstaendeTranskribering(
 }
 
 /**
+ * En rapport utan egen sidtext hämtar sidorna från den NYASTE andra rapporten
+ * med samma bytes (`pdf_hash`) som har sidor skrivna med den nuvarande
+ * transkriptionsprompten (`TRANSKRIBERING_KALLA`) — en versionshöjd omkörning,
+ * eller en ny uppladdning efter ett misslyckande, ska inte betala för samma
+ * sidor två gånger. Kopieras till den egna rapporten, så resten av steget (och
+ * grundningen) bara ser egen sidtext. Returnerar de sidor rapporten nu har.
+ */
+async function ateranvandTranskription(
+  lager: Lager,
+  r: RapportRad,
+  antalSidor: number,
+): Promise<Map<number, string>> {
+  if (r.pdfHash === null) return new Map();
+  for (const donator of await lager.db.listaRapporter({ pdfHash: r.pdfHash })) {
+    if (donator.id === r.id) continue;
+    const sidor = (await lager.db.hamtaSidtext(donator.id, TRANSKRIBERING_KALLA)).filter(
+      (s) => s.sida >= 1 && s.sida <= antalSidor,
+    );
+    if (sidor.length === 0) continue;
+    await lager.db.sparaSidtext(r.id, sidor, TRANSKRIBERING_KALLA);
+    return new Map(sidor.map((s) => [s.sida, s.text]));
+  }
+  return new Map();
+}
+
+/** Fel som ett nytt försök inte kan rätta till (och skulle betala för igen):
+ *  ett avkortat svar (samma tak ger samma avkortning), felaktiga sidmarkörer
+ *  även efter chunkens eget omförsök, och en förhandskontroll som inte ryms
+ *  under det som återstår av stegets tak. Övergående API-fel och tidsgränsen
+ *  är INTE terminala — de går den vanliga tre-försöks-vägen. */
+function arTerminaltTranskriberingsfel(error: unknown): boolean {
+  return (
+    error instanceof ModelTruncatedError ||
+    error instanceof TranskriberingMarkorFelError ||
+    error instanceof KostnadsgransOverskriden ||
+    // A refusal on the same pages repeats; retrying only pays again.
+    error instanceof ModelRefusedError
+  );
+}
+
+/**
  * Steg 0b — transkribering av en skannad rapport (textlager 'saknas', WS1,
  * docs/PLAN-v2.md §1.9). `transkribera` delar PDF:en i 5-sidors chunkar och kör
  * dem parallellt (ett modellanrop per chunk, alla inom DEN HÄR Edge-invokeringen);
  * varje färdig chunk sparas i `sidtext` direkt, så ett omförsök efter ett fel
- * bara gör de chunkar som saknas — och bara de reserveras och betalas.
+ * bara gör de chunkar som saknas — och bara de reserveras och betalas. Har
+ * rapporten ingen egen sidtext kopieras först en annan rapports (samma bytes,
+ * samma prompt-version) — se `ateranvandTranskription`.
  *
  * Spend: reservationen är REALISTISK (0,15 kr/sida × sidor kvar, se spend.ts) och
- * stäms av mot den faktiska kostnaden. Budgeten till `transkribera` är däremot
- * `max(MAX_COST_PER_ANALYSIS_SEK, chunkar × 1,0 kr)`: förhandskontrollen där
- * summerar värsta fallet för ALLA parallella chunkar (≈0,94 kr var vid 8,6k in /
- * 8k ut), så en 34-sidig rapport (7 chunkar ≈ 6,6 kr värsta fall) skulle annars
- * aldrig rymmas under ett tak på 5 kr trots att den kostar ≈ 3,6 kr.
+ * stäms av mot den faktiska kostnaden. Budgeten till `transkribera` är det som
+ * återstår av stegets hårda tak (`MAX_TRANSKRIBERING_SEK`, 15 kr) efter det
+ * rapporten redan kostat över alla försök: förhandskontrollen där summerar
+ * värsta fallet för ALLA parallella chunkar, räknat ur varje chunks verkliga
+ * `countTokens`. Tidsgräns: `transkribera` avbryter efter 110 s och sparar det
+ * som hunnit bli klart.
  *
  * Ett misslyckande går den vanliga vägen (tre försök, verklig spend bokförd via
- * felets annotering). Sidorna sparas utan lease-vakt (se `sparaSidtext` i
- * portar.ts); rapportens tillstånd skrivs bara via de leasade skrivningarna.
+ * felets annotering) — utom de deterministiska (`arTerminaltTranskriberingsfel`),
+ * som failar rapporten direkt. Sidorna sparas utan lease-vakt (se `sparaSidtext`
+ * i portar.ts); rapportens tillstånd skrivs bara via de leasade skrivningarna.
  */
 async function korTranskribering(
   lager: Lager,
@@ -938,36 +1018,47 @@ async function korTranskribering(
   r: RapportRad,
   options: KorNastaStegOptions | undefined,
 ): Promise<KorNastaStegResultat> {
-  let reserverat = 0;
+  let res = new Reservation(0);
   let spend: KandSpend = INGEN_SPEND;
   try {
     const pdfBytes = await lasRapportPdf(lager, r);
-    const klara = new Map((await lager.db.hamtaSidtext(r.id)).map((s) => [s.sida, s.text]));
     const antalSidor = await antalSidorForRapport(lager, r, pdfBytes);
+    let klara = new Map(
+      (await lager.db.hamtaSidtext(r.id, TRANSKRIBERING_KALLA)).map((s) => [s.sida, s.text]),
+    );
+    if (klara.size === 0) klara = await ateranvandTranskription(lager, r, antalSidor);
     const kvar = aterstaendeTranskribering(antalSidor, klara);
 
+    const tak = transkriberingsTak(r.costSek);
     if (kvar.sidor > 0) {
+      if (tak <= 0) throw new KostnadsgransOverskriden(r.costSek, MAX_TRANSKRIBERING_SEK);
       const belopp = uppskattadKostnadTranskribering(kvar.sidor);
       const reservation = await reserveraForSteg(lager.db, env, belopp);
       if (!reservation.ok) return refuseraRapport(lager, r);
-      reserverat = belopp;
+      res = new Reservation(belopp);
     }
 
     const resultat = await transkribera(pdfBytes, {
       model: r.model,
-      maxCostSek: transkriberingsTak(env.maxCostPerAnalysisSek, kvar.chunkar),
+      maxCostSek: tak,
       effort: env.effortGrounding,
       apiKey: env.anthropicApiKey,
       maxOutputTokensPerChunk: TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
       redanKlara: klara,
-      sparaSidor: (sidor) => lager.db.sparaSidtext(r.id, sidor, "transkribering"),
+      sparaSidor: (sidor) => lager.db.sparaSidtext(r.id, sidor, TRANSKRIBERING_KALLA),
       ...(options?.client ? { client: options.client } : {}),
+      ...(options?.transkriberingsTidsgransMs !== undefined
+        ? { deadlineMs: options.transkriberingsTidsgransMs }
+        : {}),
+      ...(options?.transkriberingsFordrojningMs !== undefined
+        ? { omforsokFordrojningMs: options.transkriberingsFordrojningMs }
+        : {}),
     });
     spend = { spentSek: resultat.spentSek, calls: resultat.calls };
-    const skrivet = await rapportFramgang(lager, r, reserverat, spend, { stage: "grundning" });
+    const skrivet = await rapportFramgang(lager, r, res, spend, { stage: "grundning" });
     if (skrivet) trigger(options);
   } catch (error) {
-    await rapportFel(lager, r, reserverat, error, spend);
+    await rapportFel(lager, r, res, error, spend, false, arTerminaltTranskriberingsfel(error));
   }
   return rapportResultat(r);
 }
@@ -987,6 +1078,7 @@ async function korRapportGrundning(
 ): Promise<KorNastaStegResultat> {
   const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK);
   if (!reservation.ok) return refuseraRapport(lager, r);
+  const res = new Reservation(UPPSKATTAD_KOSTNAD_GRUNDNING_SEK);
 
   let spend: KandSpend = INGEN_SPEND;
   try {
@@ -998,9 +1090,17 @@ async function korRapportGrundning(
     };
     let result: RunGroundingResult;
     if (r.textlager === "saknas") {
-      // hamtaSidtext är sorterad på sida; ingen sparad text -> TomTranskriptionError
-      // före något anrop (fel.ts: köparsäkert).
-      result = await runGroundingFranTranskription(await lager.db.hamtaSidtext(r.id), {
+      // Bara sidor med den nuvarande transkriptionsprompt-versionen räknas, och de
+      // måste täcka HELA rapporten: grundning på partiell text tappar siffror tyst.
+      // hamtaSidtext är sorterad på sida. Ingen sparad text alls är samma sak som
+      // saknade sidor (terminalt, scanned_pdf i fel.ts).
+      const sidtext = await lager.db.hamtaSidtext(r.id, TRANSKRIBERING_KALLA);
+      const antalSidor = await antalSidorForRapport(lager, r);
+      const finns = new Set(sidtext.map((s) => s.sida));
+      let saknade = 0;
+      for (let n = 1; n <= antalSidor; n++) if (!finns.has(n)) saknade++;
+      if (saknade > 0) throw new SidtextOfullstandigError(saknade, antalSidor);
+      result = await runGroundingFranTranskription(sidtext, {
         ...grundningsval,
         apiKey: env.anthropicApiKey,
       });
@@ -1008,13 +1108,13 @@ async function korRapportGrundning(
       result = await runGrounding(await lasRapportPdf(lager, r), grundningsval);
     }
     spend = { spentSek: result.spentSek, calls: result.calls };
-    const skrivet = await rapportFramgang(lager, r, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, spend, {
+    const skrivet = await rapportFramgang(lager, r, res, spend, {
       stage: "extraktion",
       grundtext: result.groundingText,
     });
     if (skrivet) trigger(options);
   } catch (error) {
-    await rapportFel(lager, r, UPPSKATTAD_KOSTNAD_GRUNDNING_SEK, error, spend);
+    await rapportFel(lager, r, res, error, spend, false, error instanceof SidtextOfullstandigError);
   }
   return rapportResultat(r);
 }
@@ -1055,6 +1155,7 @@ async function korRapportExtraktion(
 ): Promise<KorNastaStegResultat> {
   const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK);
   if (!reservation.ok) return refuseraRapport(lager, r);
+  const res = new Reservation(UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK);
 
   let spend: KandSpend = INGEN_SPEND;
   try {
@@ -1071,7 +1172,7 @@ async function korRapportExtraktion(
       ...(options?.client ? { client: options.client } : {}),
     });
     spend = { spentSek: result.spentSek, calls: result.calls };
-    const skrivet = await rapportFramgang(lager, r, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, spend, {
+    const skrivet = await rapportFramgang(lager, r, res, spend, {
       stage: "bedomning",
       grundtext: null,
       extraction: result.extraction,
@@ -1088,7 +1189,7 @@ async function korRapportExtraktion(
     }
     trigger(options);
   } catch (error) {
-    await rapportFel(lager, r, UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK, error, spend);
+    await rapportFel(lager, r, res, error, spend);
   }
   return rapportResultat(r);
 }
@@ -1115,11 +1216,11 @@ async function korRapportBedomning(
   options: KorNastaStegOptions | undefined,
 ): Promise<KorNastaStegResultat> {
   let judgement: AnalysJudgement | null = tolkaLagradBedomning(r.judgement);
-  let reserveratSek = 0;
+  let res = new Reservation(0);
   if (!judgement) {
     const reservation = await reserveraForSteg(lager.db, env, UPPSKATTAD_KOSTNAD_BEDOMNING_SEK);
     if (!reservation.ok) return refuseraRapport(lager, r);
-    reserveratSek = UPPSKATTAD_KOSTNAD_BEDOMNING_SEK;
+    res = new Reservation(UPPSKATTAD_KOSTNAD_BEDOMNING_SEK);
   }
 
   let spend: KandSpend = INGEN_SPEND;
@@ -1145,7 +1246,7 @@ async function korRapportBedomning(
       spend = { spentSek: result.spentSek, calls: result.calls };
       const kostnad = kostnadsDelta(r, spend);
       if (!(await skrivLeasad(lager, r, { judgement, ...kostnad }))) {
-        if (reserveratSek > 0) await stamAvSteg(lager.db, reserveratSek, spend.spentSek);
+        await res.avstam(lager.db, spend.spentSek);
         return rapportResultat(r);
       }
       rad = { ...r, ...kostnad, judgement };
@@ -1174,8 +1275,7 @@ async function korRapportBedomning(
       }
     }
 
-    if (reserveratSek > 0) await stamAvSteg(lager.db, reserveratSek, spend.spentSek);
-    reserveratSek = 0;
+    await res.avstam(lager.db, spend.spentSek);
     await skrivLeasad(lager, rad, {
       status: "done",
       stage: "klar",
@@ -1186,7 +1286,7 @@ async function korRapportBedomning(
       finishedAt: new Date().toISOString(),
     });
   } catch (error) {
-    await rapportFel(lager, rad, reserveratSek, error, spend, bokford);
+    await rapportFel(lager, rad, res, error, spend, bokford);
   }
   return rapportResultat(r);
 }

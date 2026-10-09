@@ -647,12 +647,10 @@ function skapaDatabas(sb: SupabaseClient): Databas {
       if (error) throw new Error(`registreraForeningAdress misslyckades: ${error.message}`);
     },
 
-    async hamtaSidtext(rapportId: string): Promise<Sidtext[]> {
-      const { data, error } = await sb
-        .from("sidtext")
-        .select("sida, text")
-        .eq("rapport_id", rapportId)
-        .order("sida", { ascending: true });
+    async hamtaSidtext(rapportId: string, kalla?: SidtextKalla): Promise<Sidtext[]> {
+      let q = sb.from("sidtext").select("sida, text").eq("rapport_id", rapportId);
+      if (kalla !== undefined) q = q.eq("kalla", kalla);
+      const { data, error } = await q.order("sida", { ascending: true });
       if (error) throw new Error(`hamtaSidtext misslyckades: ${error.message}`);
       return (data as Array<{ sida: number; text: string }>).map((rad) => ({
         sida: rad.sida,
