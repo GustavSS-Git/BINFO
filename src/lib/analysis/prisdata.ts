@@ -45,11 +45,14 @@ export type OmradeMedian = NonNullable<Prisanalys["omradeMedianPrisPerM2"]>;
  * ändras, vilket är hela poängen med gränssnittet.
  */
 export interface Prisdataforfragan {
-  /** XXXXXX-XXXX. Utan orgnr går föreningens egna försäljningar inte att slå upp. */
-  orgnr: string;
+  /** XXXXXX-XXXX. Utan orgnr går föreningens egna försäljningar inte att slå upp.
+   *  Saknas i den fristående priskollen (prisuppskattning, /vardering), som
+   *  inte känner föreningen — en källa ska då svara tom lista, aldrig gissa. */
+  orgnr?: string;
   boarea: number;
   postnummer: string;
-  ort: string;
+  /** Saknas i den fristående priskollen, av samma skäl som orgnr. */
+  ort?: string;
   adress?: string;
 
   // Tillagda för task 4g: exakt de fält Binfos värderingsmodell (src/lib/

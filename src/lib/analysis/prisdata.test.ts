@@ -275,6 +275,17 @@ describe("ModellPrisdatakalla", () => {
   });
 });
 
+describe("ModellPrisdatakalla utan föreningsidentitet (den fristående priskollen)", () => {
+  it("värderar lika utan orgnr/ort och ger tom lista för försäljningar i föreningen", async () => {
+    const { orgnr: _orgnr, ort: _ort, ...utanForening } = forfragan;
+    const kalla = new ModellPrisdatakalla();
+
+    expect(await kalla.hamtaVardering(utanForening)).toEqual(await kalla.hamtaVardering(forfragan));
+    expect(await kalla.hamtaForsaljningarIForeningen(utanForening)).toEqual([]);
+    expect(await kalla.hamtaOmradeMedian(utanForening)).toBeNull();
+  });
+});
+
 describe("korBinfoVarderingsmodell", () => {
   it("returnerar null för ett tomt eller felformaterat postnummer", () => {
     expect(korBinfoVarderingsmodell({ ...forfragan, postnummer: "" })).toBeNull();

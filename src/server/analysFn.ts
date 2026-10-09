@@ -1,5 +1,6 @@
 /**
- * TanStack Start-bindningen för de fyra analysfunktionerna i `./analys.ts`.
+ * TanStack Start-bindningen för de fyra analysfunktionerna i `./analys.ts`
+ * samt den fristående priskollen i `./prisuppskattning.ts`.
  *
  * Den här filen finns SEPARAT från `analys.ts` med flit: `analys.ts`s
  * vanliga funktioner anropas direkt av `src/server/cli/analysCli.ts` (ett
@@ -23,6 +24,7 @@ import {
   type SkapaAnalysArgs,
 } from "./analys";
 import { envFromProcess } from "./env";
+import { hamtaPrisuppskattning } from "./prisuppskattning";
 import { skapaLager } from "./supabase";
 
 /**
@@ -89,4 +91,19 @@ export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
     return hamtaForhandsvisningImpl(skapaLager(envFromProcess()), data.analysisId);
+  });
+
+/**
+ * Den fristående priskollen (/vardering): Binfos värdering ur formulärets
+ * uppgifter, utan PDF. Indata valideras i handlern (PrisInputSchema, se
+ * `hamtaPrisuppskattning` i ./prisuppskattning.ts) — `inputValidator` släpper
+ * bara igenom okänd data så att ett valideringsfel blir ett köparsäkert
+ * svar i stället för ett kastat fel. Kostar inga API-pengar.
+ */
+export const hamtaPrisuppskattningFn = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => data)
+  .handler(async ({ data }) => {
+    // TODO(WS4, konton): rate limiting (60/IP/timme) och behörighetskontrollen
+    // för rättigheten `prisuppskattning` läggs in här, före hamtaPrisuppskattning.
+    return hamtaPrisuppskattning(data);
   });

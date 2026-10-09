@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { assembleraAnalys, byggPrisanalys, utanNyckeltalsantal } from "./assemble";
+import {
+  assembleraAnalys,
+  avgiftsavvikelseFraga,
+  beraknaAndelAvForeningensSkuld,
+  byggPrisanalys,
+  tillPrisInput,
+  utanNyckeltalsantal,
+} from "./assemble";
 import { extraktion } from "./__fixtures__/extraktion";
 import { DemoPrisdatakalla, ModellPrisdatakalla, TomPrisdatakalla } from "./prisdata";
 import { konfidensUtanPrisdata, konfidensUtanPostnummer } from "./prisdata";
 import { AnalysisResultSchema } from "./schema";
 import type { AnalysJudgement } from "./analyze";
-import type { ExtractionResult, Forening, PropertyInput } from "@/types/analysis";
+import type {
+  ExtractionResult,
+  Figure,
+  Forening,
+  KeyFigureId,
+  PropertyInput,
+} from "@/types/analysis";
 
 const analysJudgement: AnalysJudgement = {
   betyg: "C",
@@ -692,5 +705,233 @@ describe("utanNyckeltalsantal", () => {
     expect(resultat.betygMotivering).toBe(
       "Två av nyckeltalen har status 'svag', vilket ger betyg C.",
     );
+  });
+});
+
+/** Extraktionen med ETT nyckeltals figur utbytt. */
+function extraktionMed(id: KeyFigureId, figure: Figure): ExtractionResult {
+  return {
+    ...extraktion,
+    forening: {
+      ...extraktion.forening,
+      keyFigures: extraktion.forening.keyFigures.map((kf) =>
+        kf.id === id ? { ...kf, figure } : kf,
+      ),
+    },
+  };
+}
+
+describe("andelAvForeningensSkuld — lägenhetens andel av föreningens lån (bara full analys)", () => {
+  it("är skuldsättning per m² bostadsrättsyta × boarea, i kr, 'berakning', med nyckeltalets ref", async () => {
+    // Fixturen: 11 200 kr/m² (s. 8) × 62 m² = 694 400 kr.
+    const resultat = await assembleraAnalys({
+      extraction: extraktion,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.prisanalys.andelAvForeningensSkuld).toEqual({
+      value: 694_400,
+      unit: "kr",
+      source: "berakning",
+      ref: { page: 8, excerpt: "Skuldsättning kr/kvm bostadsrättsyta 11 200" },
+    });
+    expect(resultat.fragor.some((f) => f.id === "saknar-skuldsattning-per-m2")).toBe(false);
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+
+  it("avrundar till hela kronor", () => {
+    const { forening } = extraktionMed("skuldsattning_per_m2_brf_yta", {
+      value: 7_633,
+      unit: "kr/m2",
+      source: "arsredovisning",
+      ref: { page: 4 },
+    });
+    // 7 633 × 54,5 = 415 998,5 -> 415 999
+    expect(beraknaAndelAvForeningensSkuld(forening, 54.5)?.value).toBe(415_999);
+    // 7 633 × 54,3 = 414 471,9 -> 414 472
+    expect(beraknaAndelAvForeningensSkuld(forening, 54.3)?.value).toBe(414_472);
+  });
+
+  it("ger 0 kr för en skuldfri förening (härlett, citerat), utan fråga", async () => {
+    const ref = { page: 12, excerpt: "Föreningen har inga lån" };
+    const resultat = await assembleraAnalys({
+      extraction: extraktionMed("skuldsattning_per_m2_brf_yta", {
+        value: 0,
+        unit: "kr/m2",
+        source: "berakning",
+        ref,
+      }),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect(resultat.prisanalys.andelAvForeningensSkuld).toEqual({
+      value: 0,
+      unit: "kr",
+      source: "berakning",
+      ref,
+    });
+    expect(resultat.fragor.some((f) => f.id === "saknar-skuldsattning-per-m2")).toBe(false);
+  });
+
+  it("utelämnas när nyckeltalet saknas, och en deterministisk fråga läggs till i stället", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktionMed("skuldsattning_per_m2_brf_yta", {
+        value: null,
+        unit: "kr/m2",
+        source: "berakning",
+      }),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+
+    expect("andelAvForeningensSkuld" in resultat.prisanalys).toBe(false);
+    const fraga = resultat.fragor.find((f) => f.id === "saknar-skuldsattning-per-m2");
+    expect(fraga).toMatchObject({
+      fraga: "Hur stor är föreningens räntebärande skuld per kvadratmeter bostadsrättsyta?",
+      ursprung: "analys",
+      riktadTill: "maklaren",
+    });
+    expect(fraga?.varfor).toMatch(/hur stor del av föreningens lån lägenheten bär/);
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+
+  it("använder aldrig skuldsättning per m² totalyta som reserv", () => {
+    const { forening } = extraktionMed("skuldsattning_per_m2_brf_yta", {
+      value: null,
+      unit: "kr/m2",
+      source: "arsredovisning",
+    });
+    // Fixturens totalyta-nyckeltal har ett värde — det får inte användas.
+    expect(
+      forening.keyFigures.find((kf) => kf.id === "skuldsattning_per_m2_totalyta")?.figure.value,
+    ).not.toBeNull();
+    expect(beraknaAndelAvForeningensSkuld(forening, 62)).toBeNull();
+  });
+
+  it("hoppar över frågan om pass 2 redan flaggat samma nyckeltal", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktionMed("skuldsattning_per_m2_brf_yta", {
+        value: null,
+        unit: "kr/m2",
+        source: "berakning",
+      }),
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: {
+        ...analysJudgement,
+        rodaFlaggor: [
+          {
+            id: "skuld-saknas",
+            titel: "Skuldsättningen går inte att bedöma",
+            beskrivning: "Uppgiften saknas.",
+            severity: "lag",
+            harledsFran: ["skuldsattning_per_m2_brf_yta"],
+          },
+        ],
+      },
+    });
+
+    expect(resultat.fragor.some((f) => f.id === "saknar-skuldsattning-per-m2")).toBe(false);
+  });
+
+  it("rör aldrig värderingsfälten: externVardering, avvikelse och slutsats är identiska med byggPrisanalys", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktion,
+      input: inputKomplett,
+      prisdatakalla: new ModellPrisdatakalla(),
+      analys: analysJudgement,
+    });
+    const utanBrf = await byggPrisanalys(inputKomplett, new ModellPrisdatakalla());
+
+    expect(resultat.prisanalys.andelAvForeningensSkuld?.value).toBe(694_400);
+    const { andelAvForeningensSkuld: _skuld, ...rest } = resultat.prisanalys;
+    expect(rest).toEqual(utanBrf);
+  });
+});
+
+describe("avgiftskontrollen (D6) — månadsavgiften mot föreningens årsavgift per m²", () => {
+  // Fixturen: 780 kr/m²/år × 62 m² / 12 = 4 030 kr/mån förväntat.
+  const forening = extraktion.forening;
+
+  it("ingen fråga inom 15 % (4 200 kr mot 4 030 kr, +4,2 %)", () => {
+    expect(avgiftsavvikelseFraga({ manadsavgift: 4200, boarea: 62 }, forening)).toBeNull();
+  });
+
+  it("ingen fråga precis på gränsen (4 634,5 kr = +15 %)", () => {
+    expect(avgiftsavvikelseFraga({ manadsavgift: 4634.5, boarea: 62 }, forening)).toBeNull();
+  });
+
+  it("fråga över gränsen, med båda beloppen i kronor och nyckeltalets ref", () => {
+    const fraga = avgiftsavvikelseFraga({ manadsavgift: 4700, boarea: 62 }, forening);
+    expect(fraga).toMatchObject({
+      id: "avgift-avviker-fran-foreningen",
+      ursprung: "analys",
+      riktadTill: "maklaren",
+      ref: { page: 8 },
+    });
+    expect(fraga?.varfor).toMatch(/4\s030 kr/);
+    expect(fraga?.varfor).toMatch(/4\s700 kr/);
+    expect(fraga?.varfor).toMatch(/16,6 % högre/);
+    expect(fraga?.varfor).toMatch(/andelstal/);
+  });
+
+  it("fråga även när avgiften är mycket lägre än föreningens snitt", () => {
+    const fraga = avgiftsavvikelseFraga({ manadsavgift: 3000, boarea: 62 }, forening);
+    expect(fraga?.varfor).toMatch(/25,6 % lägre/);
+  });
+
+  it("ingen fråga när årsavgiften per m² saknas", () => {
+    const { forening: utan } = extraktionMed("arsavgift_per_m2_brf_yta", {
+      value: null,
+      unit: "kr/m2",
+      source: "arsredovisning",
+    });
+    expect(avgiftsavvikelseFraga({ manadsavgift: 9000, boarea: 62 }, utan)).toBeNull();
+  });
+
+  it("ingen fråga när månadsavgiften eller boarean saknas (0)", () => {
+    expect(avgiftsavvikelseFraga({ manadsavgift: 0, boarea: 62 }, forening)).toBeNull();
+    expect(avgiftsavvikelseFraga({ manadsavgift: 4200, boarea: 0 }, forening)).toBeNull();
+  });
+
+  it("läggs till bland frågorna i den monterade analysen", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktion,
+      input: { ...inputKomplett, manadsavgift: 5500 },
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+    expect(resultat.fragor.filter((f) => f.id === "avgift-avviker-fran-foreningen")).toHaveLength(
+      1,
+    );
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+});
+
+describe("tillPrisInput", () => {
+  it("plockar ut exakt värderingsdelmängden av PropertyInput", () => {
+    expect(tillPrisInput(inputKomplett)).toEqual({
+      boarea: 62,
+      antalRum: 3,
+      manadsavgift: 4200,
+      postnummer: "11857",
+      vaning: 3,
+      byggar: 1962,
+      hiss: "ja",
+      balkong: "nej",
+      utgangspris: 4_950_000,
+    });
+  });
+
+  it("utelämnar vaning/byggar när de saknas (inga undefined-nycklar)", () => {
+    const { vaning: _v, byggar: _b, ...utan } = inputKomplett;
+    const prisInput = tillPrisInput(utan);
+    expect("vaning" in prisInput).toBe(false);
+    expect("byggar" in prisInput).toBe(false);
   });
 });
