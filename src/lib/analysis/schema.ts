@@ -78,6 +78,9 @@ const FigureObjectSchema = z
     /** The value exactly as printed in the report when it was not a plain
      *  number, e.g. "neg", "(123)", "− 4,2". */
     tryckt: z.string().optional(),
+    /** Why a deterministic sanity check (rimlighet.ts) flagged this figure.
+     *  Set only by that deterministic step, never by the model. */
+    osaker: z.string().min(1).optional(),
   })
   .strict();
 
@@ -462,6 +465,38 @@ export const PrisanalysSchema = z
     konfidens: KonfidensSchema,
     varderingsunderlag: VarderingsunderlagSchema.optional(),
     budpremie: BudpremieSchema.optional(),
+    andelAvForeningensSkuld: FigureSchema.optional(),
+  })
+  .strict();
+
+export const PrisInputSchema = z
+  .object({
+    boarea: z.number().positive(),
+    antalRum: z.number().positive(),
+    manadsavgift: z.number().nonnegative(),
+    postnummer: z.string(),
+    vaning: z.number().optional(),
+    byggar: z.number().int().optional(),
+    hiss: TristateSchema,
+    balkong: TristateSchema,
+    utgangspris: z.number().positive().optional(),
+  })
+  .strict();
+
+export const PrisanalysUtanForeningSchema = PrisanalysSchema.omit({
+  utgangspris: true,
+  prisPerM2: true,
+  andelAvForeningensSkuld: true,
+})
+  .extend({ utgangspris: FigureSchema.optional(), prisPerM2: FigureSchema.optional() })
+  .strict();
+
+export const PrisuppskattningResultatSchema = z
+  .object({
+    schemaVersion: z.literal("1.0.0"),
+    skapad: z.string(),
+    input: PrisInputSchema,
+    prisanalys: PrisanalysUtanForeningSchema,
   })
   .strict();
 
@@ -552,6 +587,17 @@ export const DatakvalitetSchema = z
     saknadeFalt: z.array(z.string()),
     pdfSaknarTextlager: z.boolean(),
     extraktionKonfidens: KonfidensSchema,
+    kalla: z.enum(["textlager", "skannad"]).optional(),
+  })
+  .strict();
+
+export const KontrollsummorSchema = z
+  .object({
+    summaTillgangar: FigureSchema.optional(),
+    summaEgetKapitalOchSkulder: FigureSchema.optional(),
+    arsavgifter: FigureSchema.optional(),
+    bostadsrattsyta: FigureSchema.optional(),
+    rantebarandeSkulder: FigureSchema.optional(),
   })
   .strict();
 
@@ -591,8 +637,10 @@ export const ExtractionResultSchema = z
         pdfSaknarTextlager: z.boolean(),
         extraktionKonfidens: KonfidensSchema,
         saknadeFalt: z.array(z.string()),
+        kalla: z.enum(["textlager", "skannad"]).optional(),
       })
       .strict(),
+    kontrollsummor: KontrollsummorSchema.optional(),
   })
   .strict();
 
