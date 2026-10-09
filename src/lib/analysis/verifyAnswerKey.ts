@@ -3,12 +3,8 @@ import path from "node:path";
 import { APIConnectionError } from "@anthropic-ai/sdk";
 import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
-import {
-  ScannedPdfError,
-  runGrounding,
-  runStructuredExtraction,
-  type ModelEffort,
-} from "./runExtraction";
+import { type runStructuredExtraction, type ModelEffort } from "./runExtraction";
+import { korExtraktion, type StegTid } from "./korExtraktion";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
 import { STANDARD_MODELL } from "./costGuard";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
@@ -34,8 +30,11 @@ import { STANDARD_EFFORT } from "@/server/env";
  * Volontären), the answer key states that sign instead — there is no
  * number to compare exactly or approximately against, only whether the
  * extraction correctly read the sign (see `jamforTecken` in answerKey.ts).
+ * `null` means the report prints NO such figure (e.g. only one, ambiguous,
+ * debt-per-m² figure, filed under bostadsrättsyta): the extraction must leave
+ * it null too.
  */
-type NyckeltalForvantatVarde = number | { tecken: "negativ" | "positiv" };
+type NyckeltalForvantatVarde = number | null | { tecken: "negativ" | "positiv" };
 
 /**
  * Per-field provenance for a fixture that hasn't been verified by the
@@ -86,12 +85,25 @@ interface AnswerKeyFixture {
   lanebok?: { totalSkuld?: number; snittranta?: number };
   avgiftInkluderar?: Partial<FeeInclusion>;
   /**
-   * True for a fixture whose PDF is expected to be REFUSED before any API
-   * spend — today only a scanned PDF with no text layer (ScannedPdfError).
-   * Success for this fixture means the refusal happened, not that any
-   * nyckeltal matched; `nyckeltal` is expected to be empty.
+   * True for a fixture that has been replaced by another one and is skipped
+   * entirely (kept only because files are not deleted by the agents; remove
+   * the file). Replaces the former `forvantatRefuserad` fixtures: scanned PDFs
+   * are now analysed, not refused.
    */
-  forvantatRefuserad?: boolean;
+  obsolet?: boolean;
+  /**
+   * True when `nyckeltal` and `lanebok` are a supervisor DRAFT (read from page
+   * images) not yet verified by the owner, although the rest of the fixture
+   * (identity, fee inclusion, ovrigInfo) is verified. Scores those values in the
+   * draft tally only — see `arUtkast` for whole-fixture drafts.
+   */
+  nyckeltalUtkast?: boolean;
+  /** PDF page (1-based) where the nyckeltal table sits; compared against each
+   *  figure's cited page and printed as information only (not scored). */
+  nyckeltalSida?: number;
+  /** Raw totals read by the key's author, printed next to the extraction's
+   *  kontrollsummor for the sanity-check review. Not scored. */
+  kontrollsummor?: Record<string, number>;
   /** See `OvrigInfoForvantat` above. */
   ovrigInfo?: OvrigInfoForvantat;
   /** Per-field page + printed text for the human verifier — same shape and
@@ -117,6 +129,11 @@ interface AnswerKeyFixture {
  */
 function arUtkast(fixture: AnswerKeyFixture): boolean {
   return fixture.kalla.verifieradMot.toUpperCase().includes("UTKAST");
+}
+
+/** The tally a fixture's nyckeltal/lanebok values score into. */
+function arNyckeltalUtkast(fixture: AnswerKeyFixture): boolean {
+  return arUtkast(fixture) || fixture.nyckeltalUtkast === true;
 }
 
 try {
@@ -185,10 +202,11 @@ async function korMedEttOmforsok<T>(anrop: () => Promise<T>): Promise<T> {
 }
 
 async function loadFixtures(): Promise<AnswerKeyFixture[]> {
-  const files = (await readdir(ANSWER_KEY_DIR)).filter((f) => f.endsWith(".json"));
-  return Promise.all(
+  const files = (await readdir(ANSWER_KEY_DIR)).filter((f) => f.endsWith(".json")).sort();
+  const alla: AnswerKeyFixture[] = await Promise.all(
     files.map(async (f) => JSON.parse(await readFile(path.join(ANSWER_KEY_DIR, f), "utf-8"))),
   );
+  return alla.filter((f) => !f.obsolet);
 }
 
 /** Running tally kept separately for verified vs. draft ("UTKAST") fixtures
@@ -215,6 +233,10 @@ async function main() {
 
   const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
+  // A scanned report needs headroom for the parallel transcription chunks' joint
+  // worst case (see transkribera); MAX_COST_PER_ANALYSIS_SEK wins when set.
+  const maxCostSekSkannad = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "25");
+  const effortTranskribering = lasEffort("ANTHROPIC_EFFORT_TRANSKRIBERING");
   const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
   const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
   // ANTHROPIC_PROMPT_CACHE: unset/off = no breakpoints (production default), "system" or "on" for measurement.
@@ -241,7 +263,7 @@ async function main() {
   let hoppadeOver = 0;
   let misslyckade = 0;
   const utkastRapporter: string[] = [];
-  const refuseringsFel: string[] = [];
+  const sanityRader: string[] = [];
   const allaAnrop: ModelCallMetrics[] = [];
   let totalWallMs = 0;
 
@@ -257,10 +279,16 @@ async function main() {
 
     let pdfBytes: Uint8Array = new Uint8Array(0);
     let sparatResultat:
-      | { forening: Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"]["forening"] }
+      | {
+          forening: Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"]["forening"];
+          datakvalitet?: Awaited<
+            ReturnType<typeof runStructuredExtraction>
+          >["extraction"]["datakvalitet"];
+        }
       | undefined;
     if (fromResultsDir) {
-      const resultPath = path.join(fromResultsDir, `${fixture.kalla.fil}.json`);
+      // Saved results are named after the PDF file itself, not its subdirectory.
+      const resultPath = path.join(fromResultsDir, `${path.basename(fixture.kalla.fil)}.json`);
       try {
         sparatResultat = JSON.parse(await readFile(resultPath, "utf-8"));
       } catch {
@@ -278,36 +306,6 @@ async function main() {
       }
     }
 
-    // --- Fixtures expected to be REFUSED before any API spend (scanned PDF) ---
-    if (fixture.forvantatRefuserad && !sparatResultat) {
-      try {
-        // No wall-clock/cost tracking here on purpose: a refusal is a local,
-        // pre-flight check (extractPdfText's text-layer detection) that
-        // fires before any Anthropic call is made — there is nothing to
-        // measure. runGrounding alone is enough to trigger it (it's step 0
-        // of that call, before structured extraction ever starts).
-        await korMedEttOmforsok(() =>
-          runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding }),
-        );
-        console.log(
-          `  ✗ FÖRVÄNTAD REFUSERING UTEBLEV — extraktionen lyckades, men skulle ha kastat ScannedPdfError`,
-        );
-        refuseringsFel.push(fixture.namn);
-        rakning.totalFalt++;
-      } catch (error) {
-        if (error instanceof ScannedPdfError) {
-          console.log(`  ✓ Förväntad refusering — ${error.message}`);
-          rakning.totalFalt++;
-          rakning.godkanda++;
-        } else {
-          console.log(`  ✗ Fel typ av fel — förväntade ScannedPdfError, fick: ${felText(error)}`);
-          refuseringsFel.push(fixture.namn);
-          rakning.totalFalt++;
-        }
-      }
-      continue;
-    }
-
     // En rapport som kraschar får inte sänka hela körningen — de övriga
     // fixturerna ska fortfarande köras och rapporteras.
     //
@@ -318,31 +316,37 @@ async function main() {
     let extraction: Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"];
     let spentSek: number;
     let calls: ModelCallMetrics[];
+    let steg: StegTid[] = [];
+    let textlager: string | undefined;
     const wallStart = performance.now();
     try {
       if (sparatResultat) {
         // Saved result: nothing is called, so no cost/latency to report.
         extraction = {
           forening: sparatResultat.forening,
+          ...(sparatResultat.datakvalitet ? { datakvalitet: sparatResultat.datakvalitet } : {}),
         } as Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"];
         spentSek = 0;
         calls = [];
       } else {
-        const grundning = await korMedEttOmforsok(() =>
-          runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding }),
-        );
-        const strukturerad = await korMedEttOmforsok(() =>
-          runStructuredExtraction(grundning.groundingText, {
-            model,
-            maxCostSek: maxCostSek - grundning.spentSek,
-            effort: effortExtraction,
-            pdfSaknarTextlager: grundning.pdfSaknarTextlager,
-            promptCache,
-          }),
-        );
-        extraction = strukturerad.extraction;
-        spentSek = grundning.spentSek + strukturerad.spentSek;
-        calls = [...grundning.calls, ...strukturerad.calls];
+        // Text layer: grounding on the PDF. No text layer: transcription ->
+        // grounding over it (korExtraktion decides, same code as cli.ts).
+        const korning = await korExtraktion(pdfBytes, {
+          model,
+          maxCostSek,
+          maxCostSekSkannad,
+          effortTranskribering,
+          effortGrounding,
+          effortExtraction,
+          promptCache,
+          omforsok: korMedEttOmforsok,
+          logg: (rad) => console.log(`  ${rad}`),
+        });
+        extraction = korning.extraction;
+        spentSek = korning.spentSek;
+        calls = korning.calls;
+        steg = korning.steg;
+        textlager = korning.textlager;
       }
     } catch (error) {
       console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
@@ -353,16 +357,75 @@ async function main() {
     totalWallMs += wallMs;
     allaAnrop.push(...calls);
 
+    if (textlager !== undefined) {
+      console.log(
+        `  Textlager: ${textlager}. Steg: ` +
+          steg
+            .map(
+              (t) => `${t.stage} ${(t.wallMs / 1000).toFixed(1)} s (${t.spentSek.toFixed(2)} kr)`,
+            )
+            .join(", "),
+      );
+    }
+    if (extraction.datakvalitet?.kalla) {
+      console.log(
+        `  Källa: ${extraction.datakvalitet.kalla}, konfidens: ${extraction.datakvalitet.extraktionKonfidens.niva}`,
+      );
+    }
+
+    // Nyckeltal and lanebok score into the draft tally when the key's values are a
+    // draft (whole fixture, or `nyckeltalUtkast` for only these values).
+    const rakningNyckeltal = arNyckeltalUtkast(fixture) ? utkast : verifierad;
+    if (fixture.nyckeltalUtkast && !arUtkast(fixture) && !utkastRapporter.includes(fixture.namn)) {
+      utkastRapporter.push(`${fixture.namn} (endast nyckeltal)`);
+    }
     for (const [id, forvantat] of Object.entries(fixture.nyckeltal)) {
       const kf = extraction.forening.keyFigures.find((k) => k.id === id);
+      const sidaInfo =
+        fixture.nyckeltalSida !== undefined && kf?.figure.ref?.page !== undefined
+          ? kf.figure.ref.page === fixture.nyckeltalSida
+            ? ""
+            : ` [citerad sida ${kf.figure.ref.page}, facit-tabellen på sida ${fixture.nyckeltalSida}]`
+          : "";
+      const osakerInfo = kf?.figure.osaker ? ` [OSÄKER: ${kf.figure.osaker}]` : "";
+      if (kf?.figure.osaker) {
+        const ratt =
+          typeof forvantat === "number"
+            ? kf.figure.value === forvantat
+              ? "siffran var RÄTT (falsklarm)"
+              : "siffran var FEL (träff)"
+            : forvantat === null
+              ? kf.figure.value === null
+                ? "siffran var RÄTT (falsklarm)"
+                : "siffran var FEL (träff)"
+              : "tecken-facit";
+        sanityRader.push(`${fixture.namn} · ${id}: ${ratt} — ${kf.figure.osaker}`);
+      }
 
-      if (typeof forvantat === "number") {
+      if (forvantat === null) {
+        // The report prints no such figure — the extraction must not invent one.
+        const r = kf?.figure.value === null || kf === undefined;
+        rakningNyckeltal.totalFalt++;
+        if (r) rakningNyckeltal.godkanda++;
+        console.log(
+          `  ${r ? "✓" : "✗"} ${id}: förväntat null (finns inte i rapporten), fick ${kf?.figure.value ?? "null"}${osakerInfo}`,
+        );
+        const forvantadStatus = bedomStatus(id as KeyFigureId, null).status;
+        const statusGodkand = kf?.status === forvantadStatus;
+        rakningNyckeltal.totalFalt++;
+        if (statusGodkand) rakningNyckeltal.godkanda++;
+        console.log(
+          `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
+        );
+      } else if (typeof forvantat === "number") {
         const r = jamforVarde(id, kf?.figure.value ?? null, forvantat, "exakt");
-        rakning.totalFalt++;
-        if (r.godkand) rakning.godkanda++;
+        rakningNyckeltal.totalFalt++;
+        if (r.godkand) rakningNyckeltal.godkanda++;
         console.log(
           `  ${r.godkand ? "✓" : "✗"} ${id}: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}` +
-            (kf?.figure.tryckt ? ` (tryckt: "${kf.figure.tryckt}")` : ""),
+            (kf?.figure.tryckt ? ` (tryckt: "${kf.figure.tryckt}")` : "") +
+            sidaInfo +
+            osakerInfo,
         );
 
         // Status är nu deterministisk (benchmarks.ts) — det finns inget för
@@ -374,16 +437,16 @@ async function main() {
         // sammankopplingsbugg, inte ett gissningsfel.
         const forvantadStatus = bedomStatus(id as KeyFigureId, forvantat).status;
         const statusGodkand = kf?.status === forvantadStatus;
-        rakning.totalFalt++;
-        if (statusGodkand) rakning.godkanda++;
+        rakningNyckeltal.totalFalt++;
+        if (statusGodkand) rakningNyckeltal.godkanda++;
         console.log(
           `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
         );
       } else {
         // Sign-only expectation (e.g. "neg") — see jamforTecken's doc comment.
         const r = jamforTecken(id, kf?.figure.value ?? null, kf?.figure.tecken, forvantat.tecken);
-        rakning.totalFalt++;
-        if (r.godkand) rakning.godkanda++;
+        rakningNyckeltal.totalFalt++;
+        if (r.godkand) rakningNyckeltal.godkanda++;
         console.log(
           `  ${r.godkand ? "✓" : "✗"} ${id}.tecken: förväntat "${forvantat.tecken}", fick ` +
             `${kf?.figure.tecken ? `"${kf.figure.tecken}"` : "inget tecken"}` +
@@ -392,8 +455,8 @@ async function main() {
 
         const forvantadStatus = bedomStatus(id as KeyFigureId, null, forvantat.tecken).status;
         const statusGodkand = kf?.status === forvantadStatus;
-        rakning.totalFalt++;
-        if (statusGodkand) rakning.godkanda++;
+        rakningNyckeltal.totalFalt++;
+        if (statusGodkand) rakningNyckeltal.godkanda++;
         console.log(
           `  ${statusGodkand ? "✓" : "✗"} ${id}.status: förväntat "${forvantadStatus}", fick "${kf?.status ?? "saknas"}"`,
         );
@@ -407,8 +470,8 @@ async function main() {
         fixture.lanebok.totalSkuld,
         "exakt",
       );
-      rakning.totalFalt++;
-      if (r.godkand) rakning.godkanda++;
+      rakningNyckeltal.totalFalt++;
+      if (r.godkand) rakningNyckeltal.godkanda++;
       console.log(
         `  ${r.godkand ? "✓" : "✗"} lanebok.totalSkuld: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}`,
       );
@@ -421,13 +484,29 @@ async function main() {
         fixture.lanebok.snittranta,
         "ungefar",
       );
-      rakning.totalFalt++;
-      if (r.godkand) rakning.godkanda++;
+      rakningNyckeltal.totalFalt++;
+      if (r.godkand) rakningNyckeltal.godkanda++;
       const avvikelse =
         r.avvikelseProcent !== undefined ? ` (${r.avvikelseProcent.toFixed(2)}% avvikelse)` : "";
       console.log(
         `  ${r.godkand ? "✓" : "✗"} lanebok.snittranta: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}${avvikelse}`,
       );
+    }
+
+    // Information only (not scored): the raw totals vs the key author's, and every
+    // reason confidence was lowered (incl. the deterministic sanity checks).
+    if (extraction.kontrollsummor && fixture.kontrollsummor) {
+      for (const [nyckel, forvantat] of Object.entries(fixture.kontrollsummor)) {
+        const fick = (
+          extraction.kontrollsummor as Record<string, { value: number | null } | undefined>
+        )[nyckel];
+        console.log(
+          `  · kontrollsumma ${nyckel}: facit ${forvantat}, fick ${fick?.value ?? "ej extraherad"}`,
+        );
+      }
+    }
+    for (const skal of extraction.datakvalitet?.extraktionKonfidens.skal ?? []) {
+      console.log(`  · konfidensskäl: ${skal}`);
     }
 
     if (fixture.avgiftInkluderar) {
@@ -550,11 +629,13 @@ async function main() {
       (hoppadeOver > 0 ? ` ${hoppadeOver} rapport(er) överhoppade (PDF saknas).` : "") +
       (misslyckade > 0
         ? ` ${misslyckade} rapport(er) misslyckades (körningen gick inte att slutföra).`
-        : "") +
-      (refuseringsFel.length > 0
-        ? ` ${refuseringsFel.length} förväntad refusering uteblev: ${refuseringsFel.join(", ")}.`
         : ""),
   );
+
+  console.log(`\n${"=".repeat(70)}`);
+  console.log("RIMLIGHETSKONTROLLER SOM SLOG TILL (siffra markerad osäker):");
+  if (sanityRader.length === 0) console.log("  Inga.");
+  for (const rad of sanityRader) console.log(`  - ${rad}`);
 
   if (utkastRapporter.length > 0) {
     console.log(
@@ -582,8 +663,7 @@ async function main() {
   }
 
   const allaGodkanda = verifierad.godkanda === verifierad.totalFalt;
-  process.exitCode =
-    allaGodkanda && hoppadeOver === 0 && misslyckade === 0 && refuseringsFel.length === 0 ? 0 : 1;
+  process.exitCode = allaGodkanda && hoppadeOver === 0 && misslyckade === 0 ? 0 : 1;
 }
 
 main().catch((error: unknown) => {

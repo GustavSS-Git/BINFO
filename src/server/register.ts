@@ -45,7 +45,8 @@ import {
   type LokalIdentifiering,
   type Rapportidentitet,
 } from "@/lib/analysis/identitet";
-import { bedomTextkvalitet, pdfHasNoTextLayer } from "@/lib/analysis/pdf";
+// Single source for the text-layer rule (shared with the CLI path).
+export { klassificeraTextlager, TRASIGT_TEXTLAGER_GRANS } from "@/lib/analysis/textlager";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
 import { losTackning, normaliseraPostnummer } from "@/lib/vardering";
 import type { ExtractionResult } from "@/types/analysis";
@@ -87,13 +88,6 @@ export const SCHEMA_MAJOR = 1;
 export const PIPELINE_VERSION = `p${PROMPT_VERSION}.i${IDENTITET_PROMPT_VERSION}.s${SCHEMA_MAJOR}`;
 
 /**
- * `bedomTextkvalitet` above this → textlager 'trasigt'. Measured 2026-10-09:
- * test_rapport.pdf (glyph-per-token garbled layer) scores 0.785, every normal
- * report in the corpus ≤ 0.35. 0.6 sits between with margin on both sides.
- */
-export const TRASIGT_TEXTLAGER_GRANS = 0.6;
-
-/**
  * Spend reservation for the 'identifiering' stage (pages 1–3, small model,
  * short JSON answer). PLAN-v2 §3.2 estimates ~0.05–0.1 kr per call; rounded
  * up generously, like the other per-stage estimates in spend.ts.
@@ -116,17 +110,6 @@ const MAX_ERSATT_KEDJA = 10;
 // ---------------------------------------------------------------------------
 // Small pure helpers
 // ---------------------------------------------------------------------------
-
-/**
- * 'saknas' = every page empty (the pre-register rule, `pdfHasNoTextLayer`);
- * 'trasigt' = a text layer exists but reads as glyph soup
- * (`bedomTextkvalitet` > TRASIGT_TEXTLAGER_GRANS); else 'ok'.
- */
-export function klassificeraTextlager(sidor: readonly string[]): Textlager {
-  if (pdfHasNoTextLayer([...sidor])) return "saknas";
-  if (bedomTextkvalitet(sidor) > TRASIGT_TEXTLAGER_GRANS) return "trasigt";
-  return "ok";
-}
 
 /** Luhn-checked orgnr (identitet.ts) and an integer year. */
 export function arGiltigIdentitet(identitet: Rapportidentitet): boolean {

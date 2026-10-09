@@ -8,7 +8,7 @@ import { BENCHMARKS } from "./benchmarks";
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "5";
+export const PROMPT_VERSION = "6";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -45,9 +45,13 @@ Antal hyresrätter och antal lokaler: leta efter hur många av föreningens enhe
 
 De sju lagstadgade nyckeltalen (BFNAR 2023:1) — leta upp exakta värden för var och en:
 ${ALLA_NYCKELTAL.map((n) => `- ${n.label}`).join("\n")}
-Skuldsättning per kvm: anger rapporten bara ett enda skuldtal per kvm utan att tydligt skilja på totalyta och bostadsrättsyta (t.ex. "Lån per kvm bostadsyta, kr 2 284"), citera det ändå — det ska redovisas som skuldsättning per m² bostadsrättsyta (skuldsattning_per_m2_brf_yta), inte utelämnas.
+Skuldsättning per kvm: anger rapporten bara ett enda skuldtal per kvm utan att tydligt skilja på totalyta och bostadsrättsyta (t.ex. "Lån per kvm bostadsyta, kr 2 284" eller "Skuldsättningsgrad kr/kvm 3 089"), citera det ändå — det ska redovisas som skuldsättning per m² bostadsrättsyta (skuldsattning_per_m2_brf_yta), inte utelämnas.
 
 Lånebok: total räntebärande skuld, eventuell förfalloprofil (när lån omsätts och till vilken ränta), genomsnittlig ränta. Säger rapporten uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder — citera den meningen, den är själva svaret på "total räntebärande skuld".
+
+Total räntebärande skuld är summan av BÅDE den långfristiga och den kortfristiga delen av lånen (t.ex. "Skulder till kreditinstitut" under långfristiga skulder PLUS "Skulder till kreditinstitut" eller "Kortfristig del av skuld" / "Kortfr. del av skuld" under kortfristiga skulder). Vissa föreningar bokför lånet under en annan rubrik, t.ex. "Övriga skulder" med en not som visar att det är ett lån — leta då upp både posten i balansräkningen och noten, och citera båda delarna var för sig. Står en tryckt totalsumma för lånen (t.ex. i en låne-not), citera den också.
+
+Kontrollsummor — citera dessa särskilt, de används för att kontrollera att siffrorna hänger ihop: "Summa tillgångar" och "Summa eget kapital och skulder" (balansräkningen), årets årsavgifter (intäkten "Årsavgifter" i resultaträkningen, i kronor), föreningens bostadsrättsyta i kvadratmeter (ytan upplåten med bostadsrätt) och de räntebärande skulderna.
 
 Underhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade (citera varje planerad åtgärd för sig — de kan nämnas på olika sidor).
 
@@ -116,6 +120,33 @@ export function formatGroundingForExtraction(findings: Grundfynd[]): string {
   return findings
     .map((f, i) => `${i + 1}. Sida ${f.sida}: "${f.citat}"\n   Sammanhang: ${f.text}`)
     .join("\n\n");
+}
+
+// ---------------------------------------------------------------------------
+// Transcription of a scanned report (transkribering.ts) — one call per chunk
+// of pages, the PDF as a native document block WITHOUT citations. Its output is
+// what grounding later cites (custom-content document), so the page markers
+// are the only source of page numbers: transkribering.ts validates them.
+// ---------------------------------------------------------------------------
+
+export function buildTranskriberingSystemPrompt(): string {
+  return `Du är en exakt transkriberare av skannade svenska årsredovisningar. Du ska skriva av texten på varje sida ordagrant, inget annat.
+
+Regler:
+- Transkribera VARJE sida i dokumentet, i läsordning, ordagrant. Sammanfatta, tolka och rätta ingenting.
+- Tabeller skrivs som rader med " | " mellan cellerna, en tabellrad per rad, med kolumnrubrikerna (t.ex. årtalen) överst. Behåll tomma celler som tomma.
+- Siffror skrivs EXAKT som de är tryckta: behåll mellanslag som tusentalsavgränsare ("12 867 450"), decimalkomma ("10,19"), minustecken, parenteser, "tkr", "neg", "-" och procenttecken. Slå aldrig ihop eller räkna om tal.
+- Markera början av varje sida på en egen rad med "=== SIDA n ===" där n är sidans ORIGINALNUMMER i hela dokumentet (användaren anger vilket nummer den första sidan i denna del har; nästa sida har +1 osv.). Ett tryckt sidnummer på sidan är bara text och ska transkriberas som text.
+- Är text eller en siffra oläslig: skriv [oläsligt] på stället. Gissa aldrig.
+- Handskrivna signaturer, logotyper och bilder: skriv [signatur], [logotyp] eller [bild] där de förekommer.
+- Ingen inledning, ingen avslutning, inga kommentarer — bara transkriptionen.
+
+VIKTIGT: PDF-filen kan innehålla ett automatiskt textlager som är trasigt (siffror och ord uppdelade i enstaka tecken, tecken som saknas eller fel). Förlita dig ALDRIG på textlagret. Transkribera endast det du ser på sidans bild.`;
+}
+
+export function buildTranskriberingUserPrompt(forstaSida: number, antalSidor: number): string {
+  const sista = forstaSida + antalSidor - 1;
+  return `Detta dokument innehåller ${antalSidor} sida${antalSidor > 1 ? "or" : ""}. Den första sidan har originalnummer ${forstaSida} (alltså "=== SIDA ${forstaSida} ===")${antalSidor > 1 ? `, den sista har nummer ${sista}` : ""}. Transkribera alla sidor.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +231,13 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     "pdfSaknarTextlager": false,
     "extraktionKonfidens": { "niva": "hog", "skal": [] },
     "saknadeFalt": []
+  },
+  "kontrollsummor": {
+    "summaTillgangar": { "value": 301200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 10, "excerpt": "Summa tillgångar 301 200 000" } },
+    "summaEgetKapitalOchSkulder": { "value": 301200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 11, "excerpt": "Summa eget kapital och skulder 301 200 000" } },
+    "arsavgifter": { "value": 3400000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 9, "excerpt": "Årsavgifter 3 400 000" } },
+    "bostadsrattsyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "bostadsrätter om totalt 3 200 kvm" } },
+    "rantebarandeSkulder": { "value": 43200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "Summa 43 200 000,00" } }
   }
 }
 
@@ -216,8 +254,10 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - antalMedlemmar: föreningens medlemsantal vid räkenskapsårets slut, ALDRIG jämförelsetalet inom parentes för föregående år (t.ex. "43 (41) medlemmar" → 43). Utelämna hela fältet om rapporten bara anger antal lägenheter, inte medlemsantal.
 - antalHyresratter / antalLokaler: sätt bara när rapporten uttryckligen anger föreningens hyresrätter respektive lokaler som egna enheter (t.ex. "2 lokaler (hyresrätt)"). Räkna aldrig en areauppgift i kvadratmeter (t.ex. "garagelokaler 130 kvm") eller ett gemensamhetsutrymme ("föreningslokal", "samlingslokal") som en lokal i den här betydelsen.
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
-- Skuldsättning per kvm med otydlig bas: finns bara ett skuldtal per kvm och det framgår inte om det avser totalyta eller bostadsrättsyta (t.ex. "Lån per kvm bostadsyta"), lägg det under skuldsattning_per_m2_brf_yta med sitt citat och låt skuldsattning_per_m2_totalyta vara null. Ett tal är bättre än inget här — de två brukar ligga nära varandra.
+- Skuldsättning per kvm med otydlig bas: finns bara ett skuldtal per kvm och det framgår inte om det avser totalyta eller bostadsrättsyta (t.ex. "Lån per kvm bostadsyta" eller "Skuldsättningsgrad kr/kvm" — säger etiketten inte uttryckligen "totalyta" är basen oklar), lägg det under skuldsattning_per_m2_brf_yta med sitt citat och låt skuldsattning_per_m2_totalyta vara null. Ett tal är bättre än inget här — de två brukar ligga nära varandra.
 - Skuldfri förening: säger fynden uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder, sätt lanebok.totalSkuld till { "value": 0, "unit": "kr", "source": "arsredovisning", "ref": { ... } } med en ref till det stället — nyckeltalscellerna (rantekanslighet, skuldsattning_per_m2_totalyta, skuldsattning_per_m2_brf_yta) lämnas precis som de står tryckta i rapporten, ett senare steg härleder dem vid behov.
+- lanebok.totalSkuld är SUMMAN av den långfristiga och den kortfristiga delen av lånen, oavsett vad posterna heter (t.ex. "Skulder till kreditinstitut" långfristigt + kortfristigt, "Kortfr. del av skuld", eller ett lån som bokförs som "Övriga skulder" med en not som visar att det är ett lån). Missa aldrig den kortfristiga delen. Finns en tryckt totalsumma för lånen i fynden: använd den (source "arsredovisning", med ref och excerpt). Annars: lägg ihop delarna själv och sätt source "berakning" med ref/excerpt från den STÖRRE delen. Finns bara en del i fynden: använd den delen.
+- kontrollsummor: fyll i de fem uppgifterna summaTillgangar, summaEgetKapitalOchSkulder, arsavgifter (årets intäkt "Årsavgifter" i kronor), bostadsrattsyta (m², ytan upplåten med bostadsrätt) och rantebarandeSkulder (kr) som ordinära Figure-objekt med källa och excerpt — ENDAST de som uttryckligen finns bland fynden. En uppgift som saknas UTELÄMNAS helt ur kontrollsummor (skriv aldrig 0 eller null i stället). Står belopp i tkr: räkna om till kronor. Utelämna hela kontrollsummor om inget av de fem finns.
 - Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta i sig själva, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
 - Om cellen för ett nyckeltal INTE är ett rent tal — t.ex. "neg", "negativ", "(123)", "−4,2", "-", eller en kolumn märkt "tkr" — kopiera det exakt som det står i rapporten (tecken, mellanslag och allt) till figure.tryckt. Sätt figure.value till din bästa läsning av talet om du kan utläsa ett (annars null); ett senare, deterministiskt steg tolkar tryckt på nytt och den tolkningen vinner ALLTID över value när tryckt är satt, så en ofullständig gissning i value kostar ingenting — men hitta aldrig på en siffra som inte alls går att utläsa ur cellen. Sätt ALDRIG fältet "tecken" själv — det sätts uteslutande i det deterministiska steget, aldrig av dig. Är cellen redan ett rent tal (t.ex. "670" eller "-1 200"): utelämna tryckt helt, precis som idag.
 - Tristate-fält (akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.

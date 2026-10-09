@@ -935,3 +935,116 @@ describe("tillPrisInput", () => {
     expect("byggar" in prisInput).toBe(false);
   });
 });
+
+describe("osäkra nyckeltal — en bekräftelsefråga till styrelsen per markerad siffra", () => {
+  const OSAKER =
+    "Räntekänsligheten 9 % stämmer inte med räntebärande skulder delat med årsavgifter, som ger 6,47 %.";
+
+  function medOsaker(id: KeyFigureId, text: string): ExtractionResult {
+    const kf = extraktion.forening.keyFigures.find((k) => k.id === id)!;
+    return extraktionMed(id, { ...kf.figure, osaker: text });
+  }
+
+  const kor = (extraction: ExtractionResult, analys: AnalysJudgement = analysJudgement) =>
+    assembleraAnalys({
+      extraction,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys,
+    });
+
+  it("lägger till en deterministisk fråga (ursprung 'analys', styrelsen) med orsaken i varfor", async () => {
+    const resultat = await kor(medOsaker("rantekanslighet", OSAKER));
+    const fraga = resultat.fragor.find((f) => f.id === "osaker-rantekanslighet");
+    expect(fraga).toBeDefined();
+    expect(fraga!.ursprung).toBe("analys");
+    expect(fraga!.riktadTill).toBe("styrelsen");
+    expect(fraga!.fraga).toMatch(/räntekänslighet/i);
+    expect(fraga!.fraga).toMatch(/bekräfta/i);
+    expect(fraga!.varfor).toContain(OSAKER);
+  });
+
+  it("ger ingen fråga när ingen siffra är markerad osäker", async () => {
+    const resultat = await kor(extraktion);
+    expect(resultat.fragor.some((f) => f.id.startsWith("osaker-"))).toBe(false);
+  });
+
+  it("en fråga per markerad siffra", async () => {
+    const a = medOsaker("rantekanslighet", OSAKER);
+    const kf = a.forening.keyFigures.find((k) => k.id === "arsavgift_per_m2_brf_yta")!;
+    const bada = extraktionMed("arsavgift_per_m2_brf_yta", { ...kf.figure, osaker: "Orsak två." });
+    // slå ihop: räntekänslighet osäker + årsavgift osäker
+    const extraction: ExtractionResult = {
+      ...a,
+      forening: {
+        ...a.forening,
+        keyFigures: a.forening.keyFigures.map((k) =>
+          k.id === "arsavgift_per_m2_brf_yta"
+            ? bada.forening.keyFigures.find((x) => x.id === k.id)!
+            : k,
+        ),
+      },
+    };
+    const resultat = await kor(extraction);
+    expect(
+      resultat.fragor
+        .filter((f) => f.id.startsWith("osaker-"))
+        .map((f) => f.id)
+        .sort(),
+    ).toEqual(["osaker-arsavgift_per_m2_brf_yta", "osaker-rantekanslighet"]);
+  });
+
+  it("dedupar mot en fråga som redan nämner nyckeltalet", async () => {
+    const resultat = await kor(medOsaker("rantekanslighet", OSAKER), {
+      ...analysJudgement,
+      fragor: [
+        ...analysJudgement.fragor,
+        {
+          id: "fraga-rk",
+          fraga: "Kan styrelsen bekräfta föreningens räntekänslighet?",
+          ursprung: "analys",
+          riktadTill: "styrelsen",
+          varfor: "x",
+        },
+      ],
+    });
+    expect(resultat.fragor.some((f) => f.id === "osaker-rantekanslighet")).toBe(false);
+    expect(resultat.fragor.filter((f) => /räntekänslighet/i.test(f.fraga))).toHaveLength(1);
+  });
+
+  it("figuren behålls och visas: osaker följer med i forening", async () => {
+    const resultat = await kor(medOsaker("rantekanslighet", OSAKER));
+    expect(
+      resultat.forening.keyFigures.find((k) => k.id === "rantekanslighet")!.figure.osaker,
+    ).toBe(OSAKER);
+  });
+
+  it("resultatet validerar mot AnalysisResultSchema", async () => {
+    const resultat = await kor(medOsaker("rantekanslighet", OSAKER));
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+});
+
+describe("datakvalitet.kalla följer med från extraktionen", () => {
+  it("kopieras till AnalysisResult.datakvalitet när den finns, utelämnas annars", async () => {
+    const skannad: ExtractionResult = {
+      ...extraktion,
+      datakvalitet: { ...extraktion.datakvalitet, kalla: "skannad" },
+    };
+    const med = await assembleraAnalys({
+      extraction: skannad,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+    expect(med.datakvalitet.kalla).toBe("skannad");
+
+    const utan = await assembleraAnalys({
+      extraction: extraktion,
+      input: inputKomplett,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: analysJudgement,
+    });
+    expect("kalla" in utan.datakvalitet).toBe(false);
+  });
+});

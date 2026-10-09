@@ -1,0 +1,402 @@
+import { PDFDocument } from "pdf-lib";
+import {
+  enforceCostLimit,
+  estimateCostSek,
+  KostnadsgransOverskriden,
+  prissattningForModell,
+  STANDARD_MODELL,
+  type ModelPricing,
+} from "./costGuard";
+import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
+import { ModelTruncatedError } from "./extract";
+import { buildTranskriberingSystemPrompt, buildTranskriberingUserPrompt } from "./prompts";
+import {
+  ModelRefusedError,
+  resolveClient,
+  toBase64,
+  type AnthropicClientLike,
+  type ModelEffort,
+} from "./runExtraction";
+
+/**
+ * Stage 'transkribering' (docs/PLAN-v2.md §1.9, decision D8): a PDF with no text
+ * layer is split into chunks of a few pages, each chunk is sent as a native
+ * `document` block (no citations — a PDF without a text layer is not citable),
+ * and the model writes the pages out verbatim with `=== SIDA n ===` markers
+ * carrying the ORIGINAL page numbers. Grounding then cites this transcription
+ * (runGroundingFranTranskription in runExtraction.ts), so the markers are the
+ * only source of page numbers downstream and are validated here.
+ */
+
+export const STANDARD_CHUNKSTORLEK = 5;
+
+/**
+ * Worst-case output tokens assumed per chunk call. Measured 2026-10-09
+ * (docs/PLAN-v2.md §1.9, Sonnet 5.5 effort medium, 5-page chunks): 1 009 to
+ * 5 093 output tokens (thinking included). 16 000 leaves >3x headroom; a call
+ * that still hits it fails visibly (ModelTruncatedError).
+ */
+export const STANDARD_MAX_OUTPUT_PER_CHUNK = 16_000;
+
+export interface PdfBit {
+  /** Original (1-based) page number of this chunk's first page. */
+  forstaSida: number;
+  /** Number of pages in the chunk. */
+  sidor: number;
+  bytes: Uint8Array;
+}
+
+/** Splits a PDF into consecutive chunks of at most `chunkStorlek` pages, each a
+ *  standalone PDF. The input bytes are not modified. Pure JS (pdf-lib), so it
+ *  runs in Node, Deno and Workers. */
+export async function delaPdf(
+  pdfBytes: Uint8Array,
+  chunkStorlek: number = STANDARD_CHUNKSTORLEK,
+): Promise<PdfBit[]> {
+  if (!Number.isInteger(chunkStorlek) || chunkStorlek < 1) {
+    throw new Error(`chunkStorlek måste vara ett heltal >= 1, fick ${chunkStorlek}.`);
+  }
+  let kalla: PDFDocument;
+  try {
+    kalla = await PDFDocument.load(pdfBytes.slice());
+  } catch (error) {
+    throw new Error(
+      `Kunde inte läsa PDF:en för uppdelning: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  const antal = kalla.getPageCount();
+  if (antal === 0) throw new Error("PDF:en har inga sidor.");
+
+  const bitar: PdfBit[] = [];
+  for (let fran = 0; fran < antal; fran += chunkStorlek) {
+    const till = Math.min(antal, fran + chunkStorlek);
+    const bit = await PDFDocument.create();
+    const kopior = await bit.copyPages(
+      kalla,
+      Array.from({ length: till - fran }, (_, i) => fran + i),
+    );
+    for (const sida of kopior) bit.addPage(sida);
+    bitar.push({ forstaSida: fran + 1, sidor: till - fran, bytes: await bit.save() });
+  }
+  return bitar;
+}
+
+// ---------------------------------------------------------------------------
+// Marker parsing
+// ---------------------------------------------------------------------------
+
+export interface TranskriberadSida {
+  /** Original 1-based page number in the whole PDF. */
+  sida: number;
+  text: string;
+}
+
+export type TranskriptionsTolkning =
+  { ok: true; sidor: TranskriberadSida[] } | { ok: false; fel: string[] };
+
+const SIDMARKOR = /^[ \t]*=== SIDA (\d+) ===[ \t]*$/m;
+
+/**
+ * Splits a chunk's transcription at its `=== SIDA n ===` markers. Valid only if
+ * the marker numbers are EXACTLY the chunk's pages (forstaSida .. forstaSida +
+ * antalSidor - 1), each once: a missing, duplicate or foreign marker would make
+ * a citation point at the wrong page (measured on Haiku 4.5, which produced
+ * wrong markers; Sonnet did not, but it is validated regardless). Text before
+ * the first marker (a preamble the prompt forbids) is dropped. A page whose
+ * body is empty is kept with an empty text (a blank page is a legitimate page).
+ */
+export function parseTranskription(
+  text: string,
+  forstaSida: number,
+  antalSidor: number,
+): TranskriptionsTolkning {
+  const delar = text.split(new RegExp(SIDMARKOR.source, "gm"));
+  const hittade = new Map<number, string>();
+  const fel: string[] = [];
+  for (let i = 1; i < delar.length; i += 2) {
+    const n = Number(delar[i]);
+    const body = (delar[i + 1] ?? "").trim();
+    if (hittade.has(n)) fel.push(`sidmarkören ${n} förekommer mer än en gång`);
+    else hittade.set(n, body);
+  }
+  const sidor: TranskriberadSida[] = [];
+  for (let n = forstaSida; n < forstaSida + antalSidor; n++) {
+    const body = hittade.get(n);
+    if (body === undefined) fel.push(`sidmarkören ${n} saknas`);
+    else sidor.push({ sida: n, text: body });
+  }
+  for (const n of hittade.keys()) {
+    if (n < forstaSida || n >= forstaSida + antalSidor) {
+      fel.push(
+        `oväntad sidmarkör ${n} (delen har sidorna ${forstaSida}–${forstaSida + antalSidor - 1})`,
+      );
+    }
+  }
+  return fel.length > 0 ? { ok: false, fel } : { ok: true, sidor };
+}
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+/** A chunk's transcription still had wrong page markers after the one retry. */
+export class TranskriberingMarkorFelError extends Error {
+  constructor(
+    public readonly forstaSida: number,
+    public readonly sistaSida: number,
+    public readonly fel: readonly string[],
+  ) {
+    super(
+      `Transkriberingen av sidorna ${forstaSida}–${sistaSida} gav felaktiga sidmarkörer även efter ett ` +
+        `omförsök (${fel.join("; ")}). Siffror får inte kopplas till fel sida, så analysen avbryts.`,
+    );
+    this.name = "TranskriberingMarkorFelError";
+  }
+}
+
+/** Transient API failure worth exactly one retry of the chunk: connection
+ *  errors (measured: 2 of 7 chunks once failed with "Connection error"),
+ *  429, 5xx and 529 (overloaded). Duck-typed so test doubles need no SDK class. */
+export function arOvergaendeApiFel(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const status = (error as { status?: unknown }).status;
+  if (typeof status === "number") return status === 429 || status >= 500;
+  if (error.name === "APIConnectionError" || error.name === "APIConnectionTimeoutError")
+    return true;
+  return /connection error|ECONNRESET|EPIPE|ETIMEDOUT|socket hang up|fetch failed|overloaded/i.test(
+    error.message,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// transkribera
+// ---------------------------------------------------------------------------
+
+export interface TranskriberaOptions {
+  /** Default STANDARD_MODELL. */
+  model?: string;
+  /** Total budget for ALL chunks. The sum of every chunk's worst case must fit
+   *  (checked before any call is made), see `transkribera`. */
+  maxCostSek: number;
+  /** Default "medium" (measured configuration). */
+  effort?: ModelEffort;
+  client?: AnthropicClientLike;
+  apiKey?: string;
+  pricing?: ModelPricing;
+  /** Default STANDARD_CHUNKSTORLEK (5). */
+  chunkStorlek?: number;
+  /** Worst-case output tokens per chunk, default STANDARD_MAX_OUTPUT_PER_CHUNK. */
+  maxOutputTokensPerChunk?: number;
+  /** Pages already persisted (1-based page -> text). A chunk whose every page is
+   *  here is skipped (no call, no cost). */
+  redanKlara?: ReadonlyMap<number, string>;
+  /** Called once per finished chunk with that chunk's pages, so a retry after a
+   *  failure only redoes the missing chunks. A rejection fails that chunk. */
+  sparaSidor?: (sidor: TranskriberadSida[]) => Promise<void>;
+  /** Pause before the single retry of a chunk after a transient API error.
+   *  Default 1000 ms; tests pass 0. */
+  omforsokFordrojningMs?: number;
+}
+
+export interface TranskriberaResultat {
+  /** Every page of the PDF in page order (redanKlara pages included). */
+  sidor: TranskriberadSida[];
+  /** Real spend of THIS run (skipped chunks cost nothing). */
+  spentSek: number;
+  /** Every `messages.create` call this run made (retries included), in the order they finished. */
+  calls: ModelCallMetrics[];
+}
+
+function inneharAllaSidor(bit: PdfBit, klara: ReadonlyMap<number, string> | undefined): boolean {
+  if (!klara) return false;
+  for (let n = bit.forstaSida; n < bit.forstaSida + bit.sidor; n++) {
+    if (!klara.has(n)) return false;
+  }
+  return true;
+}
+
+function sov(ms: number): Promise<void> {
+  return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
+}
+
+/**
+ * Transcribes a PDF without a text layer. Chunks run in parallel
+ * (Promise.allSettled — one failing chunk does not stop the others from
+ * finishing and being persisted via `sparaSidor`).
+ *
+ * Budget: countTokens runs for every chunk first; if the SUM of the chunks'
+ * worst cases (full input price + max output) exceeds `maxCostSek`,
+ * KostnadsgransOverskriden is thrown before any chunk is sent, so parallel
+ * calls can never jointly exceed the cap. A retry of a chunk re-checks against
+ * what is spent plus what is still in flight. Failures are annotated with the
+ * run's real spend and calls (annotateSpend), like every other stage.
+ */
+export async function transkribera(
+  pdfBytes: Uint8Array,
+  options: TranskriberaOptions,
+): Promise<TranskriberaResultat> {
+  const {
+    model = STANDARD_MODELL,
+    maxCostSek,
+    effort = "medium",
+    pricing = prissattningForModell(model),
+    chunkStorlek = STANDARD_CHUNKSTORLEK,
+    maxOutputTokensPerChunk = STANDARD_MAX_OUTPUT_PER_CHUNK,
+    redanKlara,
+    sparaSidor,
+    omforsokFordrojningMs = 1000,
+  } = options;
+
+  const bitar = await delaPdf(pdfBytes, chunkStorlek);
+  const klaraSidor: TranskriberadSida[] = [];
+  const attGora: PdfBit[] = [];
+  for (const bit of bitar) {
+    if (inneharAllaSidor(bit, redanKlara)) {
+      for (let n = bit.forstaSida; n < bit.forstaSida + bit.sidor; n++) {
+        klaraSidor.push({ sida: n, text: redanKlara!.get(n)! });
+      }
+    } else {
+      attGora.push(bit);
+    }
+  }
+
+  const calls: ModelCallMetrics[] = [];
+  let spentSek = 0;
+  // Worst case of calls currently in flight (released when a call finishes).
+  let reserveratSek = 0;
+  const nyaSidor: TranskriberadSida[] = [];
+
+  if (attGora.length > 0) {
+    const client = resolveClient(options);
+    const system = buildTranskriberingSystemPrompt();
+
+    const forberedda = attGora.map((bit) => ({
+      bit,
+      messages: [
+        {
+          role: "user" as const,
+          content: [
+            {
+              type: "document" as const,
+              source: {
+                type: "base64" as const,
+                media_type: "application/pdf" as const,
+                data: toBase64(bit.bytes),
+              },
+            },
+            {
+              type: "text" as const,
+              text: buildTranskriberingUserPrompt(bit.forstaSida, bit.sidor),
+            },
+          ],
+        },
+      ],
+    }));
+
+    // Free pre-flight for every chunk before the first paid call.
+    const antalTokens = await Promise.all(
+      forberedda.map((f) => client.messages.countTokens({ model, system, messages: f.messages })),
+    );
+    const varstaFall = antalTokens.map((c) =>
+      estimateCostSek(c.input_tokens, maxOutputTokensPerChunk, pricing),
+    );
+    const summaVarstaFall = varstaFall.reduce((a, b) => a + b, 0);
+    if (summaVarstaFall > maxCostSek) {
+      throw new KostnadsgransOverskriden(summaVarstaFall, maxCostSek);
+    }
+
+    const korChunk = async (index: number): Promise<void> => {
+      const { bit, messages } = forberedda[index]!;
+      const sistaSida = bit.forstaSida + bit.sidor - 1;
+      const inputTokens = antalTokens[index]!.input_tokens;
+      let overgaendeFelAnvant = false;
+      let markorOmforsokAnvant = false;
+
+      // At most 3 attempts: the first, one retry after a transient API error,
+      // one retry after wrong page markers (each kind of retry at most once).
+      for (let forsok = 0; ; forsok++) {
+        const varsta = estimateCostSek(inputTokens, maxOutputTokensPerChunk, pricing);
+        if (forsok > 0) {
+          // A retry: its own worst case must fit next to what is spent and in flight.
+          enforceCostLimit(
+            inputTokens,
+            maxOutputTokensPerChunk,
+            maxCostSek - spentSek - reserveratSek,
+            pricing,
+          );
+        }
+        reserveratSek += varsta;
+
+        let svar;
+        const start = performance.now();
+        try {
+          svar = await client.messages.create({
+            model,
+            max_tokens: maxOutputTokensPerChunk,
+            system,
+            messages,
+            output_config: { effort },
+          });
+        } catch (error) {
+          reserveratSek -= varsta;
+          if (arOvergaendeApiFel(error) && !overgaendeFelAnvant) {
+            overgaendeFelAnvant = true;
+            await sov(omforsokFordrojningMs);
+            continue;
+          }
+          throw error;
+        }
+        const latencyMs = performance.now() - start;
+        reserveratSek -= varsta;
+
+        const metrics = buildCallMetrics({
+          stage: "transkribering",
+          model,
+          latencyMs,
+          usage: svar.usage,
+          stopReason: svar.stop_reason,
+          pricing,
+        });
+        calls.push(metrics);
+        spentSek += metrics.costSek;
+
+        if (svar.stop_reason === "refusal") {
+          throw annotateSpend(new ModelRefusedError("Transkriberingen"), spentSek, calls);
+        }
+        if (svar.stop_reason === "max_tokens") {
+          throw annotateSpend(
+            new ModelTruncatedError("Transkriberingen", maxOutputTokensPerChunk),
+            spentSek,
+            calls,
+          );
+        }
+
+        const text = svar.content
+          .filter((b) => b.type === "text" && typeof b.text === "string")
+          .map((b) => b.text as string)
+          .join("\n");
+        const tolkning = parseTranskription(text, bit.forstaSida, bit.sidor);
+        if (tolkning.ok) {
+          nyaSidor.push(...tolkning.sidor);
+          if (sparaSidor) await sparaSidor(tolkning.sidor);
+          return;
+        }
+        if (markorOmforsokAnvant) {
+          throw new TranskriberingMarkorFelError(bit.forstaSida, sistaSida, tolkning.fel);
+        }
+        markorOmforsokAnvant = true;
+      }
+    };
+
+    const utfall = await Promise.allSettled(forberedda.map((_, i) => korChunk(i)));
+    const forstaFel = utfall.find((u): u is PromiseRejectedResult => u.status === "rejected");
+    if (forstaFel) {
+      const reason: unknown = forstaFel.reason;
+      throw reason instanceof Error ? annotateSpend(reason, spentSek, calls) : reason;
+    }
+  }
+
+  const sidor = [...klaraSidor, ...nyaSidor].sort((a, b) => a.sida - b.sida);
+  return { sidor, spentSek, calls };
+}

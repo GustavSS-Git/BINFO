@@ -1,0 +1,39 @@
+{
+  "orgnr": "769635-9905",
+  "namn": "Brf Startfältet",
+  "kalla": {
+    "fil": "annual reports pdf as image example/Årsredovisning bild 2.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST — ej verifierad av ägaren. Supervisorns utkast, avläst från renderade sidbilder 2026-10-09 (PDF:en saknar textlager). Källa: PDF-sida 6 (Flerårsöversikt, tryckt 'Sida 4 av 16'), PDF-sida 9–10 (Balansräkning), PDF-sida 4 (ytor). Typ: vektor-konturerad text, inget textlager."
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 1262,
+    "arsavgift_andel_av_rorelseintakter": 97,
+    "skuldsattning_per_m2_totalyta": 12867,
+    "skuldsattning_per_m2_brf_yta": 12867,
+    "sparande_per_m2_totalyta": 377,
+    "rantekanslighet": 10.19,
+    "energikostnad_per_m2_totalyta": 230
+  },
+  "nyckeltalSida": 6,
+  "lanebok": {
+    "totalSkuld": 103897100
+  },
+  "kontrollsummor": {
+    "summaTillgangar": 300622392,
+    "summaEgetKapitalOchSkulder": 300622392,
+    "bostadsrattsyta": 8075
+  },
+  "verifiering": {
+    "lanebok.totalSkuld": {
+      "sida": 10,
+      "tryckt": "Skulder till kreditinstitut: långfristiga 35 659 610 + kortfristiga 68 237 490 = 103 897 100"
+    },
+    "arsavgift_per_m2_brf_yta": {
+      "anmarkning": "Flerårsöversikten har 4 årskolumner (2025–2022) — rätt kolumn är 2025."
+    },
+    "energikostnad_per_m2_totalyta": {
+      "anmarkning": "Elkostnad/värmekostnad/vattenkostnad står på separata rader; energikostnad = 230 är en egen rad."
+    }
+  }
+}

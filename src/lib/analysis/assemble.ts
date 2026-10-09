@@ -18,6 +18,7 @@ import type {
 } from "@/types/analysis";
 import { formatDataperiod } from "@/lib/analysisView";
 import { AnalysisResultSchema } from "./schema";
+import { ALLA_NYCKELTAL } from "./prompts";
 import type { AnalysJudgement } from "./analyze";
 import { beraknaRantestress } from "./calc/rantestress";
 import {
@@ -186,6 +187,37 @@ function sankKonfidensForSaknadRantekanslighet(konfidens: Konfidens): Konfidens 
         "bästa bedömningen utifrån tillgängliga uppgifter.",
     ],
   };
+}
+
+/**
+ * En deterministisk bekräftelsefråga till styrelsen för varje nyckeltal som
+ * rimlighetskontrollen (rimlighet.ts) markerat `osaker`. Samma mönster som
+ * SAKNAR_RANTEKANSLIGHET_FRAGA: ursprung 'analys', stabilt id, orsaken i
+ * `varfor`. Hoppar över ett nyckeltal som en befintlig fråga redan nämner vid
+ * namn (pass 2 kan ha frågat om samma sak).
+ */
+export function osakerhetsfragor(forening: Forening, befintliga: readonly Fraga[]): Fraga[] {
+  const fragor: Fraga[] = [];
+  for (const kf of forening.keyFigures) {
+    const orsak = kf.figure.osaker;
+    if (!orsak) continue;
+    const namn = ALLA_NYCKELTAL.find((n) => n.id === kf.id)?.label ?? kf.label;
+    const id = `osaker-${kf.id}`;
+    const nyckelord = namn.toLowerCase();
+    const redanFragat = befintliga.some(
+      (f) => f.id === id || f.fraga.toLowerCase().includes(nyckelord),
+    );
+    if (redanFragat) continue;
+    fragor.push({
+      id,
+      fraga: `Kan styrelsen bekräfta siffran för ${nyckelord} i årsredovisningen?`,
+      ursprung: "analys",
+      riktadTill: "styrelsen",
+      varfor: orsak,
+      ...(kf.figure.ref ? { ref: kf.figure.ref } : {}),
+    });
+  }
+  return fragor;
 }
 
 // ---------------------------------------------------------------------------
@@ -857,6 +889,7 @@ export async function assembleraAnalys({
   const datakvalitet: AnalysisResult["datakvalitet"] = {
     pdfSaknarTextlager: extraction.datakvalitet.pdfSaknarTextlager,
     extraktionKonfidens,
+    ...(extraction.datakvalitet.kalla ? { kalla: extraction.datakvalitet.kalla } : {}),
     uppgifterKanda: uppgiftsstatus.kanda,
     uppgifterTotalt: uppgiftsstatus.totalt,
     saknadeFalt: uppgiftsstatus.saknade,
@@ -872,6 +905,13 @@ export async function assembleraAnalys({
       ? [SAKNAR_SKULD_PER_M2_FRAGA]
       : [];
   const avgiftFraga = avgiftsavvikelseFraga(input, extraction.forening);
+  const osakerFragor = osakerhetsfragor(extraction.forening, [
+    ...analys.fragor,
+    ...saknadUppgiftFragor,
+    ...rantekanslighetFraga,
+    ...skuldFraga,
+    ...(avgiftFraga ? [avgiftFraga] : []),
+  ]);
 
   const resultat: AnalysisResult = {
     schemaVersion: "1.0.0",
@@ -899,6 +939,7 @@ export async function assembleraAnalys({
       ...rantekanslighetFraga,
       ...skuldFraga,
       ...(avgiftFraga ? [avgiftFraga] : []),
+      ...osakerFragor,
     ],
 
     datakvalitet,
