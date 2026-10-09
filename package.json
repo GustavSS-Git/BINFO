@@ -16,6 +16,7 @@
     "verify-extraction": "tsx src/lib/analysis/verifyAnswerKey.ts",
     "analys": "tsx src/server/cli/analysCli.ts",
     "verify-rls": "tsx src/server/cli/verifyRls.ts",
+    "konto": "tsx src/server/cli/kontoCli.ts",
     "build:edge": "tsx src/server/edge/build.ts",
     "build:vardering-data": "tsx scripts/buildVarderingData.ts",
     "deploy:edge": "npm run build:edge && npx supabase@2.117.0 functions deploy analys-steg"
