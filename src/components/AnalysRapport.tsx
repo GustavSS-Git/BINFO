@@ -427,7 +427,10 @@ function Prisrimlighet({ analys }: { analys: AnalysisResult }) {
                   {formatFigureVarde(p.externVardering)}
                 </p>
                 {p.externVardering.range && u ? (
-                  <p className="text-xs text-muted-foreground">
+                  /* Dold rad (ägarens beslut 2026-10-09): spannintervallet
+                     visas inte i rapporten. Beräkningen finns kvar i analysdatat
+                     och kan tas fram igen genom att ta bort dölj-klassen. */
+                  <p className="hidden text-xs text-muted-foreground">
                     Sannolikt mellan {formatVarde(p.externVardering.range.low, "kr")} och{" "}
                     {formatVarde(p.externVardering.range.high, "kr")} ({u.intervallTackningProcent}{" "}
                     %)
