@@ -10,15 +10,21 @@ import {
 } from "./analysStatusCopy";
 
 const ALLA_STEG: AnalysStage[] = ["uploaded", "extracting", "judging", "complete"];
-const ALLA_FELKODER: AnalysErrorCode[] = [
-  "scanned_pdf",
-  "cost_cap",
-  "daily_cap",
-  "validation",
-  "saknar_rantekanslighet",
-  "versionskonflikt",
-  "unknown",
-];
+// `satisfies Record<AnalysErrorCode, true>` makes this list exhaustive at
+// compile time: a code added to the union without being added here fails
+// typecheck, so the tests below really cover every code.
+const FELKODER_KONTROLL = {
+  scanned_pdf: true,
+  cost_cap: true,
+  daily_cap: true,
+  validation: true,
+  saknar_rantekanslighet: true,
+  versionskonflikt: true,
+  kvot: true,
+  behorighet: true,
+  unknown: true,
+} satisfies Record<AnalysErrorCode, true>;
+const ALLA_FELKODER = Object.keys(FELKODER_KONTROLL) as AnalysErrorCode[];
 
 describe("STEG_TEXT", () => {
   it("har text för varje steg, ingen tom sträng", () => {
@@ -81,6 +87,11 @@ describe("FELKOD_INNEHALL", () => {
 
   it("validation pekar tillbaka mot formuläret", () => {
     expect(FELKOD_INNEHALL.validation.atgard).toMatch(/formulär/i);
+  });
+
+  it("kvot läses som 'det är inte du' och säger åt köparen att vänta", () => {
+    expect(FELKOD_INNEHALL.kvot.forklaring).toMatch(/beror inte på din/i);
+    expect(FELKOD_INNEHALL.kvot.atgard).toMatch(/försök igen senare/i);
   });
 
   it("versionskonflikt läses som 'det är vi, inte du' och pekar tillbaka mot formuläret", () => {

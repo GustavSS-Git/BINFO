@@ -3,6 +3,7 @@ import type { ExtractionResult, KeyFigure, KeyFigureId, PropertyInput } from "@/
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
 import type { NyAnalysRad, NyRapportRad } from "../portar";
 import { skapaFakeLager } from "./lager";
+import { skapaFakeKontoDatabas } from "./konto";
 
 /**
  * Smoke tests for the in-memory fake, not for real Supabase. Every other
@@ -430,5 +431,46 @@ describe("skapaFakeLager — register: filindexet och leasade skrivningar", () =
     await db.uppdateraRapport(r.id, { status: "failed" });
     expect(await db.uppdateraLeasadRapport(r.id, lease, { stage: "bedomning" })).toBe(false);
     expect((await db.hamtaRapport(r.id))?.stage).toBe("extraktion");
+  });
+});
+
+describe("principal_id och kontolagret (en analys-tabell)", () => {
+  it("skapaAnalys sparar principalId; utelämnat blir null", async () => {
+    const lager = skapaFakeLager();
+    const { id: med } = await lager.db.skapaAnalys({ ...nyAnalysRad(), principalId: "p-1" });
+    const { id: utan } = await lager.db.skapaAnalys(nyAnalysRad());
+    expect((await lager.db.hamtaAnalys(med))?.principalId).toBe("p-1");
+    expect((await lager.db.hamtaAnalys(utan))?.principalId).toBeNull();
+  });
+
+  it("sammanslagning, export och radering i kontolagret verkar på jobb-fakens rader", async () => {
+    const lager = skapaFakeLager();
+    const konto = skapaFakeKontoDatabas({ analyser: lager.db._analysTabell() });
+    const enhet = await konto.sakerstallPrincipal("enhet-a");
+    const kontoP = await konto.sakerstallPrincipal("enhet-b");
+    const { id } = await lager.db.skapaAnalys({ ...nyAnalysRad(), principalId: enhet });
+    const { id: annans } = await lager.db.skapaAnalys({ ...nyAnalysRad(), principalId: null });
+
+    await konto.slaSammanPrincipal(enhet, kontoP);
+    expect((await lager.db.hamtaAnalys(id))?.principalId).toBe(kontoP);
+
+    const exporten = await konto.exporteraPrincipal(kontoP);
+    expect(exporten?.analyser.map((a) => a.id)).toEqual([id]);
+
+    const radering = await konto.raderaPrincipal(kontoP);
+    expect(radering.analyser).toBe(1);
+    expect(await lager.db.hamtaAnalys(id)).toBeNull();
+    // Andras rader (och registret) rörs inte.
+    expect(await lager.db.hamtaAnalys(annans)).not.toBeNull();
+  });
+});
+
+describe("hamtaSpendForDag", () => {
+  it("läser dagens summa utan att ändra den; 0 för en dag utan rad", async () => {
+    const { db } = skapaFakeLager();
+    expect(await db.hamtaSpendForDag("2026-10-09")).toBe(0);
+    await db.reserveraSpend("2026-10-09", 3, 10);
+    expect(await db.hamtaSpendForDag("2026-10-09")).toBe(3);
+    expect(await db.hamtaSpendForDag("2026-10-09")).toBe(3);
   });
 });

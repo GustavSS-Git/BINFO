@@ -21,6 +21,8 @@ import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
+import { SAKNAR_BEHORIGHET_MEDDELANDE, SaknarBehorighetError } from "./behorighet";
+import type { KvotUtfall } from "./kvot";
 
 export interface FelResultat {
   errorCode: AnalysErrorCode;
@@ -106,6 +108,14 @@ export function tolkaFel(error: unknown): FelResultat {
     return { errorCode: "saknar_rantekanslighet", message: error.message };
   }
 
+  if (error instanceof SaknarBehorighetError) {
+    // BESLUT: en nekad behörighet (./behorighet.ts) — inget fel i köparens
+    // data. Meddelandet är den fasta, köparsäkra konstanten (inte
+    // `error.message`, även om det i dag är samma text): `formaga` och allt
+    // annat på felet är intern policyinformation.
+    return { errorCode: "behorighet", message: SAKNAR_BEHORIGHET_MEDDELANDE };
+  }
+
   // Okänt Error, eller ett kastat icke-Error-värde (sträng, objekt, etc.):
   // aldrig något från `error` i meddelandet, se filkommentaren.
   return { errorCode: "unknown", message: GENERISKT_FEL_MEDDELANDE };
@@ -138,6 +148,17 @@ export function tolkaSpendSkal(skal: SpendSkal): FelResultat {
     message:
       "Analyser är tillfälligt pausade av driftskäl. Försök igen senare, eller kontakta oss.",
   };
+}
+
+/**
+ * En nekad kvot (./kvot.ts, `kontrolleraUppladdningskvot` /
+ * `kontrolleraPrisuppskattningskvot`) i samma `FelResultat`-form. Kvotens
+ * meddelande är skrivet för köparen (KVOT_MEDDELANDE — enhet, nätverk eller
+ * prisuppskattning) och passerar oförändrat: det är det som säger VILKEN
+ * gräns som nåddes.
+ */
+export function tolkaKvot(utfall: Extract<KvotUtfall, { ok: false }>): FelResultat {
+  return { errorCode: "kvot", message: utfall.message };
 }
 
 /**
@@ -218,12 +239,13 @@ export function tolkaRapportFel(
 }
 
 /**
- * True ENDAST för `"daily_cap"` — det enda felläget som är ett tillfälligt,
- * externt tillstånd (dagens spend-tak) snarare än något som beror på just
- * den här rapporten eller det här jobbet. En skannad PDF, en
- * kostnadsspärr per jobb, ett valideringsfel eller en saknad
- * räntekänslighet försvinner inte av att man försöker igen.
+ * True ENDAST för de tillfälliga, tidsbundna tillstånden: `"daily_cap"`
+ * (dagens spend-tak) och `"kvot"` (köparens egen gräns per dag/timme) — båda
+ * försvinner av sig själva när fönstret rullar över, så "försök igen senare"
+ * är rätt råd. En skannad PDF, en kostnadsspärr per jobb, ett valideringsfel,
+ * en saknad räntekänslighet eller en nekad behörighet (`"behorighet"`, en
+ * policyfråga — inte tid) försvinner inte av att man försöker igen.
  */
 export function arRetrybar(code: AnalysErrorCode): boolean {
-  return code === "daily_cap";
+  return code === "daily_cap" || code === "kvot";
 }

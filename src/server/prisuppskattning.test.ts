@@ -6,6 +6,16 @@ import { extraktion } from "@/lib/analysis/__fixtures__/extraktion";
 import { ModellPrisdatakalla, konfidensUtanPostnummer } from "@/lib/analysis/prisdata";
 import { PrisuppskattningResultatSchema } from "@/lib/analysis/schema";
 import { hamtaPrisuppskattning, prisuppskattning } from "./prisuppskattning";
+import { skapaFakeKontoDatabas, type FakeKontoDatabas } from "./__fakes__/konto";
+import { skapaBehorighet, STANDARD_POLICY, type Policy } from "./behorighet";
+import type { Kontext } from "./kontext";
+import {
+  KVOT_MEDDELANDE,
+  kvotNyckel,
+  PRISUPPSKATTNINGAR_PER_IP_OCH_TIMME,
+  TIMME_SEK,
+} from "./kvot";
+import type { Anropare } from "./portar";
 
 const NU = new Date("2026-10-09T12:00:00.000Z");
 
@@ -231,5 +241,84 @@ describe("hamtaPrisuppskattning — serverfunktionens indatavalidering", () => {
     const svar = await hamtaPrisuppskattning({ ...giltig, boarea: -10 });
     if (svar.ok) throw new Error("väntade valideringsfel");
     expect(svar.errorMessage).not.toMatch(/number|expected|too_small|greater than/i);
+  });
+});
+
+describe("hamtaPrisuppskattning — behörighet och kvot (anropare)", () => {
+  const giltig = {
+    boarea: 62,
+    antalRum: 3,
+    manadsavgift: 4200,
+    postnummer: "11857",
+    hiss: "ja",
+    balkong: "nej",
+  };
+  const IP_HASH = "cd".repeat(32);
+  const ENHET = "BBBBBBBBBBBBBBBBBBBBBB";
+
+  function anropare(
+    konto: FakeKontoDatabas,
+    policy: Partial<Policy> = {},
+    kontext: Partial<Kontext> = {},
+  ): Anropare {
+    return {
+      kontext: { enhetId: ENHET, principalId: null, ipHash: IP_HASH, ...kontext },
+      konto,
+      behorighet: skapaBehorighet({ ...STANDARD_POLICY, ...policy }),
+    };
+  }
+
+  function anvant(konto: FakeKontoDatabas, nyckel: string): number {
+    return [...konto.kvot.values()]
+      .filter((r) => r.nyckel === nyckel)
+      .reduce((summa, r) => summa + r.antal, 0);
+  }
+
+  it("nekad behörighet (prisuppskattning) → behorighet, utan att röra kvoten", async () => {
+    const konto = skapaFakeKontoDatabas();
+    const svar = await hamtaPrisuppskattning(giltig, {
+      nu: NU,
+      anropare: anropare(konto, { prisuppskattning: () => false }),
+    });
+    expect(svar).toEqual({
+      ok: false,
+      errorCode: "behorighet",
+      errorMessage: "Du har inte tillgång till den här funktionen just nu.",
+    });
+    expect(konto.kvot.size).toBe(0);
+  });
+
+  it("räknar en användning per anrop på IP-nyckeln, och värderar som vanligt", async () => {
+    const konto = skapaFakeKontoDatabas();
+    const svar = await hamtaPrisuppskattning(giltig, { nu: NU, anropare: anropare(konto) });
+    expect(svar.ok).toBe(true);
+    expect(anvant(konto, kvotNyckel("prisuppskattning", "ip", IP_HASH))).toBe(1);
+  });
+
+  it("kvoten slut → kvot med prisuppskattningens meddelande, före all validering", async () => {
+    const konto = skapaFakeKontoDatabas();
+    const nyckel = kvotNyckel("prisuppskattning", "ip", IP_HASH);
+    for (let i = 0; i < PRISUPPSKATTNINGAR_PER_IP_OCH_TIMME; i++) {
+      await konto.taKvot(nyckel, TIMME_SEK, PRISUPPSKATTNINGAR_PER_IP_OCH_TIMME);
+    }
+    const forvantat = {
+      ok: false,
+      errorCode: "kvot",
+      errorMessage: KVOT_MEDDELANDE.prisuppskattning,
+    };
+    expect(await hamtaPrisuppskattning(giltig, { nu: NU, anropare: anropare(konto) })).toEqual(
+      forvantat,
+    );
+    // Även skräpdata räknas mot (och stoppas av) kvoten.
+    expect(await hamtaPrisuppskattning(null, { anropare: anropare(konto) })).toEqual(forvantat);
+  });
+
+  it("utan IP används enhetens nyckel", async () => {
+    const konto = skapaFakeKontoDatabas();
+    await hamtaPrisuppskattning(giltig, {
+      nu: NU,
+      anropare: anropare(konto, {}, { ipHash: null }),
+    });
+    expect(anvant(konto, kvotNyckel("prisuppskattning", "enhet", ENHET))).toBe(1);
   });
 });

@@ -19,6 +19,10 @@ import { byggPrisanalysUtanForening } from "@/lib/analysis/assemble";
 import { ModellPrisdatakalla, type Prisdatakalla } from "@/lib/analysis/prisdata";
 import { PrisInputSchema, PrisuppskattningResultatSchema } from "@/lib/analysis/schema";
 import { normaliseraPostnummer } from "@/lib/vardering";
+import { SaknarBehorighetError } from "./behorighet";
+import { tolkaFel, tolkaKvot } from "./fel";
+import { kontrolleraPrisuppskattningskvot } from "./kvot";
+import type { Anropare } from "./portar";
 
 export class PrisuppskattningValidationError extends Error {
   constructor(
@@ -35,6 +39,10 @@ export class PrisuppskattningValidationError extends Error {
 }
 
 export interface PrisuppskattningOptions {
+  /** The requester (analysFn.ts always sets it): entitlement
+   *  `prisuppskattning` and the 60/hour quota are checked before any work.
+   *  Omitted only by tests of the valuation itself. */
+  anropare?: Anropare;
   /** Standard: ModellPrisdatakalla (Binfos egen värderingsmodell), samma
    *  källa som den fullständiga analysen använder i produktion. */
   prisdatakalla?: Prisdatakalla;
@@ -72,7 +80,7 @@ export async function prisuppskattning(
 
 export type HamtaPrisuppskattningSvar =
   | { ok: true; resultat: PrisuppskattningResultat }
-  | { ok: false; errorCode: "validation"; errorMessage: string };
+  | { ok: false; errorCode: "validation" | "kvot" | "behorighet"; errorMessage: string };
 
 /** Köparsäkra felmeddelanden — visas ordagrant i /vardering. */
 const FELMEDDELANDE_OGILTIGT_POSTNUMMER = "Postnumret måste bestå av fem siffror, t.ex. 118 57.";
@@ -90,11 +98,27 @@ const FELMEDDELANDE_OGILTIGA_UPPGIFTER =
  * utan det finns inget att värdera, och köparen ska få veta det direkt i
  * formuläret i stället för ett tomt resultat. Samma normalisering som
  * värderingsmodellen (blanksteg tas bort).
+ *
+ * Med `opts.anropare`: behörigheten `prisuppskattning` och sedan kvoten (60
+ * per IP och timme, se kvot.ts) kontrolleras FÖRE allt annat — även en
+ * ogiltig förfrågan räknas, så att kvoten inte går att kringgå med skräpdata.
  */
 export async function hamtaPrisuppskattning(
   data: unknown,
   opts: PrisuppskattningOptions = {},
 ): Promise<HamtaPrisuppskattningSvar> {
+  const { anropare } = opts;
+  if (anropare) {
+    try {
+      await anropare.behorighet.kravBehorighet(anropare.kontext, "prisuppskattning");
+    } catch (fel) {
+      if (!(fel instanceof SaknarBehorighetError)) throw fel;
+      return { ok: false, errorCode: "behorighet", errorMessage: tolkaFel(fel).message };
+    }
+    const kvot = await kontrolleraPrisuppskattningskvot(anropare.konto, anropare.kontext);
+    if (!kvot.ok) return { ok: false, errorCode: "kvot", errorMessage: tolkaKvot(kvot).message };
+  }
+
   const parsed = PrisInputSchema.safeParse(data);
   if (!parsed.success) {
     const postnummerFel = parsed.error.issues.some((i) => i.path[0] === "postnummer");

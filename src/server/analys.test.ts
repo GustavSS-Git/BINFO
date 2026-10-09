@@ -3,6 +3,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { skapaFakeLager } from "./__fakes__/lager";
+import { skapaFakeKontoDatabas, type FakeKontoDatabas } from "./__fakes__/konto";
+import {
+  SaknarBehorighetError,
+  skapaBehorighet,
+  STANDARD_POLICY,
+  type BehorighetsFraga,
+  type Policy,
+} from "./behorighet";
+import type { Kontext } from "./kontext";
+import {
+  DAG_SEK,
+  KVOT_MEDDELANDE,
+  kvotNyckel,
+  UPPLADDNINGAR_PER_ENHET_OCH_DAG,
+  UPPLADDNINGAR_PER_IP_OCH_DAG,
+} from "./kvot";
+import type { Anropare } from "./portar";
 import type { Env } from "./env";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { sparaAnalysICache, sparaExtraktionICache } from "./cache";
@@ -576,5 +593,312 @@ describe("hamtaForhandsvisning", () => {
 
     expect(JSON.stringify(forsta)).toBe(JSON.stringify(andra));
     expect(forsta.forening.namn).toBe(extraktion.forening.namn);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Anropare (WS4): behörighet, kvot, spend-tak och principal
+// ---------------------------------------------------------------------------
+
+const ENHET = "AAAAAAAAAAAAAAAAAAAAAA";
+const IP_HASH = "ab".repeat(32);
+
+function skapaAnropare(
+  konto: FakeKontoDatabas,
+  policy: Partial<Policy> = {},
+  kontext: Partial<Kontext> = {},
+): Anropare {
+  return {
+    kontext: { enhetId: ENHET, principalId: null, ipHash: IP_HASH, ...kontext },
+    konto,
+    behorighet: skapaBehorighet({ ...STANDARD_POLICY, ...policy }),
+  };
+}
+
+/** Antal använda i dagens fönster för en kvotnyckel (0 om ingen rad). */
+function kvotAnvand(konto: FakeKontoDatabas, nyckel: string): number {
+  let summa = 0;
+  for (const rad of konto.kvot.values()) if (rad.nyckel === nyckel) summa += rad.antal;
+  return summa;
+}
+
+const ENHET_NYCKEL = kvotNyckel("uppladdning", "enhet", ENHET);
+const IP_NYCKEL = kvotNyckel("uppladdning", "ip", IP_HASH);
+
+/** Ett lager + kontolager som delar EN analys-tabell, som i databasen. */
+function skapaDeladeFakes() {
+  const lager = skapaFakeLager();
+  const konto = skapaFakeKontoDatabas({ analyser: lager.db._analysTabell() });
+  return { lager, konto };
+}
+
+describe("skapaAnalys med anropare", () => {
+  it("nekad behörighet (ladda_upp_analys) → behorighet, utan rad, uppladdning, principal eller kvot", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const pdfBytes = await medTextPdf();
+
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes, propertyInput },
+      { anropare: skapaAnropare(konto, { ladda_upp_analys: () => false }) },
+    );
+
+    expect(resultat).toEqual({
+      ok: false,
+      errorCode: "behorighet",
+      errorMessage: "Du har inte tillgång till den här funktionen just nu.",
+    });
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+    expect(await lager.filer.finns(`${await sha256Hex(pdfBytes)}.pdf`)).toBe(false);
+    expect(konto.principaler.size).toBe(0);
+    expect(konto.kvot.size).toBe(0);
+  });
+
+  it("en policyregel som kastar släpps igenom (fail closed), inte som en beviljad behörighet", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto, {
+      ladda_upp_analys: () => {
+        throw new Error("policyfel");
+      },
+    });
+    await expect(
+      skapaAnalys(lager, buildEnv(), { pdfBytes: await medTextPdf(), propertyInput }, { anropare }),
+    ).rejects.toThrow("policyfel");
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+  });
+
+  it("skriver principal_id på analys-raden och skapar principalen lat", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await medTextPdf(), propertyInput },
+      { anropare: skapaAnropare(konto) },
+    );
+    if (!resultat.ok) throw new Error(resultat.errorMessage);
+
+    expect(konto.principaler.size).toBe(1);
+    const [principal] = [...konto.principaler.values()];
+    expect(principal?.enhetId).toBe(ENHET);
+    const rad = await lager.db.hamtaAnalys(resultat.analysisId);
+    expect(rad?.principalId).toBe(principal?.id);
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+    expect(kvotAnvand(konto, IP_NYCKEL)).toBe(1);
+  });
+
+  it("en kontext som redan har en principal (ett konto, senare) används som den är", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await medTextPdf(), propertyInput },
+      { anropare: skapaAnropare(konto, {}, { principalId: "konto-principal" }) },
+    );
+    if (!resultat.ok) throw new Error(resultat.errorMessage);
+    expect((await lager.db.hamtaAnalys(resultat.analysisId))?.principalId).toBe("konto-principal");
+    expect(konto.principaler.size).toBe(0);
+  });
+
+  it("enhetens dagskvot slut → kvot med enhetens meddelande, utan rad, uppladdning eller principal", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    for (let i = 0; i < UPPLADDNINGAR_PER_ENHET_OCH_DAG; i++) {
+      await konto.taKvot(ENHET_NYCKEL, DAG_SEK, UPPLADDNINGAR_PER_ENHET_OCH_DAG);
+    }
+    const pdfBytes = await medTextPdf();
+
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes, propertyInput },
+      { anropare: skapaAnropare(konto) },
+    );
+
+    expect(resultat).toEqual({
+      ok: false,
+      errorCode: "kvot",
+      errorMessage: KVOT_MEDDELANDE.uppladdningEnhet,
+    });
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+    expect(lager.db._allaRapporter()).toHaveLength(0);
+    expect(await lager.filer.finns(`${await sha256Hex(pdfBytes)}.pdf`)).toBe(false);
+    expect(konto.principaler.size).toBe(0);
+    expect(kvotAnvand(konto, IP_NYCKEL)).toBe(0);
+  });
+
+  it("nätverkets dagskvot slut → kvot med nätverkets meddelande, och enhetens användning lämnas tillbaka", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    for (let i = 0; i < UPPLADDNINGAR_PER_IP_OCH_DAG; i++) {
+      await konto.taKvot(IP_NYCKEL, DAG_SEK, UPPLADDNINGAR_PER_IP_OCH_DAG);
+    }
+
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await medTextPdf(), propertyInput },
+      { anropare: skapaAnropare(konto) },
+    );
+
+    expect(resultat).toMatchObject({
+      ok: false,
+      errorCode: "kvot",
+      errorMessage: KVOT_MEDDELANDE.uppladdningIp,
+    });
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(0);
+  });
+
+  it("den sjätte uppladdningen samma dag nekas — de fem första går igenom", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    const pdfBytes = await medTextPdf();
+    for (let i = 0; i < UPPLADDNINGAR_PER_ENHET_OCH_DAG; i++) {
+      const ok = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+      // Samma rapport analyseras redan (ingen klar) — det kostar kvot.
+      expect(ok.ok).toBe(true);
+    }
+    const sjatte = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+    expect(sjatte).toMatchObject({ ok: false, errorCode: "kvot" });
+    expect(lager.db._allaAnalyser()).toHaveLength(UPPLADDNINGAR_PER_ENHET_OCH_DAG);
+  });
+
+  it("en uppladdning som serveras direkt ur registret (ateranvand) ger tillbaka kvoten", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    const pdfBytes = await medTextPdf();
+
+    const forsta = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+    if (!forsta.ok) throw new Error(forsta.errorMessage);
+    const forstaRad = await lager.db.hamtaAnalys(forsta.analysisId);
+    await lager.db.uppdateraRapport(forstaRad?.rapportId ?? "", {
+      status: "done",
+      stage: "klar",
+      extraction: extraktion,
+      judgement: minimalJudgement(),
+      finishedAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+
+    const andra = await skapaAnalys(lager, buildEnv(), { pdfBytes, propertyInput }, { anropare });
+    expect(andra).toMatchObject({ ok: true, ateranvand: true });
+    if (!andra.ok) throw new Error("unreachable");
+
+    // Bara den första (som köade en riktig analys) räknas.
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+    expect(kvotAnvand(konto, IP_NYCKEL)).toBe(1);
+    // Raden finns ändå och tillhör köparen.
+    expect((await lager.db.hamtaAnalys(andra.analysisId))?.principalId).toBe(
+      forstaRad?.principalId,
+    );
+  });
+
+  it("utan IP (lokal utveckling) tas och återlämnas bara enhetens kvot", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto, {}, { ipHash: null });
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await medTextPdf(), propertyInput },
+      { anropare },
+    );
+    expect(resultat.ok).toBe(true);
+    expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+    expect([...konto.kvot.values()].every((r) => !r.nyckel.includes(":ip:"))).toBe(true);
+  });
+
+  it("dagens spend-tak redan nått → daily_cap direkt, utan rad, uppladdning eller förbrukad kvot", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const pdfBytes = await medTextPdf();
+
+    const resultat = await skapaAnalys(
+      lager,
+      buildEnv({ maxDailySpendSek: 0 }),
+      { pdfBytes, propertyInput },
+      { anropare: skapaAnropare(konto) },
+    );
+
+    expect(resultat).toMatchObject({ ok: false, errorCode: "daily_cap" });
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+    expect(await lager.filer.finns(`${await sha256Hex(pdfBytes)}.pdf`)).toBe(false);
+    expect(konto.kvot.size).toBe(0);
+    expect(konto.principaler.size).toBe(0);
+  });
+
+  it("spend-taket gäller även utan anropare (operatörens CLI) — och reserverar ingenting", async () => {
+    const lager = skapaFakeLager();
+    const resultat = await skapaAnalys(lager, buildEnv({ maxDailySpendSek: 0 }), {
+      pdfBytes: await medTextPdf(),
+      propertyInput,
+    });
+    expect(resultat).toMatchObject({ ok: false, errorCode: "daily_cap" });
+  });
+
+  it("utan anropare (CLI): ingen principal på raden, inga kontokontroller", async () => {
+    const lager = skapaFakeLager();
+    const resultat = await skapaAnalys(lager, buildEnv(), {
+      pdfBytes: await medTextPdf(),
+      propertyInput,
+    });
+    if (!resultat.ok) throw new Error(resultat.errorMessage);
+    expect((await lager.db.hamtaAnalys(resultat.analysisId))?.principalId).toBeNull();
+  });
+});
+
+describe("hamtaResultat med anropare", () => {
+  async function klarAnalys() {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto);
+    const skapad = await skapaAnalys(
+      lager,
+      buildEnv(),
+      { pdfBytes: await medTextPdf(), propertyInput },
+      { anropare },
+    );
+    if (!skapad.ok) throw new Error(skapad.errorMessage);
+    const rad = await lager.db.hamtaAnalys(skapad.analysisId);
+    await lager.db.uppdateraRapport(rad?.rapportId ?? "", {
+      status: "done",
+      stage: "klar",
+      extraction: extraktion,
+      judgement: minimalJudgement(),
+      finishedAt: new Date().toISOString(),
+    });
+    return { lager, konto, analysisId: skapad.analysisId, rapportId: rad?.rapportId ?? null };
+  }
+
+  it("nekad behörighet (full_rapport) → SaknarBehorighetError, med radens rapportId i frågan", async () => {
+    const { lager, konto, analysisId, rapportId } = await klarAnalys();
+    const fragor: BehorighetsFraga[] = [];
+    const anropare = skapaAnropare(konto, {
+      full_rapport: (fraga) => {
+        fragor.push(fraga);
+        return false;
+      },
+    });
+
+    await expect(hamtaResultat(lager, analysisId, anropare)).rejects.toBeInstanceOf(
+      SaknarBehorighetError,
+    );
+    expect(fragor).toHaveLength(1);
+    expect(fragor[0]?.formaga).toBe("full_rapport");
+    expect(fragor[0]?.rapportId).toBe(rapportId);
+  });
+
+  it("ett okänt id ger fortfarande AnalysHittadesInteError (inte ett behörighetsfel)", async () => {
+    const { lager, konto } = skapaDeladeFakes();
+    const anropare = skapaAnropare(konto, { full_rapport: () => false });
+    await expect(hamtaResultat(lager, "finns-inte", anropare)).rejects.toBeInstanceOf(
+      AnalysHittadesInteError,
+    );
+  });
+
+  it("beviljad → samma resultat som utan anropare, och läsningen tar ingen kvot", async () => {
+    const { lager, konto, analysisId } = await klarAnalys();
+    const fore = JSON.stringify([...konto.kvot.values()]);
+
+    const resultat = await hamtaResultat(lager, analysisId, skapaAnropare(konto));
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+    expect(JSON.stringify([...konto.kvot.values()])).toBe(fore);
   });
 });

@@ -5,8 +5,18 @@
  * `aterlamna_kvot` (UTC-aligned fixed windows), `radera_principal`, and the
  * export query.
  *
- * Holds its own minimal `analys`/`behorighet` tables (only the columns this
+ * By default it holds its own minimal `analys` table (only the columns this
  * layer touches) so merge/delete/export can be tested without the job fake.
+ * To get ONE `analys` table — as in the real database, where
+ * `sla_samman_principal`/`radera_principal` act on the very rows the job
+ * code reads — pass the job fake's live table:
+ *
+ *   const lager = skapaFakeLager();
+ *   const konto = skapaFakeKontoDatabas({ analyser: lager.db._analysTabell() });
+ *
+ * Then create rows through `lager.db.skapaAnalys` (with `principalId`), not
+ * `laggTillAnalys` (which inserts only this layer's subset of columns).
+ * `behorighet` is always this fake's own table.
  *
  * `skapaFakeKontoDatabas()` returns a fresh instance — one per test. Pass
  * `nu` to control the clock (window rollover tests).
@@ -59,10 +69,18 @@ export function fonsterStart(nu: Date, fonsterSek: number): string {
   return new Date(sek * 1000).toISOString();
 }
 
-export function skapaFakeKontoDatabas(opts: { nu?: () => Date } = {}): FakeKontoDatabas {
+export interface FakeKontoOptions {
+  nu?: () => Date;
+  /** Share an existing `analys` table (the job fake's
+   *  `lager.db._analysTabell()`) instead of a private one. Rows are mutated
+   *  in place, like an SQL update. */
+  analyser?: Map<string, FakeAnalysRad>;
+}
+
+export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDatabas {
   const nu = opts.nu ?? (() => new Date());
   const principaler = new Map<string, PrincipalRad>();
-  const analyser = new Map<string, FakeAnalysRad>();
+  const analyser = opts.analyser ?? new Map<string, FakeAnalysRad>();
   const behorigheter = new Map<string, FakeBehorighetRad>();
   const kvot = new Map<string, FakeKvotRad>();
   let nastaId = 1;

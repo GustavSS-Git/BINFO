@@ -68,6 +68,8 @@ interface AnalysRow {
   finished_at: string | null;
   /** Absent on rows read before the register migration was applied. */
   rapport_id?: string | null;
+  /** Absent on rows read before the konto migration was applied. */
+  principal_id?: string | null;
 }
 
 function radFranRad(row: AnalysRow): AnalysRad {
@@ -90,6 +92,7 @@ function radFranRad(row: AnalysRow): AnalysRad {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     rapportId: row.rapport_id ?? null,
+    principalId: row.principal_id ?? null,
   };
 }
 
@@ -117,6 +120,10 @@ function radTillRad(delta: Partial<AnalysRad>): Record<string, unknown> {
   // Only written when set, so a legacy insert never names a column that
   // exists only after the register migration.
   if ("rapportId" in delta && delta.rapportId != null) row["rapport_id"] = delta.rapportId;
+  // Same rule for the konto migration's column.
+  if ("principalId" in delta && delta.principalId != null) {
+    row["principal_id"] = delta.principalId;
+  }
   return row;
 }
 
@@ -388,6 +395,16 @@ function skapaDatabas(sb: SupabaseClient): Databas {
         p_faktiskt: faktisktSek,
       });
       if (error) throw new Error(`avstamSpend misslyckades: ${error.message}`);
+    },
+
+    async hamtaSpendForDag(dag: string): Promise<number> {
+      const { data, error } = await sb
+        .from("spend_day")
+        .select("cost_sek")
+        .eq("day", dag)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaSpendForDag misslyckades: ${error.message}`);
+      return data ? Number((data as { cost_sek: number | string }).cost_sek) : 0;
     },
 
     async raderaAnalys(id: string): Promise<{ pdfBlevForlorad: boolean }> {

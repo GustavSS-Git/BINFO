@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { skapaFakeLager } from "./__fakes__/lager";
 import type { Env } from "./env";
 import {
+  kontrolleraDagligtTak,
   reserveraForSteg,
   stamAvSteg,
   UPPSKATTAD_KOSTNAD_BEDOMNING_SEK,
@@ -99,5 +100,33 @@ describe("uppskattade kostnadskonstanter", () => {
     expect(UPPSKATTAD_KOSTNAD_GRUNDNING_SEK).toBeGreaterThan(0);
     expect(UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK).toBeGreaterThan(0);
     expect(UPPSKATTAD_KOSTNAD_BEDOMNING_SEK).toBeGreaterThan(0);
+  });
+});
+
+describe("kontrolleraDagligtTak", () => {
+  it("ok under taket, daily_cap när dagens kostnad når taket — och reserverar aldrig något", async () => {
+    const { db } = skapaFakeLager();
+    expect(await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 10 }), DAG)).toEqual({
+      ok: true,
+    });
+
+    await reserveraForSteg(db, miljo({ maxDailySpendSek: 10 }), 9, DAG);
+    expect((await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 10 }), DAG)).ok).toBe(true);
+
+    await reserveraForSteg(db, miljo({ maxDailySpendSek: 10 }), 1, DAG);
+    expect(await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 10 }), DAG)).toEqual({
+      ok: false,
+      skal: "daily_cap",
+    });
+    // Läsningen ändrade ingenting: dagens summa är fortfarande exakt 10.
+    expect(await db.hamtaSpendForDag(DAG)).toBe(10);
+  });
+
+  it("en dag utan spend_day-rad räknas som 0", async () => {
+    const { db } = skapaFakeLager();
+    expect(await db.hamtaSpendForDag("2026-01-01")).toBe(0);
+    expect(
+      (await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 0.5 }), "2026-01-01")).ok,
+    ).toBe(true);
   });
 });

@@ -99,6 +99,11 @@ export interface FakeDatabas extends Databas {
   _allaRapportFiler(): RapportFilRad[];
   _allaAnalyser(): AnalysRad[];
   _allaAdresser(): Array<NyForeningAdress & { forstSedd: string; senastSedd: string }>;
+  /** The LIVE `analys` table (not a copy). Shared with the konto fake
+   *  (`skapaFakeKontoDatabas({ analyser: lager.db._analysTabell() })`) so a
+   *  principal merge or erasure acts on the same rows the job code reads —
+   *  one `analys` table, like the real database. */
+  _analysTabell(): Map<string, AnalysRad>;
 }
 
 function skapaFakeDatabas(): FakeDatabas {
@@ -151,6 +156,7 @@ function skapaFakeDatabas(): FakeDatabas {
         startedAt: null,
         finishedAt: null,
         rapportId: rad.rapportId ?? null,
+        principalId: rad.principalId ?? null,
       };
       analysRader.set(id, fullRad);
       return { id };
@@ -260,6 +266,10 @@ function skapaFakeDatabas(): FakeDatabas {
         costSek: befintlig.costSek - reserveratSek + faktisktSek,
         runs: befintlig.runs,
       });
+    },
+
+    async hamtaSpendForDag(dag: string): Promise<number> {
+      return spendDagar.get(dag)?.costSek ?? 0;
     },
 
     async raderaAnalys(id: string): Promise<{ pdfBlevForlorad: boolean }> {
@@ -539,6 +549,7 @@ function skapaFakeDatabas(): FakeDatabas {
     _allaRapportFiler: () => [...rapportFiler.values()],
     _allaAnalyser: () => [...analysRader.values()],
     _allaAdresser: () => [...adresser.values()],
+    _analysTabell: () => analysRader,
   };
 }
 

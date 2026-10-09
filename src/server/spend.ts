@@ -106,3 +106,26 @@ export async function stamAvSteg(
 ): Promise<void> {
   await db.avstamSpend(dag, reserveratSek, faktisktSek);
 }
+
+/**
+ * Upfront, READ-ONLY check at upload (`skapaAnalys`): is today's spend
+ * already at or over the daily cap? Then a new analysis would only sit in the
+ * queue until tomorrow (the tick refuses to reserve, see `reserveraForSteg`),
+ * so the buyer is told now instead.
+ *
+ * Reserves nothing and decides nothing about any API call — that stays the
+ * atomic `reserveraForSteg` before every step. A read that races a concurrent
+ * reservation can only let an upload through that the tick then queues,
+ * which is exactly the behaviour without this check.
+ */
+export async function kontrolleraDagligtTak(
+  db: Databas,
+  env: Pick<Env, "maxDailySpendSek">,
+  dag: string = dagensDatumStockholm(),
+): Promise<SpendResultat> {
+  const idag = await db.hamtaSpendForDag(dag);
+  if (idag >= env.maxDailySpendSek) {
+    return { ok: false, skal: "daily_cap" };
+  }
+  return { ok: true };
+}

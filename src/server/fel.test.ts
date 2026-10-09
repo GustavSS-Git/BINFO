@@ -6,7 +6,17 @@ import { ExtractionValidationError, ModelTruncatedError } from "@/lib/analysis/e
 import { AnalysValidationError } from "@/lib/analysis/analyze";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
-import { arRetrybar, tolkaFel, tolkaSpendSkal } from "./fel";
+import { arRetrybar, tolkaFel, tolkaKvot, tolkaSpendSkal } from "./fel";
+import { SaknarBehorighetError } from "./behorighet";
+import { KVOT_MEDDELANDE } from "./kvot";
+import type { AnalysErrorCode } from "./portar";
+import type { AnalysErrorCode as KlientensAnalysErrorCode } from "@/lib/analysStatusCopy";
+
+// The client mirrors the server's error-code union by hand (it may not
+// import src/server/). Both directions must hold, or a code would reach the
+// buyer without copy (or copy would exist for a code the server never sends).
+type ArLika<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const SPEGLINGEN_AR_EXAKT: ArLika<AnalysErrorCode, KlientensAnalysErrorCode> = true;
 
 /** En riktig z.ZodError, framtagen via ett faktiskt misslyckat safeParse —
  *  enklare och mer verklighetstroget än att bygga ZodError-instansen för
@@ -158,8 +168,9 @@ describe("tolkaSpendSkal", () => {
 });
 
 describe("arRetrybar", () => {
-  it("är true endast för daily_cap", () => {
+  it("är true endast för de tidsbundna lägena daily_cap och kvot", () => {
     expect(arRetrybar("daily_cap")).toBe(true);
+    expect(arRetrybar("kvot")).toBe(true);
   });
 
   it("är false för alla andra felkoder", () => {
@@ -167,7 +178,31 @@ describe("arRetrybar", () => {
     expect(arRetrybar("cost_cap")).toBe(false);
     expect(arRetrybar("validation")).toBe(false);
     expect(arRetrybar("saknar_rantekanslighet")).toBe(false);
+    expect(arRetrybar("versionskonflikt")).toBe(false);
+    expect(arRetrybar("behorighet")).toBe(false);
     expect(arRetrybar("unknown")).toBe(false);
+  });
+});
+
+describe("kontolagrets felkoder", () => {
+  it("klientens spegel av AnalysErrorCode är exakt serverns (typkontroll)", () => {
+    expect(SPEGLINGEN_AR_EXAKT).toBe(true);
+  });
+
+  it("SaknarBehorighetError → behorighet, med den fasta köparsäkra meningen", () => {
+    expect(tolkaFel(new SaknarBehorighetError("full_rapport"))).toEqual({
+      errorCode: "behorighet",
+      message: "Du har inte tillgång till den här funktionen just nu.",
+    });
+  });
+
+  it("en nekad kvot → kvot, och kvotens eget (köparsäkra) meddelande passerar oförändrat", () => {
+    for (const message of Object.values(KVOT_MEDDELANDE)) {
+      expect(tolkaKvot({ ok: false, errorCode: "kvot", message })).toEqual({
+        errorCode: "kvot",
+        message,
+      });
+    }
   });
 });
 

@@ -13,6 +13,18 @@
  * CSRF-skydd för dessa serverfunktioner installeras redan globalt av
  * `src/start.ts` (`createCsrfMiddleware` med `handlerType === "serverFn"`) —
  * inget behövs här för det.
+ *
+ * VEM SOM FRÅGAR (WS4): varje handler löser FÖRST upp anropets kontext med
+ * `losKontext` (./kontext.ts: enhets-cookien `binfo_enhet`, IP-hash).
+ * `losKontext` är den ENDA platsen där Supabase Auth senare kopplas in —
+ * session → principal. Handlers och implementationer ändras inte då; de ser
+ * bara en `Kontext`. De handlers som gör något dyrt eller betalbart
+ * (`skapaAnalysFn`, `hamtaResultatFn`, `hamtaPrisuppskattningFn`) får en hel
+ * `Anropare` (kontext + kontolager + standardbehörigheten) och skickar den
+ * till de ramverksfria implementationerna, som gör behörighets- och
+ * kvotkontrollerna (testade där, mot fakes och en neka-policy). Status och
+ * förhandsvisning löser bara upp kontexten (cookien sätts vid första
+ * besöket) — ingen kvot, ingen behörighet: de är gratis med flit.
  */
 
 import { createServerFn } from "@tanstack/react-start";
@@ -23,9 +35,26 @@ import {
   hamtaForhandsvisning as hamtaForhandsvisningImpl,
   type SkapaAnalysArgs,
 } from "./analys";
-import { envFromProcess } from "./env";
+import { skapaBehorighet } from "./behorighet";
+import { envFromProcess, type Env } from "./env";
+import { losKontext, tanstackKontextKallor, type Kontext } from "./kontext";
+import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
 import { skapaLager } from "./supabase";
+import { skapaKontoDatabas } from "./supabaseKonto";
+
+/** Production policy (STANDARD_POLICY): today everything is granted. */
+const BEHORIGHET = skapaBehorighet();
+
+/** Who is asking — the first call in every handler. The single insertion
+ *  point for Supabase Auth is inside `losKontext`, not here. */
+function kontextFor(env: Env): Promise<Kontext> {
+  return losKontext({ kallor: tanstackKontextKallor(), hemlighet: env.supabaseSecretKey });
+}
+
+async function anropareFor(env: Env): Promise<Anropare> {
+  return { kontext: await kontextFor(env), konto: skapaKontoDatabas(env), behorighet: BEHORIGHET };
+}
 
 /**
  * Plockar ut och validerar de två fälten `skapaAnalysFn` förväntar sig i
@@ -65,32 +94,39 @@ function tolkaJson(falt: string, rå: string): unknown {
 export const skapaAnalysFn = createServerFn({ method: "POST" })
   .inputValidator((data: FormData) => data)
   .handler(async ({ data }) => {
-    const { pdf, propertyInputRaw } = extraheraSkapaAnalysArgs(data);
+    const env = envFromProcess();
+    const anropare = await anropareFor(env);
 
+    const { pdf, propertyInputRaw } = extraheraSkapaAnalysArgs(data);
     const pdfBytes = new Uint8Array(await pdf.arrayBuffer());
     const propertyInput = tolkaJson("propertyInput", propertyInputRaw);
 
     const args: SkapaAnalysArgs = { pdfBytes, propertyInput };
-    const env = envFromProcess();
-    return skapaAnalysImpl(skapaLager(env), env, args);
+    return skapaAnalysImpl(skapaLager(env), env, args, { anropare });
   });
 
 export const hamtaStatusFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
-    return hamtaStatusImpl(skapaLager(envFromProcess()), data.analysisId);
+    const env = envFromProcess();
+    await kontextFor(env);
+    return hamtaStatusImpl(skapaLager(env), data.analysisId);
   });
 
 export const hamtaResultatFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
-    return hamtaResultatImpl(skapaLager(envFromProcess()), data.analysisId);
+    const env = envFromProcess();
+    const anropare = await anropareFor(env);
+    return hamtaResultatImpl(skapaLager(env), data.analysisId, anropare);
   });
 
 export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
   .inputValidator((data: { analysisId: string }) => data)
   .handler(async ({ data }) => {
-    return hamtaForhandsvisningImpl(skapaLager(envFromProcess()), data.analysisId);
+    const env = envFromProcess();
+    await kontextFor(env);
+    return hamtaForhandsvisningImpl(skapaLager(env), data.analysisId);
   });
 
 /**
@@ -98,12 +134,13 @@ export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
  * uppgifter, utan PDF. Indata valideras i handlern (PrisInputSchema, se
  * `hamtaPrisuppskattning` i ./prisuppskattning.ts) — `inputValidator` släpper
  * bara igenom okänd data så att ett valideringsfel blir ett köparsäkert
- * svar i stället för ett kastat fel. Kostar inga API-pengar.
+ * svar i stället för ett kastat fel. Kostar inga API-pengar, men är
+ * kvotbegränsad (60 per IP och timme) och behörighetskontrollerad — båda i
+ * `hamtaPrisuppskattning`, före allt annat.
  */
 export const hamtaPrisuppskattningFn = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => data)
   .handler(async ({ data }) => {
-    // TODO(WS4, konton): rate limiting (60/IP/timme) och behörighetskontrollen
-    // för rättigheten `prisuppskattning` läggs in här, före hamtaPrisuppskattning.
-    return hamtaPrisuppskattning(data);
+    const anropare = await anropareFor(envFromProcess());
+    return hamtaPrisuppskattning(data, { anropare });
   });

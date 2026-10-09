@@ -20,6 +20,14 @@
  * src/types/analysis.ts för varför detta är en egen funktion och inte en
  * flagga på hamtaResultat.
  *
+ * VEM SOM FRÅGAR (WS4, `Anropare` i portar.ts): `analysFn.ts` löser upp
+ * en `Anropare` (kontext + kontolager + behörighet) för varje anrop och
+ * skickar den hit. `skapaAnalys` kontrollerar då behörighet, kvot och
+ * principal; `hamtaResultat` kontrollerar behörigheten `full_rapport`.
+ * Utan `anropare` (operatörens CLI, `npm run analys`, och registertesterna)
+ * görs inga kontokontroller — en köpare når aldrig den vägen, eftersom
+ * analysFn.ts alltid skickar med en.
+ *
  * REGISTRET (v2, se register.ts): en ny analys-rad pekar på en delad
  * `rapport` (`rapport_id`) och allt — status, steg, extraktion, bedömning —
  * härleds därifrån. Rader utan `rapport_id` (skapade före registret) läses
@@ -46,6 +54,7 @@ import {
 import type { Env } from "./env";
 import type {
   AnalysErrorCode,
+  Anropare,
   AnalysRad,
   AnalysStage,
   AnalysStatus,
@@ -56,7 +65,17 @@ import type {
 } from "./portar";
 import { lasPropertyInputFranRad } from "./lagratInput";
 import { hamtaAnalysFranCache, hamtaExtraktionFranCache } from "./cache";
-import { omkorningOmojligResultat, tolkaFel, tolkaRapportFel, tolkaSpendSkal } from "./fel";
+import {
+  omkorningOmojligResultat,
+  tolkaFel,
+  tolkaKvot,
+  tolkaRapportFel,
+  tolkaSpendSkal,
+} from "./fel";
+import { SaknarBehorighetError, type Formaga } from "./behorighet";
+import { DAG_SEK, kontrolleraUppladdningskvot, kvotNyckel } from "./kvot";
+import { medPrincipal } from "./principal";
+import { kontrolleraDagligtTak } from "./spend";
 import {
   ALDRE_VERSION_SKAL,
   arPagaende,
@@ -97,8 +116,50 @@ export interface SkapaAnalysArgs {
   propertyInput: unknown;
 }
 
-/** Injected for tests; production uses src/lib/analysis/identitet.ts. */
-export type SkapaAnalysBeroenden = Partial<IdentitetsBeroenden>;
+/** Identity functions: injected for tests; production uses
+ *  src/lib/analysis/identitet.ts. `anropare`: the requester — always set by
+ *  analysFn.ts; omitted only by the operator CLI and tests that exercise the
+ *  register alone (no entitlement, quota or principal then). */
+export type SkapaAnalysBeroenden = Partial<IdentitetsBeroenden> & { anropare?: Anropare };
+
+/** `kravBehorighet` as a result instead of a throw: a refusal becomes the
+ *  buyer-safe `behorighet` code (fel.ts); anything else (a policy rule that
+ *  throws) propagates — fail closed. */
+async function provaBehorighet(
+  anropare: Anropare,
+  formaga: Formaga,
+): Promise<{ ok: true } | { ok: false; errorCode: AnalysErrorCode; errorMessage: string }> {
+  try {
+    await anropare.behorighet.kravBehorighet(anropare.kontext, formaga);
+    return { ok: true };
+  } catch (fel) {
+    if (!(fel instanceof SaknarBehorighetError)) throw fel;
+    const { errorCode, message } = tolkaFel(fel);
+    return { ok: false, errorCode, errorMessage: message };
+  }
+}
+
+/**
+ * Gives back the upload quota `kontrolleraUppladdningskvot` took (the device
+ * key, and the IP key when there is an IP). Used when the upload turned out
+ * to cost nothing: served instantly from the register. Best effort — the
+ * buyer's analysis already exists, so a failed refund is logged, never
+ * thrown.
+ */
+async function aterlamnaUppladdningskvot(anropare: Anropare): Promise<void> {
+  const { kontext, konto } = anropare;
+  try {
+    await konto.aterlamnaKvot(kvotNyckel("uppladdning", "enhet", kontext.enhetId), DAG_SEK);
+    if (kontext.ipHash !== null) {
+      await konto.aterlamnaKvot(kvotNyckel("uppladdning", "ip", kontext.ipHash), DAG_SEK);
+    }
+  } catch (fel) {
+    console.warn(
+      "[kvot] Kunde inte återlämna uppladdningskvot: " +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
+}
 
 const MAX_PDF_STORLEK_BYTES = 25 * 1024 * 1024;
 // "%PDF" — de fyra inledande byten en giltig PDF-fil alltid börjar med.
@@ -116,12 +177,18 @@ function harPdfMagicBytes(bytes: Uint8Array): boolean {
 }
 
 /**
- * Skapar ett analysjobb. Ordningen på kontrollerna nedan är medveten (se
- * uppgiftens spec): validering → hash (på ORIGINALA byten, innan något
- * annat rör dem) → magic bytes → storlek → kill switch → textlagerkontroll
- * (INNAN någon uppladdning eller radskapande) → uppladdning → registret
+ * Skapar ett analysjobb. Ordningen på kontrollerna nedan är medveten:
+ * behörighet (`ladda_upp_analys`) → validering → hash (på ORIGINALA byten,
+ * innan något annat rör dem) → magic bytes → storlek → kill switch →
+ * textlagerkontroll → dagens spend-tak (läsning, ingen reservation) →
+ * uppladdningskvoten → principal → uppladdning → registret
  * (`kopplaUppladdning`, register.ts: hash-träff, lokal identitet, eller en ny
- * rapport) → analys-raden → föreningens område (bästa försök).
+ * rapport) → analys-raden (med `principal_id`) → föreningens område (bästa
+ * försök) → kvoten tillbaka om analysen serverades direkt ur registret.
+ *
+ * Varje nekande före uppladdningen lämnar noll sidoeffekter: ingen fil,
+ * ingen rad, ingen principal — och ingen förbrukad kvot, eftersom kvoten tas
+ * sist av kontrollerna (efter spend-taket, som bara läser).
  */
 export async function skapaAnalys(
   lager: Lager,
@@ -129,6 +196,12 @@ export async function skapaAnalys(
   args: SkapaAnalysArgs,
   beroenden: SkapaAnalysBeroenden = {},
 ): Promise<SkapaAnalysResultat> {
+  const { anropare } = beroenden;
+  if (anropare) {
+    const behorighet = await provaBehorighet(anropare, "ladda_upp_analys");
+    if (!behorighet.ok) return behorighet;
+  }
+
   const parsedInput = PropertyInputSchema.safeParse(args.propertyInput);
   if (!parsedInput.success) {
     return {
@@ -180,6 +253,27 @@ export async function skapaAnalys(
     return { ok: false, errorCode, errorMessage: message };
   }
 
+  // Dagens spend-tak, i förväg: annars köar analysen tyst till i morgon (se
+  // `kontrolleraDagligtTak`). Före kvoten, så ett nekande inte kostar köparen
+  // något.
+  const tak = await kontrolleraDagligtTak(lager.db, env);
+  if (!tak.ok) {
+    const { errorCode, message } = tolkaSpendSkal(tak.skal ?? "daily_cap");
+    return { ok: false, errorCode, errorMessage: message };
+  }
+
+  let principalId: string | null = null;
+  if (anropare) {
+    const kvot = await kontrolleraUppladdningskvot(anropare.konto, anropare.kontext);
+    if (!kvot.ok) {
+      const { errorCode, message } = tolkaKvot(kvot);
+      return { ok: false, errorCode, errorMessage: message };
+    }
+    // Principalen skapas först här — vid den första dyra handlingen, aldrig
+    // vid ett sidbesök (se principal.ts).
+    principalId = (await medPrincipal(anropare.konto, anropare.kontext)).principalId;
+  }
+
   // Alltid ladda upp, även vid en träff i registret — innehållsadresserad
   // lagring tolererar en dubblett, och en PDF som en äldre retention-regel
   // raderat återställs på köpet (registret behåller PDF:er).
@@ -215,6 +309,7 @@ export async function skapaAnalys(
     status: "queued",
     stage: "uploaded",
     rapportId: koppling.rapportId,
+    principalId,
   });
 
   if (koppling.orgnr !== null && propertyInput.postnummer !== "") {
@@ -228,6 +323,9 @@ export async function skapaAnalys(
       );
     }
   }
+
+  // Serverad direkt ur registret: noll kostnad, så ingen kvot heller.
+  if (koppling.ateranvand && anropare) await aterlamnaUppladdningskvot(anropare);
 
   return {
     ok: true,
@@ -457,12 +555,19 @@ async function hamtaRegisterUnderlag(lager: Lager, rad: AnalysRad): Promise<Unde
 }
 
 /** Shared by hamtaResultat and hamtaForhandsvisning: row lookup, the right
- *  read path, assembly, and the register's extra notes. */
-async function monteraResultat(lager: Lager, analysisId: string): Promise<AnalysisResult> {
+ *  read path, assembly, and the register's extra notes. `kontrolleraRad`
+ *  runs once the row is resolved and before any read work (the entitlement
+ *  check of hamtaResultat). */
+async function monteraResultat(
+  lager: Lager,
+  analysisId: string,
+  kontrolleraRad?: (rad: AnalysRad) => Promise<void>,
+): Promise<AnalysisResult> {
   const rad = await lager.db.hamtaAnalys(analysisId);
   if (!rad) {
     throw new AnalysHittadesInteError(analysisId);
   }
+  if (kontrolleraRad) await kontrolleraRad(rad);
   const underlag =
     rad.rapportId === null
       ? await hamtaLegacyUnderlag(lager, rad)
@@ -502,9 +607,26 @@ function medExtraSkal(resultat: AnalysisResult, extraSkal: readonly string[]): A
  * (assembleraAnalys) i stället för att lagra det färdiga JSON:et — se
  * assemble.ts/cache.ts. Idempotent så länge `analysisId`/`skapad` alltid
  * kommer från raden, aldrig genereras på nytt av assembleraAnalys.
+ *
+ * Med `anropare` (alltid från analysFn.ts) kontrolleras behörigheten
+ * `full_rapport` så fort raden är uppslagen — med radens `rapportId`, den
+ * nyckel ett framtida köp per analys hänger på. Nekad →
+ * `SaknarBehorighetError` kastas (routen skickar då köparen till den
+ * kostnadsfria förhandsvisningen). Ingen kvot: läsningar kostar inget.
  */
-export async function hamtaResultat(lager: Lager, analysisId: string): Promise<AnalysisResult> {
-  return monteraResultat(lager, analysisId);
+export async function hamtaResultat(
+  lager: Lager,
+  analysisId: string,
+  anropare?: Anropare,
+): Promise<AnalysisResult> {
+  if (!anropare) return monteraResultat(lager, analysisId);
+  return monteraResultat(lager, analysisId, (rad) =>
+    anropare.behorighet.kravBehorighet(
+      anropare.kontext,
+      "full_rapport",
+      rad.rapportId !== null ? { rapportId: rad.rapportId } : {},
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

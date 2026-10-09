@@ -17,6 +17,9 @@
 
 import type { ExtractionResult, PropertyInput } from "@/types/analysis";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
+import type { Behorighet } from "./behorighet";
+import type { Kontext } from "./kontext";
+import type { KontoDatabas } from "./kontoPortar";
 
 // ---------------------------------------------------------------------------
 // analys table
@@ -29,7 +32,14 @@ export type AnalysStage = "uploaded" | "extracting" | "judging" | "complete";
  *  `error_code` is a plain `text` column (no enum, no CHECK constraint — see
  *  the migration) so `"versionskonflikt"` was added here without a
  *  migration; it is NOT yet listed in the migration's own comment, which
- *  documents the column's original values as of 2026-09-13. */
+ *  documents the column's original values as of 2026-09-13.
+ *
+ *  `"kvot"` (rate limit, ./kvot.ts) and `"behorighet"` (entitlement refused,
+ *  ./behorighet.ts) are only ever returned by a server function before any
+ *  row exists — they are never stored on an `analys` or `rapport` row. They
+ *  live in this union because the buyer-facing mirror
+ *  (src/lib/analysStatusCopy.ts) needs copy for every code a server function
+ *  can return. */
 export type AnalysErrorCode =
   | "scanned_pdf"
   | "cost_cap"
@@ -37,6 +47,8 @@ export type AnalysErrorCode =
   | "validation"
   | "saknar_rantekanslighet"
   | "versionskonflikt"
+  | "kvot"
+  | "behorighet"
   | "unknown";
 
 /** One row of the `analys` table — a single buyer's analysis job (legacy
@@ -79,6 +91,11 @@ export interface AnalysRad {
    *  as before the register existed. Non-null = its own status/stage/
    *  grundtext columns are unused; everything derives from the rapport. */
   rapportId: string | null;
+
+  /** Who made this request (`principal`, migration
+   *  20261009120100_konto.sql). Null for rows created before that migration
+   *  and for operator uploads (the CLI), which have no requester. */
+  principalId: string | null;
 }
 
 /** Fields needed to insert a new job row. Dedupe logic upstream (matching on
@@ -95,6 +112,9 @@ export interface NyAnalysRad {
   stage: AnalysStage;
   /** Omitted (or null) = legacy row. See `AnalysRad.rapportId`. */
   rapportId?: string | null;
+  /** Omitted (or null) = no requester (operator CLI). See
+   *  `AnalysRad.principalId`. */
+  principalId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +321,11 @@ export interface Databas {
   /** Wraps `avstam_spend` — reconciles a reservation down (or up) to the
    *  actual cost once the step has run. */
   avstamSpend(dag: string, reserveratSek: number, faktisktSek: number): Promise<void>;
+  /** Read-only: `spend_day.cost_sek` for `dag` (reservations included), 0
+   *  when the day has no row yet. Only for the up-front check at upload
+   *  (`kontrolleraDagligtTak` in spend.ts) — never for deciding a
+   *  reservation, which stays atomic in `reserveraSpend`. */
+  hamtaSpendForDag(dag: string): Promise<number>;
 
   /** Wraps `radera_analys`. `pdfBlevForlorad` is true when this was the
    *  last analysis referencing that PDF's content hash, meaning the caller
@@ -392,4 +417,19 @@ export interface Filarkiv {
 export interface Lager {
   db: Databas;
   filer: Filarkiv;
+}
+
+// ---------------------------------------------------------------------------
+// Anropare — who is asking, for the buyer-facing server functions
+// ---------------------------------------------------------------------------
+
+/** Everything a buyer-facing implementation needs to know about the
+ *  requester: the resolved request context (./kontext.ts), the account-layer
+ *  store (principals, quotas — ./kontoPortar.ts) and the entitlement checks
+ *  (./behorighet.ts). Built once per request by `analysFn.ts`; tests inject
+ *  the fakes and a deny policy. */
+export interface Anropare {
+  kontext: Kontext;
+  konto: KontoDatabas;
+  behorighet: Behorighet;
 }
