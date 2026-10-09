@@ -610,4 +610,12 @@ The supervisor owns:
 | 2026-10-09 | W5 caching: breakpoints implemented but OFF by default — isolated report +0.05–0.12 kr with caching, burst −3 %; fails the "net ≤ 0" rule for production. 'system' mode kept for backfills | done |
 | 2026-10-09 | W1-EVAL: see §1.9; D8 decided (V2b, Sonnet 5.5); garbled layers stay on normal path | done |
 | 2026-10-09 | W3a register core: SQL verified on PGlite (Postgres-in-WASM, 45 checks) pending real Supabase; under review | in review |
+| 2026-10-09 | W3a register (7a7377c) after review M1–M5/L6–L8/L10 fixes | done |
+| 2026-10-09 | W1 scan library layer + sanity checks, PROMPT_VERSION 6 (4cccb25): 3 scans 45/45 on draft keys; text regression unchanged | done |
+| 2026-10-09 | W4 wiring (c94b972) + dev import-protection fix (0c2edfc) | done |
+| 2026-10-09 | F1 UI (be36c52) + review fixes (993c6e1) | done |
+| 2026-10-09 | Scans switched on in the job machine (5d351d6): state-machine E2E 34-p scan 8/8, 5.94 kr; register re-upload 0 kr | done |
+| 2026-10-09 | Server review hardening (deae884): transcription reuse, terminal deterministic failures, 15 kr stage ceiling, ≥50 % empty-page rule, loose quotas, safe errors | done |
+| 2026-10-09 | Changed vs plan: garbled layers stay on the normal path (§1.9); 'saknas' = ≥ 50 % empty pages (plan said 80 %; 50 % chosen after review — all corpus PDFs unchanged); fee sanity tolerance 25 % (10 % false-alarmed); caching off by default (§5); interim 60-page scan limit | documented |
+| 2026-10-09 | Total API spend this session: 154.21 SEK of 300 | — |
 | 2026-10-09 | Docker unavailable (owner remote) → migration apply, SQL-level tests, verify-rls deferred to a Docker session | deferred |

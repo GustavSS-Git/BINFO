@@ -77,10 +77,13 @@ per-apartment cost in kronor, and what to do before bidding.
       Supabase Auth will plug in.
    2. Entitlement `ladda_upp_analys` (`behorighet.ts`, everything granted today).
    3. Validation: Zod `PropertyInput`, SHA-256, `%PDF`, ≤ 25 MB, kill switch.
-   4. `extractPdfText` → `klassificeraTextlager`: `ok` | `saknas` (no text; scan
-      path, ≤ 60 pages) | `trasigt` (garbled; normal path — measured better).
+   4. `extractPdfText` → `klassificeraTextlager`: `ok` | `saknas` (≥ 50 % of
+      pages without text; scan path, ≤ 60 pages) | `trasigt` (garbled; normal
+      path — measured better).
    5. Daily spend cap (read-only), skipped for a free register hash hit.
-   6. Upload quota (5/device/day, 10/IP/day); `medPrincipal` → `principal_id`.
+   6. Upload quotas: strict 5/device and 10/IP per day (refunded on exact hash
+      hits) + loose 30/device and 100/IP per day (never refunded); IP only from
+      `cf-connecting-ip`; `medPrincipal` → `principal_id`.
    7. Register lookup (`register.ts`): `rapport_fil` hash hit → instant reuse;
       else local identity (Luhn orgnr + fiscal year + matching BRF name) → reuse;
       else a new `rapport` (stage `identifiering`, or `grundning` if identified).
@@ -96,7 +99,10 @@ per-apartment cost in kronor, and what to do before bidding.
    1. `identifiering`: Haiku 4.5 reads pages 1–3 → orgnr/year/name; a register
       hit marks this rapport `ersatt` and re-points its buyers (no spend after).
    2. `transkribering` (scans only): pdf-lib 5-page chunks, transcribed in
-      parallel (Sonnet 5.5), persisted per page in `sidtext`.
+      parallel (Sonnet 5.5, ≤ 10k output tokens/chunk, 110 s deadline),
+      persisted per page in `sidtext` and reused across rapport rows of the
+      same PDF while `TRANSKRIPTION_PROMPT_VERSION` is unchanged.
+      Deterministic failures are terminal; hard ceiling 15 kr per report.
    3. `grundning`: citations over the PDF (`page_location`) or over the
       transcription (custom-content `content_block_location` → page map).
    4. `extraktion`: JSON, Zod, one retry; deterministic reconciliation
@@ -160,7 +166,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 7 warnings)
 npm run typecheck           # tsc --noEmit
-npm test                    # vitest run (2026-10-09 end of v2: 69 files, 1521 tests)
+npm test                    # vitest run (2026-10-09 end of v2: 69 files, 1573 tests)
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
 npm run verify-extraction -- <dir>         # score against fixtures/answer-key (spend; VERIFY_FROM_RESULTS=<dir> = free)
 npm run analys -- <pdf> <input.json>       # LIVE Supabase job + spend
@@ -306,8 +312,6 @@ cd ml && .venv/bin/pytest                  # ML tests
   verification; scan accuracy figures are measured against those drafts.
 - Scans over 60 pages are refused (interim product limit, pending owner
   confirmation).
-- A lazy re-run of a scanned report re-transcribes it (sidtext belongs to the
-  old rapport; ≈ 3.6 kr for 34 pages).
 - No accounts yet (anonymous device principals only); entitlements grant
   everything; GDPR erasure/export are owner-run CLI commands.
 - Volontären `antalLokaler` is still missed (1 vs null), pre-existing.
