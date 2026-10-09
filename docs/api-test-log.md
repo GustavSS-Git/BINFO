@@ -75,7 +75,18 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 67 | 2026-10-09 | W1-EVAL scans | GARBLED-ii-png150-images (1 calls) | claude-sonnet-5 | 14810 | 3349 | 0 | 0 | 0.61 | 104.91 |
 | 68 | 2026-10-09 | W1-EVAL scans | G-V2n-sonnet-5-testrapport (1 calls) | claude-sonnet-5 | 22365 | 2603 | 0 | 0 | 0.69 | 105.60 |
 | 69 | 2026-10-09 | W1-EVAL scans | E-V2n-sonnet-5-testrapport#1 (1 calls) | claude-sonnet-5 | 28185 | 6196 | 0 | 0 | 1.15 | 106.75 |
+| 70 | 2026-10-09 | W1-IMPL scans | bild2 full pipeline on claude-sonnet-5 by mistake (8 calls) | claude-sonnet-5 | 88980 | 31841 | 0 | 0 | 4.85 | 111.60 |
+| 71 | 2026-10-09 | W1-IMPL scans | bild2 first 5.5 attempt, extraction failed validation twice (not logged per call) | claude-sonnet-5-5 | — | — | 0 | 0 | 4.58 | 116.18 |
+| 72 | 2026-10-09 | W1-IMPL scans | bild2 debug re-run grounding+extraction (not logged per call) | claude-sonnet-5-5 | — | — | 0 | 0 | 1.52 | 117.70 |
+| 73 | 2026-10-09 | W1-IMPL scans | bild2 final full pipeline (8 calls) | claude-sonnet-5-5 | 87428 | 27454 | 0 | 0 | 4.38 | 122.08 |
+| 74 | 2026-10-09 | W1-IMPL scans | bild2025 full pipeline (11 calls, 1 extraction retry) | claude-sonnet-5-5 | 130070 | 40355 | 0 | 0 | 6.49 | 128.57 |
+| 75 | 2026-10-09 | W1-IMPL scans | sbc2 full pipeline (8 calls, 1 extraction retry) | claude-sonnet-5-5 | 93591 | 24920 | 0 | 0 | 4.07 | 132.64 |
+| 76 | 2026-10-09 | W1-IMPL scans | sbc2 debug re-run grounding+extraction (not logged per call) | claude-sonnet-5-5 | — | — | 0 | 0 | 1.90 | 134.54 |
+| 77 | 2026-10-09 | W1-IMPL scans | Granen/Nabo text regression v6 (3 calls) | claude-sonnet-5-5 | 139625 | 11426 | 0 | 0 | 3.82 | 138.36 |
+| 78 | 2026-10-09 | W1-IMPL scans | Albohem/SBC text regression v6 (3 calls) | claude-sonnet-5-5 | 113757 | 8468 | 0 | 0 | 3.03 | 141.39 |
+| 79 | 2026-10-09 | W1-IMPL scans | Volontären text regression v6 (3 calls) | claude-sonnet-5-5 | 56071 | 9200 | 0 | 0 | 1.98 | 143.37 |
+| 80 | 2026-10-09 | W1-IMPL scans | sbc2 re-run with cached transcript (3 calls) | claude-sonnet-5-5 | 43541 | 10051 | 0 | 0 | 1.82 | 145.19 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
-**Running total: 106.75 SEK**
+**Running total: 145.19 SEK**
