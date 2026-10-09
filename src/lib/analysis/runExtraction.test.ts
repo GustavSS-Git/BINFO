@@ -3,10 +3,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import type { ExtractionResult, KeyFigure, KeyFigureId } from "@/types/analysis";
-import { estimateCostSek, KostnadsgransOverskriden, SONNET_5_PRISSATTNING } from "./costGuard";
+import {
+  estimateCostFromUsageSek,
+  estimateCostSek,
+  KostnadsgransOverskriden,
+  SONNET_5_PRISSATTNING,
+} from "./costGuard";
+import { buildExtractionSystemPrompt, buildExtractionUserPrompt } from "./prompts";
 import { ModelTruncatedError } from "./extract";
 import { errorHasKnownSpend } from "./callMetrics";
 import {
+  ModelRefusedError,
   ScannedPdfError,
   runExtraction,
   runGrounding,
@@ -14,6 +21,7 @@ import {
   stripMarkdownFence,
   toBase64,
   type AnthropicClientLike,
+  type PromptCacheMode,
 } from "./runExtraction";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -252,6 +260,26 @@ describe("runGrounding", () => {
   });
 });
 
+describe("runGrounding — refusal", () => {
+  it("kastar ModelRefusedError annoterat med kostnaden vid stop_reason refusal", async () => {
+    const data = new Uint8Array(await fixture("med-text.pdf"));
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 500, output_tokens: 20 },
+      content: [],
+      stop_reason: "refusal",
+    });
+    try {
+      await runGrounding(data, { maxCostSek: 5, client });
+      expect.fail("skulle ha kastat");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ModelRefusedError);
+      expect(errorHasKnownSpend(error)).toBe(true);
+    }
+  });
+});
+
 describe("runStructuredExtraction", () => {
   it("skickar aldrig ett 'document'-innehållsblock till modellen — anropet är rent textbaserat", async () => {
     const client = fakeClient();
@@ -261,19 +289,193 @@ describe("runStructuredExtraction", () => {
       content: [{ type: "text", text: JSON.stringify(validExtractionResult) }],
     });
 
-    await runStructuredExtraction("Fynd: Brf Testgården, sida 3.", { maxCostSek: 5, client });
+    await runStructuredExtraction("Fynd: Brf Testgården, sida 3.", {
+      maxCostSek: 5,
+      client,
+      promptCache: true,
+    });
 
     expect(client.messages.create).toHaveBeenCalledTimes(1);
     const params = client.messages.create.mock.calls[0]?.[0] as {
       messages: Array<{ content: unknown }>;
     };
-    // ModelCaller always sends a plain string as content — never an array,
-    // so a { type: "document" } block (or any other content block) simply
-    // cannot occur here. Assert the shape rather than searching for the
-    // absence of one string, which a Swedish prompt would never contain
-    // anyway.
-    expect(typeof params.messages[0]?.content).toBe("string");
+    // The user content is a single text block (never a document block): with
+    // promptCache on it is [{type:"text", ...}], with it off a plain string.
+    const content = params.messages[0]?.content;
+    expect(Array.isArray(content)).toBe(true);
+    expect((content as Array<{ type: string }>).map((b) => b.type)).toEqual(["text"]);
     expect(JSON.stringify(params)).not.toContain('"type":"document"');
+  });
+
+  describe("prompt caching (explicit breakpoints)", () => {
+    type Req = {
+      system: unknown;
+      messages: Array<{ content: unknown }>;
+    };
+
+    async function kor(promptCache?: PromptCacheMode) {
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+      client.messages.create.mockResolvedValue({
+        usage: { input_tokens: 300, output_tokens: 100 },
+        content: [{ type: "text", text: JSON.stringify(validExtractionResult) }],
+      });
+      await runStructuredExtraction("Fynd: Brf Testgården, sida 3.", {
+        maxCostSek: 5,
+        client,
+        ...(promptCache === undefined ? {} : { promptCache }),
+      });
+      return {
+        client,
+        create: client.messages.create.mock.calls[0]?.[0] as Req,
+        count: client.messages.countTokens.mock.calls[0]?.[0] as Req,
+      };
+    }
+
+    it("lägger brytpunkten på det statiska systemblocket och på användarblocket — aldrig top-level", async () => {
+      const { create } = await kor(true);
+      expect(create.system).toEqual([
+        { type: "text", text: buildExtractionSystemPrompt(), cache_control: { type: "ephemeral" } },
+      ]);
+      expect(create.messages[0]?.content).toEqual([
+        {
+          type: "text",
+          text: buildExtractionUserPrompt("Fynd: Brf Testgården, sida 3."),
+          cache_control: { type: "ephemeral" },
+        },
+      ]);
+      // Automatisk (top-level) cachning får inte användas.
+      expect(Object.keys(create)).not.toContain("cache_control");
+    });
+
+    it("systemblocket är byte-för-byte identiskt mellan två olika rapporter (annars träffar aldrig cachen)", async () => {
+      const a = await kor(true);
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+      client.messages.create.mockResolvedValue({
+        usage: { input_tokens: 300, output_tokens: 100 },
+        content: [{ type: "text", text: JSON.stringify(validExtractionResult) }],
+      });
+      await runStructuredExtraction("Helt andra fynd från en annan förening.", {
+        maxCostSek: 5,
+        client,
+        promptCache: true,
+      });
+      const b = client.messages.create.mock.calls[0]?.[0] as Req;
+      expect(JSON.stringify(b.system)).toBe(JSON.stringify(a.create.system));
+      expect(JSON.stringify(b.messages)).not.toBe(JSON.stringify(a.create.messages));
+    });
+
+    it("countTokens får samma system/messages-form som create", async () => {
+      const { create, count } = await kor(true);
+      expect(count.system).toEqual(create.system);
+      expect(count.messages).toEqual(create.messages);
+    });
+
+    it('promptCache:"system" cachar bara det statiska systemblocket', async () => {
+      const { create } = await kor("system");
+      expect(create.system).toEqual([
+        { type: "text", text: buildExtractionSystemPrompt(), cache_control: { type: "ephemeral" } },
+      ]);
+      expect(typeof create.messages[0]?.content).toBe("string");
+    });
+
+    it("promptCache:false ger enbart vanliga strängar utan cache_control", async () => {
+      const { create } = await kor(false);
+      expect(typeof create.system).toBe("string");
+      expect(typeof create.messages[0]?.content).toBe("string");
+      expect(JSON.stringify(create)).not.toContain("cache_control");
+    });
+
+    it("valideringsretryn skickar exakt samma cachebara prefix en gång till", async () => {
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+      client.messages.create
+        .mockResolvedValueOnce({
+          usage: { input_tokens: 10, output_tokens: 100, cache_creation_input_tokens: 2000 },
+          content: [{ type: "text", text: '{"helt": "fel form"}' }],
+        })
+        .mockResolvedValueOnce({
+          usage: { input_tokens: 10, output_tokens: 100, cache_read_input_tokens: 2000 },
+          content: [{ type: "text", text: JSON.stringify(validExtractionResult) }],
+        });
+      const { calls } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+      const [första, andra] = client.messages.create.mock.calls.map((c) => c[0]);
+      expect(JSON.stringify(andra)).toBe(JSON.stringify(första));
+      expect(calls[0]?.cacheCreationInputTokens).toBe(2000);
+      expect(calls[1]?.cacheReadInputTokens).toBe(2000);
+      // Läsningen är billigare än skrivningen.
+      expect(calls[1]!.costSek).toBeLessThan(calls[0]!.costSek);
+    });
+
+    it("grundningen cachas aldrig (systemprompten ligger under modellens minimum)", async () => {
+      const data = new Uint8Array(await fixture("med-text.pdf"));
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 500 });
+      client.messages.create.mockResolvedValue(groundingApiResponse());
+      await runGrounding(data, { maxCostSek: 5, client });
+      expect(JSON.stringify(client.messages.create.mock.calls[0]?.[0])).not.toContain(
+        "cache_control",
+      );
+    });
+  });
+
+  it("kostnaden räknas från verklig usage inklusive cachefält", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: {
+        input_tokens: 100,
+        output_tokens: 100,
+        cache_creation_input_tokens: 1000,
+        cache_read_input_tokens: 3000,
+      },
+      content: [{ type: "text", text: JSON.stringify(validExtractionResult) }],
+    });
+    const { spentSek } = await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+    expect(spentSek).toBeCloseTo(
+      estimateCostFromUsageSek(
+        {
+          input_tokens: 100,
+          output_tokens: 100,
+          cache_creation_input_tokens: 1000,
+          cache_read_input_tokens: 3000,
+        },
+        SONNET_5_PRISSATTNING,
+      ),
+      10,
+    );
+  });
+
+  it("kastar ModelRefusedError vid stop_reason refusal, annoterat med kostnaden, utan retry", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 20 },
+      content: [],
+      stop_reason: "refusal",
+    });
+    try {
+      await runStructuredExtraction("Fynd.", { maxCostSek: 5, client });
+      expect.fail("skulle ha kastat");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ModelRefusedError);
+      expect((error as Error).message).toContain("refusal");
+      expect(errorHasKnownSpend(error)).toBe(true);
+      if (errorHasKnownSpend(error)) {
+        expect(error.spentSek).toBeGreaterThan(0);
+        expect(error.calls).toHaveLength(1);
+      }
+    }
+    expect(client.messages.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("använder modellens egen prissättning och kastar för en okänd modell", async () => {
+    const client = fakeClient();
+    await expect(
+      runStructuredExtraction("Fynd.", { maxCostSek: 5, client, model: "claude-okand-1" }),
+    ).rejects.toThrow(/claude-okand-1/);
+    expect(client.messages.create).not.toHaveBeenCalled();
   });
 
   it("skriver alltid över datakvalitet.pdfSaknarTextlager med det redan kända värdet, oavsett modellens svar", async () => {

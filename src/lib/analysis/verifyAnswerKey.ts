@@ -10,6 +10,7 @@ import {
   type ModelEffort,
 } from "./runExtraction";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
+import { STANDARD_MODELL } from "./costGuard";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
 // Never bundled for the client — this file is a Node CLI run via `tsx`, not
 // part of the Vite/TanStack client graph — so importing STANDARD_EFFORT
@@ -212,10 +213,19 @@ async function main() {
     return;
   }
 
-  const model = process.env["ANTHROPIC_MODEL"] || "claude-sonnet-5";
+  const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
   const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
   const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
+  // ANTHROPIC_PROMPT_CACHE: unset/off = no breakpoints (production default), "system" or "on" for measurement.
+  const cacheEnv = (process.env["ANTHROPIC_PROMPT_CACHE"] ?? "").toLowerCase();
+  const promptCache = cacheEnv === "on" ? true : cacheEnv === "system" ? "system" : false;
+  // VERIFY_FROM_RESULTS=<dir>: score saved results instead of calling the API
+  // (no spend). Expects <dir>/<kalla.fil>.json, the stdout of `npm run extract
+  // -- <pdf> <input.json>` (a full AnalysisResult) or of `npm run extract --
+  // <pdf>` (an ExtractionResult); only `.forening` is read. Fixtures without a
+  // file are skipped.
+  const fromResultsDir = process.env["VERIFY_FROM_RESULTS"];
   const fixtures = await loadFixtures();
 
   const verifierad = nyRakning();
@@ -245,17 +255,31 @@ async function main() {
         `${arUtkast(fixture) ? "  [UTKAST — ej verifierad]" : ""}\n${"=".repeat(70)}`,
     );
 
-    let pdfBytes: Uint8Array;
-    try {
-      pdfBytes = new Uint8Array(await readFile(pdfPath));
-    } catch {
-      console.log(`  HOPPAR ÖVER — hittar inte ${pdfPath}`);
-      hoppadeOver++;
-      continue;
+    let pdfBytes: Uint8Array = new Uint8Array(0);
+    let sparatResultat:
+      | { forening: Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"]["forening"] }
+      | undefined;
+    if (fromResultsDir) {
+      const resultPath = path.join(fromResultsDir, `${fixture.kalla.fil}.json`);
+      try {
+        sparatResultat = JSON.parse(await readFile(resultPath, "utf-8"));
+      } catch {
+        console.log(`  HOPPAR ÖVER — hittar inte sparat resultat ${resultPath}`);
+        hoppadeOver++;
+        continue;
+      }
+    } else {
+      try {
+        pdfBytes = new Uint8Array(await readFile(pdfPath));
+      } catch {
+        console.log(`  HOPPAR ÖVER — hittar inte ${pdfPath}`);
+        hoppadeOver++;
+        continue;
+      }
     }
 
     // --- Fixtures expected to be REFUSED before any API spend (scanned PDF) ---
-    if (fixture.forvantatRefuserad) {
+    if (fixture.forvantatRefuserad && !sparatResultat) {
       try {
         // No wall-clock/cost tracking here on purpose: a refusal is a local,
         // pre-flight check (extractPdfText's text-layer detection) that
@@ -296,20 +320,30 @@ async function main() {
     let calls: ModelCallMetrics[];
     const wallStart = performance.now();
     try {
-      const grundning = await korMedEttOmforsok(() =>
-        runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding }),
-      );
-      const strukturerad = await korMedEttOmforsok(() =>
-        runStructuredExtraction(grundning.groundingText, {
-          model,
-          maxCostSek: maxCostSek - grundning.spentSek,
-          effort: effortExtraction,
-          pdfSaknarTextlager: grundning.pdfSaknarTextlager,
-        }),
-      );
-      extraction = strukturerad.extraction;
-      spentSek = grundning.spentSek + strukturerad.spentSek;
-      calls = [...grundning.calls, ...strukturerad.calls];
+      if (sparatResultat) {
+        // Saved result: nothing is called, so no cost/latency to report.
+        extraction = {
+          forening: sparatResultat.forening,
+        } as Awaited<ReturnType<typeof runStructuredExtraction>>["extraction"];
+        spentSek = 0;
+        calls = [];
+      } else {
+        const grundning = await korMedEttOmforsok(() =>
+          runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding }),
+        );
+        const strukturerad = await korMedEttOmforsok(() =>
+          runStructuredExtraction(grundning.groundingText, {
+            model,
+            maxCostSek: maxCostSek - grundning.spentSek,
+            effort: effortExtraction,
+            pdfSaknarTextlager: grundning.pdfSaknarTextlager,
+            promptCache,
+          }),
+        );
+        extraction = strukturerad.extraction;
+        spentSek = grundning.spentSek + strukturerad.spentSek;
+        calls = [...grundning.calls, ...strukturerad.calls];
+      }
     } catch (error) {
       console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
       misslyckade++;

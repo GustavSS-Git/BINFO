@@ -20,6 +20,7 @@
  */
 
 import { z } from "zod";
+import { STANDARD_MODELL } from "@/lib/analysis/costGuard";
 
 /** Sonnet 5's `output_config.effort` values — see runExtraction.ts's
  *  `ModelEffort` (this module can't import from `src/lib/analysis/` without
@@ -168,7 +169,7 @@ export function lasEnv(record: Record<string, string | undefined>): Env {
     maxDailySpendSek: data.MAX_DAILY_SPEND_SEK,
     killSwitchPa: data.ANALYSIS_KILL_SWITCH === "on",
     anthropicApiKey: data.ANTHROPIC_API_KEY,
-    anthropicModel: data.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+    anthropicModel: data.ANTHROPIC_MODEL ?? STANDARD_MODELL,
     maxCostPerAnalysisSek: data.MAX_COST_PER_ANALYSIS_SEK ?? 5,
     // Alltid satta (never undefined) — se STANDARD_EFFORT/Env.effortGrounding.
     effortGrounding: data.ANTHROPIC_EFFORT_GROUNDING ?? STANDARD_EFFORT,

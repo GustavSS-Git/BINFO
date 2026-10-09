@@ -19,8 +19,8 @@ import {
 } from "./prompts";
 import {
   enforceCostLimit,
-  estimateCostSek,
-  SONNET_5_PRISSATTNING,
+  prissattningForModell,
+  STANDARD_MODELL,
   type ModelPricing,
 } from "./costGuard";
 import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
@@ -45,6 +45,71 @@ export class ScannedPdfError extends Error {
 }
 
 /**
+ * Thrown when a call ends with `stop_reason: "refusal"` (Sonnet 5.5 can
+ * return it). Not a shape problem and not retryable: asking again with the
+ * same prompt would be refused again, so it propagates straight out of the
+ * retry loop. The caller annotates real spend on it (annotateSpend), like
+ * ModelTruncatedError.
+ */
+export class ModelRefusedError extends Error {
+  constructor(public readonly steg: string) {
+    super(
+      `${steg}: modellen avböjde att svara (stop_reason: "refusal"). Det är inte ett valideringsfel ` +
+        `och en ny körning med samma underlag ger sannolikt samma resultat — kontrollera underlaget.`,
+    );
+    this.name = "ModelRefusedError";
+  }
+}
+
+/** Prompt-cache breakpoint marker. Only the 5-minute ephemeral type is used. */
+export interface CacheControl {
+  type: "ephemeral";
+}
+
+/** A text block that may carry a cache breakpoint (system or user content). */
+export interface CacheableTextBlock {
+  type: "text";
+  text: string;
+  cache_control?: CacheControl;
+}
+
+/**
+ * `true`: breakpoints on the static system block AND the user block (so the
+ * validation retry reads the whole prompt from cache). `"system"`: only on
+ * the static system block. `false`: no breakpoints.
+ */
+export type PromptCacheMode = boolean | "system";
+
+/** `system` as sent to the API: a plain string, or text blocks so a
+ *  breakpoint can sit on the static block. */
+export type SystemParam = string | CacheableTextBlock[];
+
+/**
+ * System prompt as a single text block with an explicit cache breakpoint on
+ * it (the whole system prompt is static, see prompts.ts), or the plain string
+ * when caching is off. Never top-level automatic caching: the last block in a
+ * request varies, so automatic placement would write a fresh entry every time.
+ */
+export function buildSystemParam(text: string, promptCache: PromptCacheMode): SystemParam {
+  if (promptCache === false) return text;
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+
+/**
+ * User message content. With caching on, a breakpoint sits on the user block
+ * so the one validation retry (identical system + user) reads it from cache.
+ * The first call pays the 1.25x write premium on these tokens for that.
+ */
+export function buildUserContent(
+  text: string,
+  promptCache: PromptCacheMode,
+): string | CacheableTextBlock[] {
+  // "system": the user block is left uncached (plain string).
+  if (promptCache !== true) return text;
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+
+/**
  * Minimal structural shape of the Anthropic client this module calls —
  * deliberately decoupled from the SDK's own (much larger, stricter)
  * parameter/response types so a test can hand-build a fake
@@ -57,13 +122,13 @@ export interface AnthropicClientLike {
   messages: {
     countTokens(params: {
       model: string;
-      system: string;
+      system: SystemParam;
       messages: Array<{ role: "user"; content: unknown }>;
     }): Promise<{ input_tokens: number }>;
     create(params: {
       model: string;
       max_tokens: number;
-      system: string;
+      system: SystemParam;
       messages: Array<{ role: "user"; content: unknown }>;
       /** Reasoning depth — see `ModelEffort`. Omitted entirely (not just
        *  `undefined`) unless a caller opts in, so the default adaptive-thinking
@@ -79,7 +144,8 @@ export interface AnthropicClientLike {
         cache_read_input_tokens?: number;
       };
       content: Array<{ type: string; text?: string; citations?: unknown }>;
-      /** "max_tokens" means the response was cut off before it finished —
+      /** "refusal" means the model declined — see ModelRefusedError.
+       *  "max_tokens" means the response was cut off before it finished —
        *  see ModelTruncatedError. Optional because test doubles built before
        *  this field existed still omit it; treated the same as any other
        *  non-"max_tokens" value (i.e. not truncated). */
@@ -101,6 +167,12 @@ export interface RunExtractionOptions {
   /** Reasoning depth for THIS call only — see `ModelEffort`. Left unset by
    *  default (adaptive thinking, Sonnet 5's own default). */
   effort?: ModelEffort;
+  /** Explicit prompt-cache breakpoints on the static system block and the
+   *  user block of extraction (and judging). Default true. Grounding is never
+   *  cached: its system prompt (~420 tokens) is below the model minimum, so a
+   *  breakpoint there would silently do nothing. The CLIs read
+   *  ANTHROPIC_PROMPT_CACHE=off to switch it off for A/B measurement. */
+  promptCache?: PromptCacheMode;
 }
 
 export interface RunExtractionResult {
@@ -232,9 +304,9 @@ export async function runGrounding(
   options: RunExtractionOptions,
 ): Promise<RunGroundingResult> {
   const {
-    model = "claude-sonnet-5",
+    model = STANDARD_MODELL,
     maxCostSek,
-    pricing = SONNET_5_PRISSATTNING,
+    pricing = prissattningForModell(model),
     // 16000, not the earlier 8000 — a baseline run already saw grounding's
     // output reach 6099 of that 8000-token cap (largely Sonnet 5's adaptive
     // thinking, which counts as output). A truncated grounding response
@@ -294,11 +366,6 @@ export async function runGrounding(
     ...(effort ? { output_config: { effort } } : {}),
   });
   const latencyMs = performance.now() - start;
-  const spentSek = estimateCostSek(
-    groundingResponse.usage.input_tokens,
-    groundingResponse.usage.output_tokens,
-    pricing,
-  );
   const calls = [
     buildCallMetrics({
       stage: "grundning",
@@ -309,6 +376,11 @@ export async function runGrounding(
       pricing,
     }),
   ];
+  const spentSek = calls[0]!.costSek;
+
+  if (groundingResponse.stop_reason === "refusal") {
+    throw annotateSpend(new ModelRefusedError("Grundningen"), spentSek, calls);
+  }
 
   // Grounding's output is free text, not JSON — a truncated response would
   // otherwise pass through silently as a merely-shorter groundingText
@@ -345,9 +417,9 @@ export async function runStructuredExtraction(
   options: RunStructuredExtractionOptions,
 ): Promise<RunExtractionResult> {
   const {
-    model = "claude-sonnet-5",
+    model = STANDARD_MODELL,
     maxCostSek,
-    pricing = SONNET_5_PRISSATTNING,
+    pricing = prissattningForModell(model),
     // 16000, not the earlier 12000 — a baseline run already saw extraction's
     // output reach 10101 of that 12000-token cap, close enough that a
     // slightly denser report tips it into the same truncation Volontären
@@ -355,6 +427,7 @@ export async function runStructuredExtraction(
     maxOutputTokensExtraction = 16000,
     pdfSaknarTextlager = false,
     effort,
+    promptCache = false,
   } = options;
 
   const client = resolveClient(options);
@@ -364,8 +437,12 @@ export async function runStructuredExtraction(
   const extractionSystem = buildExtractionSystemPrompt();
   const extractionUser = buildExtractionUserPrompt(groundingText);
 
-  const callModel: ModelCaller = async (system, user) => {
-    const messages = [{ role: "user" as const, content: user }];
+  const callModel: ModelCaller = async (systemText, userText) => {
+    // The system prompt is fully static (breakpoint 1); the user block is the
+    // same on the validation retry (breakpoint 2) — see buildUserContent.
+    const system = buildSystemParam(systemText, promptCache);
+    const messages = [{ role: "user" as const, content: buildUserContent(userText, promptCache) }];
+    // Pre-flight stays worst case: assumes no cache read (full input price).
     const count = await client.messages.countTokens({ model, system, messages });
     enforceCostLimit(count.input_tokens, maxOutputTokensExtraction, maxCostSek - spentSek, pricing);
 
@@ -378,17 +455,20 @@ export async function runStructuredExtraction(
       ...(effort ? { output_config: { effort } } : {}),
     });
     const latencyMs = performance.now() - start;
-    spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
-    calls.push(
-      buildCallMetrics({
-        stage: "extraktion",
-        model,
-        latencyMs,
-        usage: response.usage,
-        stopReason: response.stop_reason,
-        pricing,
-      }),
-    );
+    const metrics = buildCallMetrics({
+      stage: "extraktion",
+      model,
+      latencyMs,
+      usage: response.usage,
+      stopReason: response.stop_reason,
+      pricing,
+    });
+    calls.push(metrics);
+    spentSek += metrics.costSek;
+
+    if (response.stop_reason === "refusal") {
+      throw annotateSpend(new ModelRefusedError("Extraktionen"), spentSek, calls);
+    }
 
     // Diagnose a cut-off response immediately (see ModelTruncatedError) —
     // otherwise it's just malformed JSON to parseModelJson below, and the

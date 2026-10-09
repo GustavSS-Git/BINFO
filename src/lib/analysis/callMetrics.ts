@@ -10,9 +10,10 @@
  * instead of each stage inventing its own ad-hoc console.log.
  */
 
-import { estimateCostSek, type ModelPricing } from "./costGuard";
+import { estimateCostFromUsageSek, prissattningForModell, type ModelPricing } from "./costGuard";
 
-export type PipelineStage = "grundning" | "extraktion" | "bedomning";
+export type PipelineStage =
+  "identifiering" | "transkribering" | "grundning" | "extraktion" | "bedomning";
 
 /** One real (or faked, in tests) `messages.create` call. */
 export interface ModelCallMetrics {
@@ -47,8 +48,10 @@ export function buildCallMetrics(args: {
   latencyMs: number;
   usage: UsageLike;
   stopReason: string | null | undefined;
-  pricing: ModelPricing;
+  /** Defaults to `prissattningForModell(model)` (throws for an unknown model). */
+  pricing?: ModelPricing;
 }): ModelCallMetrics {
+  const pricing = args.pricing ?? prissattningForModell(args.model);
   return {
     stage: args.stage,
     model: args.model,
@@ -58,7 +61,8 @@ export function buildCallMetrics(args: {
     cacheReadInputTokens: args.usage.cache_read_input_tokens ?? 0,
     latencyMs: args.latencyMs,
     stopReason: args.stopReason ?? null,
-    costSek: estimateCostSek(args.usage.input_tokens, args.usage.output_tokens, args.pricing),
+    // Real usage incl. cache writes (1.25x) and reads (0.1x).
+    costSek: estimateCostFromUsageSek(args.usage, pricing),
   };
 }
 
@@ -68,6 +72,17 @@ export function totalCostSek(calls: readonly ModelCallMetrics[]): number {
 
 export function totalLatencyMs(calls: readonly ModelCallMetrics[]): number {
   return calls.reduce((sum, c) => sum + c.latencyMs, 0);
+}
+
+/** Share of all input tokens served from the prompt cache:
+ *  cache_read / (input + cache_creation + cache_read). 0 when there is no input. */
+export function cacheHitRate(calls: readonly ModelCallMetrics[]): number {
+  const read = calls.reduce((s, c) => s + c.cacheReadInputTokens, 0);
+  const total = calls.reduce(
+    (s, c) => s + c.inputTokens + c.cacheCreationInputTokens + c.cacheReadInputTokens,
+    0,
+  );
+  return total === 0 ? 0 : read / total;
 }
 
 /** Renders a fixed-width, human-readable table — one row per API call — for

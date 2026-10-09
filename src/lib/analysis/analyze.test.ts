@@ -4,7 +4,8 @@ import { extraktion } from "./__fixtures__/extraktion";
 import { errorHasKnownSpend } from "./callMetrics";
 import { estimateCostSek, SONNET_5_PRISSATTNING } from "./costGuard";
 import { ModelTruncatedError } from "./extract";
-import type { AnthropicClientLike } from "./runExtraction";
+import { ModelRefusedError, type AnthropicClientLike } from "./runExtraction";
+import { buildAnalysSystemPrompt } from "./prompts";
 
 function giltigtSvar() {
   return {
@@ -266,6 +267,56 @@ describe("runAnalys", () => {
         expect(error.calls).toHaveLength(2);
       }
     }
+  });
+
+  it("lägger brytpunkten på det statiska systemblocket och användarblocket; promptCache:false tar bort dem", async () => {
+    const mk = () => {
+      const client = fakeClient();
+      client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+      client.messages.create.mockResolvedValue({
+        usage: { input_tokens: 300, output_tokens: 100 },
+        content: [{ type: "text", text: JSON.stringify(giltigtSvar()) }],
+      });
+      return client;
+    };
+    type Req = { system: unknown; messages: Array<{ content: unknown }> };
+
+    const på = mk();
+    await runAnalys(extraktion, { maxCostSek: 5, client: på, promptCache: true });
+    const reqPå = på.messages.create.mock.calls[0]?.[0] as Req;
+    expect(reqPå.system).toEqual([
+      { type: "text", text: buildAnalysSystemPrompt(), cache_control: { type: "ephemeral" } },
+    ]);
+    const userBlocks = reqPå.messages[0]?.content as Array<{ cache_control?: unknown }>;
+    expect(userBlocks).toHaveLength(1);
+    expect(userBlocks[0]?.cache_control).toEqual({ type: "ephemeral" });
+    expect(Object.keys(reqPå)).not.toContain("cache_control");
+
+    const av = mk();
+    await runAnalys(extraktion, { maxCostSek: 5, client: av, promptCache: false });
+    const reqAv = av.messages.create.mock.calls[0]?.[0] as Req;
+    expect(typeof reqAv.system).toBe("string");
+    expect(typeof reqAv.messages[0]?.content).toBe("string");
+    expect(JSON.stringify(reqAv)).not.toContain("cache_control");
+  });
+
+  it("kastar ModelRefusedError vid stop_reason refusal, annoterat med kostnaden, utan retry", async () => {
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 300 });
+    client.messages.create.mockResolvedValue({
+      usage: { input_tokens: 300, output_tokens: 20 },
+      content: [],
+      stop_reason: "refusal",
+    });
+    try {
+      await runAnalys(extraktion, { maxCostSek: 5, client });
+      expect.fail("skulle ha kastat");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ModelRefusedError);
+      expect(errorHasKnownSpend(error)).toBe(true);
+      if (errorHasKnownSpend(error)) expect(error.spentSek).toBeGreaterThan(0);
+    }
+    expect(client.messages.create).toHaveBeenCalledTimes(1);
   });
 
   it("skickar output_config.effort vidare när angiven", async () => {

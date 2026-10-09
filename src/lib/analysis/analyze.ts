@@ -8,6 +8,10 @@ import {
 import { buildAnalysSystemPrompt, buildAnalysUserPrompt } from "./prompts";
 import { buildAnalysJudgementSchema } from "./schema";
 import {
+  ModelRefusedError,
+  type PromptCacheMode,
+  buildSystemParam,
+  buildUserContent,
   parseModelJson,
   resolveClient,
   type AnthropicClientLike,
@@ -15,8 +19,8 @@ import {
 } from "./runExtraction";
 import {
   enforceCostLimit,
-  estimateCostSek,
-  SONNET_5_PRISSATTNING,
+  prissattningForModell,
+  STANDARD_MODELL,
   type ModelPricing,
 } from "./costGuard";
 import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
@@ -129,6 +133,9 @@ export interface RunAnalysOptions {
   /** Reasoning depth for this call — see `ModelEffort` in runExtraction.ts.
    *  Left unset by default (Sonnet 5's own adaptive-thinking default). */
   effort?: ModelEffort;
+  /** Explicit prompt-cache breakpoints on the static system block and the
+   *  user block (so the validation retry reads it from cache). Default true. */
+  promptCache?: PromptCacheMode;
 }
 
 export interface RunAnalysResult {
@@ -148,9 +155,9 @@ export async function runAnalys(
   options: RunAnalysOptions,
 ): Promise<RunAnalysResult> {
   const {
-    model = "claude-sonnet-5",
+    model = STANDARD_MODELL,
     maxCostSek,
-    pricing = SONNET_5_PRISSATTNING,
+    pricing = prissattningForModell(model),
     // 16000, not the earlier 8000: a live run against "Volontären" hit
     // stop_reason "max_tokens" on both attempts (Sonnet 5's adaptive
     // thinking alone used ~7k of the 8000-token cap, leaving no room for the
@@ -158,14 +165,17 @@ export async function runAnalys(
     // finding in the task report.
     maxOutputTokens = 16000,
     effort,
+    promptCache = false,
   } = options;
 
   const client = resolveClient(options);
   let spentSek = 0;
   const calls: ModelCallMetrics[] = [];
 
-  const callModel: ModelCaller = async (system, user) => {
-    const messages = [{ role: "user" as const, content: user }];
+  const callModel: ModelCaller = async (systemText, userText) => {
+    const system = buildSystemParam(systemText, promptCache);
+    const messages = [{ role: "user" as const, content: buildUserContent(userText, promptCache) }];
+    // Pre-flight stays worst case: assumes no cache read (full input price).
     const count = await client.messages.countTokens({ model, system, messages });
     enforceCostLimit(count.input_tokens, maxOutputTokens, maxCostSek - spentSek, pricing);
 
@@ -178,17 +188,20 @@ export async function runAnalys(
       ...(effort ? { output_config: { effort } } : {}),
     });
     const latencyMs = performance.now() - start;
-    spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
-    calls.push(
-      buildCallMetrics({
-        stage: "bedomning",
-        model,
-        latencyMs,
-        usage: response.usage,
-        stopReason: response.stop_reason,
-        pricing,
-      }),
-    );
+    const metrics = buildCallMetrics({
+      stage: "bedomning",
+      model,
+      latencyMs,
+      usage: response.usage,
+      stopReason: response.stop_reason,
+      pricing,
+    });
+    calls.push(metrics);
+    spentSek += metrics.costSek;
+
+    if (response.stop_reason === "refusal") {
+      throw annotateSpend(new ModelRefusedError("Bedömningen"), spentSek, calls);
+    }
 
     // A truncated response is a capacity problem, not a shape problem —
     // diagnose it as one immediately rather than let it surface later as an

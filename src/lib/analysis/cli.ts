@@ -1,9 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { ExtractionValidationError, ModelTruncatedError } from "./extract";
-import { KostnadsgransOverskriden } from "./costGuard";
+import { KostnadsgransOverskriden, STANDARD_MODELL } from "./costGuard";
 import {
+  ModelRefusedError,
   ScannedPdfError,
+  type PromptCacheMode,
   runGrounding,
   runStructuredExtraction,
   type ModelEffort,
@@ -17,7 +19,12 @@ import { AnalysValidationError, runAnalys } from "./analyze";
 import { STANDARD_EFFORT } from "@/server/env";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
 import { PropertyInputSchema } from "./schema";
-import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
+import {
+  cacheHitRate,
+  formatCallMetricsTable,
+  totalCostSek,
+  type ModelCallMetrics,
+} from "./callMetrics";
 import {
   DemoPrisdatakalla,
   ModellPrisdatakalla,
@@ -71,6 +78,18 @@ function lasEffort(stageVar: string): ModelEffort {
   return rå as ModelEffort;
 }
 
+/** ANTHROPIC_PROMPT_CACHE: unset/"off" = no breakpoints (the production
+ *  default — measured 2026-10-09: an isolated report costs slightly MORE with
+ *  caching, see docs/PLAN-v2.md §5); "system" = breakpoint on the static
+ *  system block only (worth it for bursts, e.g. backfills); "on" = system +
+ *  user (A/B measurement only). */
+function lasPromptCache(): PromptCacheMode {
+  const v = (process.env["ANTHROPIC_PROMPT_CACHE"] ?? "").toLowerCase();
+  if (v === "on") return true;
+  if (v === "system") return "system";
+  return false;
+}
+
 class OgiltigInputfilError extends Error {
   constructor(zodError: z.ZodError) {
     const issues = zodError.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -122,15 +141,18 @@ async function main() {
     return;
   }
 
-  const model = process.env["ANTHROPIC_MODEL"] || "claude-sonnet-5";
+  const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
   const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
   const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
   const effortJudging = lasEffort("ANTHROPIC_EFFORT_JUDGING");
+  const promptCache = lasPromptCache();
 
   const pdfBytes = new Uint8Array(await readFile(pdfPath));
 
-  console.error(`Läser ${pdfPath} (modell: ${model}, kostnadstak: ${maxCostSek} kr)...`);
+  console.error(
+    `Läser ${pdfPath} (modell: ${model}, kostnadstak: ${maxCostSek} kr, promptcache: ${promptCache ? "på" : "av"})...`,
+  );
 
   const wallClockStart = performance.now();
   const allCalls: ModelCallMetrics[] = [];
@@ -160,6 +182,7 @@ async function main() {
     maxCostSek: maxCostSek - spentGrounding,
     effort: effortExtraction,
     pdfSaknarTextlager,
+    promptCache,
   });
   allCalls.push(...extraktionCalls);
   const spentExtraktion = spentGrounding + spentStructured;
@@ -169,6 +192,7 @@ async function main() {
     console.error(formatCallMetricsTable(allCalls));
     console.error(
       `Klart (endast extraktion). Uppskattad kostnad: ${totalCostSek(allCalls).toFixed(2)} kr. ` +
+        `Cache-träffar: ${(cacheHitRate(allCalls) * 100).toFixed(1)} %. ` +
         `Väggklocka: ${((performance.now() - wallClockStart) / 1000).toFixed(1)} s.`,
     );
     return;
@@ -193,6 +217,7 @@ async function main() {
     model,
     maxCostSek: maxCostSek - spentExtraktion,
     effort: effortJudging,
+    promptCache,
   });
   allCalls.push(...analysCalls);
 
@@ -208,6 +233,7 @@ async function main() {
   console.error(formatCallMetricsTable(allCalls));
   console.error(
     `Klart. Uppskattad total kostnad: ${totalCostSek(allCalls).toFixed(2)} kr. ` +
+      `Cache-träffar: ${(cacheHitRate(allCalls) * 100).toFixed(1)} %. ` +
       `Väggklocka: ${wallClockS.toFixed(1)} s.`,
   );
 }
@@ -221,7 +247,8 @@ main().catch((error: unknown) => {
     error instanceof AssemblyValidationError ||
     error instanceof SaknarRantekanslighetError ||
     error instanceof OgiltigInputfilError ||
-    error instanceof ModelTruncatedError
+    error instanceof ModelTruncatedError ||
+    error instanceof ModelRefusedError
   ) {
     console.error(`FEL: ${error.message}`);
   } else {

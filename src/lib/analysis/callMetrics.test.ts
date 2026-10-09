@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SONNET_5_PRISSATTNING, estimateCostSek } from "./costGuard";
+import { SONNET_5_PRISSATTNING, estimateCostFromUsageSek, estimateCostSek } from "./costGuard";
 import {
   annotateSpend,
   buildCallMetrics,
+  cacheHitRate,
   errorHasKnownSpend,
   formatCallMetricsTable,
   totalCostSek,
@@ -52,6 +53,38 @@ describe("buildCallMetrics", () => {
     expect(metrics.cacheCreationInputTokens).toBe(1700);
     expect(metrics.cacheReadInputTokens).toBe(50);
     expect(metrics.stopReason).toBeNull();
+  });
+
+  it("costSek prissätter cache-skrivning (1,25x) och cache-läsning (0,1x), inte bara input/output", () => {
+    const usage = {
+      input_tokens: 300,
+      output_tokens: 100,
+      cache_creation_input_tokens: 1700,
+      cache_read_input_tokens: 5000,
+    };
+    const metrics = buildCallMetrics({
+      stage: "extraktion",
+      model: "claude-sonnet-5",
+      latencyMs: 1,
+      usage,
+      stopReason: "end_turn",
+      pricing: SONNET_5_PRISSATTNING,
+    });
+    expect(metrics.costSek).toBeCloseTo(estimateCostFromUsageSek(usage, SONNET_5_PRISSATTNING));
+    expect(metrics.costSek).toBeGreaterThan(estimateCostSek(300, 100, SONNET_5_PRISSATTNING));
+  });
+
+  it("utan explicit pricing väljs modellens egen; okänd modell kastar", () => {
+    const base = {
+      stage: "grundning" as const,
+      latencyMs: 1,
+      usage: { input_tokens: 1_000_000, output_tokens: 0 },
+      stopReason: "end_turn",
+    };
+    const haiku = buildCallMetrics({ ...base, model: "claude-haiku-4-5" });
+    const sonnet = buildCallMetrics({ ...base, model: "claude-sonnet-5-5" });
+    expect(haiku.costSek).toBeCloseTo(sonnet.costSek / 2);
+    expect(() => buildCallMetrics({ ...base, model: "claude-okand" })).toThrow(/claude-okand/);
   });
 
   it("stopReason blir null när fältet saknas (undefined) i svaret", () => {
@@ -135,5 +168,19 @@ describe("annotateSpend / errorHasKnownSpend", () => {
   it("errorHasKnownSpend är false för ett icke-Error-värde", () => {
     expect(errorHasKnownSpend("sträng")).toBe(false);
     expect(errorHasKnownSpend(undefined)).toBe(false);
+  });
+});
+
+describe("cacheHitRate", () => {
+  it("är cache_read / (input + cache_creation + cache_read)", () => {
+    const rate = cacheHitRate([
+      call({ inputTokens: 100, cacheCreationInputTokens: 200, cacheReadInputTokens: 0 }),
+      call({ inputTokens: 100, cacheCreationInputTokens: 0, cacheReadInputTokens: 600 }),
+    ]);
+    expect(rate).toBeCloseTo(600 / 1000);
+  });
+
+  it("är 0 utan anrop", () => {
+    expect(cacheHitRate([])).toBe(0);
   });
 });

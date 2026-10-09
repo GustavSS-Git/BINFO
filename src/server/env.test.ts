@@ -165,11 +165,11 @@ describe("lasEnv", () => {
       expect(env.maxCostPerAnalysisSek).toBe(5);
     });
 
-    it("ANTHROPIC_MODEL utelämnad → default 'claude-sonnet-5'", () => {
+    it("ANTHROPIC_MODEL utelämnad → default 'claude-sonnet-5-5'", () => {
       const record = giltigRecord();
       delete record["ANTHROPIC_MODEL"];
       const env = lasEnv(record);
-      expect(env.anthropicModel).toBe("claude-sonnet-5");
+      expect(env.anthropicModel).toBe("claude-sonnet-5-5");
     });
   });
 
