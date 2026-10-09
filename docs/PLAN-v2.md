@@ -1,6 +1,6 @@
 # Binfo v2 — plan
 
-Status: **DRAFT, awaiting owner approval** (2026-10-09). Base commit `0f4bdbc`.
+Status: **APPROVED by owner 2026-10-09** (all recommendations D1–D9 accepted). Execution in progress on branch `v2`. Base commit `0f4bdbc`.
 Owner answers to the Phase 1 questions are recorded in §0. Every later change to this plan is
 logged in §9 with date and reason.
 
@@ -544,7 +544,7 @@ The supervisor owns:
 
 ---
 
-## 9. Open decisions (recommendation first — please confirm)
+## 9. Decisions (owner approved all recommendations 2026-10-09)
 
 | # | Decision | Recommendation |
 |---|---|---|
@@ -580,4 +580,8 @@ The supervisor owns:
 |---|---|---|
 | 2026-10-09 | Phase 0 orientation, CLAUDE.md rewrite | done (uncommitted) |
 | 2026-10-09 | Phase 1 questions answered | done |
-| 2026-10-09 | This plan | awaiting approval |
+| 2026-10-09 | This plan | approved (all D1–D9) |
+| 2026-10-09 | Branch `v2`; pdf-lib added (4b99f66); contract D1 (b33ce92) | done |
+| 2026-10-09 | Wave A launched: W1-EVAL (worktree), C1/W5 cache+model A/B, W2 price backend, W3a register core, W3b identity, W4 account modules | in progress |
+| 2026-10-09 | Draft answer keys (supervisor, from page images): Startfältet 769635-9905, Ängsknarren 2001 769607-2912, Zederslundshus 724000-0161 (`SBC 2`), Barsbro Parken 769624-6953 (`test_rapport` nyckeltal, previously unreadable) | drafted — owner to verify |
+| 2026-10-09 | Docker unavailable (owner remote) → migration apply, SQL-level tests, verify-rls deferred to a Docker session | deferred |

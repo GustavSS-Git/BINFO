@@ -58,3 +58,6 @@ supabase/functions/*/_bundle/
 ml/.venv/
 __pycache__/
 ml/mapping/sources/raw/
+
+# Claude Code agent worktrees (local only)
+.claude/worktrees/
