@@ -86,7 +86,11 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 78 | 2026-10-09 | W1-IMPL scans | Albohem/SBC text regression v6 (3 calls) | claude-sonnet-5-5 | 113757 | 8468 | 0 | 0 | 3.03 | 141.39 |
 | 79 | 2026-10-09 | W1-IMPL scans | Volontären text regression v6 (3 calls) | claude-sonnet-5-5 | 56071 | 9200 | 0 | 0 | 1.98 | 143.37 |
 | 80 | 2026-10-09 | W1-IMPL scans | sbc2 re-run with cached transcript (3 calls) | claude-sonnet-5-5 | 43541 | 10051 | 0 | 0 | 1.82 | 145.19 |
+| 81 | 2026-10-09 | W1-wire E2E | E2E state machine: 34-p scan, identifiering (Haiku) | claude-haiku-4-5 | 5067 | 47 | 0 | 0 | 0.05 | 145.24 |
+| 82 | 2026-10-09 | W1-wire E2E | E2E state machine: 34-p scan, transkribering 7 parallel chunks | claude-sonnet-5-5 | 58794 | 25113 | 0 | 0 | 3.58 | 148.82 |
+| 83 | 2026-10-09 | W1-wire E2E | E2E state machine: 34-p scan, grundning+extraktion+bedömning | claude-sonnet-5-5 | 61477 | 11494 | 0 | 0 | 2.31 | 151.12 |
+| 84 | 2026-10-09 | W1-wire E2E | E2E state machine: SBC text report, 3 stages | claude-sonnet-5-5 | 116517 | 8460 | 0 | 0 | 3.08 | 154.21 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
-**Running total: 145.19 SEK**
+**Running total: 154.21 SEK**
