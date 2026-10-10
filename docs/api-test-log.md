@@ -94,7 +94,10 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 86 | 2026-10-10 | Local integration | Local Supabase E2E: 34-p scan, identifiering | claude-haiku-4-5 | 5067 | 48 | 0 | 0 | 0.05 | 157.38 |
 | 87 | 2026-10-10 | Local integration | Local Supabase E2E: 34-p scan, transkribering 7 chunks + grundning + extraktion + bedömning | claude-sonnet-5-5 | 118762 | 35103 | 0 | 0 | 5.75 | 163.13 |
 | 88 | 2026-10-10 | Local integration | Local Supabase E2E: Nabo text report with reinvoke fix, 3 stages | claude-sonnet-5-5 | 133039 | 12556 | 0 | 0 | 3.80 | 166.93 |
+| 89 | 2026-10-10 | Local integration 2 | Local Supabase E2E after reinvoke fix: SBC text report (per-call tokens not logged by the Edge Function) | claude-sonnet-5-5 | — | — | 0 | 0 | 3.02 | 169.95 |
+| 90 | 2026-10-10 | Local integration 2 | Local Supabase E2E after reinvoke fix: 34-p scan incl. Haiku identity (per-call tokens not logged) | claude-sonnet-5-5 + haiku-4-5 | — | — | 0 | 0 | 6.13 | 176.08 |
+| 91 | 2026-10-10 | Local integration 2 | Local CPU experiment: one 3-chunk transcription invocation | claude-sonnet-5-5 | — | — | 0 | 0 | 1.57 | 177.65 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
-**Running total: 166.93 SEK**
+**Running total: 177.65 SEK**

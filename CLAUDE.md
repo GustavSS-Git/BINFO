@@ -94,12 +94,15 @@ per-apartment cost in kronor, and what to do before bidding.
    (`steg.ts`): claims a `rapport` (`claim_next_rapport_steg`, lease, ≤ 3
    attempts/stage; falls back to legacy `analys` rows), version guard on
    `pipeline_version`, advances one stage, writes only under its lease
-   (`uppdateraLeasadRapport`), reinvokes itself on success.
+   (`uppdateraLeasadRapport`), and reinvokes itself on success via
+   `<PROJECT_URL>/functions/v1/analys-steg` (`reinvoke.ts`; `req.url` is an
+   internal address that refuses connections).
 3. **Stages on `rapport`** (each reserves/reconciles daily spend):
    1. `identifiering`: Haiku 4.5 reads pages 1–3 → orgnr/year/name; a register
       hit marks this rapport `ersatt` and re-points its buyers (no spend after).
    2. `transkribering` (scans only): pdf-lib 5-page chunks, transcribed in
-      parallel (Sonnet 5.5, ≤ 10k output tokens/chunk, 110 s deadline),
+      parallel (Sonnet 5.5, ≤ 10k output tokens/chunk, 110 s deadline, at most
+      3 chunks per invocation because of the 2 s CPU limit — then reinvoke),
       persisted per page in `sidtext` and reused across rapport rows of the
       same PDF while `TRANSKRIPTION_PROMPT_VERSION` is unchanged.
       Deterministic failures are terminal; hard ceiling 15 kr per report.
@@ -125,8 +128,8 @@ adds ~10 s per stage for reinvokes):
 
 | Report | API time | Cost |
 |---|---|---|
-| Text report | 51–81 s | 1.9–4.0 kr (grounding of the whole PDF dominates) |
-| Scanned report (16–34 pages) | 80–113 s | 4.1–6.5 kr (transcription ≈ 0.105 kr/page) |
+| Text report | 51–81 s API; 77 s upload→done on a local Supabase stack (cron + Deno) | 1.9–4.0 kr (grounding of the whole PDF dominates) |
+| Scanned report (16–34 pages) | 80–113 s API; 185 s upload→done locally (34 p) | 4.1–6.5 kr (transcription ≈ 0.105 kr/page) |
 | Register hit (same file or same BRF + year) | < 1 s | 0 kr |
 | Identity call (scans/ambiguous) | ~2 s | ~0.05 kr |
 
@@ -166,7 +169,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 7 warnings)
 npm run typecheck           # tsc --noEmit
-npm test                    # vitest run (2026-10-09 end of v2: 69 files, 1573 tests)
+npm test                    # vitest run (2026-10-10: 70 files, 1590 tests)
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
 npm run verify-extraction -- <dir>         # score against fixtures/answer-key (spend; VERIFY_FROM_RESULTS=<dir> = free)
 npm run analys -- <pdf> <input.json>       # LIVE Supabase job + spend
@@ -305,9 +308,13 @@ cd ml && .venv/bin/pytest                  # ML tests
 
 ## Known limitations (October 2026)
 
-- **v2 is not deployed.** The two migrations have only been verified on PGlite
-  (Postgres in WASM); applying them to a local Supabase (Docker), extending
-  `verify-rls` to the new tables, and a Deno smoke test of the new bundle remain.
+- **v2 is not deployed.** Verified on a local Supabase stack (all migrations,
+  rollbacks, 69 SQL tests, `verify-rls` 64/64, cron → Deno edge E2E), not on
+  the hosted project.
+- **Production retention (pre-v2) has been failing**: the old command's direct
+  `delete from storage.objects` is refused by Storage, rolling back the
+  anonymisation. Hotfix migration `20261008000000_retention_fix.sql` (apply
+  standalone).
 - Draft answer keys (the three scans, `test_rapport` nyckeltal) await owner
   verification; scan accuracy figures are measured against those drafts.
 - Scans over 60 pages are refused (interim product limit, pending owner
