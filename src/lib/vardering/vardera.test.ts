@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { generalModel, manifest } from "./data";
-import { beraknaR, rFranLogG, vardera } from "./vardera";
+import { generalModel, manifest, postcodeDelta } from "./data";
+import { beraknaR, postcodeDeltaFor, rFranLogG, vardera } from "./vardera";
 import type { VarderingInput } from "./types";
 
 /** general_parity_fixtures.json row 0 (hand-copied, so this test does not
@@ -60,7 +60,7 @@ describe("vardera — tier 'stockholm'", () => {
       tackning: "stockholm",
       omrade: "Kungsholmen",
       kommun: "Stockholm",
-      modellVersion: "valuation-v3",
+      modellVersion: "valuation-v3.1",
       antalForsaljningar: 4991,
       typisktFelProcent: manifest.mapePerAreaPercent["Kungsholmen"],
     });
@@ -74,10 +74,23 @@ describe("vardera — tier 'stockholm'", () => {
     expect(r?.typisktFelProcent).toBe(manifest.mapeOverallPercent);
   });
 
-  it("an unseen postnummer is valued without special treatment (postcode_delta = 0)", () => {
+  it("an unseen postnummer is valued without special treatment (no confidence change)", () => {
     const r = vardera(input("12364"));
     expect(r?.tackning).toBe("stockholm");
     expect(r?.varde).toBeGreaterThan(0);
+  });
+
+  it("postcode_delta: own delta if the postnummer has sales, else the 4-digit prefix delta, else 0 (valuation-v3.1)", () => {
+    // 11122 has one training sale; 11121 has none but shares prefix 1112; 99999 / malformed have neither.
+    expect(postcodeDelta.table["11122"]).toBeDefined();
+    expect(postcodeDeltaFor("11122")).toBe(postcodeDelta.table["11122"]);
+    expect("11121" in postcodeDelta.table).toBe(false);
+    expect(postcodeDeltaFor("11121")).toBe(postcodeDelta.prefixTable["1112"]);
+    expect(postcodeDeltaFor("11121")).not.toBe(0);
+    expect(postcodeDeltaFor("99999")).toBe(0);
+    expect(postcodeDeltaFor("abc")).toBe(0);
+    // shrinkage: a single sale no longer moves its postnummer by two thirds of its deviation (v3: -0.288)
+    expect(Math.abs(postcodeDeltaFor("11122"))).toBeLessThan(0.15);
   });
 });
 
@@ -100,7 +113,7 @@ describe("vardera — tier 'lan'", () => {
       tackning: "lan",
       omrade: null,
       kommun: "Solna",
-      modellVersion: "valuation-v3",
+      modellVersion: "valuation-v3.1",
       intervallTackningProcent: 90,
       typisktFelProcent: MAPE_REGIONAL,
       prisniva: {

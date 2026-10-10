@@ -35,7 +35,7 @@ import effects from "./data/effects.data";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "..", "..", "..");
-const ARTIFACT_DIR = path.join(ROOT, "ml", "artifacts", "valuation-v3");
+const ARTIFACT_DIR = path.join(ROOT, "ml", "artifacts", "valuation-v3.1");
 const DERIVED_DIR = path.join(ROOT, "data", "derived");
 
 function readJson<T>(...segments: string[]): T {
@@ -46,7 +46,7 @@ function readText(...segments: string[]): string {
 }
 
 describe("generated vardering data is in sync with ml artefacts", () => {
-  it("model.data.ts matches a fresh build from ml/artifacts/valuation-v3/model.json", () => {
+  it("model.data.ts matches a fresh build from ml/artifacts/valuation-v3.1/model.json", () => {
     const rawModel = readJson<Parameters<typeof buildModelData>[0]>(ARTIFACT_DIR, "model.json");
     const rawMetadata = readJson<{ version: string }>(ARTIFACT_DIR, "metadata.json");
     expect(buildModelData(rawModel, rawMetadata.version)).toEqual(modelData);
@@ -146,7 +146,7 @@ describe("generated vardering data is in sync with ml artefacts", () => {
     expect(buildBudpremie(raw)).toEqual(budpremie);
   });
 
-  it("effects.data.ts matches a fresh build from ml/artifacts/valuation-v3/effects.json", () => {
+  it("effects.data.ts matches a fresh build from ml/artifacts/valuation-v3.1/effects.json", () => {
     const raw = readJson<Parameters<typeof buildEffects>[0]>(ARTIFACT_DIR, "effects.json");
     expect(buildEffects(raw)).toEqual(effects);
   });

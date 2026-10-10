@@ -1,5 +1,5 @@
 /**
- * Parity tests against the exact Python predictions the valuation-v3
+ * Parity tests against the exact Python predictions the valuation-v3.1
  * artefacts were generated with:
  *   - parity_fixtures.json         : Stockholm area model (log prediction
  *     <= 1e-9 absolute, SEK exact after rounding, postcode_delta exact).
@@ -16,7 +16,8 @@ import type { VarderingInput } from "./types";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 interface FixtureInput {
-  postnummer: string;
+  /** null = the synthetic "missing postnummer" fixture. */
+  postnummer: string | null;
   omrade: string;
   boarea: number;
   antalRum: number | null;
@@ -29,6 +30,7 @@ interface FixtureInput {
 
 interface Fixture {
   input: FixtureInput;
+  note?: string;
   expected_output: {
     postcode_delta: number;
     predicted_total_price_sek: number;
@@ -46,7 +48,7 @@ const FIXTURES_PATH = path.resolve(
   "..",
   "ml",
   "artifacts",
-  "valuation-v3",
+  "valuation-v3.1",
   "parity_fixtures.json",
 );
 
@@ -54,7 +56,7 @@ const fixtures: Fixture[] = JSON.parse(readFileSync(FIXTURES_PATH, "utf-8"));
 
 function toInput(f: FixtureInput): VarderingInput {
   const input: VarderingInput = {
-    postnummer: f.postnummer,
+    postnummer: f.postnummer ?? "",
     boarea: f.boarea,
     antalRum: f.antalRum ?? NaN,
     hiss: f.hiss,
@@ -66,9 +68,9 @@ function toInput(f: FixtureInput): VarderingInput {
   return input;
 }
 
-describe("parity against ml/artifacts/valuation-v3/parity_fixtures.json", () => {
+describe("parity against ml/artifacts/valuation-v3.1/parity_fixtures.json", () => {
   it("has the expected fixture count", () => {
-    expect(fixtures.length).toBe(52);
+    expect(fixtures.length).toBe(53);
   });
 
   it.each(fixtures.map((f, i) => [i, f] as const))("fixture %i (postnummer %s)", (i, f) => {
@@ -92,17 +94,25 @@ describe("parity against ml/artifacts/valuation-v3/parity_fixtures.json", () => 
 
     // Our own postnummer -> omrade mapping agrees with the fixture's omrade,
     // except that we report null (not the literal "Okänt (...)" category
-    // string) for genuinely unmapped postnummer. The synthetic 99999
-    // fixtures are excluded: their omrade is a label, not a mapping.
-    if (f.input.postnummer !== "99999") {
+    // string) for genuinely unmapped postnummer. The synthetic fixtures
+    // (unseen / missing postnummer) are excluded: their omrade is a label,
+    // not a mapping.
+    if (f.note === undefined) {
       expect(omrade).toBe(fixtureOmrade);
     }
   });
 
-  it("the synthetic unseen-postnummer fixtures get postcode_delta 0 (owner decision 5)", () => {
-    const unseen = fixtures.filter((f) => f.input.postnummer === "99999");
-    expect(unseen.length).toBe(2);
-    for (const f of unseen) {
+  it("the synthetic fixtures exercise the unseen-postnummer rules (own delta > 4-digit prefix delta > 0)", () => {
+    const synthetic = fixtures.filter((f) => f.note !== undefined);
+    expect(synthetic.length).toBe(3);
+    const prefixHit = synthetic.find(
+      (f) => f.input.postnummer !== null && f.input.postnummer !== "99999",
+    );
+    // Unseen postnummer whose 4-digit prefix has training sales: the shrunk prefix delta (non-zero).
+    expect(prefixHit).toBeDefined();
+    expect(prefixHit && prediktera(toInput(prefixHit.input)).postcodeDelta).not.toBe(0);
+    // Unseen prefix and missing postnummer: 0.
+    for (const f of synthetic.filter((x) => x !== prefixHit)) {
       expect(prediktera(toInput(f.input)).postcodeDelta).toBe(0);
     }
   });
@@ -117,7 +127,7 @@ const generalFixtures: GeneralFixture[] = JSON.parse(
   readFileSync(path.join(path.dirname(FIXTURES_PATH), "general_parity_fixtures.json"), "utf-8"),
 );
 
-describe("parity against ml/artifacts/valuation-v3/general_parity_fixtures.json", () => {
+describe("parity against ml/artifacts/valuation-v3.1/general_parity_fixtures.json", () => {
   it("has the expected fixture count", () => {
     expect(generalFixtures.length).toBe(52);
   });

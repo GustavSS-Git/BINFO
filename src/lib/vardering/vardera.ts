@@ -33,13 +33,23 @@ export interface Prediktion {
   postcodeDelta: number;
 }
 
-/** postcode_delta for a postnummer; 0 when unseen or malformed (owner
- *  decision 5: no special confidence treatment). */
+/**
+ * postcode_delta for a postnummer (valuation-v3.1): the postnummer's own shrunk
+ * delta if it has training sales; otherwise the shrunk delta of its 4-digit
+ * prefix (neighbouring postnummer) if the prefix has training sales; otherwise
+ * 0 (malformed, or no neighbours). No special confidence treatment (owner
+ * decision 5). v3 used 0 for every postnummer without a training sale.
+ */
 export function postcodeDeltaFor(postnummer: string): number {
   const key = normaliseraPostnummer(postnummer);
-  return Object.prototype.hasOwnProperty.call(postcodeDelta.table, key)
-    ? (postcodeDelta.table[key] ?? postcodeDelta.fallback)
-    : postcodeDelta.fallback;
+  const has = (rec: Record<string, number>, k: string) =>
+    Object.prototype.hasOwnProperty.call(rec, k);
+  if (has(postcodeDelta.table, key)) return postcodeDelta.table[key] ?? postcodeDelta.fallback;
+  const prefix = key.slice(0, postcodeDelta.prefixLength);
+  if (prefix.length === postcodeDelta.prefixLength && has(postcodeDelta.prefixTable, prefix)) {
+    return postcodeDelta.prefixTable[prefix] ?? postcodeDelta.fallback;
+  }
+  return postcodeDelta.fallback;
 }
 
 /**

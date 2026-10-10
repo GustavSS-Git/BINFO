@@ -1,6 +1,6 @@
 /**
  * Valuation drivers (Varderingsdrivare[]) for one apartment, built from
- * ml/artifacts/valuation-v3/effects.json (an interpretable OLS companion to
+ * ml/artifacts/valuation-v3.1/effects.json (an interpretable OLS companion to
  * the LightGBM production model — never used for point predictions, only
  * for "why" explanations). Pure, no I/O.
  *
@@ -142,7 +142,7 @@ export function drivareForInput(
   return result;
 }
 
-/** ml/artifacts/valuation-v3/effects.json's caveat_sv, verbatim — meant to
+/** ml/artifacts/valuation-v3.1/effects.json's caveat_sv, verbatim — meant to
  *  be shown next to the drivers list in the UI ("Det här är genomsnittliga
  *  effekter för Stockholm..."). */
 export function hamtaVarderingsdrivareCaveat(): string {

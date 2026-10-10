@@ -7,15 +7,15 @@
  * output against the checked-in files).
  *
  * Sources (read-only; never written to):
- *   - ml/artifacts/valuation-v3/model.json    (Stockholm area model: LightGBM
+ *   - ml/artifacts/valuation-v3.1/model.json    (Stockholm area model: LightGBM
  *     Booster.dump_model(), 250 trees, 6-sig-fig rounded — the exact
  *     artefact parity_fixtures.json was generated from)
- *   - ml/artifacts/valuation-v3/postcode_encoding.json (postcode_delta table)
- *   - ml/artifacts/valuation-v3/general_model.json (r(x) model WITH fee, used
+ *   - ml/artifacts/valuation-v3.1/postcode_encoding.json (postcode_delta table + 4-digit prefix_table)
+ *   - ml/artifacts/valuation-v3.1/general_model.json (r(x) model WITH fee, used
  *     in Stockholms län outside Stockholm kommun and outside the län)
- *   - ml/artifacts/valuation-v3/metadata.json (cv, conformal interval,
+ *   - ml/artifacts/valuation-v3.1/metadata.json (cv, conformal interval,
  *     regional_method, production_model back-transform constants)
- *   - ml/artifacts/valuation-v3/effects.json  (valuation drivers)
+ *   - ml/artifacts/valuation-v3.1/effects.json  (valuation drivers)
  *   - data/derived/postnummer_omrade.csv      (postnummer -> omrade map)
  *   - data/derived/postnummer_omrade_kommun_konflikter.csv (omrade-map rows
  *     whose postnummer lies in another kommun than Stockholm)
@@ -33,7 +33,7 @@ import { kodaPostnummerLista } from "../src/lib/vardering/kommunKodning";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const ARTIFACT_DIR = path.join(ROOT, "ml", "artifacts", "valuation-v3");
+const ARTIFACT_DIR = path.join(ROOT, "ml", "artifacts", "valuation-v3.1");
 const DERIVED_DIR = path.join(ROOT, "data", "derived");
 const OUT_DIR = path.join(ROOT, "src", "lib", "vardering", "data");
 
@@ -297,6 +297,8 @@ export function buildGeneralModel(rawGeneral: RawGeneralModelJson, rawMetadata: 
 
 interface RawPostcodeEncodingJson {
   fallback_for_unseen_or_missing_postnummer: number;
+  prefix_length: number;
+  prefix_table: Record<string, number>;
   table: Record<string, number>;
 }
 
@@ -307,7 +309,19 @@ export function buildPostcodeDelta(raw: RawPostcodeEncodingJson) {
         "(unseen postnummer -> postcode_delta = 0) must be revisited.",
     );
   }
-  return { fallback: 0, table: raw.table };
+  for (const k of Object.keys(raw.prefix_table)) {
+    if (k.length !== raw.prefix_length) {
+      throw new Error(
+        `Vardering data build: postcode_encoding.json prefix_table key "${k}" is not ${raw.prefix_length} digits`,
+      );
+    }
+  }
+  return {
+    fallback: 0,
+    prefixLength: raw.prefix_length,
+    prefixTable: raw.prefix_table,
+    table: raw.table,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -361,13 +375,12 @@ export function buildPostnummerOmrade(csvText: string): Record<string, string> {
  * case the omrade they were trained with is kept.
  *
  * "Occurs in the training data" is checked with the keys of
- * postcode_encoding.json -> table. That table is fit on ALL training rows
- * that have a postnummer: ml/train_valuation_v3.py builds it as
- * `prod = L.fit(df, final_cfg)` -> `prod.pc_table`, which is
- * ml/valuation_v3_lib.py postcode_table(df, ...) = a groupby over every
- * distinct non-null postal_code_clean of `df` (the 4,991 cleaned rows,
- * Jan-Aug 2026); the only postcodes missing from it are the 18 rows with no
- * postcode at all. Its keys are therefore exactly the training postnummer,
+ * postcode_encoding.json -> table. That table holds every distinct non-null
+ * postal_code_clean of the 4,991 cleaned training rows (Jan-Aug 2026); the
+ * only rows without a key are the 18 with no postcode at all (valuation-v3.1
+ * keeps `table` exactly that: the neighbour fallback lives in the separate
+ * `prefix_table`, so unseen mapped postnummer are NOT keys of `table`). Its keys
+ * are therefore exactly the training postnummer,
  * without shipping any raw rows.
  */
 export function filtreraKonfliktPostnummer(
@@ -662,7 +675,7 @@ function main(): void {
 
   writeDataModule(
     "model.data.ts",
-    `// Source: ml/artifacts/valuation-v3/model.json (lightgbm_booster, ` +
+    `// Source: ml/artifacts/valuation-v3.1/model.json (lightgbm_booster, ` +
       `Booster.dump_model() format, ${modelData.nTrees} trees) -> compact ` +
       `pre-order-flattened tree arrays. See src/lib/vardering/types.ts (TreeArrays) ` +
       `for the layout.`,
@@ -670,7 +683,7 @@ function main(): void {
   );
   writeDataModule(
     "manifest.data.ts",
-    `// Source: ml/artifacts/valuation-v3/model.json (feature_order_out, ` +
+    `// Source: ml/artifacts/valuation-v3.1/model.json (feature_order_out, ` +
       `numeric_features, missing_indicator_features, categorical_features, ` +
       `numeric_medians_for_imputation, categorical_fill_value_for_imputation, ` +
       `categorical_onehot_categories) and metadata.json (version, data_period, ` +
@@ -681,7 +694,7 @@ function main(): void {
   );
   writeDataModule(
     "generalModel.data.ts",
-    `// Source: ml/artifacts/valuation-v3/general_model.json (WITH fee; ` +
+    `// Source: ml/artifacts/valuation-v3.1/general_model.json (WITH fee; ` +
       `lightgbm_booster ${generalModel.nTrees} trees + preprocessing + r_inference) and ` +
       `metadata.json (regional_method.q_regional_log, ` +
       `regional_method.simulation_cv_with_fee.mape, data_period).`,
@@ -689,8 +702,8 @@ function main(): void {
   );
   writeDataModule(
     "postcodeDelta.data.ts",
-    `// Source: ml/artifacts/valuation-v3/postcode_encoding.json ` +
-      `(table; fallback_for_unseen_or_missing_postnummer = 0).`,
+    `// Source: ml/artifacts/valuation-v3.1/postcode_encoding.json ` +
+      `(table, prefix_table, prefix_length; fallback_for_unseen_or_missing_postnummer = 0).`,
     postcodeDelta,
   );
   writeDataModule(
@@ -720,7 +733,7 @@ function main(): void {
   );
   writeDataModule(
     "effects.data.ts",
-    `// Source: ml/artifacts/valuation-v3/effects.json ` +
+    `// Source: ml/artifacts/valuation-v3.1/effects.json ` +
       `(version, data_period, caveat_sv, reference_categories, effects[*].{id,label_sv,` +
       `effekt_procent,ci_low_procent,ci_high_procent,niva,omrade,n,signifikant}).`,
     effects,

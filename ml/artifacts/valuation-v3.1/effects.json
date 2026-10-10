@@ -1,0 +1,173 @@
+{
+  "version": "valuation-v3.1",
+  "generated_at": "2026-10-10T15:24:46.019964",
+  "method": "Unregularised OLS on log(price_per_sqm), FULL feature set WITHOUT monthly_fee_clean (statsmodels; fee enters only as fee_per_sqm + monthly_fee_missing, so the fee driver is no longer an artefact of collinearity with monthly_fee_clean and living_area). Interpretability companion to the LightGBM model, not used for predictions.",
+  "data_period": "2026-01-01 to 2026-08-31 (8 months)",
+  "reference_categories": {
+    "hiss": "ja (har hiss)",
+    "balkong": "ja (har balkong)"
+  },
+  "area_specific_rule": {
+    "min_n": 100,
+    "max_ci_halfwidth_log": 0.05,
+    "note": "endast hiss/balkong har omrädesspecifika effekter beräknade; övriga drivrutiner är stadsövergripande"
+  },
+  "caveat_sv": "Det här är genomsnittliga effekter för Stockholm (eller angivet område), inte en beräkning för just din lägenhet.",
+  "excluded_note": "Area-vs-area-effekter (skillnaden mellan Stockholmsområden) visas inte här -- området är lägenhetens läge, inte en drivrutin köparen kan jämföra.",
+  "effects": [
+    {
+      "id": "rooms+1",
+      "label_sv": "Ett rum till",
+      "effekt_procent": 4.36,
+      "ci_low_procent": 3.03,
+      "ci_high_procent": 5.7,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4985,
+      "signifikant": true
+    },
+    {
+      "id": "floor+1",
+      "label_sv": "En våning högre",
+      "effekt_procent": 1.64,
+      "ci_low_procent": 1.33,
+      "ci_high_procent": 1.96,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4634,
+      "signifikant": true
+    },
+    {
+      "id": "build_year+10",
+      "label_sv": "10 år nyare byggnad",
+      "effekt_procent": -1.52,
+      "ci_low_procent": -1.71,
+      "ci_high_procent": -1.33,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4531,
+      "signifikant": true
+    },
+    {
+      "id": "fee_per_sqm+10",
+      "label_sv": "10 kr/m² högre månadsavgift",
+      "effekt_procent": -2.42,
+      "ci_low_procent": -2.76,
+      "ci_high_procent": -2.08,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4961,
+      "signifikant": true
+    },
+    {
+      "id": "boarea+10",
+      "label_sv": "10 kvm större boarea (pris per kvm)",
+      "effekt_procent": -2.33,
+      "ci_low_procent": -2.83,
+      "ci_high_procent": -1.83,
+      "niva": "stad",
+      "omrade": null,
+      "n": 4991,
+      "signifikant": true
+    },
+    {
+      "id": "elevator=nej",
+      "label_sv": "Ingen hiss",
+      "effekt_procent": -2.41,
+      "ci_low_procent": -3.95,
+      "ci_high_procent": -0.85,
+      "niva": "stad",
+      "omrade": null,
+      "n": 1502,
+      "signifikant": true
+    },
+    {
+      "id": "elevator=okant",
+      "label_sv": "Hiss okänt",
+      "effekt_procent": 7.22,
+      "ci_low_procent": 2.78,
+      "ci_high_procent": 11.85,
+      "niva": "stad",
+      "omrade": null,
+      "n": 103,
+      "signifikant": true
+    },
+    {
+      "id": "balcony=nej",
+      "label_sv": "Ingen balkong",
+      "effekt_procent": -2.65,
+      "ci_low_procent": -14.4,
+      "ci_high_procent": 10.71,
+      "niva": "stad",
+      "omrade": null,
+      "n": 10,
+      "signifikant": false
+    },
+    {
+      "id": "balcony=okant",
+      "label_sv": "Balkong okänt",
+      "effekt_procent": -1.12,
+      "ci_low_procent": -2.33,
+      "ci_high_procent": 0.12,
+      "niva": "stad",
+      "omrade": null,
+      "n": 2229,
+      "signifikant": false
+    },
+    {
+      "id": "elevator=nej",
+      "label_sv": "Ingen hiss",
+      "effekt_procent": -4.91,
+      "ci_low_procent": -9.45,
+      "ci_high_procent": -0.14,
+      "niva": "omrade",
+      "omrade": "Hägersten-Liljeholmen",
+      "n": 732,
+      "signifikant": true
+    },
+    {
+      "id": "elevator=nej",
+      "label_sv": "Ingen hiss",
+      "effekt_procent": -5.31,
+      "ci_low_procent": -8.29,
+      "ci_high_procent": -2.23,
+      "niva": "omrade",
+      "omrade": "Kungsholmen",
+      "n": 637,
+      "signifikant": true
+    },
+    {
+      "id": "elevator=nej",
+      "label_sv": "Ingen hiss",
+      "effekt_procent": 3.23,
+      "ci_low_procent": -0.2,
+      "ci_high_procent": 6.78,
+      "niva": "omrade",
+      "omrade": "Södermalm",
+      "n": 731,
+      "signifikant": false
+    },
+    {
+      "id": "elevator=nej",
+      "label_sv": "Ingen hiss",
+      "effekt_procent": -0.44,
+      "ci_low_procent": -2.91,
+      "ci_high_procent": 2.09,
+      "niva": "omrade",
+      "omrade": "Vasastan-Norrmalm",
+      "n": 636,
+      "signifikant": false
+    },
+    {
+      "id": "elevator=nej",
+      "label_sv": "Ingen hiss",
+      "effekt_procent": -8.87,
+      "ci_low_procent": -12.97,
+      "ci_high_procent": -4.57,
+      "niva": "omrade",
+      "omrade": "Östermalm",
+      "n": 510,
+      "signifikant": true
+    }
+  ]
+}

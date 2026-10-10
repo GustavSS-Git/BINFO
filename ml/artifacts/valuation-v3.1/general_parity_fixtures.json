@@ -1,0 +1,836 @@
+[
+  {
+    "input": {
+      "boarea": 43.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2895.0,
+      "vaning": 3.0,
+      "byggar": 1939.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.028671700649999993,
+      "r_unclipped": 0.9852905511695397,
+      "r": 0.9852905511695397
+    }
+  },
+  {
+    "input": {
+      "boarea": 36.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2629.0,
+      "vaning": 1.0,
+      "byggar": 1965.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.02714550721999998,
+      "r_unclipped": 0.9867954432214491,
+      "r": 0.9867954432214491
+    }
+  },
+  {
+    "input": {
+      "boarea": 66.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4824.0,
+      "vaning": 3.0,
+      "byggar": 1500.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.12002731066999997,
+      "r_unclipped": 1.1432559703686258,
+      "r": 1.1432559703686258
+    }
+  },
+  {
+    "input": {
+      "boarea": 53.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3204.0,
+      "vaning": 1.0,
+      "byggar": 1947.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.023506525359999995,
+      "r_unclipped": 0.9903929155372456,
+      "r": 0.9903929155372456
+    }
+  },
+  {
+    "input": {
+      "boarea": 34.0,
+      "antalRum": 1.0,
+      "manadsavgift": 3431.0,
+      "vaning": 3.0,
+      "byggar": 1938.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.03897947976999999,
+      "r_unclipped": 0.9751865581258644,
+      "r": 0.9751865581258644
+    }
+  },
+  {
+    "input": {
+      "boarea": 27.5,
+      "antalRum": 1.0,
+      "manadsavgift": 2448.0,
+      "vaning": 3.0,
+      "byggar": 1960.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.058424175679999996,
+      "r_unclipped": 1.0749532484605537,
+      "r": 1.0749532484605537
+    }
+  },
+  {
+    "input": {
+      "boarea": 74.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4770.0,
+      "vaning": 3.0,
+      "byggar": 2017.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.015491531060000004,
+      "r_unclipped": 1.0297793193314173,
+      "r": 1.0297793193314173
+    }
+  },
+  {
+    "input": {
+      "boarea": 24.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2049.0,
+      "vaning": 3.0,
+      "byggar": 1952.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.10280249058,
+      "r_unclipped": 1.1237322212088319,
+      "r": 1.1237322212088319
+    }
+  },
+  {
+    "input": {
+      "boarea": 47.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2310.0,
+      "vaning": 1.0,
+      "byggar": 1901.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.06392803977000003,
+      "r_unclipped": 1.0808859564761044,
+      "r": 1.0808859564761044
+    }
+  },
+  {
+    "input": {
+      "boarea": 68.0,
+      "antalRum": 3.0,
+      "manadsavgift": 5094.0,
+      "vaning": 2.0,
+      "byggar": 1961.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.18045751002000007,
+      "r_unclipped": 0.8465343368854243,
+      "r": 0.8465343368854243
+    }
+  },
+  {
+    "input": {
+      "boarea": 45.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2512.0,
+      "vaning": 4.0,
+      "byggar": 1889.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.08578005127000002,
+      "r_unclipped": 1.1047654460497618,
+      "r": 1.1047654460497618
+    }
+  },
+  {
+    "input": {
+      "boarea": 86.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4405.0,
+      "vaning": 3.0,
+      "byggar": 1916.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.1394355335299999,
+      "r_unclipped": 1.1656612571310463,
+      "r": 1.1656612571310463
+    }
+  },
+  {
+    "input": {
+      "boarea": 58.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2877.0,
+      "vaning": 3.0,
+      "byggar": 1894.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.08629482867000003,
+      "r_unclipped": 1.1053343007378957,
+      "r": 1.1053343007378957
+    }
+  },
+  {
+    "input": {
+      "boarea": 70.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4727.0,
+      "vaning": null,
+      "byggar": 2006.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.0057335874399999775,
+      "r_unclipped": 1.0081524594936377,
+      "r": 1.0081524594936377
+    }
+  },
+  {
+    "input": {
+      "boarea": 33.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2490.0,
+      "vaning": 0.0,
+      "byggar": null,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.05723735119,
+      "r_unclipped": 1.0736782243842369,
+      "r": 1.0736782243842369
+    }
+  },
+  {
+    "input": {
+      "boarea": 57.0,
+      "antalRum": 2.0,
+      "manadsavgift": null,
+      "vaning": 2.0,
+      "byggar": 1953.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.045031195580000016,
+      "r_unclipped": 0.9693028275039419,
+      "r": 0.9693028275039419
+    }
+  },
+  {
+    "input": {
+      "boarea": 73.0,
+      "antalRum": 3.0,
+      "manadsavgift": 3971.0,
+      "vaning": 6.0,
+      "byggar": 2010.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.01536497664,
+      "r_unclipped": 0.9984891609779252,
+      "r": 0.9984891609779252
+    }
+  },
+  {
+    "input": {
+      "boarea": 37.0,
+      "antalRum": 2.0,
+      "manadsavgift": 1832.0,
+      "vaning": 3.0,
+      "byggar": null,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.009554311109999993,
+      "r_unclipped": 1.0043079366352623,
+      "r": 1.0043079366352623
+    }
+  },
+  {
+    "input": {
+      "boarea": 87.0,
+      "antalRum": 4.0,
+      "manadsavgift": 6651.0,
+      "vaning": null,
+      "byggar": 1952.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.09090312108000002,
+      "r_unclipped": 1.1104397590938857,
+      "r": 1.1104397590938857
+    }
+  },
+  {
+    "input": {
+      "boarea": 22.0,
+      "antalRum": 1.0,
+      "manadsavgift": 1739.0,
+      "vaning": 1.0,
+      "byggar": 1925.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.09452290023000004,
+      "r_unclipped": 1.1144665895026664,
+      "r": 1.1144665895026664
+    }
+  },
+  {
+    "input": {
+      "boarea": 55.0,
+      "antalRum": 2.0,
+      "manadsavgift": 5035.0,
+      "vaning": 3.0,
+      "byggar": null,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.13767433243000013,
+      "r_unclipped": 0.8835376820274671,
+      "r": 0.8835376820274671
+    }
+  },
+  {
+    "input": {
+      "boarea": 26.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2085.0,
+      "vaning": 3.0,
+      "byggar": 1956.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.12523839768,
+      "r_unclipped": 1.1492291265061358,
+      "r": 1.1492291265061358
+    }
+  },
+  {
+    "input": {
+      "boarea": 37.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2366.0,
+      "vaning": 4.0,
+      "byggar": 1936.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.004353998810000002,
+      "r_unclipped": 1.0095442549959404,
+      "r": 1.0095442549959404
+    }
+  },
+  {
+    "input": {
+      "boarea": 42.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4146.0,
+      "vaning": 2.0,
+      "byggar": 1939.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.047071992069999985,
+      "r_unclipped": 0.9673266948240014,
+      "r": 0.9673266948240014
+    }
+  },
+  {
+    "input": {
+      "boarea": 68.0,
+      "antalRum": 3.0,
+      "manadsavgift": 5180.0,
+      "vaning": 3.0,
+      "byggar": 1943.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.0007430198299999908,
+      "r_unclipped": 1.0147030569678361,
+      "r": 1.0147030569678361
+    }
+  },
+  {
+    "input": {
+      "boarea": 41.0,
+      "antalRum": 2.0,
+      "manadsavgift": 1464.0,
+      "vaning": 4.0,
+      "byggar": 1929.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.037731532190000014,
+      "r_unclipped": 1.0529381845943833,
+      "r": 1.0529381845943833
+    }
+  },
+  {
+    "input": {
+      "boarea": 43.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2515.0,
+      "vaning": 15.0,
+      "byggar": 1935.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.006190475899999994,
+      "r_unclipped": 1.0202456902139627,
+      "r": 1.0202456902139627
+    }
+  },
+  {
+    "input": {
+      "boarea": 76.0,
+      "antalRum": 3.0,
+      "manadsavgift": 5156.0,
+      "vaning": 1.0,
+      "byggar": 1959.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.17710289202000004,
+      "r_unclipped": 0.8493789047612551,
+      "r": 0.8493789047612551
+    }
+  },
+  {
+    "input": {
+      "boarea": 34.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2069.0,
+      "vaning": 2.0,
+      "byggar": 2018.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.04827981742000003,
+      "r_unclipped": 1.064103661685314,
+      "r": 1.064103661685314
+    }
+  },
+  {
+    "input": {
+      "boarea": 73.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4567.0,
+      "vaning": 3.0,
+      "byggar": 1909.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.053877814230000064,
+      "r_unclipped": 1.0700772149553013,
+      "r": 1.0700772149553013
+    }
+  },
+  {
+    "input": {
+      "boarea": 120.0,
+      "antalRum": 6.0,
+      "manadsavgift": 8123.0,
+      "vaning": 2.0,
+      "byggar": 2012.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.051273640739999946,
+      "r_unclipped": 0.9632708544781015,
+      "r": 0.9632708544781015
+    }
+  },
+  {
+    "input": {
+      "boarea": 72.0,
+      "antalRum": 2.0,
+      "manadsavgift": 5396.0,
+      "vaning": 3.0,
+      "byggar": 1989.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.21433494734000016,
+      "r_unclipped": 0.8183362590695981,
+      "r": 0.8183362590695981
+    }
+  },
+  {
+    "input": {
+      "boarea": 33.0,
+      "antalRum": 2.0,
+      "manadsavgift": 1496.0,
+      "vaning": 0.0,
+      "byggar": 1885.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.12384049549000001,
+      "r_unclipped": 1.1476237389422048,
+      "r": 1.1476237389422048
+    }
+  },
+  {
+    "input": {
+      "boarea": 33.0,
+      "antalRum": 2.0,
+      "manadsavgift": 2527.0,
+      "vaning": 4.0,
+      "byggar": 1938.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.06685870363000002,
+      "r_unclipped": 1.0840583161749298,
+      "r": 1.0840583161749298
+    }
+  },
+  {
+    "input": {
+      "boarea": 42.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4714.0,
+      "vaning": 1.0,
+      "byggar": 1944.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.13898026547000011,
+      "r_unclipped": 0.8823845940681333,
+      "r": 0.8823845940681333
+    }
+  },
+  {
+    "input": {
+      "boarea": 71.0,
+      "antalRum": 3.0,
+      "manadsavgift": 4576.0,
+      "vaning": 2.0,
+      "byggar": 1932.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.05775712353000003,
+      "r_unclipped": 1.074236437686682,
+      "r": 1.074236437686682
+    }
+  },
+  {
+    "input": {
+      "boarea": 56.0,
+      "antalRum": 2.0,
+      "manadsavgift": 4236.0,
+      "vaning": 3.0,
+      "byggar": null,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.11485968583000002,
+      "r_unclipped": 0.9039269849792342,
+      "r": 0.9039269849792342
+    }
+  },
+  {
+    "input": {
+      "boarea": 30.0,
+      "antalRum": 1.0,
+      "manadsavgift": 2640.0,
+      "vaning": 3.0,
+      "byggar": 2022.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.04938953536000002,
+      "r_unclipped": 1.0652851720590848,
+      "r": 1.0652851720590848
+    }
+  },
+  {
+    "input": {
+      "boarea": 109.0,
+      "antalRum": 4.0,
+      "manadsavgift": 8526.0,
+      "vaning": 4.0,
+      "byggar": 1918.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.13474017353,
+      "r_unclipped": 1.1602008871240121,
+      "r": 1.1602008871240121
+    }
+  },
+  {
+    "input": {
+      "boarea": 67.0,
+      "antalRum": 3.0,
+      "manadsavgift": 3213.0,
+      "vaning": 3.0,
+      "byggar": 2026.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.07517233646000004,
+      "r_unclipped": 1.0931083461696882,
+      "r": 1.0931083461696882
+    }
+  },
+  {
+    "input": {
+      "boarea": 57.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3850.0,
+      "vaning": 5.0,
+      "byggar": 2016.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.019077164239999996,
+      "r_unclipped": 0.994789453149172,
+      "r": 0.994789453149172
+    }
+  },
+  {
+    "input": {
+      "boarea": 35.0,
+      "antalRum": 2.0,
+      "manadsavgift": 1768.0,
+      "vaning": 0.0,
+      "byggar": 1942.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.09815240610999992,
+      "r_unclipped": 0.9191560095078609,
+      "r": 0.9191560095078609
+    }
+  },
+  {
+    "input": {
+      "boarea": 31.0,
+      "antalRum": 1.0,
+      "manadsavgift": 602.0,
+      "vaning": null,
+      "byggar": 1951.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.05295564326000002,
+      "r_unclipped": 1.069090875668638,
+      "r": 1.069090875668638
+    }
+  },
+  {
+    "input": {
+      "boarea": 39.0,
+      "antalRum": 1.0,
+      "manadsavgift": 3765.0,
+      "vaning": 2.0,
+      "byggar": 2015.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.03884706874,
+      "r_unclipped": 0.9753156921316627,
+      "r": 0.9753156921316627
+    }
+  },
+  {
+    "input": {
+      "boarea": 76.0,
+      "antalRum": 3.0,
+      "manadsavgift": 6375.0,
+      "vaning": 2.0,
+      "byggar": 2002.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.15363814814000018,
+      "r_unclipped": 0.8695450344820035,
+      "r": 0.8695450344820035
+    }
+  },
+  {
+    "input": {
+      "boarea": 68.0,
+      "antalRum": 3.0,
+      "manadsavgift": 5974.0,
+      "vaning": 1.0,
+      "byggar": 1990.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": -0.19249905194000003,
+      "r_unclipped": 0.8364018857808805,
+      "r": 0.8364018857808805
+    }
+  },
+  {
+    "input": {
+      "boarea": 51.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3375.0,
+      "vaning": 4.0,
+      "byggar": 1930.0,
+      "hiss": "ja",
+      "balkong": "ja"
+    },
+    "expected_output": {
+      "log_g": 0.059923816250000005,
+      "r_unclipped": 1.0765665013101702,
+      "r": 1.0765665013101702
+    }
+  },
+  {
+    "input": {
+      "boarea": 80.0,
+      "antalRum": 3.0,
+      "manadsavgift": 3454.0,
+      "vaning": 5.0,
+      "byggar": 1914.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.10859840753000001,
+      "r_unclipped": 1.130264190928499,
+      "r": 1.130264190928499
+    }
+  },
+  {
+    "input": {
+      "boarea": 45.0,
+      "antalRum": 2.0,
+      "manadsavgift": 3798.0,
+      "vaning": 2.0,
+      "byggar": 1939.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": -0.07154533383000003,
+      "r_unclipped": 0.9439403166904419,
+      "r": 0.9439403166904419
+    }
+  },
+  {
+    "input": {
+      "boarea": 18.0,
+      "antalRum": 1.0,
+      "manadsavgift": 982.0,
+      "vaning": 3.0,
+      "byggar": 1929.0,
+      "hiss": "nej",
+      "balkong": "okant"
+    },
+    "expected_output": {
+      "log_g": 0.15408309668999995,
+      "r_unclipped": 1.1828610137610236,
+      "r": 1.1828610137610236
+    }
+  },
+  {
+    "input": {
+      "boarea": 300.0,
+      "antalRum": 2.0,
+      "manadsavgift": 120000.0,
+      "vaning": 3.0,
+      "byggar": 1939.0,
+      "hiss": "nej",
+      "balkong": "ja"
+    },
+    "note": "extreme boarea/avgift: tests input handling and clip",
+    "expected_output": {
+      "log_g": -0.32073102296999995,
+      "r_unclipped": 0.7357403352870411,
+      "r": 0.7357403352870411
+    }
+  },
+  {
+    "input": {
+      "boarea": 15.0,
+      "antalRum": 1.0,
+      "manadsavgift": 75.0,
+      "vaning": 1.0,
+      "byggar": 1965.0,
+      "hiss": "ja",
+      "balkong": "okant"
+    },
+    "note": "extreme boarea/avgift: tests input handling and clip",
+    "expected_output": {
+      "log_g": 0.16851198609999984,
+      "r_unclipped": 1.200052110478418,
+      "r": 1.200052110478418
+    }
+  }
+]

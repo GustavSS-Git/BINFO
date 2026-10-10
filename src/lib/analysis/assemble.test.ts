@@ -200,8 +200,8 @@ describe("assembleraAnalys", () => {
       const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
 
       // utgångspris 4 950 000 mot modellens punktskattning för 11857 (Södermalm),
-      // ett deterministiskt tal ur den tränade modellen (valuation-v3).
-      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-25.6, 0);
+      // ett deterministiskt tal ur den tränade modellen (valuation-v3.1; v3 gav -25,6).
+      expect(prisanalys.avvikelseMotVardering).toBeCloseTo(-22.3, 0);
     });
 
     it("faller tillbaka till 'lag' konfidens och Stockholmsövergripande område för ett okartlagt men känt Stockholmsprefix", async () => {

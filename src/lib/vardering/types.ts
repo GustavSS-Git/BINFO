@@ -131,9 +131,16 @@ export const GeneralModelDataSchema = ModelDataSchema.merge(FeatureManifestSchem
 });
 export type GeneralModelData = z.infer<typeof GeneralModelDataSchema>;
 
-/** postcode_encoding.json: postnummer -> postcode_delta; unseen -> `fallback`. */
+/**
+ * postcode_encoding.json (valuation-v3.1): `table` = postnummer with at least
+ * one training sale -> postcode_delta; a postnummer not in `table` gets
+ * `prefixTable[first prefixLength digits]` if present (the shrunk delta of the
+ * neighbouring postnummer), else `fallback`.
+ */
 export const PostcodeDeltaSchema = z.object({
   fallback: z.literal(0),
+  prefixLength: z.number().int().positive(),
+  prefixTable: z.record(z.string(), z.number()),
   table: z.record(z.string(), z.number()),
 });
 export type PostcodeDeltaData = z.infer<typeof PostcodeDeltaSchema>;
