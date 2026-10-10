@@ -45,20 +45,18 @@ describe("fixtures/answer-key", () => {
     }
   });
 
-  it("utkast markeras med UTKAST i kalla.verifieradMot (hela filen) eller nyckeltalUtkast (bara nyckeltalen)", () => {
-    for (const orgnr of ["769635-9905", "769607-2912", "724000-0161"]) {
+  it("skannade rapporters nycklar och test_rapports nyckeltal är verifierade av ägaren (2026-10-10), inte utkast", () => {
+    for (const orgnr of ["769635-9905", "769607-2912", "724000-0161", "769624-6953"]) {
       const f = aktiva.find((x) => x.data.orgnr === orgnr);
       expect(f, orgnr).toBeDefined();
-      expect(String(f!.data.kalla.verifieradMot).toUpperCase()).toContain("UTKAST");
+      expect(String(f!.data.kalla.verifieradMot).toUpperCase()).not.toContain("UTKAST");
+      expect(String(f!.data.kalla.verifieradMot).startsWith("Verifierad av ägaren")).toBe(true);
+      expect(f!.data.nyckeltalUtkast).toBeUndefined();
       expect(Object.keys(f!.data.nyckeltal).sort()).toEqual(
         ALLA_NYCKELTAL.map((n) => n.id as string).sort(),
       );
     }
     const test = aktiva.find((x) => x.data.orgnr === "769624-6953")!;
-    expect(test.data.nyckeltalUtkast).toBe(true);
-    // Resten av filen är verifierad av ägaren: hela filen är inte ett utkast.
-    expect(String(test.data.kalla.verifieradMot).startsWith("Verifierad av ägaren")).toBe(true);
-    expect(Object.keys(test.data.nyckeltal)).toHaveLength(7);
     expect(test.data.ovrigInfoVerifierad).toBe(true);
   });
 

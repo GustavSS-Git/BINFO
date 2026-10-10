@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "annual reports pdf as image example/Årsredovisning_2025_bild.pdf",
     "forvaltare": "okänd (gul 'Vi ser om ditt hus!'-mall)",
-    "verifieradMot": "UTKAST — ej verifierad av ägaren. Supervisorns utkast, avläst från renderade sidbilder 2026-10-09 (PDF:en saknar textlager). Källa: PDF-sida 9 (Flerårsöversikt, tryckt '8 (21)'), PDF-sida 12–13 (Balansräkning). Typ: vektor-konturerad text + rasterförsättsblad, inget textlager."
+    "verifieradMot": "Verifierad av ägaren 2026-10-10 (förslag avläst av supervisorn från renderade sidbilder 2026-10-09; PDF:en saknar textlager). Källa: PDF-sida 9 (Flerårsöversikt, tryckt '8 (21)'), PDF-sida 12–13 (Balansräkning). Typ: vektor-konturerad text + rasterförsättsblad, inget textlager."
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 649,

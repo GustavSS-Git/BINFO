@@ -4,7 +4,7 @@
   "kalla": {
     "fil": "annual reports pdf as image example/Årsredovisning bild 2.pdf",
     "forvaltare": "Nabo",
-    "verifieradMot": "UTKAST — ej verifierad av ägaren. Supervisorns utkast, avläst från renderade sidbilder 2026-10-09 (PDF:en saknar textlager). Källa: PDF-sida 6 (Flerårsöversikt, tryckt 'Sida 4 av 16'), PDF-sida 9–10 (Balansräkning), PDF-sida 4 (ytor). Typ: vektor-konturerad text, inget textlager."
+    "verifieradMot": "Verifierad av ägaren 2026-10-10 (förslag avläst av supervisorn från renderade sidbilder 2026-10-09; PDF:en saknar textlager). Källa: PDF-sida 6 (Flerårsöversikt, tryckt 'Sida 4 av 16'), PDF-sida 9–10 (Balansräkning), PDF-sida 4 (ytor). Typ: vektor-konturerad text, inget textlager."
   },
   "nyckeltal": {
     "arsavgift_per_m2_brf_yta": 1262,
