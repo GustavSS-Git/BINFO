@@ -119,9 +119,10 @@ per-apartment cost in kronor, and what to do before bidding.
    apartment's debt share (`skuldsättning/m² bostadsrättsyta × boarea`) as a
    comment, never applied to the valuation.
 5. **Retention** (`binfo-retention`, daily, from the konto migration): blanks
-   `adress`/`postnummer`/`orgnr` in `property_input` after 30 days and purges
+   `adress`/`postnummer`/`orgnr` in `property_input` after 12 months (owner
+   decision 2026-10-10; the register, PDFs and BRF analysis are never touched) and purges
    quota rows after 2 days. PDFs are kept (register). Before v2 is deployed,
-   production still runs the old command (PDFs deleted after 30 days).
+   production still runs the old, failing command (hotfix `20261008000000`).
 
 Measured 2026-10-09 (`claude-sonnet-5-5`, effort `medium`, API time; production
 adds ~10 s per stage for reinvokes):
@@ -318,9 +319,10 @@ cd ml && .venv/bin/pytest                  # ML tests
 - Draft answer keys (the three scans, `test_rapport` nyckeltal) await owner
   verification; scan accuracy figures are measured against those drafts.
 - Scans over 60 pages are refused (product limit, owner decision 2026-10-10).
-- PDF retention is open: kept indefinitely today, but the owner may switch to
-  about one year (2026-10-10); the GDPR basis for keeping board members' names
-  in stored PDFs is still to be written. Delete PDFs via the Storage API, never
+- PDFs, the register and BRF analyses are kept (not buyer data). Only the
+  buyer's address/postnummer/orgnr are anonymised, after 12 months (owner,
+  2026-10-10). The privacy text still needs a stated basis for keeping PDFs
+  that name board members (public documents). Delete PDFs via the Storage API, never
   with SQL (Storage refuses direct deletes).
 - No accounts yet (anonymous device principals only); entitlements grant
   everything; GDPR erasure/export are owner-run CLI commands.

@@ -48,11 +48,11 @@ describe("LocalStorageAnalysHistorik", () => {
     expect(historik.hamta(KLOCKA).map((a) => a.analysisId)).toEqual(["ny", "gammal"]);
   });
 
-  it("droppar poster äldre än 30 dagar", () => {
+  it("droppar poster äldre än 12 månader (365 dagar)", () => {
     const storage = fakeStorage();
     const historik = new LocalStorageAnalysHistorik(() => storage);
-    historik.spara({ analysisId: "utgangen", skapad: dagarSedan(31) });
-    historik.spara({ analysisId: "giltig", skapad: dagarSedan(29) });
+    historik.spara({ analysisId: "utgangen", skapad: dagarSedan(366) });
+    historik.spara({ analysisId: "giltig", skapad: dagarSedan(364) });
     expect(historik.hamta(KLOCKA).map((a) => a.analysisId)).toEqual(["giltig"]);
   });
 

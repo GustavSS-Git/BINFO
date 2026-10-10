@@ -11,7 +11,7 @@ import { z } from "zod";
  * föreningens namn — aldrig adress, postnummer, orgnr eller pris. Servern
  * äger allt annat; den här listan är bara en genväg till en id-länk.
  *
- * Expirerar 30 dagar efter skapad, samma retention som servern använder för
+ * Expirerar 12 månader (365 dagar) efter skapad, samma retention som servern använder för
  * uppladdade PDF:er (se CLAUDE.md/SUPABASE.md).
  *
  * `AnalysHistorik` är ett medvetet snävt interface så att en framtida
@@ -22,7 +22,7 @@ import { z } from "zod";
 
 export interface SenasteAnalys {
   analysisId: string;
-  /** ISO 8601 — analysens skapad-tidsstämpel, används för 30-dagars-gränsen. */
+  /** ISO 8601 — analysens skapad-tidsstämpel, används för 12-månadersgränsen. */
   skapad: string;
   foreningsnamn?: string;
 }
@@ -32,7 +32,7 @@ export interface AnalysHistorik {
    *  (t.ex. vid skapandet, innan namnet är känt) skriver INTE över ett
    *  redan sparat namn — bara ett explicit angivet namn gör det. */
   spara(entry: SenasteAnalys): void;
-  /** Nyast först, max fem poster, utgångna poster (>30 dagar sedan `skapad`,
+  /** Nyast först, max fem poster, utgångna poster (>365 dagar sedan `skapad`,
    *  räknat mot `now`) borttagna. */
   hamta(now?: Date): SenasteAnalys[];
   glom(analysisId: string): void;
@@ -48,7 +48,7 @@ export interface StorageLike {
 
 const STORAGE_KEY = "binfo:senaste-analyser";
 const MAX_POSTER = 5;
-const TTL_DAGAR = 30;
+const TTL_DAGAR = 365;
 
 const SenasteAnalysSchema = z.object({
   analysisId: z.string().min(1),

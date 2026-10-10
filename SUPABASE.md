@@ -614,16 +614,24 @@ Three consequences for this layer:
    storage tables is not allowed"). pg_cron runs the command as ONE
    transaction, so the error also rolled back the `property_input`
    anonymisation after it: `cron.job_run_details = failed`, nothing
-   anonymised. The hotfix `20261008000000_retention_fix.sql` reschedules
-   `binfo-retention` without the storage delete and anonymises the rows that
-   crossed 30 days meanwhile; it is standalone and ordered **before** the v2
+   anonymised (confirmed failing in production by the owner, 2026-10-10). The
+   hotfix `20261008000000_retention_fix.sql` reschedules `binfo-retention`
+   without the storage delete; it is standalone and ordered **before** the v2
    migrations, so it can be applied to production on its own, ahead of v2.
    `20261009120100_konto.sql` later replaces the command again (adds the `kvot`
    purge), and its down-script (`supabase/rollback`) no longer restores the PDF
    deletion — only the anonymisation. Local check after `db reset` (6
-   migrations): the command, run once via pg_cron, `succeeded`; a 40-day-old
-   `analys` row had `adress`/`postnummer`/`orgnr` emptied, a 5-day-old one was
-   untouched, and `kvot` windows older than 2 days were purged.
+   migrations, at the then 30-day period): the command, run once via pg_cron,
+   `succeeded`; old rows had `adress`/`postnummer`/`orgnr` emptied, recent ones
+   were untouched, and `kvot` windows older than 2 days were purged.
+
+   **Period (owner decision 2026-10-10): 12 months, was 30 days.** Only the
+   buyer's `adress`/`postnummer`/`orgnr` in `analys.property_input` are blanked
+   — the link between a visitor's device and the apartment they looked at. The
+   register, the PDFs and the BRF analyses are not buyer data and are never
+   touched. A year lets buyers return to their analysis, including the
+   valuation (which needs the postnummer). The browser's "recent analyses" list
+   uses the same 12 months.
 
    Consequence worth noting: after 30 days the PDF is gone, so a *re-run* of a
    cached förening is impossible — only the cached output remains. That is

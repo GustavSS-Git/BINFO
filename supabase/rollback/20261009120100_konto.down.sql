@@ -32,7 +32,7 @@ select cron.schedule(
   update analys
      set property_input = property_input
          || jsonb_build_object('adress', '', 'postnummer', '', 'orgnr', '')
-   where created_at < now() - interval '30 days'
+   where created_at < now() - interval '12 months'
      and (   coalesce(property_input->>'adress', '') <> ''
           or coalesce(property_input->>'postnummer', '') <> ''
           or coalesce(property_input->>'orgnr', '') <> '');

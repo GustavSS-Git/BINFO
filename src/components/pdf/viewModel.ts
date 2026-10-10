@@ -243,7 +243,7 @@ function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
   const adressLabel =
     input.adress !== ""
       ? `${input.adress}, ${input.ort}`
-      : `Adressen raderad efter 30 dagar · ${input.ort}`;
+      : `Adressen raderad efter 12 månader · ${input.ort}`;
   return [
     { label: "Utgångspris", value: formatVarde(input.utgangspris, "kr") },
     { label: "Boarea", value: formatVarde(input.boarea, "m2") },

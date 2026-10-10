@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   // The address row can hold the anonymisation fallback sentence
-  // ("Adressen raderad efter 30 dagar · <ort>"), which is too long for a
+  // ("Adressen raderad efter 12 månader · <ort>"), which is too long for a
   // one-third column at report width — give it the full row instead of
   // letting it wrap awkwardly under a narrow "Adress" label.
   summaryCellFull: {

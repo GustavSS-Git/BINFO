@@ -423,7 +423,7 @@ function SenasteAnalyserSektion() {
     <Card className="mb-6">
       <h2 className="text-base font-semibold text-foreground">Dina senaste analyser</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Sparas bara i den här webbläsaren och försvinner automatiskt efter 30 dagar.
+        Sparas bara i den här webbläsaren och försvinner automatiskt efter 12 månader.
       </p>
       <ul className="mt-4 space-y-3">
         {poster.map((post) => (

@@ -542,7 +542,7 @@ export async function ersattRapport(
  * Records that a buyer looked at a flat in this förening's area: postnummer +
  * kommun code + Stockholm område from the valuation's own coverage mapping
  * (`losTackning`). The street address is NEVER stored here — it is per-user
- * data and stays in analys.property_input (anonymised at 30 days). Returns
+ * data and stays in analys.property_input (anonymised after 12 months). Returns
  * false (and writes nothing) when the postnummer does not resolve.
  */
 export async function registreraAnvandarAdress(

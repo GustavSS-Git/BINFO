@@ -637,5 +637,6 @@ The supervisor owns:
 | 2026-10-09 | Server review hardening (deae884): transcription reuse, terminal deterministic failures, 15 kr stage ceiling, ≥50 % empty-page rule, loose quotas, safe errors | done |
 | 2026-10-09 | Changed vs plan: garbled layers stay on the normal path (§1.9); 'saknas' = ≥ 50 % empty pages (plan said 80 %; 50 % chosen after review — all corpus PDFs unchanged); fee sanity tolerance 25 % (10 % false-alarmed); caching off by default (§5); 60-page scan limit (owner confirmed 2026-10-10) | documented |
 | 2026-10-10 | Owner: all four drafted answer keys verified correct; 60-page scan limit confirmed; ANTHROPIC_MODEL set to claude-sonnet-5-5 in Lovable secrets and .env.local; PDF retention may become ~1 year (GDPR basis pending, owner) | done / open |
+| 2026-10-10 | Owner: production retention job confirmed failing ("Direct deletion from storage tables is not allowed"). Decision: keep register/PDFs/BRF analyses; anonymise only the buyer's address/postnummer/orgnr, after **12 months** (was 30 days) — hotfix, konto migration, rollback, UI copy and the browser's recent-analyses list updated | done |
 | 2026-10-09 | Total API spend this session: 154.21 SEK of 300 | — |
 | 2026-10-09 | Docker unavailable (owner remote) → migration apply, SQL-level tests, verify-rls deferred to a Docker session | deferred |

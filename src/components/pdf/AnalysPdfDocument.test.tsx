@@ -135,7 +135,7 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
   });
 });
 
-describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cleared after 30 days)", () => {
+describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cleared after 12 months)", () => {
   let extractedText: string;
 
   beforeAll(async () => {
@@ -172,7 +172,7 @@ describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cle
     // guards. sampleAnalysis.prisanalys is static sample data, not
     // recomputed from the anonymised input, so that text is present in both
     // the real and the anonymised render here — correctly so.
-    expect(extractedText).toContain("Adressen raderad efter 30 dagar");
+    expect(extractedText).toContain("Adressen raderad efter 12 månader");
     expect(extractedText).toContain(sampleAnalysis.input.ort);
     const dangling = `${sampleAnalysis.input.adress}, ${sampleAnalysis.input.ort}`;
     expect(extractedText).not.toContain(dangling);

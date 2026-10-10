@@ -285,7 +285,7 @@ grant execute on function radera_principal(uuid)                 to service_role
 -- Retention. This migration owns the final `binfo-retention` command
 -- (replaces the one from 20260924120000_anonymise_property_input.sql):
 --   * KEEP: property_input anonymisation (adress/postnummer/orgnr blanked
---     after 30 days).
+--     after 12 months — owner decision 2026-10-10, was 30 days).
 --   * REMOVED: storage-object deletion and `pdf_path = null` — owner
 --     decision 2026-10-09: PDFs are kept indefinitely (register).
 --   * ADDED: purge kvot windows older than 2 days.
@@ -300,7 +300,7 @@ select cron.schedule(
   update analys
      set property_input = property_input
          || jsonb_build_object('adress', '', 'postnummer', '', 'orgnr', '')
-   where created_at < now() - interval '30 days'
+   where created_at < now() - interval '12 months'
      and (   coalesce(property_input->>'adress', '') <> ''
           or coalesce(property_input->>'postnummer', '') <> ''
           or coalesce(property_input->>'orgnr', '') <> '');

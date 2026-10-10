@@ -191,7 +191,7 @@ describe("buildPdfViewModel — edge cases", () => {
     };
     const vm = buildPdfViewModel(anonymAnalys);
     const adressRad = vm.summary.find((row) => row.label === "Adress");
-    expect(adressRad?.value).toBe("Adressen raderad efter 30 dagar · Stockholm");
+    expect(adressRad?.value).toBe("Adressen raderad efter 12 månader · Stockholm");
     expect(adressRad?.value).not.toContain(", Stockholm");
   });
 
