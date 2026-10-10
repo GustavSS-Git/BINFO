@@ -317,8 +317,7 @@ cd ml && .venv/bin/pytest                  # ML tests
   standalone).
 - Draft answer keys (the three scans, `test_rapport` nyckeltal) await owner
   verification; scan accuracy figures are measured against those drafts.
-- Scans over 60 pages are refused (interim product limit, pending owner
-  confirmation).
+- Scans over 60 pages are refused (product limit, owner decision 2026-10-10).
 - No accounts yet (anonymous device principals only); entitlements grant
   everything; GDPR erasure/export are owner-run CLI commands.
 - Volontären `antalLokaler` is still missed (1 vs null), pre-existing.

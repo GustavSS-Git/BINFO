@@ -106,8 +106,8 @@ export class SidtextOfullstandigError extends Error {
 }
 
 /**
- * Interim guard on the scan path (supervisor, 2026-10-09 — product limit
- * pending owner confirmation, not a domain fact): transcription costs about
+ * Guard on the scan path (product limit, confirmed by the owner 2026-10-10;
+ * not a domain fact): transcription costs about
  * 0.105 SEK/page (measured), and nothing else bounds a single scanned upload
  * except the daily cap. The annual reports seen so far have 12–34 pages, so 60
  * leaves ample room (≈ 6.5 SEK) while refusing a 300-page scan (≈ 31 SEK).
