@@ -15,20 +15,28 @@
  * information får aldrig nå en köpares skärm.
  */
 
-import type { AnalysErrorCode } from "./portar";
-import { ScannedPdfError } from "@/lib/analysis/runExtraction";
+import type { AnalysErrorCode, RapportErrorCode } from "./portar";
+import { ScannedPdfError, TomTranskriptionError } from "@/lib/analysis/runExtraction";
+import { TranskriberingMarkorFelError } from "@/lib/analysis/transkribering";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
+import { SAKNAR_BEHORIGHET_MEDDELANDE, SaknarBehorighetError } from "./behorighet";
+import type { KvotUtfall } from "./kvot";
+import { SidtextOfullstandigError } from "./register";
 
 export interface FelResultat {
   errorCode: AnalysErrorCode;
   message: string;
 }
 
-const GENERISKT_FEL_MEDDELANDE =
+export const GENERISKT_FEL_MEDDELANDE =
   "Analysen kunde inte slutföras på grund av ett internt fel. Försök igen, och kontakta oss om felet kvarstår.";
+
+const SKANNAD_OLASLIG_MEDDELANDE =
+  "Vi kunde inte läsa av de skannade sidorna tillförlitligt. " +
+  "Försök gärna med en digital version av årsredovisningen.";
 
 /**
  * Kastas av spend-guard-lagret (kommande `src/server/spend.ts`) för att
@@ -61,6 +69,22 @@ export function tolkaFel(error: unknown): FelResultat {
     // köparsäkert. Att skriva om det hade bara dupliceats texten. Passera
     // igenom oförändrat.
     return { errorCode: "scanned_pdf", message: error.message };
+  }
+
+  if (
+    error instanceof TranskriberingMarkorFelError ||
+    error instanceof TomTranskriptionError ||
+    error instanceof SidtextOfullstandigError
+  ) {
+    // BESLUT: de skannade sidorna gick inte att läsa av tillförlitligt (felaktiga
+    // sidmarkörer efter ett omförsök, eller en transkription utan text). Ingen
+    // ny felkod: UI:ts spegel av AnalysErrorCode (src/lib/analysStatusCopy.ts)
+    // måste vara exakt lika med serverns union, och dess `scanned_pdf`-text
+    // ("går inte att läsa maskinellt … be om den digitala originalfilen") är
+    // precis rådet som hjälper köparen här — `validation` skulle i stället
+    // skicka köparen tillbaka till formuläret. Felklassernas egna meddelanden
+    // nämner sidnummer och markörer och passerar därför INTE igenom.
+    return { errorCode: "scanned_pdf", message: SKANNAD_OLASLIG_MEDDELANDE };
   }
 
   if (error instanceof KostnadsgransOverskriden) {
@@ -106,6 +130,14 @@ export function tolkaFel(error: unknown): FelResultat {
     return { errorCode: "saknar_rantekanslighet", message: error.message };
   }
 
+  if (error instanceof SaknarBehorighetError) {
+    // BESLUT: en nekad behörighet (./behorighet.ts) — inget fel i köparens
+    // data. Meddelandet är den fasta, köparsäkra konstanten (inte
+    // `error.message`, även om det i dag är samma text): `formaga` och allt
+    // annat på felet är intern policyinformation.
+    return { errorCode: "behorighet", message: SAKNAR_BEHORIGHET_MEDDELANDE };
+  }
+
   // Okänt Error, eller ett kastat icke-Error-värde (sträng, objekt, etc.):
   // aldrig något från `error` i meddelandet, se filkommentaren.
   return { errorCode: "unknown", message: GENERISKT_FEL_MEDDELANDE };
@@ -141,6 +173,17 @@ export function tolkaSpendSkal(skal: SpendSkal): FelResultat {
 }
 
 /**
+ * En nekad kvot (./kvot.ts, `kontrolleraUppladdningskvot` /
+ * `kontrolleraPrisuppskattningskvot`) i samma `FelResultat`-form. Kvotens
+ * meddelande är skrivet för köparen (KVOT_MEDDELANDE — enhet, nätverk eller
+ * prisuppskattning) och passerar oförändrat: det är det som säger VILKEN
+ * gräns som nåddes.
+ */
+export function tolkaKvot(utfall: Extract<KvotUtfall, { ok: false }>): FelResultat {
+  return { errorCode: "kvot", message: utfall.message };
+}
+
+/**
  * Tolkar en jobbrads `promptVersion`-mismatch mot den körande kodens egen
  * `PROMPT_VERSION` (se `korNastaSteg`/`avslutaMedVersionskonflikt` i
  * `steg.ts`) till samma `FelResultat`-form som `tolkaFel`/`tolkaSpendSkal` —
@@ -170,12 +213,96 @@ export function versionskonfliktResultat(): FelResultat {
 }
 
 /**
- * True ENDAST för `"daily_cap"` — det enda felläget som är ett tillfälligt,
- * externt tillstånd (dagens spend-tak) snarare än något som beror på just
- * den här rapporten eller det här jobbet. En skannad PDF, en
- * kostnadsspärr per jobb, ett valideringsfel eller en saknad
- * räntekänslighet försvinner inte av att man försöker igen.
+ * En registerrapport som en administratör ogiltigförklarat
+ * (`npm run register -- invalidate`, error_code `ogiltigforklarad`). Koden är
+ * intern — den finns inte i UI:ts `AnalysErrorCode`-spegel
+ * (src/lib/analysStatusCopy.ts), så en köpare får `versionskonflikt`, vars
+ * skärm redan säger det enda köparen kan göra: ladda upp igen. Meddelandet är
+ * däremot eget och sant (inte "Binfo uppdaterades").
+ */
+export function ogiltigforklaradResultat(): FelResultat {
+  return {
+    errorCode: "versionskonflikt",
+    message:
+      "Analysen av den här årsredovisningen har dragits tillbaka. Ladda upp den igen, så görs " +
+      "en ny analys.",
+  };
+}
+
+/**
+ * Ett lagrat registerresultat som inte går att läsa med den körande koden
+ * (schemat har ändrats) OCH inte går att köra om, eftersom PDF:en inte längre
+ * finns i lagringen. Samma köparhandling som en versionskonflikt.
+ */
+export function omkorningOmojligResultat(): FelResultat {
+  return {
+    errorCode: "versionskonflikt",
+    message:
+      "Analysen gjordes med en tidigare version av Binfo och behöver göras om. Ladda upp " +
+      "årsredovisningen igen.",
+  };
+}
+
+/**
+ * Översätter en `rapport`-rads lagrade felkod + meddelande till det en köpare
+ * ser i `hamtaStatus`. Meddelandet på raden är redan köparsäkert (skrivet av
+ * `tolkaFel`/`versionskonfliktResultat` i steg.ts) — utom för den interna
+ * koden `ogiltigforklarad`, som får sitt eget meddelande ovan.
+ */
+export function tolkaRapportFel(
+  code: RapportErrorCode | null,
+  message: string | null,
+): FelResultat {
+  if (code === "ogiltigforklarad") return ogiltigforklaradResultat();
+  return {
+    errorCode: code ?? "unknown",
+    message: message ?? GENERISKT_FEL_MEDDELANDE,
+  };
+}
+
+/**
+ * True ENDAST för de tillfälliga, tidsbundna tillstånden: `"daily_cap"`
+ * (dagens spend-tak) och `"kvot"` (köparens egen gräns per dag/timme) — båda
+ * försvinner av sig själva när fönstret rullar över, så "försök igen senare"
+ * är rätt råd. En skannad PDF, en kostnadsspärr per jobb, ett valideringsfel,
+ * en saknad räntekänslighet eller en nekad behörighet (`"behorighet"`, en
+ * policyfråga — inte tid) försvinner inte av att man försöker igen.
  */
 export function arRetrybar(code: AnalysErrorCode): boolean {
-  return code === "daily_cap";
+  return code === "daily_cap" || code === "kvot";
+}
+
+/**
+ * Errors the client recognises BY NAME (`.name` survives the server-function
+ * serialisation, see arAnalysHittadesInteFel in src/lib/analysStatusCopy.ts and
+ * the loaders): they carry a Swedish, buyer-safe message and pass through.
+ * Names, not classes: fel.ts cannot import analys.ts (it imports this file).
+ */
+const KANDA_KLIENTFEL = new Set([
+  "AnalysHittadesInteError",
+  "AnalysInteKlarError",
+  "SaknarBehorighetError",
+]);
+
+/**
+ * The last line of defence in every server-function handler (analysFn.ts): an
+ * error nobody mapped — a Supabase/Storage/network message, a Zod dump — must
+ * never reach the browser. It is logged server-side with its handler name, and
+ * the client gets an Error with only the generic buyer-safe message.
+ */
+export function sakertFel(handler: string, error: unknown): Error {
+  if (error instanceof Error && KANDA_KLIENTFEL.has(error.name)) return error;
+  console.error(`[${handler}] oväntat fel:`, error);
+  return new Error(GENERISKT_FEL_MEDDELANDE);
+}
+
+/** `sakertFel` for `skapaAnalysFn`, whose result type has an error variant:
+ *  the same logging, returned instead of thrown. */
+export function sakertSkapaFel(handler: string, error: unknown) {
+  console.error(`[${handler}] oväntat fel:`, error);
+  return {
+    ok: false as const,
+    errorCode: "unknown" as const,
+    errorMessage: GENERISKT_FEL_MEDDELANDE,
+  };
 }

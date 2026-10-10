@@ -135,7 +135,7 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
   });
 });
 
-describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cleared after 30 days)", () => {
+describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cleared after 12 months)", () => {
   let extractedText: string;
 
   beforeAll(async () => {
@@ -172,7 +172,7 @@ describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cle
     // guards. sampleAnalysis.prisanalys is static sample data, not
     // recomputed from the anonymised input, so that text is present in both
     // the real and the anonymised render here — correctly so.
-    expect(extractedText).toContain("Adressen raderad efter 30 dagar");
+    expect(extractedText).toContain("Adressen raderad efter 12 månader");
     expect(extractedText).toContain(sampleAnalysis.input.ort);
     const dangling = `${sampleAnalysis.input.adress}, ${sampleAnalysis.input.ort}`;
     expect(extractedText).not.toContain(dangling);
@@ -210,5 +210,40 @@ describe("AnalysPdfDocument — utanför Stockholms län", () => {
     expect(iDisclaimer).toBeLessThan(
       flat.indexOf("Utgångspris", flat.indexOf("Är priset rimligt")),
     );
+  }, 30_000);
+});
+
+describe("AnalysPdfDocument — v2: osäker, skannad och andel av föreningens lån", () => {
+  it("prints the osäker reason, the scanned-report notice and the debt line as visible text", async () => {
+    registerPdfFonts(await loadTestFontSources());
+    const analys = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
+          kf.id === "skuldsattning_per_m2_brf_yta"
+            ? { ...kf, figure: { ...kf.figure, osaker: "Skuldsättningen verkar vara i tusental." } }
+            : kf,
+        ),
+      },
+      prisanalys: {
+        ...sampleAnalysis.prisanalys,
+        andelAvForeningensSkuld: {
+          value: 485_460,
+          unit: "kr" as const,
+          source: "berakning" as const,
+          ref: { page: 9 },
+        },
+      },
+      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "skannad" as const },
+    };
+    const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
+    const doc = await getDocumentProxy(new Uint8Array(buf));
+    const { text } = await extractText(doc, { mergePages: true });
+    const flat = text.replace(/\s+/g, " ");
+    expect(flat).toContain("Osäker: Skuldsättningen verkar vara i tusental.");
+    expect(flat).toContain("Årsredovisningen var skannad");
+    expect(flat).toContain("Lägenhetens ungefärliga andel av föreningens lån");
+    expect(flat).toContain("Ingår inte i värderingen");
   }, 30_000);
 });

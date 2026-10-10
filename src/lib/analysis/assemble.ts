@@ -7,14 +7,18 @@ import type {
   Figure,
   Forening,
   Fraga,
+  KeyFigureId,
   Konfidens,
   Prisanalys,
+  PrisanalysUtanForening,
+  PrisInput,
   PropertyInput,
   Rantestress,
   Varderingsunderlag,
 } from "@/types/analysis";
 import { formatDataperiod } from "@/lib/analysisView";
 import { AnalysisResultSchema } from "./schema";
+import { ALLA_NYCKELTAL } from "./prompts";
 import type { AnalysJudgement } from "./analyze";
 import { beraknaRantestress } from "./calc/rantestress";
 import {
@@ -185,6 +189,151 @@ function sankKonfidensForSaknadRantekanslighet(konfidens: Konfidens): Konfidens 
   };
 }
 
+/**
+ * En deterministisk bekräftelsefråga till styrelsen för varje nyckeltal som
+ * rimlighetskontrollen (rimlighet.ts) markerat `osaker`. Samma mönster som
+ * SAKNAR_RANTEKANSLIGHET_FRAGA: ursprung 'analys', stabilt id, orsaken i
+ * `varfor`. Hoppar över ett nyckeltal som en befintlig fråga redan nämner vid
+ * namn (pass 2 kan ha frågat om samma sak).
+ */
+export function osakerhetsfragor(forening: Forening, befintliga: readonly Fraga[]): Fraga[] {
+  const fragor: Fraga[] = [];
+  for (const kf of forening.keyFigures) {
+    const orsak = kf.figure.osaker;
+    if (!orsak) continue;
+    const namn = ALLA_NYCKELTAL.find((n) => n.id === kf.id)?.label ?? kf.label;
+    const id = `osaker-${kf.id}`;
+    const nyckelord = namn.toLowerCase();
+    const redanFragat = befintliga.some(
+      (f) => f.id === id || f.fraga.toLowerCase().includes(nyckelord),
+    );
+    if (redanFragat) continue;
+    fragor.push({
+      id,
+      fraga: `Kan styrelsen bekräfta siffran för ${nyckelord} i årsredovisningen?`,
+      ursprung: "analys",
+      riktadTill: "styrelsen",
+      varfor: orsak,
+      ...(kf.figure.ref ? { ref: kf.figure.ref } : {}),
+    });
+  }
+  return fragor;
+}
+
+// ---------------------------------------------------------------------------
+// BRF-lagret ovanpå värderingen — bara i den fullständiga analysen
+// ---------------------------------------------------------------------------
+
+function nyckeltalsfigur(forening: Forening, id: KeyFigureId): Figure | undefined {
+  return forening.keyFigures.find((kf) => kf.id === id)?.figure;
+}
+
+const sv0 = (n: number) => n.toLocaleString("sv-SE", { maximumFractionDigits: 0 });
+
+/**
+ * Prisanalys.andelAvForeningensSkuld (ägarbeslut 2026-10-09): skuldsättning
+ * per m² BOSTADSRÄTTSYTA (extraherad, citerad) × lägenhetens boarea,
+ * avrundat till hela kronor. En kommentar bredvid värderingen — dras ALDRIG
+ * av från eller tillämpas på externVardering, avvikelse eller slutsats.
+ *
+ * - Skuldfri förening: nyckeltalet är 0 (härlett och citerat, se
+ *   tolkaVarde.ts:s harledSkuldfriaNyckeltal) -> 0 kr.
+ * - Nyckeltalet saknas (value null) -> null: fältet utelämnas och en fråga
+ *   läggs till i stället (SAKNAR_SKULD_PER_M2_FRAGA).
+ * - Skuldsättning per m² TOTALYTA används medvetet INTE som reserv: ägaren
+ *   valde bostadsrättsyta, och en siffra med oklar ytbas är redan arkiverad
+ *   under brf_yta av extraktionen.
+ */
+export function beraknaAndelAvForeningensSkuld(forening: Forening, boarea: number): Figure | null {
+  const skuldPerM2 = nyckeltalsfigur(forening, "skuldsattning_per_m2_brf_yta");
+  if (!skuldPerM2 || skuldPerM2.value === null) return null;
+  // No citation, no display: a debt figure without a page reference is not
+  // shown as a kronor amount (the missing-figure question covers it instead).
+  if (!skuldPerM2.ref) return null;
+  return {
+    value: Math.round(skuldPerM2.value * boarea),
+    unit: "kr",
+    source: "berakning",
+    ref: skuldPerM2.ref,
+    // A sanity-check doubt on the source figure carries over: the derived
+    // kronor amount must never look more certain than what it is built from.
+    ...(skuldPerM2.osaker ? { osaker: skuldPerM2.osaker } : {}),
+  };
+}
+
+/**
+ * Deterministisk fråga när skuldsättning per m² bostadsrättsyta saknas —
+ * samma mönster som SAKNAR_RANTEKANSLIGHET_FRAGA ovan. Stabilt id.
+ */
+const SAKNAR_SKULD_PER_M2_FRAGA: Fraga = {
+  id: "saknar-skuldsattning-per-m2",
+  fraga: "Hur stor är föreningens räntebärande skuld per kvadratmeter bostadsrättsyta?",
+  ursprung: "analys",
+  riktadTill: "maklaren",
+  varfor:
+    "Årsredovisningen redovisar inte skuldsättning per kvadratmeter bostadsrättsyta. Med den " +
+    "går det att räkna ut ungefär hur stor del av föreningens lån lägenheten bär — lån som " +
+    "betalas via avgiften.",
+};
+
+/** Samma dedup-idé som harRedanFragaOmRantekanslighet: hoppa över frågan om
+ *  pass 2 redan frågat om eller flaggat exakt samma nyckeltal. */
+function harRedanFragaOmSkuldPerM2(analys: AnalysJudgement): boolean {
+  const namner =
+    /skulds[äa]ttning per (kvadratmeter|kvm|m²|m2)|skuld per (kvadratmeter|kvm|m²|m2)/i;
+  return (
+    analys.fragor.some((f) => namner.test(f.fraga) || namner.test(f.varfor)) ||
+    analys.rodaFlaggor.some((flagga) => flagga.harledsFran.includes("skuldsattning_per_m2_brf_yta"))
+  );
+}
+
+/**
+ * Hur mycket den angivna månadsavgiften får avvika från föreningens
+ * genomsnitt (årsavgift per m² bostadsrättsyta × boarea / 12) innan en
+ * fråga läggs till. Produktgräns, ägarbeslut D6 2026-10-09 — inte ett
+ * marknadsfaktum.
+ */
+const AVGIFTSAVVIKELSE_TROSKEL = 0.15;
+
+/**
+ * Avgiftskontrollen (D6, bara i den fullständiga analysen): en
+ * deterministisk fråga till mäklaren när lägenhetens månadsavgift avviker
+ * mer än AVGIFTSAVVIKELSE_TROSKEL från vad föreningens årsavgift per m²
+ * bostadsrättsyta ger för den här boarean. Ingen fråga när någon av
+ * siffrorna saknas — en månadsavgift på 0 kr räknas som saknad, eftersom
+ * en bostadsrätt utan avgift inte går att jämföra.
+ */
+export function avgiftsavvikelseFraga(
+  input: Pick<PropertyInput, "manadsavgift" | "boarea">,
+  forening: Forening,
+): Fraga | null {
+  const arsavgiftPerM2 = nyckeltalsfigur(forening, "arsavgift_per_m2_brf_yta");
+  if (!arsavgiftPerM2 || arsavgiftPerM2.value === null || arsavgiftPerM2.value <= 0) return null;
+  if (!(input.boarea > 0) || !(input.manadsavgift > 0)) return null;
+
+  const forvantad = (arsavgiftPerM2.value * input.boarea) / 12;
+  const avvikelse = (input.manadsavgift - forvantad) / forvantad;
+  if (Math.abs(avvikelse) <= AVGIFTSAVVIKELSE_TROSKEL) return null;
+
+  const riktning = avvikelse > 0 ? "högre" : "lägre";
+  const boareaText = input.boarea.toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+  return {
+    id: "avgift-avviker-fran-foreningen",
+    fraga:
+      "Varför skiljer sig lägenhetens månadsavgift från föreningens genomsnittliga avgift per " +
+      "kvadratmeter?",
+    ursprung: "analys",
+    riktadTill: "maklaren",
+    varfor:
+      `Enligt årsredovisningen är årsavgiften ${sv0(arsavgiftPerM2.value)} kr per kvadratmeter ` +
+      `bostadsrättsyta, vilket för ${boareaText} m² motsvarar ungefär ${sv0(Math.round(forvantad))} kr ` +
+      `i månaden. Den angivna månadsavgiften är ${sv0(input.manadsavgift)} kr, ` +
+      `${procent(avvikelse * 100)} % ${riktning}. Skillnaden kan bero på ett annat andelstal, på ` +
+      "vad som ingår i avgiften eller på en planerad avgiftsändring.",
+    ...(arsavgiftPerM2.ref ? { ref: arsavgiftPerM2.ref } : {}),
+  };
+}
+
 interface Uppgiftsstatus {
   kanda: number;
   totalt: number;
@@ -336,7 +485,8 @@ function konfidensForModell(resultat: ModellVarderingUnderlag["resultat"]): Konf
  * inte en besiktning av just den här lägenheten.
  */
 function byggModellSlutsats(underlag: {
-  utgangspris: number;
+  /** undefined i den fristående priskollen när köparen inte angett något pris. */
+  utgangspris: number | undefined;
   resultat: ModellVarderingUnderlag["resultat"];
   avvikelseMotVardering: number | undefined;
   avvikelseMotForeningen: number | undefined;
@@ -347,11 +497,18 @@ function byggModellSlutsats(underlag: {
       ? (resultat.omrade ?? "Stockholm (postnumret gick inte att koppla till ett specifikt område)")
       : (resultat.kommun ?? "riket");
   const innanforIntervallet =
-    utgangspris >= resultat.intervall.low && utgangspris <= resultat.intervall.high;
+    utgangspris !== undefined &&
+    utgangspris >= resultat.intervall.low &&
+    utgangspris <= resultat.intervall.high;
   const periodText = formatDataperiod(resultat.dataperiod);
 
   const delar: string[] = [];
-  if (avvikelseMotVardering !== undefined) {
+  if (utgangspris === undefined) {
+    delar.push(
+      `Inget utgångspris har angetts, så Binfos värderingsmodell för ${omradeText} jämförs inte ` +
+        `med något pris.`,
+    );
+  } else if (avvikelseMotVardering !== undefined) {
     const riktning = avvikelseMotVardering >= 0 ? "över" : "under";
     delar.push(
       `Utgångspriset ligger ${procent(avvikelseMotVardering)} % ${riktning} Binfos värderingsmodell ` +
@@ -386,31 +543,85 @@ function byggModellSlutsats(underlag: {
   return delar.join(" ");
 }
 
+/** Föreningens identitet för de prisdatakällor som kan slå upp något på den
+ *  (försäljningar i föreningen). Bara den fullständiga analysen har den. */
+export interface Foreningsuppslag {
+  orgnr: string;
+  ort: string;
+  adress?: string;
+}
+
 /**
- * Bygger Prisanalys-blocket. avvikelseMotVardering/avvikelseMotForeningen
- * beräknas ENDAST när respektive underlag faktiskt bär ett numeriskt value —
- * DemoPrisdatakalla lämnar avsiktligt value: null på sina platshållarfigurer
- * just för att förhindra att en påhittad procentsats räknas fram här (se
- * prisdata.ts:s filkommentar). Fälten utelämnas helt när de inte går att
- * räkna — de sätts aldrig till undefined (exactOptionalPropertyTypes).
- *
- * Exporterad (utöver assembleraAnalys) så den kan enhetstestas direkt utan
- * att gå via hela AnalysisResultSchema-valideringen i assembleraAnalys —
- * se assemble.test.ts och kommentaren där om en känd, oberoende brist i
- * schema.ts:s externVardering-definition (FigureSchema.and(...) med ett
- * .strict()-schema på ena sidan avvisar det extra fältet 'leverantor'
- * varje riktig värdering måste ha).
+ * PropertyInput -> PrisInput: exakt värderingsdelmängden (kontraktet,
+ * src/types/analysis.ts). Den fullständiga analysen anropar den delade
+ * värderingskärnan nedan med det här — samma kärna som den fristående
+ * priskollen (src/server/prisuppskattning.ts) — så de två kan aldrig ge
+ * olika värdering för samma lägenhet.
  */
-export async function byggPrisanalys(
-  input: PropertyInput,
+export function tillPrisInput(input: PropertyInput): PrisInput {
+  return {
+    boarea: input.boarea,
+    antalRum: input.antalRum,
+    manadsavgift: input.manadsavgift,
+    postnummer: input.postnummer,
+    ...(input.vaning !== undefined ? { vaning: input.vaning } : {}),
+    ...(input.byggar !== undefined ? { byggar: input.byggar } : {}),
+    hiss: input.hiss,
+    balkong: input.balkong,
+    utgangspris: input.utgangspris,
+  };
+}
+
+/** Utgångspriset och kvadratmeterpriset som figurer. */
+function utgangsprisFigurer(
+  utgangspris: number,
+  boarea: number,
+): { utgangspris: Figure; prisPerM2: Figure } {
+  const prisPerM2Varde = boarea > 0 ? Math.round(utgangspris / boarea) : null;
+  return {
+    utgangspris: { value: utgangspris, unit: "kr", source: "anvandare" },
+    prisPerM2: { value: prisPerM2Varde, unit: "kr/m2", source: "berakning" },
+  };
+}
+
+/**
+ * DEN DELADE VÄRDERINGSKÄRNAN — enda stället där värderingsfälten i en
+ * Prisanalys räknas fram (externVardering, varderingsunderlag, budpremie,
+ * konfidens, slutsats, och avvikelseMotVardering/utgangspris/prisPerM2 när
+ * ett utgångspris finns). Både den fristående priskollen
+ * (src/server/prisuppskattning.ts) och den fullständiga analysen
+ * (byggPrisanalys nedan) går hit: paritet genom konstruktion, inte genom
+ * dubblering.
+ *
+ * avvikelseMotVardering/avvikelseMotForeningen beräknas ENDAST när
+ * respektive underlag faktiskt bär ett numeriskt value — DemoPrisdatakalla
+ * lämnar avsiktligt value: null på sina platshållarfigurer just för att
+ * förhindra att en påhittad procentsats räknas fram här (se prisdata.ts:s
+ * filkommentar). Fälten utelämnas helt när de inte går att räkna — de sätts
+ * aldrig till undefined (exactOptionalPropertyTypes).
+ *
+ * Utan utgångspris (den fristående priskollen när köparen inte angett något)
+ * finns ingen avvikelse att räkna; slutsatsen säger då bara vad värderingen
+ * bygger på.
+ *
+ * `foreningsuppslag` saknas i den fristående priskollen: källan får då ingen
+ * orgnr och ska svara tom lista på försäljningar i föreningen.
+ */
+export async function byggPrisanalysUtanForening(
+  input: PrisInput,
   prisdatakalla: Prisdatakalla,
-): Promise<Prisanalys> {
+  foreningsuppslag?: Foreningsuppslag,
+): Promise<PrisanalysUtanForening> {
   const forfragan: Prisdataforfragan = {
-    orgnr: input.orgnr,
+    ...(foreningsuppslag
+      ? {
+          orgnr: foreningsuppslag.orgnr,
+          ort: foreningsuppslag.ort,
+          ...(foreningsuppslag.adress !== undefined ? { adress: foreningsuppslag.adress } : {}),
+        }
+      : {}),
     boarea: input.boarea,
     postnummer: input.postnummer,
-    ort: input.ort,
-    adress: input.adress,
     antalRum: input.antalRum,
     manadsavgift: input.manadsavgift,
     ...(input.vaning !== undefined ? { vaning: input.vaning } : {}),
@@ -425,13 +636,17 @@ export async function byggPrisanalys(
     prisdatakalla.hamtaOmradeMedian(forfragan),
   ]);
 
-  const prisPerM2Varde = input.boarea > 0 ? Math.round(input.utgangspris / input.boarea) : null;
-
-  const utgangspris: Figure = { value: input.utgangspris, unit: "kr", source: "anvandare" };
-  const prisPerM2: Figure = { value: prisPerM2Varde, unit: "kr/m2", source: "berakning" };
+  const prisFigurer =
+    input.utgangspris !== undefined ? utgangsprisFigurer(input.utgangspris, input.boarea) : null;
+  const prisPerM2Varde = prisFigurer?.prisPerM2.value ?? null;
 
   let avvikelseMotVardering: number | undefined;
-  if (vardering && vardering.value !== null && vardering.value !== 0) {
+  if (
+    input.utgangspris !== undefined &&
+    vardering &&
+    vardering.value !== null &&
+    vardering.value !== 0
+  ) {
     avvikelseMotVardering =
       Math.round(((input.utgangspris - vardering.value) / vardering.value) * 1000) / 10;
   }
@@ -528,9 +743,11 @@ export async function byggPrisanalys(
     // hamnar INTE här — de får en egen uppskattning (Fall A, 'lag').
     konfidens = konfidensUtanPostnummer();
     slutsats =
-      "Postnumret saknas eller är ogiltigt, så Binfos värdering kan inte räknas fram och " +
-      "utgångspriset har inte kunnat stämmas av mot någon värdering. Prisbedömningen bygger " +
-      "enbart på det angivna utgångspriset.";
+      input.utgangspris !== undefined
+        ? "Postnumret saknas eller är ogiltigt, så Binfos värdering kan inte räknas fram och " +
+          "utgångspriset har inte kunnat stämmas av mot någon värdering. Prisbedömningen bygger " +
+          "enbart på det angivna utgångspriset."
+        : "Postnumret saknas eller är ogiltigt, så Binfos värdering kan inte räknas fram.";
   } else {
     // Fall C: allt annat — en annan schablonkälla än Binfos modell, en
     // riktig oberoende källa (source 'extern'), eller en blandning. Samma
@@ -558,8 +775,7 @@ export async function byggPrisanalys(
   }
 
   return {
-    utgangspris,
-    prisPerM2,
+    ...(prisFigurer ?? {}),
     ...(vardering ? { externVardering: vardering } : {}),
     senasteForsaljningarIForeningen: forsaljningar,
     ...(omradeMedian ? { omradeMedianPrisPerM2: omradeMedian } : {}),
@@ -570,6 +786,32 @@ export async function byggPrisanalys(
     ...(varderingsunderlag ? { varderingsunderlag } : {}),
     ...(budpremie ? { budpremie } : {}),
   };
+}
+
+/**
+ * Bygger Prisanalys-blocket för den fullständiga analysen: den delade
+ * värderingskärnan ovan (byggPrisanalysUtanForening) med PropertyInput
+ * mappad till PrisInput och föreningens identitet för uppslag. Lägger inte
+ * till något eget i värderingsfälten — BRF-lagret (andelAvForeningensSkuld)
+ * läggs på i assembleraAnalys, där extraktionen finns.
+ *
+ * Exporterad (utöver assembleraAnalys) så den kan enhetstestas direkt utan
+ * att gå via hela AnalysisResultSchema-valideringen i assembleraAnalys.
+ */
+export async function byggPrisanalys(
+  input: PropertyInput,
+  prisdatakalla: Prisdatakalla,
+): Promise<Prisanalys> {
+  const karna = await byggPrisanalysUtanForening(tillPrisInput(input), prisdatakalla, {
+    orgnr: input.orgnr,
+    ort: input.ort,
+    adress: input.adress,
+  });
+  // Kärnan sätter alltid utgangspris/prisPerM2 när ett utgångspris skickas
+  // in (det gör tillPrisInput alltid); samma rena funktion här ger
+  // Prisanalys-typen de obligatoriska fälten utan en typkastning, och
+  // värdena är identiska med kärnans.
+  return { ...utgangsprisFigurer(input.utgangspris, input.boarea), ...karna };
 }
 
 /**
@@ -638,7 +880,13 @@ export async function assembleraAnalys({
   // Degraderar numera i stället för att kasta — se filkommentaren ovan.
   const rantestress: Rantestress = beraknaRantestress(extraction.forening, input.manadsavgift);
   const rantekanslighetSaknas = rantestress.rantekanslighetProcent === null;
-  const prisanalys = await byggPrisanalys(input, prisdatakalla);
+  const andelAvForeningensSkuld = beraknaAndelAvForeningensSkuld(extraction.forening, input.boarea);
+  // BRF-lagret läggs på EFTER den delade värderingskärnan och rör inga av
+  // dess fält — skuldandelen är en kommentar, ingen prisjustering.
+  const prisanalys: Prisanalys = {
+    ...(await byggPrisanalys(input, prisdatakalla)),
+    ...(andelAvForeningensSkuld ? { andelAvForeningensSkuld } : {}),
+  };
 
   const uppgiftsstatus = berakUppgiftsstatus(input);
   const extraktionKonfidens = rantekanslighetSaknas
@@ -647,6 +895,7 @@ export async function assembleraAnalys({
   const datakvalitet: AnalysisResult["datakvalitet"] = {
     pdfSaknarTextlager: extraction.datakvalitet.pdfSaknarTextlager,
     extraktionKonfidens,
+    ...(extraction.datakvalitet.kalla ? { kalla: extraction.datakvalitet.kalla } : {}),
     uppgifterKanda: uppgiftsstatus.kanda,
     uppgifterTotalt: uppgiftsstatus.totalt,
     saknadeFalt: uppgiftsstatus.saknade,
@@ -657,6 +906,18 @@ export async function assembleraAnalys({
     rantekanslighetSaknas && !harRedanFragaOmRantekanslighet(analys)
       ? [SAKNAR_RANTEKANSLIGHET_FRAGA]
       : [];
+  const skuldFraga: Fraga[] =
+    andelAvForeningensSkuld === null && !harRedanFragaOmSkuldPerM2(analys)
+      ? [SAKNAR_SKULD_PER_M2_FRAGA]
+      : [];
+  const avgiftFraga = avgiftsavvikelseFraga(input, extraction.forening);
+  const osakerFragor = osakerhetsfragor(extraction.forening, [
+    ...analys.fragor,
+    ...saknadUppgiftFragor,
+    ...rantekanslighetFraga,
+    ...skuldFraga,
+    ...(avgiftFraga ? [avgiftFraga] : []),
+  ]);
 
   const resultat: AnalysisResult = {
     schemaVersion: "1.0.0",
@@ -678,7 +939,14 @@ export async function assembleraAnalys({
     rodaFlaggor: analys.rodaFlaggor,
     prisanalys,
     rantestress,
-    fragor: [...analys.fragor, ...saknadUppgiftFragor, ...rantekanslighetFraga],
+    fragor: [
+      ...analys.fragor,
+      ...saknadUppgiftFragor,
+      ...rantekanslighetFraga,
+      ...skuldFraga,
+      ...(avgiftFraga ? [avgiftFraga] : []),
+      ...osakerFragor,
+    ],
 
     datakvalitet,
 

@@ -16,14 +16,23 @@ import {
   extractGroundingFindings,
   formatGroundingForExtraction,
   type GroundingTextBlock,
+  type Grundfynd,
 } from "./prompts";
 import {
   enforceCostLimit,
-  estimateCostSek,
-  SONNET_5_PRISSATTNING,
+  prissattningForModell,
+  STANDARD_MODELL,
   type ModelPricing,
 } from "./costGuard";
 import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
+import { kontrolleraRimlighet } from "./rimlighet";
+import {
+  byggTranskriptionsblock,
+  byggTranskriptionsdokument,
+  extraheraTranskriptionsfynd,
+  type InnehallsCitatBlock,
+  type Transkriptionssida,
+} from "./transkriptionsblock";
 
 /**
  * Sonnet 5's reasoning depth for a call (see `OutputConfig.effort` in the
@@ -45,6 +54,71 @@ export class ScannedPdfError extends Error {
 }
 
 /**
+ * Thrown when a call ends with `stop_reason: "refusal"` (Sonnet 5.5 can
+ * return it). Not a shape problem and not retryable: asking again with the
+ * same prompt would be refused again, so it propagates straight out of the
+ * retry loop. The caller annotates real spend on it (annotateSpend), like
+ * ModelTruncatedError.
+ */
+export class ModelRefusedError extends Error {
+  constructor(public readonly steg: string) {
+    super(
+      `${steg}: modellen avböjde att svara (stop_reason: "refusal"). Det är inte ett valideringsfel ` +
+        `och en ny körning med samma underlag ger sannolikt samma resultat — kontrollera underlaget.`,
+    );
+    this.name = "ModelRefusedError";
+  }
+}
+
+/** Prompt-cache breakpoint marker. Only the 5-minute ephemeral type is used. */
+export interface CacheControl {
+  type: "ephemeral";
+}
+
+/** A text block that may carry a cache breakpoint (system or user content). */
+export interface CacheableTextBlock {
+  type: "text";
+  text: string;
+  cache_control?: CacheControl;
+}
+
+/**
+ * `true`: breakpoints on the static system block AND the user block (so the
+ * validation retry reads the whole prompt from cache). `"system"`: only on
+ * the static system block. `false`: no breakpoints.
+ */
+export type PromptCacheMode = boolean | "system";
+
+/** `system` as sent to the API: a plain string, or text blocks so a
+ *  breakpoint can sit on the static block. */
+export type SystemParam = string | CacheableTextBlock[];
+
+/**
+ * System prompt as a single text block with an explicit cache breakpoint on
+ * it (the whole system prompt is static, see prompts.ts), or the plain string
+ * when caching is off. Never top-level automatic caching: the last block in a
+ * request varies, so automatic placement would write a fresh entry every time.
+ */
+export function buildSystemParam(text: string, promptCache: PromptCacheMode): SystemParam {
+  if (promptCache === false) return text;
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+
+/**
+ * User message content. With caching on, a breakpoint sits on the user block
+ * so the one validation retry (identical system + user) reads it from cache.
+ * The first call pays the 1.25x write premium on these tokens for that.
+ */
+export function buildUserContent(
+  text: string,
+  promptCache: PromptCacheMode,
+): string | CacheableTextBlock[] {
+  // "system": the user block is left uncached (plain string).
+  if (promptCache !== true) return text;
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+
+/**
  * Minimal structural shape of the Anthropic client this module calls —
  * deliberately decoupled from the SDK's own (much larger, stricter)
  * parameter/response types so a test can hand-build a fake
@@ -57,19 +131,26 @@ export interface AnthropicClientLike {
   messages: {
     countTokens(params: {
       model: string;
-      system: string;
+      system: SystemParam;
       messages: Array<{ role: "user"; content: unknown }>;
     }): Promise<{ input_tokens: number }>;
-    create(params: {
-      model: string;
-      max_tokens: number;
-      system: string;
-      messages: Array<{ role: "user"; content: unknown }>;
-      /** Reasoning depth — see `ModelEffort`. Omitted entirely (not just
-       *  `undefined`) unless a caller opts in, so the default adaptive-thinking
-       *  behaviour is unaffected when nobody asks for anything different. */
-      output_config?: { effort?: ModelEffort };
-    }): Promise<{
+    create(
+      params: {
+        model: string;
+        max_tokens: number;
+        system: SystemParam;
+        messages: Array<{ role: "user"; content: unknown }>;
+        /** Reasoning depth — see `ModelEffort`. Omitted entirely (not just
+         *  `undefined`) unless a caller opts in, so the default adaptive-thinking
+         *  behaviour is unaffected when nobody asks for anything different. */
+        output_config?: { effort?: ModelEffort };
+      },
+      options?: {
+        /** Aborts the request (the real SDK accepts request options as the second
+         *  argument). Used by `transkribera`'s overall deadline. */
+        signal?: AbortSignal;
+      },
+    ): Promise<{
       usage: {
         input_tokens: number;
         output_tokens: number;
@@ -79,7 +160,8 @@ export interface AnthropicClientLike {
         cache_read_input_tokens?: number;
       };
       content: Array<{ type: string; text?: string; citations?: unknown }>;
-      /** "max_tokens" means the response was cut off before it finished —
+      /** "refusal" means the model declined — see ModelRefusedError.
+       *  "max_tokens" means the response was cut off before it finished —
        *  see ModelTruncatedError. Optional because test doubles built before
        *  this field existed still omit it; treated the same as any other
        *  non-"max_tokens" value (i.e. not truncated). */
@@ -101,6 +183,12 @@ export interface RunExtractionOptions {
   /** Reasoning depth for THIS call only — see `ModelEffort`. Left unset by
    *  default (adaptive thinking, Sonnet 5's own default). */
   effort?: ModelEffort;
+  /** Explicit prompt-cache breakpoints on the static system block and the
+   *  user block of extraction (and judging). Default true. Grounding is never
+   *  cached: its system prompt (~420 tokens) is below the model minimum, so a
+   *  breakpoint there would silently do nothing. The CLIs read
+   *  ANTHROPIC_PROMPT_CACHE=off to switch it off for A/B measurement. */
+  promptCache?: PromptCacheMode;
 }
 
 export interface RunExtractionResult {
@@ -184,11 +272,92 @@ export function stripMarkdownFence(text: string): string {
 export function parseModelJson(content: Array<{ type: string; text?: string }>): unknown {
   const text = findTextBlock(content);
   if (!text) return "(inget textblock i svaret)";
+  const json = stripMarkdownFence(text);
   try {
-    return JSON.parse(stripMarkdownFence(text));
+    return JSON.parse(json);
   } catch {
+    // Two lossless repairs, tried in turn (the result is still Zod-validated like any
+    // other model output): a model that copies a multi-line quote into an "excerpt" writes
+    // a raw newline inside a JSON string, and a deeply nested object sometimes ends with
+    // one closing brace too many (measured: 3 of 4 scanned-report extractions, 2026-10-09).
+    const reparerad = escapeControlCharsInStrings(json);
+    for (const kandidat of [reparerad, utanSurplusavslut(reparerad)]) {
+      try {
+        return JSON.parse(kandidat);
+      } catch {
+        // try the next repair
+      }
+    }
     return text;
   }
+}
+
+/**
+ * Cuts off trailing closing brackets after the first complete top-level JSON value
+ * ("...}}}}}" where one `}` too many was written). Only whitespace, `}`, `]` and
+ * backticks may follow the value — anything else is real trailing text and is left
+ * alone, so a genuinely malformed answer still fails validation.
+ */
+export function utanSurplusavslut(json: string): string {
+  let djup = 0;
+  let iStrang = false;
+  let escaped = false;
+  for (let i = 0; i < json.length; i++) {
+    const tecken = json[i]!;
+    if (iStrang) {
+      if (escaped) escaped = false;
+      else if (tecken === "\\") escaped = true;
+      else if (tecken === '"') iStrang = false;
+      continue;
+    }
+    if (tecken === '"') iStrang = true;
+    else if (tecken === "{" || tecken === "[") djup++;
+    else if (tecken === "}" || tecken === "]") {
+      djup--;
+      if (djup === 0) {
+        const rest = json.slice(i + 1);
+        return /^[\s}\]`]*$/.test(rest) ? json.slice(0, i + 1) : json;
+      }
+    }
+  }
+  return json;
+}
+
+/** Escapes raw control characters (newline, tab, …) that occur inside JSON string
+ *  literals; everything outside strings is left untouched. */
+export function escapeControlCharsInStrings(json: string): string {
+  let ut = "";
+  let iStrang = false;
+  let escaped = false;
+  for (const tecken of json) {
+    if (!iStrang) {
+      if (tecken === '"') iStrang = true;
+      ut += tecken;
+      continue;
+    }
+    if (escaped) {
+      escaped = false;
+      ut += tecken;
+    } else if (tecken === "\\") {
+      escaped = true;
+      ut += tecken;
+    } else if (tecken === '"') {
+      iStrang = false;
+      ut += tecken;
+    } else if (tecken < " ") {
+      ut +=
+        tecken === "\n"
+          ? "\\n"
+          : tecken === "\r"
+            ? "\\r"
+            : tecken === "\t"
+              ? "\\t"
+              : `\\u${tecken.charCodeAt(0).toString(16).padStart(4, "0")}`;
+    } else {
+      ut += tecken;
+    }
+  }
+  return ut;
 }
 
 /**
@@ -232,9 +401,9 @@ export async function runGrounding(
   options: RunExtractionOptions,
 ): Promise<RunGroundingResult> {
   const {
-    model = "claude-sonnet-5",
+    model = STANDARD_MODELL,
     maxCostSek,
-    pricing = SONNET_5_PRISSATTNING,
+    pricing = prissattningForModell(model),
     // 16000, not the earlier 8000 — a baseline run already saw grounding's
     // output reach 6099 of that 8000-token cap (largely Sonnet 5's adaptive
     // thinking, which counts as output). A truncated grounding response
@@ -258,8 +427,6 @@ export async function runGrounding(
     throw new ScannedPdfError();
   }
 
-  const client = resolveClient(options);
-
   const documentBlock = {
     type: "document" as const,
     source: {
@@ -269,6 +436,37 @@ export async function runGrounding(
     },
     citations: { enabled: true },
   };
+
+  return korGrundningsanrop(
+    documentBlock,
+    (content) => extractGroundingFindings(content as GroundingTextBlock[]),
+    pdfSaknarTextlager,
+    { model, maxCostSek, pricing, maxOutputTokensGrounding, effort },
+    options,
+  );
+}
+
+/**
+ * The one grounding API call, shared by the native-PDF route (`runGrounding`)
+ * and the scanned route (`runGroundingFranTranskription`): countTokens + cost
+ * guard, the call itself, refusal/truncation as visible errors, then the
+ * route's own way of reading citations into findings.
+ */
+async function korGrundningsanrop(
+  documentBlock: object,
+  taFynd: (content: AnthropicResponseContent) => Grundfynd[],
+  pdfSaknarTextlager: boolean,
+  inst: {
+    model: string;
+    maxCostSek: number;
+    pricing: ModelPricing;
+    maxOutputTokensGrounding: number;
+    effort: ModelEffort | undefined;
+  },
+  klientVal: Pick<RunExtractionOptions, "apiKey" | "client">,
+): Promise<RunGroundingResult> {
+  const { model, maxCostSek, pricing, maxOutputTokensGrounding, effort } = inst;
+  const client = resolveClient(klientVal);
 
   const groundingSystem = buildGroundingSystemPrompt();
   const groundingMessages = [
@@ -294,11 +492,6 @@ export async function runGrounding(
     ...(effort ? { output_config: { effort } } : {}),
   });
   const latencyMs = performance.now() - start;
-  const spentSek = estimateCostSek(
-    groundingResponse.usage.input_tokens,
-    groundingResponse.usage.output_tokens,
-    pricing,
-  );
   const calls = [
     buildCallMetrics({
       stage: "grundning",
@@ -309,6 +502,11 @@ export async function runGrounding(
       pricing,
     }),
   ];
+  const spentSek = calls[0]!.costSek;
+
+  if (groundingResponse.stop_reason === "refusal") {
+    throw annotateSpend(new ModelRefusedError("Grundningen"), spentSek, calls);
+  }
 
   // Grounding's output is free text, not JSON — a truncated response would
   // otherwise pass through silently as a merely-shorter groundingText
@@ -322,10 +520,62 @@ export async function runGrounding(
     );
   }
 
-  const findings = extractGroundingFindings(groundingResponse.content as GroundingTextBlock[]);
-  const groundingText = formatGroundingForExtraction(findings);
+  const groundingText = formatGroundingForExtraction(taFynd(groundingResponse.content));
 
   return { groundingText, spentSek, pdfSaknarTextlager, calls };
+}
+
+type AnthropicResponseContent = Array<{ type: string; text?: string; citations?: unknown }>;
+
+/** Thrown before any API call when a transcription holds no text at all. */
+export class TomTranskriptionError extends Error {
+  constructor() {
+    super(
+      "Transkriptionen innehåller ingen text. Det finns inget att grunda analysen på — " +
+        "avbryter innan något API-anrop görs.",
+    );
+    this.name = "TomTranskriptionError";
+  }
+}
+
+/**
+ * Call 1 for a SCANNED report — grounding over the transcription made by
+ * `transkribera` (transkribering.ts). Same prompts, same one API call and the
+ * same result shape as `runGrounding`, so `runStructuredExtraction` is reused
+ * unchanged. The transcription becomes one custom-content document of fine
+ * blocks (paragraphs and table rows, transkriptionsblock.ts); citations are
+ * `content_block_location` and each cited block is mapped back to its ORIGINAL
+ * page — a page number the map does not give is never accepted. The result is
+ * formatted exactly like the native route ("Sida N: …").
+ *
+ * `pdfSaknarTextlager` is true in the result: the PDF has no usable text layer.
+ */
+export async function runGroundingFranTranskription(
+  sidor: readonly Transkriptionssida[],
+  options: RunExtractionOptions,
+): Promise<RunGroundingResult> {
+  const {
+    model = STANDARD_MODELL,
+    maxCostSek,
+    pricing = prissattningForModell(model),
+    maxOutputTokensGrounding = 16000,
+    effort,
+  } = options;
+
+  const block = byggTranskriptionsblock(sidor);
+  if (block.length === 0) throw new TomTranskriptionError();
+
+  return korGrundningsanrop(
+    byggTranskriptionsdokument(block),
+    (content) =>
+      extraheraTranskriptionsfynd(
+        content.filter((b): b is InnehallsCitatBlock => typeof b.text === "string"),
+        block,
+      ).fynd,
+    true,
+    { model, maxCostSek, pricing, maxOutputTokensGrounding, effort },
+    options,
+  );
 }
 
 export interface RunStructuredExtractionOptions extends Omit<
@@ -335,6 +585,49 @@ export interface RunStructuredExtractionOptions extends Omit<
   /** From step 0 of `runGrounding` — default false matches the case where
    *  grounding already ran and confirmed a text layer. */
   pdfSaknarTextlager?: boolean;
+  /**
+   * Where the grounding text came from. Sets `datakvalitet.kalla`
+   * deterministically (whatever the model wrote is overridden). 'skannad' (a
+   * transcription of page images, runGroundingFranTranskription) also caps the
+   * confidence at 'medel' with a skäl line. Default 'textlager'.
+   */
+  kalla?: "textlager" | "skannad";
+}
+
+/**
+ * The model sometimes lists only SOME of the five fee-inclusion posts in
+ * `avgiftInkluderarEnligtForening` although the schema requires all five (measured
+ * 2026-10-09: it dropped "varme" and "vatten" on a scanned report and burned a retry).
+ * A post the model gave no answer for is unknown by definition, so it becomes "okant" —
+ * never "nej" (unknown is not false).
+ */
+export function fyllIOkandaAvgiftsposter(raw: unknown): void {
+  if (raw === null || typeof raw !== "object") return;
+  const forening = (raw as { forening?: unknown }).forening;
+  if (forening === null || typeof forening !== "object") return;
+  const poster = (forening as { avgiftInkluderarEnligtForening?: unknown })
+    .avgiftInkluderarEnligtForening;
+  if (poster === null || typeof poster !== "object" || Array.isArray(poster)) return;
+  const objekt = poster as Record<string, unknown>;
+  for (const post of ["varme", "vatten", "el", "bredband", "tv"]) {
+    if (objekt[post] === undefined) objekt[post] = "okant";
+  }
+}
+
+/** The skäl line added to the confidence of a scanned report. */
+export const SKANNAD_KONFIDENS_SKAL =
+  "Årsredovisningen saknade textlager; siffrorna är avlästa från sidbilder.";
+
+/** Removes every `osaker` key anywhere in the model's raw JSON: only the
+ *  deterministic check (rimlighet.ts) may mark a figure as uncertain. */
+function stripOsaker(varde: unknown): void {
+  if (Array.isArray(varde)) {
+    for (const v of varde) stripOsaker(v);
+  } else if (varde !== null && typeof varde === "object") {
+    const objekt = varde as Record<string, unknown>;
+    delete objekt["osaker"];
+    for (const v of Object.values(objekt)) stripOsaker(v);
+  }
 }
 
 /** Call 2 — structured JSON, grounded only in call 1's findings. Retried
@@ -345,16 +638,18 @@ export async function runStructuredExtraction(
   options: RunStructuredExtractionOptions,
 ): Promise<RunExtractionResult> {
   const {
-    model = "claude-sonnet-5",
+    model = STANDARD_MODELL,
     maxCostSek,
-    pricing = SONNET_5_PRISSATTNING,
+    pricing = prissattningForModell(model),
     // 16000, not the earlier 12000 — a baseline run already saw extraction's
     // output reach 10101 of that 12000-token cap, close enough that a
     // slightly denser report tips it into the same truncation Volontären
     // hit in judging (see analyze.ts).
     maxOutputTokensExtraction = 16000,
     pdfSaknarTextlager = false,
+    kalla = "textlager",
     effort,
+    promptCache = false,
   } = options;
 
   const client = resolveClient(options);
@@ -364,8 +659,12 @@ export async function runStructuredExtraction(
   const extractionSystem = buildExtractionSystemPrompt();
   const extractionUser = buildExtractionUserPrompt(groundingText);
 
-  const callModel: ModelCaller = async (system, user) => {
-    const messages = [{ role: "user" as const, content: user }];
+  const callModel: ModelCaller = async (systemText, userText) => {
+    // The system prompt is fully static (breakpoint 1); the user block is the
+    // same on the validation retry (breakpoint 2) — see buildUserContent.
+    const system = buildSystemParam(systemText, promptCache);
+    const messages = [{ role: "user" as const, content: buildUserContent(userText, promptCache) }];
+    // Pre-flight stays worst case: assumes no cache read (full input price).
     const count = await client.messages.countTokens({ model, system, messages });
     enforceCostLimit(count.input_tokens, maxOutputTokensExtraction, maxCostSek - spentSek, pricing);
 
@@ -378,17 +677,20 @@ export async function runStructuredExtraction(
       ...(effort ? { output_config: { effort } } : {}),
     });
     const latencyMs = performance.now() - start;
-    spentSek += estimateCostSek(response.usage.input_tokens, response.usage.output_tokens, pricing);
-    calls.push(
-      buildCallMetrics({
-        stage: "extraktion",
-        model,
-        latencyMs,
-        usage: response.usage,
-        stopReason: response.stop_reason,
-        pricing,
-      }),
-    );
+    const metrics = buildCallMetrics({
+      stage: "extraktion",
+      model,
+      latencyMs,
+      usage: response.usage,
+      stopReason: response.stop_reason,
+      pricing,
+    });
+    calls.push(metrics);
+    spentSek += metrics.costSek;
+
+    if (response.stop_reason === "refusal") {
+      throw annotateSpend(new ModelRefusedError("Extraktionen"), spentSek, calls);
+    }
 
     // Diagnose a cut-off response immediately (see ModelTruncatedError) —
     // otherwise it's just malformed JSON to parseModelJson below, and the
@@ -402,12 +704,19 @@ export async function runStructuredExtraction(
     }
 
     const raw = parseModelJson(response.content);
-    // pdfSaknarTextlager is already known deterministically from grounding's
-    // step 0 — never trust the model's own claim about it, override unconditionally.
-    if (raw !== null && typeof raw === "object" && "datakvalitet" in raw) {
-      const dk = (raw as { datakvalitet: unknown }).datakvalitet;
-      if (dk !== null && typeof dk === "object") {
-        (dk as { pdfSaknarTextlager?: unknown }).pdfSaknarTextlager = pdfSaknarTextlager;
+    // pdfSaknarTextlager and kalla are already known deterministically (grounding's
+    // step 0 / which route produced the grounding text) — never trust the model's
+    // own claim about them, override unconditionally. An `osaker` marker is only
+    // ever set by the deterministic sanity check, so any the model emitted goes.
+    if (raw !== null && typeof raw === "object") {
+      stripOsaker(raw);
+      fyllIOkandaAvgiftsposter(raw);
+      if ("datakvalitet" in raw) {
+        const dk = (raw as { datakvalitet: unknown }).datakvalitet;
+        if (dk !== null && typeof dk === "object") {
+          (dk as { pdfSaknarTextlager?: unknown }).pdfSaknarTextlager = pdfSaknarTextlager;
+          (dk as { kalla?: unknown }).kalla = kalla;
+        }
       }
     }
     return raw;
@@ -496,7 +805,32 @@ export async function runStructuredExtraction(
     },
   };
 
-  return { extraction: enrichedExtraction, spentSek, calls };
+  //   4. kontrolleraRimlighet (rimlighet.ts) — cross-checks the figures against each
+  //      other and against the raw totals (balance sheet, fees, area, debt) and against
+  //      plausible ranges. A failure marks the figure `osaker`, adds a skäl and lowers
+  //      the confidence one level; it never hides or changes a value.
+  const { extraction: kontrollerad } = kontrolleraRimlighet(enrichedExtraction);
+
+  //   5. A scanned report's figures were read off page images by the model, not out of
+  //      a text layer: confidence is capped at 'medel' and says so.
+  const slutlig = kalla === "skannad" ? kapKonfidensForSkannad(kontrollerad) : kontrollerad;
+
+  return { extraction: slutlig, spentSek, calls };
+}
+
+function kapKonfidensForSkannad(extraction: ExtractionResult): ExtractionResult {
+  const konfidens = extraction.datakvalitet.extraktionKonfidens;
+  const skal = konfidens.skal ?? [];
+  return {
+    ...extraction,
+    datakvalitet: {
+      ...extraction.datakvalitet,
+      extraktionKonfidens: {
+        niva: konfidens.niva === "hog" ? "medel" : konfidens.niva,
+        skal: skal.includes(SKANNAD_KONFIDENS_SKAL) ? skal : [...skal, SKANNAD_KONFIDENS_SKAL],
+      },
+    },
+  };
 }
 
 /**

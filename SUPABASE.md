@@ -9,8 +9,320 @@ analysis: why the job is asynchronous, the schema, and what the caching is worth
 
 **Settled:** storage is the project's **own Supabase** (verified live, service
 key works, buckets empty). Payment deferred. Hosting is **Lovable's**, on the
-custom domain `binfo.slanesens.com`. PDFs retained **30 days**. A hard spend
+custom domain `binfo.slanesens.com`. PDFs were retained **30 days**; since v2
+(owner decision 2026-10-09) they are **kept indefinitely** so the register can
+re-run a report on a version change — see "Register (v2)" below. A hard spend
 limit is set in the Anthropic console.
+
+> **v2:** the job no longer lives on the buyer's `analys` row. New analyses
+> link to a shared, versioned `rapport` in the register; `analys` rows created
+> before that keep the original queue and caches described in most of this
+> document. Read "Register (v2)" first.
+
+---
+
+## Register (v2)
+
+Migration `supabase/migrations/20261009120000_register.sql`, code
+`src/server/register.ts` (lookup, linking, versioning), `steg.ts` (worker),
+`analys.ts` (upload + reads), admin CLI `src/server/cli/registerCli.ts`.
+Design: docs/PLAN-v2.md §3.
+
+### Why
+
+The caches were keyed on `(pdf_hash, model, prompt_version)`: a re-downloaded
+copy of the same report (different bytes) was a full-price miss, and two
+simultaneous identical uploads both paid. The register keys the work on the
+**report** — BRF orgnr + räkenskapsår + pipeline version — and on each byte
+version of it.
+
+### Schema
+
+| Object | What |
+|---|---|
+| `forening(orgnr pk, namn, forst_sedd, senast_sedd)` | One row per BRF; orgnr CHECK `^\d{6}-\d{4}$`. Upserted via `registrera_forening` (a non-null name wins). |
+| `rapport` | One analysis of one report, shared by every buyer: identity (`orgnr`+`rakenskapsar`, both or neither), `pipeline_version`, `model`, `textlager` (`ok`/`saknas`/`trasigt`), job columns (`status rapport_status`, `stage rapport_stage`, `lease_until`, `attempts`), results (`grundtext`, `extraction`, `judgement`), `error_code`/`error_message`, `cost_sek`, `cache_read_tokens`/`cache_write_tokens`, `pdf_hash` (the bytes it runs on), `ersatt_av`. |
+| `rapport_identitet_uniq` | Partial unique index on `(orgnr, rakenskapsar, pipeline_version)` over rows with an identity whose status is not `failed`/`ersatt`. **The concurrency lock** for the same report. |
+| `rapport_fil_version_uniq` | Partial unique index on `(pdf_hash, pipeline_version)` over live rows. **The second lock**: same bytes (incl. concurrent lazy re-runs of an identity-less rapport, which the identity index cannot see). A conflict on either index links to the slot holder (`skapaRapportMedPlats`). |
+| `rapport_fil(pdf_hash pk, rapport_id, pdf_path, sidor, bytes, uppladdad)` | One row per byte version. The primary key settles same-bytes races. |
+| `sidtext(rapport_id, sida, text, kalla, pk(rapport_id, sida))` | Scan transcriptions (WS1): one row per transcribed page, `kalla 'transkribering'`, `on delete cascade`. Written by the `transkribering` stage, read by `grundning` for `textlager 'saknas'`. See "Scanned reports" below. |
+| `forening_adress` | Where a BRF is. `kalla 'anvandare'` rows hold the buyer's postnummer + kommun code + område (from `losTackning`) and **never** a street address (CHECK); upsert `registrera_forening_adress`, unique NULLS NOT DISTINCT (needs Postgres ≥ 15). |
+| `analys.rapport_id` | Nullable FK. Null = legacy row. |
+| `claim_next_rapport_steg`, `slapp_rapport_steg` | The rapport queue; same lease/attempts/`SKIP LOCKED` semantics as `claim_next_steg`/`slapp_steg`, except a release never resurrects a done/failed/ersatt row. |
+| `claim_next_steg` (replaced) | + `and rapport_id is null`: the legacy queue never claims a linked row. |
+| `binfo_reaper` (replaced) | Also fails stuck rapport rows (and sets `finished_at`). |
+| `radera_analys` (replaced) | Never reports a PDF the register references as orphaned. |
+
+RLS is on with zero policies on every new table; the new functions are
+`security invoker`, `search_path = public`, execute revoked from
+public/anon/authenticated and granted to `service_role`.
+Rollback: `supabase/rollback/20261009120000_register.down.sql` (manual; run
+the konto down-script first). It keeps finished buyers working (their
+rapport's result is copied into the legacy caches under the analys row's key
+and the row marked done) and fails only linked rows whose rapport is not done.
+
+### State machine (on `rapport`)
+
+```
+identifiering ──(register hit)──► status 'ersatt', ersatt_av = hit
+     │                             (analys rows + files re-pointed)
+     ├─(textlager 'saknas')─► transkribering (WS1) ─┐
+     ▼                                               ▼
+grundning ─► extraktion ─► bedomning ─► klar (status 'done')
+```
+
+Each tick claims a rapport first and falls back to the legacy `analys` queue
+only when none is claimable. **Every worker write is leased**
+(`uppdateraLeasadRapport`: `status = 'running' and lease_until = <the claimed
+lease>`), so a step that finishes after an admin invalidate, a reaper sweep or
+a re-claim drops its result instead of overwriting the terminal state; spend is
+still reconciled. Per stage: reserve spend → one model call →
+reconcile → write results **on the rapport row** (not in the caches), reset
+`attempts`, reinvoke (see "Reinvoke" below). Version guard: `rapport.pipeline_version` must equal the
+worker's `PIPELINE_VERSION`, else `failed`/`versionskonflikt` (which also
+frees the identity slot). The identity call never fails the job: a deterministic outcome (no identity,
+invalid/truncated answer, cost cap, refusal) continues without identity at
+once; a transient one (Anthropic `APIError`/`APIConnectionError` — 429, 5xx,
+529 — network, unknown) is retried like any stage and continues without
+identity only after the third attempt. A rapport without identity is reusable
+by hash only (it can still pick up its identity from its own extraction later,
+Luhn- and name-checked). A dry-assembly `AssemblyValidationError` (one buyer's
+input) does **not** fail the shared rapport: it is marked done, the error is
+logged and surfaces on that buyer's read.
+
+### Upload (`skapaAnalys`)
+
+Validation order unchanged up to the text extraction. Then: classify
+`textlager` (`saknas` = ≥ 80 % of pages empty → the scan path, "Scanned reports" below; `trasigt` = `bedomTextkvalitet` > 0.6 → runs
+the normal path, recorded); then, *before* the daily spend cap, a free hash
+lookup: a hash hit on a done, parseable rapport is served at no cost, so the cap
+does not refuse it (the kill switch still does); upload `<hash>.pdf`; then `kopplaUppladdning`:
+
+1. **hash** → `rapport_fil` → its rapport (following `ersatt_av`): servable →
+   link, `ateranvand`; in progress at this version → link, `vantarPaRapport`;
+   done but incompatible/stale → join (or queue) its current-version re-run.
+   A **current-version** rapport that is done but does not parse would hold
+   both slots for ever; it is marked failed/`ogiltigforklarad` automatically
+   (`frigorTrasigPlats`) and its re-run queued — skapaAnalys never throws on
+   this path.
+2. **local identity** (`identifieraLokalt`, free; orgnr Luhn-checked) →
+   register hit at the current version, or a done compatible older one, and
+   **both** names known (the PDF's and `forening.namn`) and alike
+   (`namnLiknar`) → new `rapport_fil` row → link. A name unknown on either
+   side, or two different names, means no instant reuse: the new rapport
+   starts at `identifiering` without identity, where the model's reading is
+   judged by the same rule (missing name → no merge; the identity is set only
+   if its slot is free). Two known, different names also never claim the slot.
+3. **new rapport** at `grundning` (local identity) or `identifiering` (none),
+   created with a 120 s *setup lease* so no worker claims it before its file
+   row exists. Same-identity race → the unique index rejects the loser, which
+   links to the winner. Same-bytes race → `rapport_fil`'s primary key rejects
+   the loser, which deletes its unreferenced rapport and links to the winner.
+
+Then the `analys` row (its own status/stage are set to `queued`/`uploaded`
+and never used again) and, best effort, `forening_adress`. The upload quota
+taken at the start is given back (`aterlamnaUppladdningskvot`, `kvot.ts`) when
+the upload costs nothing: served from the register (`ateranvand`) or joined to a
+rapport someone else already started (`vantarPaRapport`).
+
+### Scanned reports (WS1)
+
+A PDF with no usable text layer is accepted (`SKANNADE_RAPPORTER_AKTIVA = true`
+in `register.ts`; `false` makes `skapaAnalys` refuse it again with `scanned_pdf`,
+a code-level emergency brake) up to `MAX_SIDOR_SKANNAD_RAPPORT` (60) pages.
+**`textlager = 'saknas'` when ≥ 50 % of the pages are empty** (< 20 characters
+after trim; `klassificeraTextlager`, the single source in
+`src/lib/analysis/textlager.ts`) — a scan with a text cover page is still a scan,
+since scanned pages are not citable on the native route. Such a rapport runs
+`identifiering` (unchanged) → **`transkribering`** → `grundning` → `extraktion` →
+`bedomning`. A garbled text layer (`trasigt`) stays on the normal path (measured
+better, docs/PLAN-v2.md §1.9). `runGrounding`'s own guard (`ScannedPdfError` when
+*every* page is empty) cannot fire for what reaches it: anything not `saknas` has
+a page with text.
+
+- **`transkribering`** (`korTranskribering`, `steg.ts` → `transkribera`): the PDF
+  from storage is split with `pdf-lib` into 5-page chunks, run **in parallel,
+  at most `MAX_CHUNKAR_PER_ANROP` = 3 chunks (15 pages) per Edge invocation**,
+  one Sonnet call per chunk (model = `rapport.model`, effort =
+  `ANTHROPIC_EFFORT_GROUNDING`, `max_tokens` 12 000). Each finished chunk is
+  upserted into `sidtext` at once (`sparaSidtext`, on `(rapport_id, sida)`), so
+  a retry reads the stored pages (`hamtaSidtext` → `redanKlara`) and redoes only
+  chunks with a missing page. Page markers are validated per chunk (one retry,
+  then `TranskriberingMarkorFelError`).
+- **Batching per invocation (CPU).** Edge Functions have a hard CPU limit of 2 s
+  (soft 1 s) per invocation, production and local alike. Measured locally
+  (edge-runtime 1.74.3, 34-page scan): one invocation with 7 chunks, and one with 4,
+  logged "CPU time soft limit reached"; one with 3 did not, and the same
+  preparation without the model calls (split, base64, `countTokens`) logged
+  nothing — the cost grows with the size of the calls actually sent. So a
+  step handles at most 3 chunks; if chunks remain it records the progress (pages
+  saved, spend reconciled and added to `cost_sek`, stage stays `transkribering`,
+  `attempts` reset because progress was made, lease released) and reinvokes. A
+  34-page scan therefore takes three invocations (3 + 3 + 1 chunks) before
+  `grundning`. The reservation covers only the invocation's own pages, the
+  worst-case pre-flight only its own chunks, and the 15 kr ceiling below counts
+  `cost_sek` over all invocations and attempts. A deterministic error in any
+  batch is still terminal, and pages saved by earlier batches stay.
+- **Reuse across rapporter of the same bytes.** `sidtext.kalla` is
+  `transkribering:v<TRANSKRIPTION_PROMPT_VERSION>` (`prompts.ts`; a hash test
+  fails if the transcription prompt changes without a bump). A rapport with no
+  `sidtext` of its own first copies the pages of the newest *other* rapport with
+  the same `pdf_hash` whose `kalla` equals the current one (`ateranvandTranskription`):
+  a version-bump re-run, or a re-upload after a failure, transcribes 0 pages (or only
+  the missing chunks of a partial donor). Pages written by another prompt version
+  are ignored. No schema change.
+- **Spend.** The daily reservation is realistic, `0.15 kr × pages still to do`
+  (measured 0.105 kr/page incl. headers: 34 pages = 3.58 kr), reconciled to the
+  real cost **exactly once per step attempt** (a `Reservation` object guards every
+  stage, so a failing write after a successful reconcile cannot reconcile twice).
+  `transkribera`'s pre-flight sums the worst case of all parallel chunks, each
+  from its own `countTokens` (`estimateCostSek(input, 12 000)`, ≈ 1.33 kr at 8.6k
+  in-tokens; price table in `costGuard.ts`) and must fit the **stage ceiling**
+  `MAX_TRANSKRIBERING_SEK` = `MAX_SIDOR_SKANNAD_RAPPORT × 0.25` = 15 kr (a product
+  guard, not a measurement), less what the rapport already cost over all attempts
+  (`rapport.cost_sek`). Consequence: at 8.6k in-tokens per chunk at most ~55 pages
+  pass the pre-flight (11 × 1.33 = 14.6 kr); see the report for the 56–60 page gap.
+- **Deadline.** `transkribera` aborts in-flight chunk calls after 110 s
+  (`AbortController`, `signal` passed to the SDK call), keeps the finished pages
+  saved and throws a transient `TranskriberingTidsgransError` annotated with the
+  real spend; the next attempt continues. (A call aborted mid-flight is billed
+  by Anthropic for tokens already generated, which the client cannot see: that
+  slice is not in `cost_sek`.)
+- **Failure.** Transient errors (API 429/5xx/529, network, the deadline) take the
+  normal path (3 attempts per stage, real spend booked via the error's annotation).
+  **Deterministic ones are terminal** — `ModelTruncatedError`,
+  `TranskriberingMarkorFelError` and `KostnadsgransOverskriden` fail the rapport
+  at once (another attempt would pay for the same wrong answer). The page-marker
+  and empty-transcription errors become `scanned_pdf` with a fixed buyer-safe
+  message (`fel.ts`); no new error code, since the UI's code union must equal the
+  server's.
+- **`grundning` for `saknas`** first checks that `sidtext` (current prompt
+  version) covers **every page 1..`rapport_fil.sidor`**; otherwise it fails
+  visibly and terminally (`SidtextOfullstandigError` → `scanned_pdf`) instead of
+  grounding on partial text. Then it reads the pages in order and runs
+  `runGroundingFranTranskription` (custom-content document; page numbers only
+  from the block→page map). **`extraktion`** passes `kalla 'skannad'` →
+  `datakvalitet.kalla = 'skannad'` and confidence capped at `medel`.
+- **`sidtext` writes are not lease-guarded.** A page is paid-for output of the
+  same bytes; one that finishes after the worker lost its lease is kept so the
+  next attempt does not pay twice. The write never touches the `rapport` row, so
+  it cannot resurrect a terminal rapport — the status/stage writes stay on the
+  leased `uppdateraLeasadRapport`, and a result that arrives after an
+  invalidate is dropped.
+- **Edge.** Nothing new to configure: `pdf-lib` is already bundled as
+  `npm:pdf-lib@<lockfile version>` (external, like `unpdf`); the scan path uses
+  no `Buffer`/`process`/`fs` (`toBase64` is `btoa`-based). The inline Edge env is
+  unchanged (the stage reuses `ANTHROPIC_EFFORT_GROUNDING`). The slowest of 7
+  parallel chunk calls measured 26 s, the whole tick 29.5 s, against the 150 s
+  limit and the 110 s deadline.
+
+### Upload limits
+
+Strict quota (refunded when the upload costs nothing): 5 per device, 10 per IP
+per day. **Loose quota (never refunded): 30 per device, 100 per IP per day**
+(`uppladdning_los:*` keys; product limits). They are taken together
+(`kontrolleraUppladdningskvot`); the first refusal gives back every use taken in
+that call. The strict quota is refunded only for an **exact hash hit** (`ateranvand`
+or `vantarPaRapport` reached through `rapport_fil.pdf_hash`, `Koppling.viaHash`),
+not for a link found only through the report's identity (another byte version).
+If `skapaAnalys` throws after the quota was taken, strict and loose are both
+given back and the error is rethrown; `analysFn.ts` then returns/throws only the
+generic buyer-safe message (`sakertFel`/`sakertSkapaFel` in `fel.ts`), logging the
+real error server-side. The client IP comes only from `cf-connecting-ip`
+(Cloudflare); there is no `x-forwarded-for` fallback, so without that header only
+the per-device limits apply.
+
+### Reads
+
+`hamtaStatus` derives everything from the rapport: `stage` keeps the UI's
+`AnalysStage` union (identifiering/transkribering/grundning → `uploaded`,
+extraktion → `extracting`, bedomning → `judging`, klar → `complete`); new
+optional fields `textlager`, `ateranvand`, `vantarPaRapport`, `rapportSteg`.
+An admin-invalidated rapport shows as `versionskonflikt` with its own
+"dragits tillbaka" message (the UI mirror of the error-code union is not
+extended).
+
+`hamtaResultat`/`hamtaForhandsvisning`: the newest **done** rapport for the
+same report (identity, else bytes) at the **current** pipeline version wins;
+else the linked one if its stored extraction **and** judgement parse with the
+running code's schemas — served with the note "Analysen gjordes med en
+tidigare version av Binfo." and a lazy re-run queued once; else it is
+**never served**: a re-run is queued and the buyer waits (or, if the PDF is
+gone, sees a visible "upload again" failure). A later fiscal year analysed for
+the same BRF adds "Det finns en nyare årsredovisning (ÅÅÅÅ) analyserad för
+föreningen." Both notes go into `datakvalitet.extraktionKonfidens.skal`.
+Legacy rows read the caches exactly as before.
+
+### Reinvoke (the worker calling itself)
+
+After a stage succeeds and leaves the rapport `queued` with more to do,
+`korNastaSteg` calls `reinvoke()`; the Edge Function wires it to a fire-and-forget
+`POST <PROJECT_URL>/functions/v1/analys-steg` with the same `apikey` header
+pg_cron uses (`supabase/functions/analys-steg/reinvoke.ts`, unit-tested;
+`EdgeRuntime.waitUntil` keeps the request alive after the response). **Verified
+on a local stack, 2026-10-10:** inside the Edge runtime `req.url` is the
+INTERNAL address (`http://kong:8081/analys-steg` — internal port, no
+`/functions/v1`), so the earlier `fetch(req.url)` was refused and every stage
+waited for the next minute tick (a text job took 176 s instead of 106 s). With the
+gateway URL a text job (`SBC årsredovisning.pdf`) went created → done in 77 s,
+54 s of it after the first claim (the rest is the wait for the first cron tick);
+stages chain within about a second of each other. `PROJECT_URL` is the secret the
+function already uses for its Supabase client (locally `http://kong:8000`,
+reachable from inside the runtime; the host-side `127.0.0.1:54321` is not).
+
+### Admin CLI
+
+```
+npm run register -- list [--orgnr X] [--limit N]
+npm run register -- inspect <rapportId> | inspect <orgnr> <år>   # flags missing PDFs
+npm run register -- invalidate <rapportId> [--all-versions] [--force]
+                                                 # failed + 'ogiltigforklarad', frees the slots;
+                                                 # refuses a running rapport without --force
+                                                 # (with it, the running step's leased write is dropped);
+                                                 # --all-versions: every rapport for the same (orgnr, år)
+npm run register -- backfill-legacy [--dry-run]  # caches of the current PROMPT_VERSION → register, idempotent;
+                                                 # rows without a valid (Luhn) identity, or failing the name
+                                                 # rule, become hash-only rapporter — nothing paid is paid again
+npm run register -- rerun --to-current [--limit N] [--dry-run]
+```
+
+All LIVE (secret key). None calls Anthropic; `rerun` only queues — the worker
+spends, under the daily cap.
+
+### Not in the version key: the model
+
+`PIPELINE_VERSION = p<PROMPT_VERSION>.i<IDENTITET_PROMPT_VERSION>.s<schema major>`.
+The model is stored per rapport but is deliberately not part of the key or the
+unique indexes (owner decision): a model switch with unchanged prompts keeps
+serving the existing results; bump `PROMPT_VERSION` to force re-runs.
+
+### Deploy order
+
+0. **Ahead of v2, standalone:** apply the retention hotfix
+   `20261008000000_retention_fix.sql` (nightly anonymisation has been failing
+   on current Storage; see "Retention facts" above). It is ordered before the
+   v2 migrations, so a later `db push` applies it first anyway.
+1. Kill switch on; let both queues drain (no `queued`/`running` in `analys`).
+2. `db push` (this migration, then `20261009120100_konto.sql`).
+3. `npm run deploy:edge` — the worker must know `claim_next_rapport_steg`
+   before the site creates rapporter.
+4. Lovable publish.
+5. **Backfill — required before step 6.** Uploads no longer consult the legacy
+   caches, so without it every previously analysed report would be paid for
+   again: `npm run register -- backfill-legacy --dry-run`, check the output
+   (`medIdentitet`, `pdfFinns`, skipped rows), then
+   `npm run register -- backfill-legacy`.
+6. Kill switch off.
+
+The version guard catches any skew between the site and the worker.
+
+### Keep in sync
+
+`supabase/functions/analys-steg/index.ts` carries a hand-written copy of
+every `Databas`/`Filarkiv` method the worker can reach (see its note (c)); a
+column-mapping change in `src/server/supabase.ts` must be made there too.
+`npm run build:edge` bundles `pdf-lib` as `npm:pdf-lib@<lockfile version>`
+(like `@anthropic-ai/sdk` and `unpdf`).
 
 ---
 
@@ -158,6 +470,11 @@ to leave in place. Nothing should read or write it going forward.
 
 ### The caches — where the money is saved
 
+> **v2:** the caches below serve only legacy `analys` rows (no `rapport_id`).
+> New analyses store extraction and judgement on their `rapport` row — see
+> "Register (v2)". `npm run register -- backfill-legacy` moves the current
+> prompt version's cache rows into the register.
+
 Both API calls are förening-level: `runExtraction` and `runAnalys` never see
 `PropertyInput`. Every bidder on every apartment in a förening uploads the same
 årsredovisning, so the second buyer onward costs **0 kr**.
@@ -282,6 +599,39 @@ Three consequences for this layer:
    document itself. A `pg_cron` job deletes storage objects older than 30 days
    and nulls `analys.pdf_path`; the analysis a buyer paid attention to survives,
    the liability does not.
+
+   **Superseded in v2:** PDFs are now kept indefinitely (owner decision
+   2026-10-09; the retention cron no longer deletes them — see
+   `20261009120100_konto.sql`), and `radera_analys` never reports a PDF the
+   register references as orphaned. The paragraph below describes the
+   pre-v2 state, which still applies to PDFs deleted before then
+   (`npm run register -- inspect` flags them).
+
+   **Retention facts (verified on a local stack, 2026-10-10).** The command
+   scheduled by `20260924120000` starts with a direct `delete from
+   storage.objects`. Current Supabase Storage (storage-api v1.73.1 locally)
+   refuses that (the `protect_objects_delete` trigger: "Direct deletion from
+   storage tables is not allowed"). pg_cron runs the command as ONE
+   transaction, so the error also rolled back the `property_input`
+   anonymisation after it: `cron.job_run_details = failed`, nothing
+   anonymised (confirmed failing in production by the owner, 2026-10-10). The
+   hotfix `20261008000000_retention_fix.sql` reschedules `binfo-retention`
+   without the storage delete; it is standalone and ordered **before** the v2
+   migrations, so it can be applied to production on its own, ahead of v2.
+   `20261009120100_konto.sql` later replaces the command again (adds the `kvot`
+   purge), and its down-script (`supabase/rollback`) no longer restores the PDF
+   deletion — only the anonymisation. Local check after `db reset` (6
+   migrations, at the then 30-day period): the command, run once via pg_cron,
+   `succeeded`; old rows had `adress`/`postnummer`/`orgnr` emptied, recent ones
+   were untouched, and `kvot` windows older than 2 days were purged.
+
+   **Period (owner decision 2026-10-10): 12 months, was 30 days.** Only the
+   buyer's `adress`/`postnummer`/`orgnr` in `analys.property_input` are blanked
+   — the link between a visitor's device and the apartment they looked at. The
+   register, the PDFs and the BRF analyses are not buyer data and are never
+   touched. A year lets buyers return to their analysis, including the
+   valuation (which needs the postnummer). The browser's "recent analyses" list
+   uses the same 12 months.
 
    Consequence worth noting: after 30 days the PDF is gone, so a *re-run* of a
    cached förening is impossible — only the cached output remains. That is
@@ -448,11 +798,13 @@ src/server/
   cache.ts      -- extraction/judgement cache read + write (re-enriches on read)
   spend.ts      -- daily cap + kill switch, reserve-then-reconcile
   fel.ts        -- maps a caught error to an AnalysErrorCode + buyer-safe Swedish message
-  steg.ts       -- korNastaSteg: claims one job row, advances it one step
+  register.ts   -- the v2 register: lookup, upload linking, versioning, lazy re-runs
+  steg.ts       -- korNastaSteg: claims one job row (rapport first, then legacy), advances it one step
   analys.ts     -- skapaAnalys, hamtaStatus, hamtaResultat (framework-free)
   analysFn.ts   -- createServerFn wrappers around analys.ts
   edge/build.ts -- esbuild bundle of steg.ts for the Edge Function
-  cli/          -- analysCli.ts (npm run analys), verifyRls.ts (npm run verify-rls)
+  cli/          -- analysCli.ts (npm run analys), verifyRls.ts (npm run verify-rls),
+                   registerCli.ts (npm run register)
 ```
 
 (`jobb.ts` in the original sketch became `steg.ts` — same role, renamed

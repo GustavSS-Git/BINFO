@@ -25,6 +25,8 @@ export type AnalysErrorCode =
   | "validation"
   | "saknar_rantekanslighet"
   | "versionskonflikt"
+  | "kvot"
+  | "behorighet"
   | "unknown";
 
 /** Ordningen stegen faktiskt inträffar i — driver den enkla förloppsstapeln. */
@@ -99,6 +101,21 @@ export const FELKOD_INNEHALL: Record<AnalysErrorCode, FelkodInnehall> = {
     atgard:
       "Gå tillbaka till formuläret och ladda upp årsredovisningen igen om en stund, så körs den " +
       "med den senaste versionen.",
+  },
+  kvot: {
+    // Serverns errorMessage säger VILKEN gräns som nåddes (per enhet, per
+    // nätverk eller för prisuppskattningar) och när den släpper — texten här
+    // kompletterar bara.
+    rubrik: "Gränsen är nådd för tillfället",
+    forklaring:
+      "Det beror inte på din årsredovisning eller dina uppgifter — vi begränsar hur mycket som " +
+      "kan göras på kort tid, så att tjänsten räcker till alla.",
+    atgard: "Vänta och försök igen senare. Kvarstår det, hör av dig till oss.",
+  },
+  behorighet: {
+    rubrik: "Ingen tillgång just nu",
+    forklaring: "Den här delen av Binfo är inte öppen för dig just nu.",
+    atgard: "Hör av dig till oss om du tror att det är fel.",
   },
   unknown: {
     rubrik: "Något gick fel",

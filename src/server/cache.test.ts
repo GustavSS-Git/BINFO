@@ -192,3 +192,18 @@ describe("analys_cache", () => {
     await expect(hamtaAnalysFranCache(db, NYCKEL)).rejects.toThrow(/AnalysJudgementSchema/);
   });
 });
+
+describe("tolkaLagradExtraktion / tolkaLagradBedomning (registrets kompatibilitetstest)", () => {
+  it("återberikar en giltig extraktion och returnerar null — aldrig ett kast — för en ogiltig", async () => {
+    const { tolkaLagradExtraktion, tolkaLagradBedomning } = await import("./cache");
+    const { extraktion } = await import("@/lib/analysis/__fixtures__/extraktion");
+    const tolkad = tolkaLagradExtraktion(JSON.parse(JSON.stringify(extraktion)));
+    expect(tolkad?.forening.namn).toBe(extraktion.forening.namn);
+    expect(tolkaLagradExtraktion({ schemaVersion: "0.9.0" })).toBeNull();
+    expect(tolkaLagradExtraktion(null)).toBeNull();
+    expect(tolkaLagradBedomning({ betyg: "Z" })).toBeNull();
+    expect(
+      tolkaLagradBedomning({ betyg: "A", betygMotivering: "Bra.", rodaFlaggor: [], fragor: [] }),
+    ).not.toBeNull();
+  });
+});

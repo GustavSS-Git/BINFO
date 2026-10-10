@@ -19,6 +19,14 @@
  * En cache-rad som inte längre matchar kontraktet — t.ex. efter en
  * kontraktsändring i `src/types/analysis.ts` — ska krascha synligt vid
  * läsning, inte glida igenom som tyst ogiltig data.
+ *
+ * Sedan registret (v2, src/server/register.ts) används cacherna bara av
+ * LEGACY-rader (analys.rapport_id is null): nya analyser lagrar extraktion
+ * och bedömning på sin `rapport`-rad. `tolkaLagradExtraktion` /
+ * `tolkaLagradBedomning` nedan är samma återberikning + validering som
+ * läsvägen här, men icke-kastande — registret behöver kunna fråga "är det
+ * här lagrade resultatet kompatibelt med den körande koden?" och välja ett
+ * annat (eller köa en omkörning) när svaret är nej, i stället för att krascha.
  */
 
 import { berikaNyckeltal } from "@/lib/analysis/benchmarks";
@@ -33,6 +41,38 @@ export interface CacheNyckel {
   promptVersion: string;
 }
 
+/** Återberikar `keyFigures` (se filkommentaren) på en redan formvaliderad
+ *  extraktion. */
+function aterberika(extraction: ExtractionResult): ExtractionResult {
+  return {
+    ...extraction,
+    forening: {
+      ...extraction.forening,
+      keyFigures: berikaNyckeltal(extraction.forening.keyFigures),
+    },
+  };
+}
+
+/**
+ * Lagrad (rå jsonb) extraktion → återberikad, validerad `ExtractionResult`,
+ * eller `null` om den inte (längre) matchar schemat. Validerar FÖRE
+ * återberikningen också, så att `berikaNyckeltal` aldrig ser en godtycklig
+ * form.
+ */
+export function tolkaLagradExtraktion(raw: unknown): ExtractionResult | null {
+  const form = ExtractionResultSchema.safeParse(raw);
+  if (!form.success) return null;
+  const berikad = ExtractionResultSchema.safeParse(aterberika(form.data as ExtractionResult));
+  // Samma typförening som hamtaExtraktionFranCache nedan.
+  return berikad.success ? (berikad.data as ExtractionResult) : null;
+}
+
+/** Lagrad (rå jsonb) bedömning → validerad `AnalysJudgement`, eller `null`. */
+export function tolkaLagradBedomning(raw: unknown): AnalysJudgement | null {
+  const parsed = AnalysJudgementSchema.safeParse(raw);
+  return parsed.success ? (parsed.data as AnalysJudgement) : null;
+}
+
 export async function hamtaExtraktionFranCache(
   db: Databas,
   nyckel: CacheNyckel,
@@ -41,13 +81,7 @@ export async function hamtaExtraktionFranCache(
   if (!rad) return null;
 
   // Återberika, aldrig lita på lagrad status/benchmark — se filkommentaren.
-  const berikad: ExtractionResult = {
-    ...rad.extraction,
-    forening: {
-      ...rad.extraction.forening,
-      keyFigures: berikaNyckeltal(rad.extraction.forening.keyFigures),
-    },
-  };
+  const berikad = aterberika(rad.extraction);
 
   try {
     const parsed = ExtractionResultSchema.parse(berikad);

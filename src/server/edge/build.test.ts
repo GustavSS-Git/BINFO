@@ -22,6 +22,7 @@ function installeradVersion(paket: string): string {
 
 const ANTHROPIC_VERSION = installeradVersion("@anthropic-ai/sdk");
 const UNPDF_VERSION = installeradVersion("unpdf");
+const PDF_LIB_VERSION = installeradVersion("pdf-lib");
 
 describe("byggEdgeBundle", () => {
   it("lyckas och producerar icke-tom kod utan att röra filsystemet", async () => {
@@ -42,6 +43,42 @@ describe("byggEdgeBundle", () => {
     const { code } = await byggEdgeBundle({ write: false });
     const forvantad = new RegExp(`from\\s*"npm:unpdf@${UNPDF_VERSION}"`);
     expect(code).toMatch(forvantad);
+  });
+
+  it("skriver om pdf-lib till en pinnad npm:-specifier (identitetssteget, v2)", async () => {
+    const { code } = await byggEdgeBundle({ write: false });
+    const forvantad = new RegExp(`from\\s*"npm:pdf-lib@${PDF_LIB_VERSION.replace(/\./g, "\\.")}"`);
+    expect(code).toMatch(forvantad);
+    // Aldrig inbundlad: pdf-lib:s egna källfiler får inte finnas i bundlen.
+    expect(code).not.toMatch(/node_modules\/pdf-lib/);
+  });
+
+  it("bundlar registret och registrets kö (claim_next_rapport_steg via Lager)", async () => {
+    const { code } = await byggEdgeBundle({ write: false });
+    expect(code).toContain("klaimaNastaRapportSteg");
+    expect(code).toContain("PIPELINE_VERSION");
+  });
+
+  it("bundlar transkriberingssteget (WS1) och håller pdf-lib extern även på skannvägen", async () => {
+    const { code } = await byggEdgeBundle({ write: false });
+    // The stage and its prompt/marker contract are in the bundle ...
+    expect(code).toContain("transkribera");
+    expect(code).toContain("=== SIDA");
+    expect(code).toContain("hamtaSidtext");
+    expect(code).toContain("sparaSidtext");
+    // ... pdf-lib is imported (to split chunks) only through the pinned npm: specifier,
+    // never inlined ...
+    const pdfLibImporter = code.match(/from\s*"npm:pdf-lib@[^"]+"/g) ?? [];
+    expect(pdfLibImporter.length).toBeGreaterThan(0);
+    expect(new Set(pdfLibImporter).size).toBe(1);
+    expect(code).not.toMatch(/PDFDocument\s*=\s*class|class\s+PDFDocument/);
+  });
+
+  it("skannvägen använder inget Node-specifikt: ingen Buffer, process eller fs i bundlen", async () => {
+    const { code } = await byggEdgeBundle({ write: false });
+    expect(code).not.toMatch(/\bBuffer\b/);
+    expect(code).not.toMatch(/\bprocess\.(env|cwd|argv)\b/);
+    expect(code).not.toMatch(/readFileSync|writeFileSync|node:fs/);
   });
 
   it("innehåller aldrig en node:-importspecifier", async () => {
@@ -121,5 +158,60 @@ describe("byggEdgeBundle", () => {
       expect(paDisk).toBe(code);
       expect(paDisk.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe("Edge-limmet speglar porten", () => {
+  const limmet = readFileSync(
+    path.resolve(process.cwd(), "supabase/functions/analys-steg/index.ts"),
+    "utf-8",
+  );
+  const portar = readFileSync(path.resolve(process.cwd(), "src/server/portar.ts"), "utf-8");
+
+  /** Methods of `interface Databas`, by name. */
+  function databasMetoder(): string[] {
+    const start = portar.indexOf("export interface Databas {");
+    const slut = portar.indexOf("\n}\n", start);
+    const kropp = portar.slice(start, slut);
+    return [...kropp.matchAll(/^ {2}(\w+)\(/gm)].map((m) => m[1] as string);
+  }
+
+  // Used by the upload/read/delete paths (skapaAnalys' up-front cap check among them),
+  // never by the tick (see the comment in index.ts).
+  const MEDVETET_UTELAMNADE = new Set([
+    "skapaAnalys",
+    "hamtaAnalys",
+    "raderaAnalys",
+    "hamtaSpendForDag",
+  ]);
+
+  it("implementerar varje Databas-metod utom de som bara uppladdnings-/läs-/raderingsvägarna använder", () => {
+    const metoder = databasMetoder();
+    expect(metoder.length).toBeGreaterThan(20);
+    for (const metod of metoder) {
+      if (MEDVETET_UTELAMNADE.has(metod)) continue;
+      expect(limmet, `Edge-limmet saknar ${metod}`).toMatch(new RegExp(`async ${metod}\\(`));
+    }
+  });
+
+  it("sidtext: samma tabell, kolumner och upsert-nyckel som src/server/supabase.ts", () => {
+    const adapter = readFileSync(path.resolve(process.cwd(), "src/server/supabase.ts"), "utf-8");
+    for (const kalla of [limmet, adapter]) {
+      expect(kalla).toContain('.from("sidtext")');
+      expect(kalla).toContain('.select("sida, text").eq("rapport_id", rapportId)');
+      expect(kalla).toContain('q = q.eq("kalla", kalla)');
+      expect(kalla).toContain('onConflict: "rapport_id,sida"');
+      expect(kalla).toMatch(/rapport_id: rapportId, sida: \w+\.sida, text: \w+\.text, kalla/);
+    }
+  });
+
+  it("reinvoke går via PROJECT_URL + /functions/v1/analys-steg (reinvoke.ts), aldrig via req.url — verifierat lokalt: req.url är den interna adressen och vägras", () => {
+    expect(limmet).toContain('import { byggReinvokeUrl } from "./reinvoke.ts"');
+    expect(limmet).toContain('byggReinvokeUrl(kravMiljovariabel("PROJECT_URL"))');
+    const utanKommentarer = limmet
+      .split("\n")
+      .filter((rad) => !rad.trim().startsWith("//"))
+      .join("\n");
+    expect(utanKommentarer).not.toMatch(/fetch\(\s*req\.url/);
   });
 });

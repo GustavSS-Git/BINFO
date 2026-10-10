@@ -39,11 +39,12 @@
 // src/server/steg.ts, src/server/spend.ts and src/server/cache.ts done
 // before writing this) and a minimal inline `Lager` adapter, talking to
 // Supabase directly via `@supabase/supabase-js`'s `npm:` specifier. The
-// adapter below implements ONLY the `Databas`/`Filarkiv` methods reachable
-// from `korNastaSteg` (not `skapaAnalys`, `hamtaAnalys`, `raderaAnalys`,
-// `laggUpp`, or `ta_bort` — none of those are called by the tick), and
-// mirrors src/server/supabase.ts's exact table/column/RPC mapping against
-// supabase/migrations/20260913105304_init.sql so the two stay consistent.
+// adapter below implements the `Databas`/`Filarkiv` methods reachable from
+// `korNastaSteg` (not `skapaAnalys`, `hamtaAnalys`, `raderaAnalys`,
+// `laggUpp`, or `ta_bort` — none of those are called by the tick) plus,
+// since the register (20261009120000_register.sql), EVERY register method of
+// the port, and mirrors src/server/supabase.ts's exact table/column/RPC
+// mapping so the two stay consistent. Change one, change the other.
 //
 // This DOES duplicate a slice of src/server/supabase.ts's column mapping
 // into this file. That duplication is an accepted, explicitly-flagged
@@ -92,12 +93,15 @@ function kravPositivtTal(namn: string): number {
 // specifically so they're unit-testable under Vitest (see that file's doc
 // comment for why this file itself can't be imported by a Node test runner).
 import { valideraEffort, type ModelEffort } from "./effort.ts";
+import { byggReinvokeUrl } from "./reinvoke.ts";
 
 interface InlineEnv {
   maxDailySpendSek: number;
   killSwitchPa: boolean;
   anthropicApiKey: string;
   maxCostPerAnalysisSek: number;
+  // effortGrounding is also what the scan 'transkribering' stage uses (WS1,
+  // src/server/steg.ts) — no separate variable.
   // Task 1.2 — mirrors Env.effortGrounding/effortExtraction/effortJudging in
   // src/server/env.ts (see that file for why each stage has its own
   // variable). Always set (default STANDARD_EFFORT, from ./effort.ts) —
@@ -123,7 +127,10 @@ function lasEnvInline(): InlineEnv {
       "ANTHROPIC_EFFORT_EXTRACTION",
       Deno.env.get("ANTHROPIC_EFFORT_EXTRACTION"),
     ),
-    effortJudging: valideraEffort("ANTHROPIC_EFFORT_JUDGING", Deno.env.get("ANTHROPIC_EFFORT_JUDGING")),
+    effortJudging: valideraEffort(
+      "ANTHROPIC_EFFORT_JUDGING",
+      Deno.env.get("ANTHROPIC_EFFORT_JUDGING"),
+    ),
   };
 }
 
@@ -161,6 +168,8 @@ interface JobbRad {
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+  /** Register link (20261009120000_register.sql) — mirrors AnalysRad.rapportId. */
+  rapportId: string | null;
 }
 
 /** snake_case row shape for the `analys` table columns this adapter actually
@@ -186,6 +195,7 @@ interface JobbRadKolumner {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  rapport_id?: string | null;
 }
 
 function radFranKolumner(row: JobbRadKolumner): JobbRad {
@@ -207,6 +217,7 @@ function radFranKolumner(row: JobbRadKolumner): JobbRad {
     createdAt: row.created_at,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
+    rapportId: row.rapport_id ?? null,
   };
 }
 
@@ -233,7 +244,150 @@ function radTillKolumner(delta: Partial<JobbRad>): Record<string, unknown> {
   if ("createdAt" in delta) row["created_at"] = delta.createdAt;
   if ("startedAt" in delta) row["started_at"] = delta.startedAt;
   if ("finishedAt" in delta) row["finished_at"] = delta.finishedAt;
+  if ("rapportId" in delta && delta.rapportId != null) row["rapport_id"] = delta.rapportId;
   return row;
+}
+
+// ---------------------------------------------------------------------------
+// Register rows — mirrors RapportRad/RapportFilRad and rapportFranRad /
+// rapportTillRad / rapportFilFranRad / tolkaRapportKonflikt in
+// src/server/supabase.ts.
+// ---------------------------------------------------------------------------
+
+interface RapportRad {
+  id: string;
+  orgnr: string | null;
+  rakenskapsar: number | null;
+  pipelineVersion: string;
+  model: string;
+  textlager: "ok" | "saknas" | "trasigt";
+  status: "queued" | "running" | "done" | "failed" | "ersatt";
+  stage: "identifiering" | "transkribering" | "grundning" | "extraktion" | "bedomning" | "klar";
+  pdfHash: string | null;
+  leaseUntil: string | null;
+  attempts: number;
+  grundtext: string | null;
+  extraction: unknown;
+  judgement: unknown;
+  errorCode: string | null;
+  errorMessage: string | null;
+  costSek: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  ersattAv: string | null;
+}
+
+interface RapportKolumner {
+  id: string;
+  orgnr: string | null;
+  rakenskapsar: number | null;
+  pipeline_version: string;
+  model: string;
+  textlager: RapportRad["textlager"];
+  status: RapportRad["status"];
+  stage: RapportRad["stage"];
+  pdf_hash: string | null;
+  lease_until: string | null;
+  attempts: number;
+  grundtext: string | null;
+  extraction: unknown;
+  judgement: unknown;
+  error_code: string | null;
+  error_message: string | null;
+  cost_sek: number | string;
+  cache_read_tokens: number | string;
+  cache_write_tokens: number | string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  ersatt_av: string | null;
+}
+
+function rapportFranKolumner(row: RapportKolumner): RapportRad {
+  return {
+    id: row.id,
+    orgnr: row.orgnr,
+    rakenskapsar: row.rakenskapsar,
+    pipelineVersion: row.pipeline_version,
+    model: row.model,
+    textlager: row.textlager,
+    status: row.status,
+    stage: row.stage,
+    pdfHash: row.pdf_hash,
+    leaseUntil: row.lease_until,
+    attempts: row.attempts,
+    grundtext: row.grundtext,
+    extraction: row.extraction,
+    judgement: row.judgement,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    costSek: Number(row.cost_sek),
+    cacheReadTokens: Number(row.cache_read_tokens),
+    cacheWriteTokens: Number(row.cache_write_tokens),
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    ersattAv: row.ersatt_av,
+  };
+}
+
+function rapportTillKolumner(delta: Partial<RapportRad>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if ("orgnr" in delta) row["orgnr"] = delta.orgnr;
+  if ("rakenskapsar" in delta) row["rakenskapsar"] = delta.rakenskapsar;
+  if ("pipelineVersion" in delta) row["pipeline_version"] = delta.pipelineVersion;
+  if ("model" in delta) row["model"] = delta.model;
+  if ("textlager" in delta) row["textlager"] = delta.textlager;
+  if ("status" in delta) row["status"] = delta.status;
+  if ("stage" in delta) row["stage"] = delta.stage;
+  if ("pdfHash" in delta) row["pdf_hash"] = delta.pdfHash;
+  if ("leaseUntil" in delta) row["lease_until"] = delta.leaseUntil;
+  if ("attempts" in delta) row["attempts"] = delta.attempts;
+  if ("grundtext" in delta) row["grundtext"] = delta.grundtext;
+  if ("extraction" in delta) row["extraction"] = delta.extraction;
+  if ("judgement" in delta) row["judgement"] = delta.judgement;
+  if ("errorCode" in delta) row["error_code"] = delta.errorCode;
+  if ("errorMessage" in delta) row["error_message"] = delta.errorMessage;
+  if ("costSek" in delta) row["cost_sek"] = delta.costSek;
+  if ("cacheReadTokens" in delta) row["cache_read_tokens"] = delta.cacheReadTokens;
+  if ("cacheWriteTokens" in delta) row["cache_write_tokens"] = delta.cacheWriteTokens;
+  if ("startedAt" in delta) row["started_at"] = delta.startedAt;
+  if ("finishedAt" in delta) row["finished_at"] = delta.finishedAt;
+  if ("ersattAv" in delta) row["ersatt_av"] = delta.ersattAv;
+  return row;
+}
+
+interface RapportFilKolumner {
+  pdf_hash: string;
+  rapport_id: string;
+  pdf_path: string;
+  sidor: number | null;
+  bytes: number | null;
+  uppladdad: string;
+}
+
+function rapportFilFranKolumner(row: RapportFilKolumner) {
+  return {
+    pdfHash: row.pdf_hash,
+    rapportId: row.rapport_id,
+    pdfPath: row.pdf_path,
+    sidor: row.sidor,
+    bytes: row.bytes,
+    uppladdad: row.uppladdad,
+  };
+}
+
+function tolkaRapportKonflikt(error: {
+  code?: string;
+  message: string;
+}): "identitetskonflikt" | "filkonflikt" | null {
+  if (error.code !== "23505") return null;
+  if (error.message.includes("rapport_identitet_uniq")) return "identitetskonflikt";
+  if (error.message.includes("rapport_fil_version_uniq")) return "filkonflikt";
+  return null;
 }
 
 interface ExtraktionCacheKolumner {
@@ -300,7 +454,13 @@ function byggLager(sb: any) {
         pdfHash: string,
         model: string,
         promptVersion: string,
-        rad: { extraction: unknown; schemaVersion: string; costSek: number; orgnr: string | null; rakenskapsar: number | null },
+        rad: {
+          extraction: unknown;
+          schemaVersion: string;
+          costSek: number;
+          orgnr: string | null;
+          rakenskapsar: number | null;
+        },
       ): Promise<void> {
         const { error } = await sb.from("extraktion_cache").upsert(
           {
@@ -373,6 +533,316 @@ function byggLager(sb: any) {
       // skapaAnalys, hamtaAnalys och raderaAnalys är MEDVETET utelämnade —
       // ingenting i korNastaSteg's anropskedja rör dem (de hör till
       // upload-/deletion-rutterna, inte till tick-loopen).
+
+      // ---------------------------------------------------------------------
+      // Register — every method of the port, mirroring src/server/supabase.ts.
+      // ---------------------------------------------------------------------
+
+      async skapaRapport(rad: Partial<RapportRad>) {
+        const { data, error } = await sb
+          .from("rapport")
+          .insert(rapportTillKolumner(rad))
+          .select("id")
+          .single();
+        if (error) {
+          const konflikt = tolkaRapportKonflikt(error);
+          if (konflikt) return { ok: false, orsak: konflikt } as const;
+          throw new Error(`skapaRapport misslyckades: ${error.message}`);
+        }
+        return { ok: true, id: (data as { id: string }).id } as const;
+      },
+
+      async hamtaRapport(id: string): Promise<RapportRad | null> {
+        const { data, error } = await sb.from("rapport").select("*").eq("id", id).maybeSingle();
+        if (error) throw new Error(`hamtaRapport misslyckades: ${error.message}`);
+        return data ? rapportFranKolumner(data as RapportKolumner) : null;
+      },
+
+      async uppdateraRapport(id: string, delta: Partial<RapportRad>): Promise<void> {
+        const { error } = await sb.from("rapport").update(rapportTillKolumner(delta)).eq("id", id);
+        if (error) throw new Error(`uppdateraRapport misslyckades: ${error.message}`);
+      },
+
+      // The worker's leased write — see uppdateraLeasadRapport in
+      // src/server/portar.ts: only while still 'running' under this lease.
+      async uppdateraLeasadRapport(
+        id: string,
+        lease: string | null,
+        delta: Partial<RapportRad>,
+      ): Promise<boolean> {
+        let q = sb
+          .from("rapport")
+          .update(rapportTillKolumner(delta))
+          .eq("id", id)
+          .eq("status", "running");
+        q = lease === null ? q.is("lease_until", null) : q.eq("lease_until", lease);
+        const { data, error } = await q.select("id");
+        if (error) throw new Error(`uppdateraLeasadRapport misslyckades: ${error.message}`);
+        return Array.isArray(data) && data.length === 1;
+      },
+
+      async sattRapportIdentitet(
+        id: string,
+        orgnr: string,
+        rakenskapsar: number,
+        lease?: string | null,
+      ): Promise<boolean> {
+        let q = sb.from("rapport").update({ orgnr, rakenskapsar }).eq("id", id);
+        if (lease !== undefined) {
+          q = q.eq("status", "running");
+          q = lease === null ? q.is("lease_until", null) : q.eq("lease_until", lease);
+        }
+        const { data, error } = await q.select("id");
+        if (error) {
+          if (tolkaRapportKonflikt(error) === "identitetskonflikt") return false;
+          throw new Error(`sattRapportIdentitet misslyckades: ${error.message}`);
+        }
+        return Array.isArray(data) && data.length === 1;
+      },
+
+      async raderaRapport(id: string): Promise<void> {
+        const { error } = await sb.from("rapport").delete().eq("id", id);
+        if (error) throw new Error(`raderaRapport misslyckades: ${error.message}`);
+      },
+
+      async listaRapporter(filter: {
+        orgnr?: string;
+        rakenskapsar?: number;
+        pdfHash?: string;
+        limit?: number;
+      }): Promise<RapportRad[]> {
+        let q = sb.from("rapport").select("*");
+        if (filter.orgnr !== undefined) q = q.eq("orgnr", filter.orgnr);
+        if (filter.rakenskapsar !== undefined) q = q.eq("rakenskapsar", filter.rakenskapsar);
+        if (filter.pdfHash !== undefined) q = q.eq("pdf_hash", filter.pdfHash);
+        q = q.order("created_at", { ascending: false });
+        if (filter.limit !== undefined) q = q.limit(filter.limit);
+        const { data, error } = await q;
+        if (error) throw new Error(`listaRapporter misslyckades: ${error.message}`);
+        return (data as RapportKolumner[]).map(rapportFranKolumner);
+      },
+
+      async klaimaNastaRapportSteg(leaseSekunder?: number): Promise<RapportRad | null> {
+        const { data, error } = await sb.rpc("claim_next_rapport_steg", {
+          p_lease_sekunder: leaseSekunder ?? 300,
+        });
+        if (error) throw new Error(`klaimaNastaRapportSteg misslyckades: ${error.message}`);
+        const row = data as RapportKolumner | null;
+        if (!row || !row.id) return null;
+        return rapportFranKolumner(row);
+      },
+
+      async slappRapportSteg(id: string, ateranvandForsok: boolean): Promise<void> {
+        const { error } = await sb.rpc("slapp_rapport_steg", {
+          p_id: id,
+          p_ateranvand_forsok: ateranvandForsok,
+        });
+        if (error) throw new Error(`slappRapportSteg misslyckades: ${error.message}`);
+      },
+
+      async hamtaRapportFil(pdfHash: string) {
+        const { data, error } = await sb
+          .from("rapport_fil")
+          .select("*")
+          .eq("pdf_hash", pdfHash)
+          .maybeSingle();
+        if (error) throw new Error(`hamtaRapportFil misslyckades: ${error.message}`);
+        return data ? rapportFilFranKolumner(data as RapportFilKolumner) : null;
+      },
+
+      async skapaRapportFil(rad: {
+        pdfHash: string;
+        rapportId: string;
+        pdfPath: string;
+        sidor: number | null;
+        bytes: number | null;
+      }) {
+        const { error } = await sb.from("rapport_fil").upsert(
+          {
+            pdf_hash: rad.pdfHash,
+            rapport_id: rad.rapportId,
+            pdf_path: rad.pdfPath,
+            sidor: rad.sidor,
+            bytes: rad.bytes,
+          },
+          { onConflict: "pdf_hash", ignoreDuplicates: true },
+        );
+        if (error) throw new Error(`skapaRapportFil misslyckades: ${error.message}`);
+        const { data, error: lasFel } = await sb
+          .from("rapport_fil")
+          .select("*")
+          .eq("pdf_hash", rad.pdfHash)
+          .single();
+        if (lasFel) throw new Error(`skapaRapportFil (omläsning) misslyckades: ${lasFel.message}`);
+        return rapportFilFranKolumner(data as RapportFilKolumner);
+      },
+
+      async bytRapportForFil(pdfHash: string, franRapportId: string, tillRapportId: string) {
+        const { data, error } = await sb
+          .from("rapport_fil")
+          .update({ rapport_id: tillRapportId })
+          .eq("pdf_hash", pdfHash)
+          .eq("rapport_id", franRapportId)
+          .select("pdf_hash");
+        if (error) throw new Error(`bytRapportForFil misslyckades: ${error.message}`);
+        return Array.isArray(data) && data.length === 1;
+      },
+
+      async flyttaRapportFiler(franRapportId: string, tillRapportId: string): Promise<void> {
+        const { error } = await sb
+          .from("rapport_fil")
+          .update({ rapport_id: tillRapportId })
+          .eq("rapport_id", franRapportId);
+        if (error) throw new Error(`flyttaRapportFiler misslyckades: ${error.message}`);
+      },
+
+      async listaRapportFiler(rapportId: string) {
+        const { data, error } = await sb
+          .from("rapport_fil")
+          .select("*")
+          .eq("rapport_id", rapportId)
+          .order("uppladdad", { ascending: true });
+        if (error) throw new Error(`listaRapportFiler misslyckades: ${error.message}`);
+        return (data as RapportFilKolumner[]).map(rapportFilFranKolumner);
+      },
+
+      async lankaOmAnalyser(franRapportId: string, tillRapportId: string): Promise<void> {
+        const { error } = await sb
+          .from("analys")
+          .update({ rapport_id: tillRapportId })
+          .eq("rapport_id", franRapportId);
+        if (error) throw new Error(`lankaOmAnalyser misslyckades: ${error.message}`);
+      },
+
+      async hamtaAnalyserForRapport(rapportId: string, limit: number): Promise<JobbRad[]> {
+        const { data, error } = await sb
+          .from("analys")
+          .select("*")
+          .eq("rapport_id", rapportId)
+          .order("created_at", { ascending: true })
+          .limit(limit);
+        if (error) throw new Error(`hamtaAnalyserForRapport misslyckades: ${error.message}`);
+        return (data as JobbRadKolumner[]).map(radFranKolumner);
+      },
+
+      async hamtaPdfSokvagForHash(pdfHash: string): Promise<string | null> {
+        const { data, error } = await sb
+          .from("analys")
+          .select("pdf_path")
+          .eq("pdf_hash", pdfHash)
+          .not("pdf_path", "is", null)
+          .limit(1);
+        if (error) throw new Error(`hamtaPdfSokvagForHash misslyckades: ${error.message}`);
+        const forsta = (data as Array<{ pdf_path: string | null }>)[0];
+        return forsta?.pdf_path ?? null;
+      },
+
+      async registreraForening(orgnr: string, namn: string | null): Promise<void> {
+        const { error } = await sb.rpc("registrera_forening", { p_orgnr: orgnr, p_namn: namn });
+        if (error) throw new Error(`registreraForening misslyckades: ${error.message}`);
+      },
+
+      async hamtaForening(orgnr: string) {
+        const { data, error } = await sb
+          .from("forening")
+          .select("*")
+          .eq("orgnr", orgnr)
+          .maybeSingle();
+        if (error) throw new Error(`hamtaForening misslyckades: ${error.message}`);
+        if (!data) return null;
+        const row = data as {
+          orgnr: string;
+          namn: string | null;
+          forst_sedd: string;
+          senast_sedd: string;
+        };
+        return {
+          orgnr: row.orgnr,
+          namn: row.namn,
+          forstSedd: row.forst_sedd,
+          senastSedd: row.senast_sedd,
+        };
+      },
+
+      async registreraForeningAdress(rad: {
+        orgnr: string;
+        postnummer: string | null;
+        kommunKod: string | null;
+        omrade: string | null;
+        adress: string | null;
+        kalla: "rapport" | "anvandare";
+      }): Promise<void> {
+        const { error } = await sb.rpc("registrera_forening_adress", {
+          p_orgnr: rad.orgnr,
+          p_postnummer: rad.postnummer,
+          p_kommun_kod: rad.kommunKod,
+          p_omrade: rad.omrade,
+          p_adress: rad.adress,
+          p_kalla: rad.kalla,
+        });
+        if (error) throw new Error(`registreraForeningAdress misslyckades: ${error.message}`);
+      },
+
+      // WS1 scan transcriptions — mirrors hamtaSidtext/sparaSidtext in
+      // src/server/supabase.ts (upsert on (rapport_id, sida); deliberately not
+      // lease-guarded, see the port's comment in src/server/portar.ts).
+      async hamtaSidtext(
+        rapportId: string,
+        kalla?: string,
+      ): Promise<Array<{ sida: number; text: string }>> {
+        let q = sb.from("sidtext").select("sida, text").eq("rapport_id", rapportId);
+        if (kalla !== undefined) q = q.eq("kalla", kalla);
+        const { data, error } = await q.order("sida", { ascending: true });
+        if (error) throw new Error(`hamtaSidtext misslyckades: ${error.message}`);
+        return (data as Array<{ sida: number; text: string }>).map((rad) => ({
+          sida: rad.sida,
+          text: rad.text,
+        }));
+      },
+
+      async sparaSidtext(
+        rapportId: string,
+        sidor: ReadonlyArray<{ sida: number; text: string }>,
+        kalla: string,
+      ): Promise<void> {
+        if (sidor.length === 0) return;
+        const { error } = await sb.from("sidtext").upsert(
+          sidor.map((s) => ({ rapport_id: rapportId, sida: s.sida, text: s.text, kalla })),
+          { onConflict: "rapport_id,sida" },
+        );
+        if (error) throw new Error(`sparaSidtext misslyckades: ${error.message}`);
+      },
+
+      async listaExtraktionCache(promptVersion: string) {
+        const { data, error } = await sb
+          .from("extraktion_cache")
+          .select(
+            "pdf_hash, model, prompt_version, extraction, schema_version, cost_sek, orgnr, rakenskapsar, created_at",
+          )
+          .eq("prompt_version", promptVersion)
+          .order("created_at", { ascending: true });
+        if (error) throw new Error(`listaExtraktionCache misslyckades: ${error.message}`);
+        return (
+          data as Array<
+            ExtraktionCacheKolumner & {
+              pdf_hash: string;
+              model: string;
+              prompt_version: string;
+              created_at: string;
+            }
+          >
+        ).map((row) => ({
+          pdfHash: row.pdf_hash,
+          model: row.model,
+          promptVersion: row.prompt_version,
+          createdAt: row.created_at,
+          extraction: row.extraction,
+          schemaVersion: row.schema_version,
+          costSek: Number(row.cost_sek),
+          orgnr: row.orgnr,
+          rakenskapsar: row.rakenskapsar,
+        }));
+      },
     },
 
     filer: {
@@ -382,6 +852,17 @@ function byggLager(sb: any) {
         return new Uint8Array(await data.arrayBuffer());
       },
       // laggUpp och ta_bort är MEDVETET utelämnade — se kommentaren ovan.
+
+      async finns(sokvag: string): Promise<boolean> {
+        const snedstreck = sokvag.lastIndexOf("/");
+        const katalog = snedstreck === -1 ? "" : sokvag.slice(0, snedstreck);
+        const namn = sokvag.slice(snedstreck + 1);
+        const { data, error } = await sb.storage
+          .from(BUCKET)
+          .list(katalog, { search: namn, limit: 100 });
+        if (error) throw new Error(`finns misslyckades: ${error.message}`);
+        return ((data ?? []) as Array<{ name: string }>).some((objekt) => objekt.name === namn);
+      },
     },
   };
 }
@@ -430,48 +911,38 @@ Deno.serve(async (req: Request) => {
     );
     const lager = byggLager(sb);
 
-    // Task 1.2 — remove the queue-waiting bottleneck: without this, a job
-    // only advances one stage per `binfo-tick` (every minute), so a
-    // three-stage job takes ~3-5 minutes of pure queue latency on top of the
-    // actual API time. `korNastaSteg` calls `reinvoke()` itself (see
-    // src/server/steg.ts) the moment a stage succeeds and leaves the row
-    // `queued` at a non-terminal stage — i.e. exactly when there's more work
-    // to do right now rather than at the next tick. This POSTs back to this
-    // SAME function (`req.url` — the URL this very invocation was reached
-    // at, so it works under any custom domain/project ref without deriving
-    // one from PROJECT_URL) with the identical `apikey` header pg_cron uses,
-    // so the auth check above passes the same way for a self-triggered
-    // invocation as for a cron-triggered one.
+    // Remove the queue-waiting bottleneck: without this, a job only advances one
+    // stage per `binfo-tick` (every minute). `korNastaSteg` calls `reinvoke()`
+    // itself (see src/server/steg.ts) the moment a stage succeeds and leaves the
+    // row `queued` with more work to do right now.
+    //
+    // VERIFIED on a local Supabase stack (2026-10-10): `req.url` inside the
+    // runtime is the INTERNAL address (`http://kong:8081/analys-steg` — internal
+    // port, no /functions/v1), which refuses the connection, so the old
+    // `fetch(req.url)` never landed and every stage waited for the next minute
+    // tick (a text job took 176 s instead of 106 s). The self-POST therefore goes
+    // through the public gateway, `<PROJECT_URL>/functions/v1/analys-steg`
+    // (reinvoke.ts), with the same `apikey` header pg_cron uses, so the auth check
+    // above passes the same way as for a cron-triggered invocation.
     //
     // Deliberately NOT awaited: this invocation must return its own HTTP
-    // response promptly (the reason the pipeline was split into one
-    // Anthropic call per invocation in the first place is the 150s wall-clock
-    // cap per invocation — see SUPABASE.md — and awaiting the next stage's
-    // full round trip here would chain that wait right back in). `.catch`
-    // swallows a failed self-invoke silently on purpose: `reinvoke`'s own doc
-    // comment in steg.ts says why — it is a pure speed-up, never a
-    // correctness dependency, and `binfo-tick`'s normal once-a-minute poll
-    // remains the safety net if this never fires or never lands.
-    //
-    // UNVERIFIED (no live deploy in this task — see the task report): whether
-    // an un-awaited `fetch` reliably finishes sending once this handler
-    // returns its response is a real Deno/Supabase Edge Runtime behaviour
-    // question this task could not verify without deploying. If the
-    // platform provides a "keep running after response" primitive (Supabase
-    // has documented `EdgeRuntime.waitUntil()` for background work in the
-    // past), feature-detect and use it so the outbound request isn't cut off
-    // mid-flight; degrade to the plain fire-and-forget call otherwise. Worst
-    // case if neither works: the reinvoke silently never lands, and the job
-    // proceeds at the pre-existing once-a-minute cadence — not a regression.
+    // response promptly (the reason the pipeline is split into small steps is the
+    // per-invocation wall-clock and CPU limits — see SUPABASE.md). `.catch`
+    // swallows a failed self-invoke on purpose: it is a pure speed-up, never a
+    // correctness dependency; `binfo-tick`'s once-a-minute poll remains the safety
+    // net. `EdgeRuntime.waitUntil` (when the runtime provides it) keeps the
+    // outbound request alive after the response has been sent.
+    const reinvokeUrl = byggReinvokeUrl(kravMiljovariabel("PROJECT_URL"));
     const reinvoke = () => {
-      const gjord = fetch(req.url, {
+      const gjord = fetch(reinvokeUrl, {
         method: "POST",
         headers: { apikey: expected },
       }).catch(() => {
         // Best-effort — see the comment above.
       });
-      const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
-        .EdgeRuntime;
+      const runtime = (
+        globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }
+      ).EdgeRuntime;
       runtime?.waitUntil?.(gjord);
     };
 

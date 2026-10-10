@@ -79,6 +79,15 @@ export function parseValfrittHeltal(rått: string): number | undefined {
   return Math.trunc(tal);
 }
 
+/** Våning: ett heltal ≥ 0 — 0 är bottenvåning, som `parsePositivtTal` annars
+ *  skulle avvisa. `null` för tomt eller ogiltigt. */
+export function parseVaning(rått: string): number | null {
+  const normaliserat = normaliseraTalsträng(rått);
+  if (normaliserat === "") return null;
+  const tal = Number(normaliserat);
+  return Number.isFinite(tal) && tal >= 0 ? Math.trunc(tal) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Formulärvalidering
 // ---------------------------------------------------------------------------
@@ -112,20 +121,25 @@ export interface AnalyseraFormFel {
   ort: string | null;
 }
 
+/** Felet för ett obligatoriskt postnummer (`null` = giltigt). Delas av
+ *  /analysera och /vardering (src/lib/varderingForm.ts). */
+export function valideraPostnummer(rått: string): string | null {
+  const postnummer = rått.trim();
+  if (postnummer === "") return "Ange postnummer.";
+  return /^\d{3} ?\d{2}$/.test(postnummer)
+    ? null
+    : "Ange ett postnummer med fem siffror, t.ex. 116 25.";
+}
+
 export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFel {
   return {
     utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
-    vaning: parsePositivtTal(f.vaning) === null ? "Ange våning." : null,
+    vaning: parseVaning(f.vaning) === null ? "Ange våning." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
-    postnummer:
-      f.postnummer.trim() === ""
-        ? "Ange postnummer."
-        : /^\d{3} ?\d{2}$/.test(f.postnummer.trim())
-          ? null
-          : "Ange ett postnummer med fem siffror, t.ex. 116 25.",
+    postnummer: valideraPostnummer(f.postnummer),
     ort: f.ort.trim() === "" ? "Ange ort." : null,
   };
 }
@@ -168,7 +182,7 @@ export function buildPropertyInput(
   form: AnalyseraFormFields,
   uppgifter: AnalyseraFormUppgifter,
 ): PropertyInput {
-  const vaning = parseValfrittHeltal(form.vaning);
+  const vaning = parseVaning(form.vaning) ?? undefined;
   const byggar = parseValfrittHeltal(form.byggar);
 
   return {

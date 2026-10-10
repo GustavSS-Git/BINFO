@@ -32,10 +32,10 @@ export function PropertySummary({
         <div>
           <h2 className="font-display text-2xl text-foreground">{foreningNamn}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {/* Adressen rensas efter 30 dagar (GDPR); rapporten finns kvar. */}
+            {/* Adressen rensas efter 12 månader (GDPR); rapporten finns kvar. */}
             {input.adress !== ""
               ? `${input.adress}, ${input.ort}`
-              : `Adressen raderad efter 30 dagar · ${input.ort}`}{" "}
+              : `Adressen raderad efter 12 månader · ${input.ort}`}{" "}
             · {input.antalRum} rum
           </p>
         </div>

@@ -14,6 +14,7 @@ import { Route as AnalyseraRouteImport } from './routes/analysera'
 import { Route as BolanekalkylRouteImport } from './routes/bolanekalkyl'
 import { Route as ExempelRouteImport } from './routes/exempel'
 import { Route as GuideRouteImport } from './routes/guide'
+import { Route as VarderingRouteImport } from './routes/vardering'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
 import { Route as ForhandsvisningAnalysisIdRouteImport } from './routes/forhandsvisning_.$analysisId'
 
@@ -42,6 +43,11 @@ const GuideRoute = GuideRouteImport.update({
   path: '/guide',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VarderingRoute = VarderingRouteImport.update({
+  id: '/vardering',
+  path: '/vardering',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalysAnalysisIdRoute = AnalysAnalysisIdRouteImport.update({
   id: '/analys_/$analysisId',
   path: '/analys/$analysisId',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/bolanekalkyl': typeof BolanekalkylRoute
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
+  '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/bolanekalkyl': typeof BolanekalkylRoute
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
+  '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/bolanekalkyl': typeof BolanekalkylRoute
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
+  '/vardering': typeof VarderingRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning_/$analysisId': typeof ForhandsvisningAnalysisIdRoute
 }
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/bolanekalkyl'
     | '/exempel'
     | '/guide'
+    | '/vardering'
     | '/analys/$analysisId'
     | '/forhandsvisning/$analysisId'
   fileRoutesByTo: FileRoutesByTo
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/bolanekalkyl'
     | '/exempel'
     | '/guide'
+    | '/vardering'
     | '/analys/$analysisId'
     | '/forhandsvisning/$analysisId'
   id:
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/bolanekalkyl'
     | '/exempel'
     | '/guide'
+    | '/vardering'
     | '/analys_/$analysisId'
     | '/forhandsvisning_/$analysisId'
   fileRoutesById: FileRoutesById
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   BolanekalkylRoute: typeof BolanekalkylRoute
   ExempelRoute: typeof ExempelRoute
   GuideRoute: typeof GuideRoute
+  VarderingRoute: typeof VarderingRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
   ForhandsvisningAnalysisIdRoute: typeof ForhandsvisningAnalysisIdRoute
 }
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GuideRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vardering': {
+      id: '/vardering'
+      path: '/vardering'
+      fullPath: '/vardering'
+      preLoaderRoute: typeof VarderingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analys_/$analysisId': {
       id: '/analys_/$analysisId'
       path: '/analys/$analysisId'
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   BolanekalkylRoute: BolanekalkylRoute,
   ExempelRoute: ExempelRoute,
   GuideRoute: GuideRoute,
+  VarderingRoute: VarderingRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,
   ForhandsvisningAnalysisIdRoute: ForhandsvisningAnalysisIdRoute,
 }

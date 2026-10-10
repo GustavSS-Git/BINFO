@@ -1,12 +1,24 @@
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { ScannedPdfError } from "@/lib/analysis/runExtraction";
+import { ScannedPdfError, TomTranskriptionError } from "@/lib/analysis/runExtraction";
+import { TranskriberingMarkorFelError } from "@/lib/analysis/transkribering";
 import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ExtractionValidationError, ModelTruncatedError } from "@/lib/analysis/extract";
 import { AnalysValidationError } from "@/lib/analysis/analyze";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
-import { arRetrybar, tolkaFel, tolkaSpendSkal } from "./fel";
+import { SidtextOfullstandigError } from "./register";
+import { arRetrybar, tolkaFel, tolkaKvot, tolkaSpendSkal } from "./fel";
+import { SaknarBehorighetError } from "./behorighet";
+import { KVOT_MEDDELANDE } from "./kvot";
+import type { AnalysErrorCode } from "./portar";
+import type { AnalysErrorCode as KlientensAnalysErrorCode } from "@/lib/analysStatusCopy";
+
+// The client mirrors the server's error-code union by hand (it may not
+// import src/server/). Both directions must hold, or a code would reach the
+// buyer without copy (or copy would exist for a code the server never sends).
+type ArLika<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const SPEGLINGEN_AR_EXAKT: ArLika<AnalysErrorCode, KlientensAnalysErrorCode> = true;
 
 /** En riktig z.ZodError, framtagen via ett faktiskt misslyckat safeParse —
  *  enklare och mer verklighetstroget än att bygga ZodError-instansen för
@@ -38,6 +50,35 @@ describe("tolkaFel", () => {
     // saknar textlager. Att skriva ett nytt meddelande hade bara duplicerat
     // texten utan att göra den säkrare, så vi passerar igenom den oförändrad.
     expect(resultat.message).toBe(error.message);
+  });
+
+  it("mappar TranskriberingMarkorFelError till scanned_pdf med ett fast köparsäkert meddelande (inga sidnummer eller markördetaljer)", () => {
+    const error = new TranskriberingMarkorFelError(6, 10, [
+      "sidmarkören 7 saknas",
+      "oväntad sidmarkör 1",
+    ]);
+    const resultat = tolkaFel(error);
+    expect(resultat.errorCode).toBe("scanned_pdf");
+    expect(resultat.message).toBe(
+      "Vi kunde inte läsa av de skannade sidorna tillförlitligt. " +
+        "Försök gärna med en digital version av årsredovisningen.",
+    );
+    expect(resultat.message).not.toContain(error.message);
+    expect(resultat.message).not.toMatch(/sidmarkör|\d/);
+  });
+
+  it("mappar TomTranskriptionError till samma köparsäkra scanned_pdf-svar", () => {
+    const resultat = tolkaFel(new TomTranskriptionError());
+    expect(resultat.errorCode).toBe("scanned_pdf");
+    expect(resultat.message).toMatch(/skannade sidorna/);
+    expect(resultat.message).not.toMatch(/API-anrop|Transkriptionen innehåller/);
+  });
+
+  it("mappar SidtextOfullstandigError (ofullständig transkription vid grundning) till samma köparsäkra scanned_pdf-svar", () => {
+    const resultat = tolkaFel(new SidtextOfullstandigError(3, 34));
+    expect(resultat.errorCode).toBe("scanned_pdf");
+    expect(resultat.message).toMatch(/skannade sidorna/);
+    expect(resultat.message).not.toMatch(/\d/);
   });
 
   it("mappar KostnadsgransOverskriden till cost_cap utan att läcka interna variabelnamn", () => {
@@ -158,8 +199,9 @@ describe("tolkaSpendSkal", () => {
 });
 
 describe("arRetrybar", () => {
-  it("är true endast för daily_cap", () => {
+  it("är true endast för de tidsbundna lägena daily_cap och kvot", () => {
     expect(arRetrybar("daily_cap")).toBe(true);
+    expect(arRetrybar("kvot")).toBe(true);
   });
 
   it("är false för alla andra felkoder", () => {
@@ -167,6 +209,50 @@ describe("arRetrybar", () => {
     expect(arRetrybar("cost_cap")).toBe(false);
     expect(arRetrybar("validation")).toBe(false);
     expect(arRetrybar("saknar_rantekanslighet")).toBe(false);
+    expect(arRetrybar("versionskonflikt")).toBe(false);
+    expect(arRetrybar("behorighet")).toBe(false);
     expect(arRetrybar("unknown")).toBe(false);
+  });
+});
+
+describe("kontolagrets felkoder", () => {
+  it("klientens spegel av AnalysErrorCode är exakt serverns (typkontroll)", () => {
+    expect(SPEGLINGEN_AR_EXAKT).toBe(true);
+  });
+
+  it("SaknarBehorighetError → behorighet, med den fasta köparsäkra meningen", () => {
+    expect(tolkaFel(new SaknarBehorighetError("full_rapport"))).toEqual({
+      errorCode: "behorighet",
+      message: "Du har inte tillgång till den här funktionen just nu.",
+    });
+  });
+
+  it("en nekad kvot → kvot, och kvotens eget (köparsäkra) meddelande passerar oförändrat", () => {
+    for (const message of Object.values(KVOT_MEDDELANDE)) {
+      expect(tolkaKvot({ ok: false, errorCode: "kvot", message })).toEqual({
+        errorCode: "kvot",
+        message,
+      });
+    }
+  });
+});
+
+describe("registrets felkoder", () => {
+  it("ogiltigforklarad visas aldrig som sig själv: versionskonflikt med eget, sant meddelande", async () => {
+    const { tolkaRapportFel, ogiltigforklaradResultat } = await import("./fel");
+    expect(tolkaRapportFel("ogiltigforklarad", "internt")).toEqual(ogiltigforklaradResultat());
+    expect(ogiltigforklaradResultat().errorCode).toBe("versionskonflikt");
+    expect(ogiltigforklaradResultat().message).toMatch(/dragits tillbaka/);
+  });
+
+  it("andra rapportkoder passerar med radens (redan köparsäkra) meddelande", async () => {
+    const { tolkaRapportFel } = await import("./fel");
+    expect(tolkaRapportFel("cost_cap", "Taket nått.")).toEqual({
+      errorCode: "cost_cap",
+      message: "Taket nått.",
+    });
+    const utan = tolkaRapportFel(null, null);
+    expect(utan.errorCode).toBe("unknown");
+    expect(utan.message.length).toBeGreaterThan(0);
   });
 });

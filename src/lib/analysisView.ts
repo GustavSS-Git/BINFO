@@ -7,11 +7,13 @@
  */
 import { kr } from "@/data/mockData";
 import type {
+  AnalysisResult,
   Budpremie,
   CostItemId,
   Dataperiod,
   FeeInclusion,
   Figure,
+  PageRef,
   RedFlag,
   Severity,
   Varderingsunderlag,
@@ -275,4 +277,68 @@ export function varderingsTackningText(u: Varderingsunderlag): VarderingsTacknin
       "Uppskattningen bygger på generella samband från Binfos Stockholmsmodell" +
       (n ? `, skalade till genomsnittspriset i ${plats ?? "området"}${niva}.` : "."),
   };
+}
+
+// ---------------------------------------------------------------------------
+// v2: lägenhetens andel av föreningens lån, skannad rapport
+// ---------------------------------------------------------------------------
+
+/**
+ * Raden "Lägenhetens ungefärliga andel av föreningens lån" under värderingen
+ * (PLAN-v2 §2.2). Ren kommentar — värderingen är orörd, och texten säger det.
+ * Delas av rapporten och PDF-exporten så de aldrig kan glida isär.
+ */
+export interface AndelAvSkuldRad {
+  text: string;
+  /** Sidhänvisning till nyckeltalet som beräkningen bygger på. */
+  ref?: PageRef;
+  /** Varför beloppet är osäkert, när motsvarande underlag är markerat så. */
+  osaker?: string;
+}
+
+export const SKULDFRI_FORENING_TEXT =
+  "Föreningen har inga räntebärande lån enligt årsredovisningen.";
+
+/**
+ * `undefined` när `prisanalys.andelAvForeningensSkuld` saknas eller saknar
+ * värde — raden utelämnas då helt (en fråga tar hand om luckan, se
+ * assemble.ts). 0 kr (en skuldfri förening) ger den särskilda
+ * skuldfria texten. Skuld per m² läses ur nyckeltalet som beräkningen
+ * byggde på; saknas det visas beloppet utan uppdelning hellre än en
+ * baklängesräknad siffra.
+ */
+export function andelAvSkuldRad(
+  analys: Pick<AnalysisResult, "prisanalys" | "forening" | "input">,
+): AndelAvSkuldRad | undefined {
+  const andel = analys.prisanalys.andelAvForeningensSkuld;
+  if (!andel || andel.value === null) return undefined;
+
+  const rad = (text: string): AndelAvSkuldRad => ({
+    text,
+    ...(andel.ref ? { ref: andel.ref } : {}),
+    ...(andel.osaker ? { osaker: andel.osaker } : {}),
+  });
+
+  if (andel.value === 0) return rad(SKULDFRI_FORENING_TEXT);
+
+  const skuldPerM2 = analys.forening.keyFigures.find(
+    (kf) => kf.id === "skuldsattning_per_m2_brf_yta",
+  )?.figure;
+  const uppdelning =
+    skuldPerM2 && skuldPerM2.value !== null
+      ? ` (${formatVarde(skuldPerM2.value, "kr/m2")} × ${formatVarde(analys.input.boarea, "m2")})`
+      : "";
+  return rad(
+    `Lägenhetens ungefärliga andel av föreningens lån: ca ${formatVarde(andel.value, "kr")}` +
+      `${uppdelning}. Ingår inte i värderingen.`,
+  );
+}
+
+/** Visas i rapporten och PDF:en när `datakvalitet.kalla === 'skannad'`. */
+export const SKANNAD_NOTIS =
+  "Årsredovisningen var skannad; siffrorna är avlästa från sidbilderna och kan innehålla fel – " +
+  "kontrollera de viktigaste mot rapporten.";
+
+export function arSkannad(analys: Pick<AnalysisResult, "datakvalitet">): boolean {
+  return analys.datakvalitet.kalla === "skannad";
 }

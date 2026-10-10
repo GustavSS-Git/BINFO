@@ -799,3 +799,34 @@ describe("korNastaSteg", () => {
     });
   });
 });
+
+describe("legacy-kön: spend stäms av exakt en gång per stegförsök", () => {
+  it("ett skrivfel efter lyckad grundning: reservationen stäms av en gång, inte både i framgångs- och felvägen", async () => {
+    const lager = skapaFakeLager();
+    await skapaRad(lager);
+    const avstamningar: Array<{ reserverat: number; faktiskt: number }> = [];
+    const avstam = lager.db.avstamSpend.bind(lager.db);
+    lager.db.avstamSpend = async (dag, reserverat, faktiskt) => {
+      avstamningar.push({ reserverat, faktiskt });
+      return avstam(dag, reserverat, faktiskt);
+    };
+    const riktig = lager.db.uppdateraAnalys.bind(lager.db);
+    let forsta = true;
+    lager.db.uppdateraAnalys = async (id, delta) => {
+      if (forsta) {
+        forsta = false;
+        throw new Error("databasen blinkade");
+      }
+      return riktig(id, delta);
+    };
+
+    const client = fakeClient();
+    client.messages.countTokens.mockResolvedValue({ input_tokens: 100 });
+    client.messages.create.mockResolvedValueOnce(groundingResponse());
+    await korNastaSteg(lager, miljo(), { client });
+
+    expect(avstamningar).toHaveLength(1);
+    expect(avstamningar[0]?.reserverat).toBe(3);
+    expect(avstamningar[0]?.faktiskt).toBeGreaterThan(0);
+  });
+});

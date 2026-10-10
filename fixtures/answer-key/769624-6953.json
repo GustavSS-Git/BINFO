@@ -4,9 +4,17 @@
   "kalla": {
     "fil": "test_rapport.pdf",
     "forvaltare": "SBC (avtal med leverantörer, sida 7)",
-    "verifieradMot": "Verifierad av ägaren 2026-09-25 mot originalets sidor (se verifiering) — men bara för det som går att verifiera. Den här PDF:ens textlager är garblat i just flerårsöversiktens tabell (varje siffra kommer som ett eget whitespace-separerat token utan tillförlitlig kolumnordning — se pdf.ts:bedomTextkvalitet, som ger detta dokumentet 0,78 mot 0,05–0,35 för de övriga nio, tydligt urskiljande men inte siffermässigt läsbart), så \"nyckeltal\" innehåller fortfarande inga siffervärden alls — bara identitet och avgiftsinkludering, som går att läsa ur löpande text på andra sidor och som ägaren har stämt av."
+    "verifieradMot": "Verifierad av ägaren: identitet, avgiftsinkludering och övrig info 2026-09-25; nyckeltalsvärdena 2026-10-10 (avlästa av supervisorn från den renderade sidbilden, PDF-sida 8, tryckt 'Sida 6 av 20', eftersom textlagret i flerårsöversiktens tabell är garblat — se pdf.ts:bedomTextkvalitet, 0,785)."
   },
-  "nyckeltal": {},
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 724,
+    "arsavgift_andel_av_rorelseintakter": 65.9,
+    "skuldsattning_per_m2_totalyta": 4424,
+    "skuldsattning_per_m2_brf_yta": 5329,
+    "sparande_per_m2_totalyta": 138,
+    "rantekanslighet": 7.36,
+    "energikostnad_per_m2_totalyta": 247
+  },
   "verifiering": {
     "arsavgift_per_m2_brf_yta": {
       "anmarkning": "Går INTE att läsa säkert. Sida 8 (tryckt \"Sida 6 av 20\"), raden \"Årsavgift 1 kvm upplåten bostadsrätt, kr 7 2 4 6 8 6 6 3 7 -\" ska täcka fyra kolumner (2025 2024 2023 2022) men siffrorna extraheras som nio lösryckta ensiffriga tokens plus ett bindestreck, utan säker kolumngräns — t.ex. kan \"7 2 4\" lika gärna vara \"724\" som \"7\" på ett annat ställe i tabellen. Ingen siffra antagen."
@@ -93,5 +101,6 @@
       "sida": 8,
       "tryckt": "Samma citat som avgiftInkluderar.el ovan."
     }
-  }
+  },
+  "nyckeltalSida": 8
 }

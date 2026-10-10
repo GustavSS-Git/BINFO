@@ -1,13 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { ExtractionValidationError, ModelTruncatedError } from "./extract";
-import { KostnadsgransOverskriden } from "./costGuard";
+import { KostnadsgransOverskriden, STANDARD_MODELL } from "./costGuard";
 import {
+  ModelRefusedError,
   ScannedPdfError,
-  runGrounding,
-  runStructuredExtraction,
+  TomTranskriptionError,
+  type PromptCacheMode,
   type ModelEffort,
 } from "./runExtraction";
+import { korExtraktion } from "./korExtraktion";
+import { TranskriberingMarkorFelError } from "./transkribering";
 import { AnalysValidationError, runAnalys } from "./analyze";
 // Never bundled for the client (this file is a Node CLI run via `tsx`, not
 // part of the Vite/TanStack client graph) — importing STANDARD_EFFORT from
@@ -17,7 +20,13 @@ import { AnalysValidationError, runAnalys } from "./analyze";
 import { STANDARD_EFFORT } from "@/server/env";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
 import { PropertyInputSchema } from "./schema";
-import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
+import {
+  cacheHitRate,
+  errorHasKnownSpend,
+  formatCallMetricsTable,
+  totalCostSek,
+  type ModelCallMetrics,
+} from "./callMetrics";
 import {
   DemoPrisdatakalla,
   ModellPrisdatakalla,
@@ -71,6 +80,18 @@ function lasEffort(stageVar: string): ModelEffort {
   return rå as ModelEffort;
 }
 
+/** ANTHROPIC_PROMPT_CACHE: unset/"off" = no breakpoints (the production
+ *  default — measured 2026-10-09: an isolated report costs slightly MORE with
+ *  caching, see docs/PLAN-v2.md §5); "system" = breakpoint on the static
+ *  system block only (worth it for bursts, e.g. backfills); "on" = system +
+ *  user (A/B measurement only). */
+function lasPromptCache(): PromptCacheMode {
+  const v = (process.env["ANTHROPIC_PROMPT_CACHE"] ?? "").toLowerCase();
+  if (v === "on") return true;
+  if (v === "system") return "system";
+  return false;
+}
+
 class OgiltigInputfilError extends Error {
   constructor(zodError: z.ZodError) {
     const issues = zodError.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -122,53 +143,57 @@ async function main() {
     return;
   }
 
-  const model = process.env["ANTHROPIC_MODEL"] || "claude-sonnet-5";
-  const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
+  const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
+  const effortTranskribering = lasEffort("ANTHROPIC_EFFORT_TRANSKRIBERING");
   const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
   const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
   const effortJudging = lasEffort("ANTHROPIC_EFFORT_JUDGING");
+  const promptCache = lasPromptCache();
 
   const pdfBytes = new Uint8Array(await readFile(pdfPath));
 
-  console.error(`Läser ${pdfPath} (modell: ${model}, kostnadstak: ${maxCostSek} kr)...`);
+  // A scanned PDF is transcribed in parallel chunks, whose worst cases are reserved
+  // jointly (transkribera) — a 34-page report needs ~12 kr of headroom although it
+  // costs ~5-6 kr in the end. Higher default than for a text report; the env wins.
+  const maxCostEnv = process.env["MAX_COST_PER_ANALYSIS_SEK"];
+  const maxCostSek = Number(maxCostEnv ?? "5");
+  const maxCostSekSkannad = Number(maxCostEnv ?? "25");
+
+  console.error(
+    `Läser ${pdfPath} (modell: ${model}, kostnadstak: ${maxCostSek} kr (skannad: ${maxCostSekSkannad} kr), promptcache: ${promptCache ? "på" : "av"})...`,
+  );
 
   const wallClockStart = performance.now();
   const allCalls: ModelCallMetrics[] = [];
 
-  // Two calls, each with its own effort — mirrors production exactly
-  // (steg.ts calls runGrounding/runStructuredExtraction separately, one per
-  // Edge Function invocation). Before task 1.6 this CLI called the combined
-  // `runExtraction` with a single effort for both stages, which is why a
-  // local `npm run extract` run's timings weren't directly comparable to
-  // production's per-stage numbers.
-  const {
-    groundingText,
-    spentSek: spentGrounding,
-    pdfSaknarTextlager,
-    calls: groundingCalls,
-  } = await runGrounding(pdfBytes, { model, maxCostSek, effort: effortGrounding });
-  allCalls.push(...groundingCalls);
-
-  console.error(`Grundning klar (${spentGrounding.toFixed(2)} kr). Kör extraktion...`);
-
-  const {
-    extraction,
-    spentSek: spentStructured,
-    calls: extraktionCalls,
-  } = await runStructuredExtraction(groundingText, {
+  // Each stage keeps its own effort — mirrors production (steg.ts runs one stage per
+  // Edge Function invocation). A PDF without a text layer takes the scan route:
+  // transkribering -> grundning over the transcription -> extraktion (kalla 'skannad').
+  const korning = await korExtraktion(pdfBytes, {
     model,
-    maxCostSek: maxCostSek - spentGrounding,
-    effort: effortExtraction,
-    pdfSaknarTextlager,
+    maxCostSek,
+    maxCostSekSkannad,
+    effortTranskribering,
+    effortGrounding,
+    effortExtraction,
+    promptCache,
+    transkriptionsFil: process.env["TRANSKRIPTION_CACHE"],
+    logg: (rad) => console.error(rad),
   });
-  allCalls.push(...extraktionCalls);
-  const spentExtraktion = spentGrounding + spentStructured;
+  const extraction = korning.extraction;
+  allCalls.push(...korning.calls);
+  const spentExtraktion = korning.spentSek;
+  const stegTider = korning.steg
+    .map((t) => `${t.stage} ${(t.wallMs / 1000).toFixed(1)} s (${t.spentSek.toFixed(2)} kr)`)
+    .join(", ");
+  console.error(`Textlager: ${korning.textlager}. Steg: ${stegTider}.`);
 
   if (!inputPath) {
     console.log(JSON.stringify(extraction, null, 2));
     console.error(formatCallMetricsTable(allCalls));
     console.error(
       `Klart (endast extraktion). Uppskattad kostnad: ${totalCostSek(allCalls).toFixed(2)} kr. ` +
+        `Cache-träffar: ${(cacheHitRate(allCalls) * 100).toFixed(1)} %. ` +
         `Väggklocka: ${((performance.now() - wallClockStart) / 1000).toFixed(1)} s.`,
     );
     return;
@@ -191,8 +216,9 @@ async function main() {
 
   const { analys, calls: analysCalls } = await runAnalys(extraction, {
     model,
-    maxCostSek: maxCostSek - spentExtraktion,
+    maxCostSek: korning.tak - spentExtraktion,
     effort: effortJudging,
+    promptCache,
   });
   allCalls.push(...analysCalls);
 
@@ -208,6 +234,7 @@ async function main() {
   console.error(formatCallMetricsTable(allCalls));
   console.error(
     `Klart. Uppskattad total kostnad: ${totalCostSek(allCalls).toFixed(2)} kr. ` +
+      `Cache-träffar: ${(cacheHitRate(allCalls) * 100).toFixed(1)} %. ` +
       `Väggklocka: ${wallClockS.toFixed(1)} s.`,
   );
 }
@@ -221,11 +248,19 @@ main().catch((error: unknown) => {
     error instanceof AssemblyValidationError ||
     error instanceof SaknarRantekanslighetError ||
     error instanceof OgiltigInputfilError ||
-    error instanceof ModelTruncatedError
+    error instanceof ModelTruncatedError ||
+    error instanceof ModelRefusedError ||
+    error instanceof TomTranskriptionError ||
+    error instanceof TranskriberingMarkorFelError
   ) {
     console.error(`FEL: ${error.message}`);
   } else {
     console.error("Oväntat fel:", error);
+  }
+  if (errorHasKnownSpend(error)) {
+    console.error(
+      `Redan förbrukat när felet inträffade: ${error.spentSek.toFixed(2)} kr (${error.calls.length} anrop).`,
+    );
   }
   process.exitCode = 1;
 });

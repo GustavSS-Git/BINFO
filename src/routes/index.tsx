@@ -75,7 +75,16 @@ function Index() {
                 Se köpguiden
               </LinkButton>
             </div>
-            <p className="mt-8 text-sm text-muted-foreground">
+            <p className="mt-6 text-sm text-muted-foreground">
+              Bara priskoll?{" "}
+              <Link
+                to="/vardering"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Gratis och direkt
+              </Link>
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground">
               Oberoende · Inte kopplad till mäklare, bank eller förening. ·{" "}
               <Link to="/exempel" className="font-medium text-primary underline underline-offset-2">
                 Se ett exempel på en rapport

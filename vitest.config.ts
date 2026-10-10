@@ -13,5 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Agent worktrees under .claude/ hold full copies of the suite.
+    exclude: ["**/node_modules/**", "**/dist/**", ".claude/**"],
   },
 });

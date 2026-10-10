@@ -1,0 +1,38 @@
+{
+  "orgnr": "724000-0161",
+  "namn": "BRF Zederslundshus",
+  "kalla": {
+    "fil": "SBC 2 årsredovnisng.pdf",
+    "forvaltare": "D-ekonomikonsult AB (ej SBC)",
+    "verifieradMot": "Verifierad av ägaren 2026-10-10 (förslag avläst av supervisorn från renderade sidbilder 2026-10-09; PDF:en saknar textlager). Källa: PDF-sida 4 (Flerårsöversikt, tryckt '3(11)'), PDF-sida 6–7 (Balansräkning), PDF-sida 2 (ytor). Typ: rasterskanning, en bild per sida."
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 797,
+    "arsavgift_andel_av_rorelseintakter": 99,
+    "skuldsattning_per_m2_totalyta": null,
+    "skuldsattning_per_m2_brf_yta": 3089,
+    "sparande_per_m2_totalyta": 39,
+    "rantekanslighet": 3.87,
+    "energikostnad_per_m2_totalyta": 302
+  },
+  "nyckeltalSida": 4,
+  "lanebok": {
+    "totalSkuld": 7706397
+  },
+  "kontrollsummor": {
+    "summaTillgangar": 8963425,
+    "summaEgetKapitalOchSkulder": 8963425
+  },
+  "verifiering": {
+    "skuldsattning_per_m2_totalyta": {
+      "anmarkning": "Rapporten anger bara 'Skuldsättningsgrad kr/kvm 3 089' utan bas → enligt ägarregeln (otydlig bas) under skuldsattning_per_m2_brf_yta; totalyta är null. Faktisk bas är total lägenhetsyta 2 495 m² inkl. 1 lokal (7 706 397 / 2 495 = 3 089)."
+    },
+    "lanebok.totalSkuld": {
+      "sida": 7,
+      "tryckt": "Övriga skulder (långfristiga, not 11) 7 581 085 + Kortfr.del av skuld 125 312 = 7 706 397 — lånet bokförs som 'Övriga skulder', inte 'Skulder till kreditinstitut'."
+    },
+    "sparande_per_m2_totalyta": {
+      "anmarkning": "Raden 'Resultat efter finansiella poster tkr -89 935' är felmärkt — beloppet är i kronor (jfr Årets resultat -89 935 kr). Negativt eget kapital (soliditet -5 %). orgnr börjar på 72, inte 769. Handskriven signatur på sida 1."
+    }
+  }
+}

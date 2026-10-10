@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hamtaForhandsvisningFn, hamtaStatusFn } from "@/server/analysFn";
-import { Card, Button, Badge, PageHeader } from "@/components/ui/binfo";
+import { Callout, Card, Button, Badge, PageHeader } from "@/components/ui/binfo";
 import {
   AnalysStatusVakt,
   HittadesInte,
@@ -12,6 +12,7 @@ import {
   type StatusSvar,
 } from "@/components/AnalysStatus";
 import { arAnalysHittadesInteFel } from "@/lib/analysStatusCopy";
+import { klarNotis } from "@/lib/analysStatusVy";
 import { sparaAnalys } from "@/lib/senasteAnalyser";
 import type { Forhandsvisning, Severity } from "@/types/analysis";
 
@@ -102,6 +103,7 @@ function ForhandsvisningInnehall({
   // är i 'done'-läge när den här komponenten monteras).
   const statusQuery = useAnalysStatusPolling(analysisId, loaderData.status);
   const klar = statusQuery.data?.status === "done";
+  const aterAnvandNotis = statusQuery.data ? klarNotis(statusQuery.data) : undefined;
 
   const forhandsvisningQuery = useQuery({
     queryKey: ["forhandsvisning", analysisId],
@@ -142,6 +144,14 @@ function ForhandsvisningInnehall({
   return (
     <div className="mx-auto max-w-4xl px-5 py-14">
       <PageHeader eyebrow="Steg 2 av 3" title={forhandsvisning.forening.namn} />
+
+      {aterAnvandNotis ? (
+        <div className="mb-6">
+          <Callout variant="tip" title={aterAnvandNotis.titel}>
+            <p>{aterAnvandNotis.text}</p>
+          </Callout>
+        </div>
+      ) : null}
 
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-8">

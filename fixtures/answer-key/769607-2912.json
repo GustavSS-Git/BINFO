@@ -1,0 +1,44 @@
+{
+  "orgnr": "769607-2912",
+  "namn": "Brf Ängsknarren 2001",
+  "kalla": {
+    "fil": "annual reports pdf as image example/Årsredovisning_2025_bild.pdf",
+    "forvaltare": "okänd (gul 'Vi ser om ditt hus!'-mall)",
+    "verifieradMot": "Verifierad av ägaren 2026-10-10 (förslag avläst av supervisorn från renderade sidbilder 2026-10-09; PDF:en saknar textlager). Källa: PDF-sida 9 (Flerårsöversikt, tryckt '8 (21)'), PDF-sida 12–13 (Balansräkning). Typ: vektor-konturerad text + rasterförsättsblad, inget textlager."
+  },
+  "nyckeltal": {
+    "arsavgift_per_m2_brf_yta": 649,
+    "arsavgift_andel_av_rorelseintakter": 55,
+    "skuldsattning_per_m2_totalyta": 2654,
+    "skuldsattning_per_m2_brf_yta": 3977,
+    "sparande_per_m2_totalyta": 270,
+    "rantekanslighet": 6,
+    "energikostnad_per_m2_totalyta": 180
+  },
+  "nyckeltalSida": 9,
+  "lanebok": {
+    "totalSkuld": 90000000
+  },
+  "kontrollsummor": {
+    "summaTillgangar": 435252022,
+    "summaEgetKapitalOchSkulder": 435252022
+  },
+  "verifiering": {
+    "lanebok.totalSkuld": {
+      "sida": 13,
+      "tryckt": "Fastighetslån 55 000 000 (långfristigt) + Skulder till kreditinstitut 35 000 000 (kortfristigt) = 90 000 000"
+    },
+    "rantekanslighet": {
+      "anmarkning": "Tryckt som heltalet '6', inte 6,0x (90 000 000 / årsavgifter ≈ 6,5)."
+    },
+    "skuldsattning_per_m2_totalyta": {
+      "anmarkning": "'Skuldsättning kr/kvm*' = totalyta (fotnot); 'Skuldsättning bostadsrätter kr/kvm' = bostadsrättsyta — får inte bytas."
+    },
+    "arsavgift_per_m2_brf_yta": {
+      "anmarkning": "'Årsavgift kr/kvm upplåten med bostadsrätt' 649 vs 'Grundårsavgift bostadsrätter kr/kvm' 648 — rätt är 649."
+    },
+    "energikostnad_per_m2_totalyta": {
+      "anmarkning": "'Rörelsens intäkter, tkr' och 'Resultat efter finansiella poster, tkr' är i tkr — nyckeltalen är i kr. Fotnot: totalarean beräknas annorlunda 2024–2025 än tidigare år."
+    }
+  }
+}

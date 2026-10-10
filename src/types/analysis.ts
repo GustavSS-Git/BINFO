@@ -57,6 +57,13 @@ export interface Figure {
   tecken?: "negativ" | "positiv";
   /** The value exactly as printed in the report when it was not a plain number (e.g. "neg"). */
   tryckt?: string;
+  /**
+   * Set when a deterministic sanity check (src/lib/analysis/rimlighet.ts) found
+   * this figure inconsistent with other figures in the same report — plain
+   * Swedish, shown next to an "osäker" marker. The figure is still shown, never
+   * hidden; absence means no check failed, not that the figure was verified.
+   */
+  osaker?: string;
 }
 
 export type Status = "god" | "acceptabel" | "svag" | "kritisk" | "okant";
@@ -258,6 +265,45 @@ export interface Prisanalys {
   varderingsunderlag?: Varderingsunderlag;
   /** How far above/below utgångspris comparable homes have sold. */
   budpremie?: Budpremie;
+  /**
+   * Full analysis only (owner decision 2026-10-09): the apartment's approximate
+   * share of the association's interest-bearing debt = skuldsättning per m²
+   * bostadsrättsyta (extracted, cited) × boarea. `source: 'berakning'`, `ref`
+   * points at the nyckeltal page. A comment beside the valuation — it is NEVER
+   * subtracted from or otherwise applied to `externVardering`. Absent when the
+   * debt figure is missing; 0 for a cited debt-free association.
+   */
+  andelAvForeningensSkuld?: Figure;
+}
+
+/** The valuation-relevant subset of PropertyInput — all the standalone price
+ *  check (`/vardering`) asks for. No PDF, no BRF data. */
+export type PrisInput = Pick<
+  PropertyInput,
+  "boarea" | "antalRum" | "manadsavgift" | "postnummer" | "vaning" | "byggar" | "hiss" | "balkong"
+> & {
+  /** Optional in the price check: without it there is no deviation figure. */
+  utgangspris?: number;
+};
+
+/** Prisanalys as the standalone price check produces it — the same fields the
+ *  full analysis shows, minus the ones that need an asking price or BRF data. */
+export type PrisanalysUtanForening = Omit<
+  Prisanalys,
+  "utgangspris" | "prisPerM2" | "andelAvForeningensSkuld"
+> & {
+  utgangspris?: Figure;
+  prisPerM2?: Figure;
+};
+
+/** Result of the standalone price check (`price_estimate` service). Stateless —
+ *  never stored server-side. The full analysis embeds the same valuation in
+ *  `AnalysisResult.prisanalys`, computed by the same service. */
+export interface PrisuppskattningResultat {
+  schemaVersion: "1.0.0";
+  skapad: string; // ISO 8601
+  input: PrisInput;
+  prisanalys: PrisanalysUtanForening;
 }
 
 /** A calendar period, ISO dates (YYYY-MM-DD). */
@@ -449,6 +495,27 @@ export interface Datakvalitet {
    *  silently return an empty analysis. */
   pdfSaknarTextlager: boolean;
   extraktionKonfidens: Konfidens;
+  /**
+   * Where the extracted text came from. 'skannad' = no usable text layer, the
+   * pages were transcribed from images (page refs then point into that
+   * transcription; confidence is capped at 'medel'). Absent on analyses made
+   * before v2 — treat as 'textlager'.
+   */
+  kalla?: "textlager" | "skannad";
+}
+
+/** Raw totals the extraction reads only so deterministic sanity checks
+ *  (src/lib/analysis/rimlighet.ts) can cross-check the nyckeltal. Every field
+ *  optional — absent means not found, never zero. Not shown to the buyer. */
+export interface Kontrollsummor {
+  summaTillgangar?: Figure;
+  summaEgetKapitalOchSkulder?: Figure;
+  /** Årsavgifter (fee income) for the fiscal year, kr. */
+  arsavgifter?: Figure;
+  /** Area let as bostadsrätt, m². */
+  bostadsrattsyta?: Figure;
+  /** Interest-bearing debt per the balance sheet / notes, kr. */
+  rantebarandeSkulder?: Figure;
 }
 
 // ---------------------------------------------------------------------------
@@ -522,5 +589,10 @@ export interface Forhandsvisning {
 export interface ExtractionResult {
   schemaVersion: "1.0.0";
   forening: Forening;
-  datakvalitet: Pick<Datakvalitet, "pdfSaknarTextlager" | "extraktionKonfidens" | "saknadeFalt">;
+  datakvalitet: Pick<
+    Datakvalitet,
+    "pdfSaknarTextlager" | "extraktionKonfidens" | "saknadeFalt" | "kalla"
+  >;
+  /** v2: raw totals for sanity checks only. Absent on pre-v2 extractions. */
+  kontrollsummor?: Kontrollsummor;
 }

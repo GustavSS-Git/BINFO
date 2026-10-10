@@ -1,13 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { skapaFakeLager } from "./__fakes__/lager";
+import { MAX_SIDOR_SKANNAD_RAPPORT } from "./register";
 import type { Env } from "./env";
 import {
+  kontrolleraDagligtTak,
   reserveraForSteg,
   stamAvSteg,
   UPPSKATTAD_KOSTNAD_BEDOMNING_SEK,
   UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK,
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
+  UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
+  TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+  MAX_CHUNKAR_PER_ANROP,
+  MAX_TRANSKRIBERING_SEK,
+  transkriberingsTak,
+  uppskattadKostnadTranskribering,
 } from "./spend";
+import { estimateCostSek, prissattningForModell, STANDARD_MODELL } from "@/lib/analysis/costGuard";
 
 /** Minimal Env-liknande objekt — testerna behöver bara de två fält
  *  spend-vakten faktiskt läser. */
@@ -99,5 +108,66 @@ describe("uppskattade kostnadskonstanter", () => {
     expect(UPPSKATTAD_KOSTNAD_GRUNDNING_SEK).toBeGreaterThan(0);
     expect(UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK).toBeGreaterThan(0);
     expect(UPPSKATTAD_KOSTNAD_BEDOMNING_SEK).toBeGreaterThan(0);
+  });
+});
+
+describe("kontrolleraDagligtTak", () => {
+  it("ok under taket, daily_cap när dagens kostnad når taket — och reserverar aldrig något", async () => {
+    const { db } = skapaFakeLager();
+    expect(await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 10 }), DAG)).toEqual({
+      ok: true,
+    });
+
+    await reserveraForSteg(db, miljo({ maxDailySpendSek: 10 }), 9, DAG);
+    expect((await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 10 }), DAG)).ok).toBe(true);
+
+    await reserveraForSteg(db, miljo({ maxDailySpendSek: 10 }), 1, DAG);
+    expect(await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 10 }), DAG)).toEqual({
+      ok: false,
+      skal: "daily_cap",
+    });
+    // Läsningen ändrade ingenting: dagens summa är fortfarande exakt 10.
+    expect(await db.hamtaSpendForDag(DAG)).toBe(10);
+  });
+
+  it("en dag utan spend_day-rad räknas som 0", async () => {
+    const { db } = skapaFakeLager();
+    expect(await db.hamtaSpendForDag("2026-01-01")).toBe(0);
+    expect(
+      (await kontrolleraDagligtTak(db, miljo({ maxDailySpendSek: 0.5 }), "2026-01-01")).ok,
+    ).toBe(true);
+  });
+});
+
+describe("transkribering (WS1): reservation och tak", () => {
+  it("reserverar realistiskt per sida (mätt 0,105 kr/sida inkl. headers → 0,15), inte värsta fallet", () => {
+    expect(UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA).toBe(0.15);
+    expect(uppskattadKostnadTranskribering(34)).toBeCloseTo(5.1, 10);
+    expect(uppskattadKostnadTranskribering(0)).toBe(0);
+  });
+
+  it("max_tokens per chunk är 10 000 (knappt 2x marginal över uppmätta 5,1k); 12 chunkar (60 sidor) ryms under stegets tak", () => {
+    expect(TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK).toBe(10_000);
+    const varsta = estimateCostSek(
+      8_600,
+      TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+      prissattningForModell(STANDARD_MODELL),
+    );
+    // 8 600 × $2 + 10 000 × $10 per Mtok = $0.1172 → 1.137 SEK at 9.7
+    expect(varsta).toBeCloseTo(1.137, 2);
+    expect(12 * varsta).toBeLessThan(MAX_TRANSKRIBERING_SEK);
+  });
+
+  it("stegets hårda tak = MAX_SIDOR_SKANNAD_RAPPORT × 0,25 = 15 kr; återstoden är taket minus det som redan spenderats (över alla försök)", () => {
+    expect(MAX_SIDOR_SKANNAD_RAPPORT).toBe(60);
+    expect(MAX_TRANSKRIBERING_SEK).toBeCloseTo(15, 10);
+    expect(transkriberingsTak(0)).toBeCloseTo(15, 10);
+    expect(transkriberingsTak(3.6)).toBeCloseTo(11.4, 10);
+    expect(transkriberingsTak(15)).toBe(0);
+    expect(transkriberingsTak(99)).toBe(0);
+  });
+
+  it("högst 3 chunkar (15 sidor) per Edge-invokering (CPU-tak, mätt lokalt: 4 gav mjuk gräns, 3 inte)", () => {
+    expect(MAX_CHUNKAR_PER_ANROP).toBe(3);
   });
 });

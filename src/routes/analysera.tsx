@@ -11,6 +11,7 @@ import {
   validateraAnalyseraForm,
   type AnalyseraFormFields,
 } from "@/lib/analyseraForm";
+import { parseAnalyseraPrefill } from "@/lib/varderingForm";
 import { skapaAnalysFn } from "@/server/analysFn";
 import { FELKOD_INNEHALL, type AnalysErrorCode } from "@/lib/analysStatusCopy";
 import {
@@ -36,6 +37,8 @@ export const Route = createFileRoute("/analysera")({
       },
     ],
   }),
+  // Valfri förifyllning från /vardering ("Bara priskoll") — bara textfälten.
+  validateSearch: parseAnalyseraPrefill,
   component: Analysera,
 });
 
@@ -61,6 +64,7 @@ type SkickaFel =
 
 function Analysera() {
   const navigate = useNavigate();
+  const prefill = Route.useSearch();
   // Husstödet finns kvar i den bakomliggande mappningen, men Analysera är
   // tills vidare grafiskt och funktionellt låst till bostadsrätter.
   const typ = "brf" as const;
@@ -73,7 +77,16 @@ function Analysera() {
   const [skickaFel, setSkickaFel] = useState<SkickaFel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState<AnalyseraFormFields>(TOM_FORM);
+  const [form, setForm] = useState<AnalyseraFormFields>(() => ({
+    ...TOM_FORM,
+    ...(prefill.utgangspris ? { utgangspris: prefill.utgangspris } : {}),
+    ...(prefill.boarea ? { boarea: prefill.boarea } : {}),
+    ...(prefill.antalRum ? { antalRum: prefill.antalRum } : {}),
+    ...(prefill.manadsavgift ? { manadsavgift: prefill.manadsavgift } : {}),
+    ...(prefill.postnummer ? { postnummer: prefill.postnummer } : {}),
+    ...(prefill.vaning ? { vaning: prefill.vaning } : {}),
+    ...(prefill.byggar ? { byggar: prefill.byggar } : {}),
+  }));
   const uppgifter = useUppgifter();
 
   // Klick på säkerhetsmätaren i rapporten länkar hit med #vet-ej.
@@ -168,6 +181,12 @@ function Analysera() {
         title="Analysera en bostad"
         lead="Ladda upp föreningens senaste årsredovisning och fyll i objektets uppgifter."
       />
+      <p className="-mt-4 mb-8 text-sm text-muted-foreground">
+        Bara priskoll?{" "}
+        <Link to="/vardering" className="font-medium text-primary underline underline-offset-2">
+          Gratis och direkt
+        </Link>
+      </p>
 
       <SenasteAnalyserSektion />
 
@@ -404,7 +423,7 @@ function SenasteAnalyserSektion() {
     <Card className="mb-6">
       <h2 className="text-base font-semibold text-foreground">Dina senaste analyser</h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        Sparas bara i den här webbläsaren och försvinner automatiskt efter 30 dagar.
+        Sparas bara i den här webbläsaren och försvinner automatiskt efter 12 månader.
       </p>
       <ul className="mt-4 space-y-3">
         {poster.map((post) => (

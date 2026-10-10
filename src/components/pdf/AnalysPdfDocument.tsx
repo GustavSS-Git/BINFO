@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   // The address row can hold the anonymisation fallback sentence
-  // ("Adressen raderad efter 30 dagar · <ort>"), which is too long for a
+  // ("Adressen raderad efter 12 månader · <ort>"), which is too long for a
   // one-third column at report width — give it the full row instead of
   // letting it wrap awkwardly under a narrow "Adress" label.
   summaryCellFull: {
@@ -254,6 +254,12 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: PDF_COLORS.mutedForeground,
     marginTop: 4,
+    lineHeight: 1.4,
+  },
+  osakerText: {
+    marginTop: 4,
+    fontSize: 7,
+    color: PDF_COLORS.warningForeground,
     lineHeight: 1.4,
   },
   schablonTag: {
@@ -506,6 +512,7 @@ function Foreningsekonomi({ keyFigures }: { keyFigures: PdfKeyFigure[] }) {
             {kf.isSchablon ? <Text style={styles.schablonTag}>Schablon</Text> : null}
             {kf.pageRef ? <Text style={styles.pageRefTag}>{kf.pageRef}</Text> : null}
           </View>
+          {kf.osaker ? <Text style={styles.osakerText}>Osäker: {kf.osaker}</Text> : null}
         </View>
       ))}
     </View>
@@ -528,6 +535,7 @@ function OvrigInfo({ ovrigInfo }: { ovrigInfo: PdfOvrigInfo }) {
                 <Text style={styles.ovrigInfoLabel}>{a.label}</Text>
                 <Text style={styles.ovrigInfoValue}>{a.valueText}</Text>
                 {a.pageRef ? <Text style={styles.pageRefTag}>{a.pageRef}</Text> : null}
+                {a.osaker ? <Text style={styles.osakerText}>Osäker: {a.osaker}</Text> : null}
               </View>
             ))}
           </View>
@@ -563,6 +571,13 @@ function OvrigInfo({ ovrigInfo }: { ovrigInfo: PdfOvrigInfo }) {
               <Text style={styles.pageRefTag}>{h.pageRef ?? "(ingen exakt sidhänvisning)"}</Text>
             </View>
           ))}
+        </View>
+      ) : null}
+
+      {ovrigInfo.skannadNotis ? (
+        <View style={[styles.conclusionBox, { marginTop: 0, marginBottom: 8 }]} wrap={false}>
+          <Text style={[styles.priceLabel, { fontWeight: "bold" }]}>Skannad årsredovisning</Text>
+          <Text style={{ marginTop: 2 }}>{ovrigInfo.skannadNotis}</Text>
         </View>
       ) : null}
 
@@ -629,6 +644,17 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </Text>
           </View>
         )}
+        {p.andelAvSkuld ? (
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.summaryLabel}>{p.andelAvSkuld.text}</Text>
+            {p.andelAvSkuld.pageRef ? (
+              <Text style={styles.pageRefTag}>{p.andelAvSkuld.pageRef}</Text>
+            ) : null}
+            {p.andelAvSkuld.osaker ? (
+              <Text style={styles.osakerText}>Osäker: {p.andelAvSkuld.osaker}</Text>
+            ) : null}
+          </View>
+        ) : null}
         {u ? (
           <View style={styles.varderingsunderlag}>
             <Text style={styles.priceLabel}>Område: {u.omradeText}</Text>
