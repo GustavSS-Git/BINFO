@@ -318,6 +318,10 @@ cd ml && .venv/bin/pytest                  # ML tests
 - Draft answer keys (the three scans, `test_rapport` nyckeltal) await owner
   verification; scan accuracy figures are measured against those drafts.
 - Scans over 60 pages are refused (product limit, owner decision 2026-10-10).
+- PDF retention is open: kept indefinitely today, but the owner may switch to
+  about one year (2026-10-10); the GDPR basis for keeping board members' names
+  in stored PDFs is still to be written. Delete PDFs via the Storage API, never
+  with SQL (Storage refuses direct deletes).
 - No accounts yet (anonymous device principals only); entitlements grant
   everything; GDPR erasure/export are owner-run CLI commands.
 - Volontären `antalLokaler` is still missed (1 vs null), pre-existing.

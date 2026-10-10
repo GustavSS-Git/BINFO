@@ -636,5 +636,6 @@ The supervisor owns:
 | 2026-10-09 | Scans switched on in the job machine (5d351d6): state-machine E2E 34-p scan 8/8, 5.94 kr; register re-upload 0 kr | done |
 | 2026-10-09 | Server review hardening (deae884): transcription reuse, terminal deterministic failures, 15 kr stage ceiling, ≥50 % empty-page rule, loose quotas, safe errors | done |
 | 2026-10-09 | Changed vs plan: garbled layers stay on the normal path (§1.9); 'saknas' = ≥ 50 % empty pages (plan said 80 %; 50 % chosen after review — all corpus PDFs unchanged); fee sanity tolerance 25 % (10 % false-alarmed); caching off by default (§5); 60-page scan limit (owner confirmed 2026-10-10) | documented |
+| 2026-10-10 | Owner: all four drafted answer keys verified correct; 60-page scan limit confirmed; ANTHROPIC_MODEL set to claude-sonnet-5-5 in Lovable secrets and .env.local; PDF retention may become ~1 year (GDPR basis pending, owner) | done / open |
 | 2026-10-09 | Total API spend this session: 154.21 SEK of 300 | — |
 | 2026-10-09 | Docker unavailable (owner remote) → migration apply, SQL-level tests, verify-rls deferred to a Docker session | deferred |
