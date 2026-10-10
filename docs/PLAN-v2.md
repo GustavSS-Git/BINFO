@@ -471,7 +471,9 @@ feature.
 ### 5.2 Design
 - Explicit `cache_control` breakpoints (never automatic — the last block varies per request):
   - extraction and judging: on the static system block;
-  - transcription: on the system block.
+  - transcription: **not cached** — the transcription call sends `system` as a plain string, without
+    `cache_control` (verified in the code 2026-10-10); the "scan-path breakpoint" below was never
+    implemented.
 - `costGuard`/`callMetrics` priced with cache-write at 1.25× and cache-read at 0.1×. Today's cost
   estimate ignores cache fields, so it under-reports when caching is on.
 - Per-analysis metrics persisted: `cache_read`/`cache_write` tokens summed on `rapport`.
@@ -481,7 +483,8 @@ feature.
 - Paid: 3 text reports run back-to-back, before/after. Report the cache hit rate
   (`cache_read / total input`) and kr per analysis.
 - **Estimated cost: ~25 kr.**
-- Ship only if the net is ≤ 0 kr. Otherwise keep only the scan-path breakpoint.
+- Ship only if the net is ≤ 0 kr. (Outcome: caching stays off by default; there is no scan-path
+  breakpoint — see the status log.)
 
 ### 5.4 Files
 `costGuard.ts`, `callMetrics.ts`, `runExtraction.ts`, `analyze.ts`, the transcription module.
@@ -543,9 +546,18 @@ The supervisor owns:
   - stop deleting PDFs;
   - keep the `property_input` anonymisation;
   - add the `kvot` purge.
+- **Retention hotfix first** (found by the local Supabase run, 2026-10-10): the old command begins
+  with a direct `delete from storage.objects`, which current Storage refuses (`protect_objects_delete`:
+  "Direct deletion from storage tables is not allowed"). pg_cron runs it as one transaction, so the
+  error also rolled back the `property_input` anonymisation — the nightly job has been `failed`.
+  `supabase/migrations/20261008000000_retention_fix.sql` reschedules it without the storage delete
+  and catches up rows older than 30 days. It is standalone, ordered before the v2 migrations and
+  applied to production on its own **ahead of v2**. The konto migration replaces the command once
+  more (adds the `kvot` purge).
 - **Local testing:** the Supabase CLI against Docker (`supabase start`, `db reset`). **Docker Desktop
   must be running.** Production `db push` is done by the owner.
 - **Deploy order:**
+  0. retention hotfix `20261008000000` applied on its own, ahead of v2;
   1. kill switch on; let the queue drain (no `queued`/`running` rows);
   2. `db push`;
   3. `deploy:edge`;
@@ -561,7 +573,14 @@ The supervisor owns:
   - data: the new tables are left in place (harmless).
   - full schema undo: a written down-script in `supabase/rollback/2026101x_register_och_konto.down.sql`.
     It is never auto-applied and is used only on the owner's command.
-  - retention: rescheduling the previous cron command restores the 30-day PDF deletion.
+  - retention: do **not** reschedule the pre-v2 command — it fails on current Storage and takes the
+    anonymisation down with it. The konto down-script restores the anonymisation only (PDFs stay);
+    PDF expiry, if ever wanted again, needs the Storage API, not a SQL delete.
+- **Reinvoke and scan batching** (local stack, 2026-10-10): the Edge worker's self-POST must target
+  `<PROJECT_URL>/functions/v1/analys-steg` (`req.url` inside the runtime is the internal
+  `http://kong:8081/analys-steg` and is refused — stages then wait for the next minute tick:
+  text job 176 s instead of ~77 s). The scan transcription handles at most 3 chunks per invocation
+  (hard CPU limit 2 s; 4 chunks logged the soft limit, 3 did not) and reinvokes for the rest.
 
 ---
 

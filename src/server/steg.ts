@@ -128,6 +128,7 @@ import {
   UPPSKATTAD_KOSTNAD_BEDOMNING_SEK,
   UPPSKATTAD_KOSTNAD_EXTRAKTION_SEK,
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
+  MAX_CHUNKAR_PER_ANROP,
   MAX_TRANSKRIBERING_SEK,
   TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
   transkriberingsTak,
@@ -928,25 +929,23 @@ async function antalSidorForRapport(
   return (await PDFDocument.load(bytes.slice())).getPageCount();
 }
 
-/** Hur mycket som återstår att transkribera: sidor utan sparad text och de
- *  chunkar (`STANDARD_CHUNKSTORLEK` sidor) som har minst en sådan sida — samma
- *  uppdelning som `transkribera` gör, som hoppar över en chunk först när ALLA
- *  dess sidor finns. */
+/** Vad som återstår att transkribera: de chunkar (`STANDARD_CHUNKSTORLEK` sidor)
+ *  som har minst en sida utan sparad text — samma uppdelning som `transkribera`
+ *  gör, som hoppar över en chunk först när ALLA dess sidor finns — och hur många
+ *  sidor utan text varje sådan chunk har. Ordnade efter sida. */
 function aterstaendeTranskribering(
   antalSidor: number,
   klara: ReadonlyMap<number, string>,
-): { sidor: number; chunkar: number } {
-  let sidor = 0;
-  let chunkar = 0;
+): { chunkar: number; saknadeSidorPerChunk: number[] } {
+  const saknadeSidorPerChunk: number[] = [];
   for (let fran = 1; fran <= antalSidor; fran += STANDARD_CHUNKSTORLEK) {
     let saknas = 0;
     for (let n = fran; n < Math.min(antalSidor + 1, fran + STANDARD_CHUNKSTORLEK); n++) {
       if (!klara.has(n)) saknas++;
     }
-    sidor += saknas;
-    if (saknas > 0) chunkar++;
+    if (saknas > 0) saknadeSidorPerChunk.push(saknas);
   }
-  return { sidor, chunkar };
+  return { chunkar: saknadeSidorPerChunk.length, saknadeSidorPerChunk };
 }
 
 /**
@@ -993,7 +992,10 @@ function arTerminaltTranskriberingsfel(error: unknown): boolean {
 /**
  * Steg 0b — transkribering av en skannad rapport (textlager 'saknas', WS1,
  * docs/PLAN-v2.md §1.9). `transkribera` delar PDF:en i 5-sidors chunkar och kör
- * dem parallellt (ett modellanrop per chunk, alla inom DEN HÄR Edge-invokeringen);
+ * dem parallellt (ett modellanrop per chunk) — högst `MAX_CHUNKAR_PER_ANROP` (3)
+ * per Edge-invokering, p.g.a. den hårda CPU-gränsen på 2 s; en 34-sidig skanning
+ * tar tre invokeringar (3 + 3 + 1 chunkar), där den första lämnar steget kvar i
+ * 'transkribering' och reinvokar;
  * varje färdig chunk sparas i `sidtext` direkt, så ett omförsök efter ett fel
  * bara gör de chunkar som saknas — och bara de reserveras och betalas. Har
  * rapporten ingen egen sidtext kopieras först en annan rapports (samma bytes,
@@ -1002,9 +1004,9 @@ function arTerminaltTranskriberingsfel(error: unknown): boolean {
  * Spend: reservationen är REALISTISK (0,15 kr/sida × sidor kvar, se spend.ts) och
  * stäms av mot den faktiska kostnaden. Budgeten till `transkribera` är det som
  * återstår av stegets hårda tak (`MAX_TRANSKRIBERING_SEK`, 15 kr) efter det
- * rapporten redan kostat över alla försök: förhandskontrollen där summerar
- * värsta fallet för ALLA parallella chunkar, räknat ur varje chunks verkliga
- * `countTokens`. Tidsgräns: `transkribera` avbryter efter 110 s och sparar det
+ * rapporten redan kostat över alla invokeringar och försök: förhandskontrollen
+ * där summerar värsta fallet för invokeringens parallella chunkar, räknat ur
+ * varje chunks verkliga `countTokens`. Tidsgräns: `transkribera` avbryter efter 110 s och sparar det
  * som hunnit bli klart.
  *
  * Ett misslyckande går den vanliga vägen (tre försök, verklig spend bokförd via
@@ -1028,11 +1030,15 @@ async function korTranskribering(
     );
     if (klara.size === 0) klara = await ateranvandTranskription(lager, r, antalSidor);
     const kvar = aterstaendeTranskribering(antalSidor, klara);
+    // Högst MAX_CHUNKAR_PER_ANROP chunkar per invokering (CPU-tak); resten tas av
+    // nästa invokering. Reservationen gäller bara invokeringens egna sidor.
+    const dennaOmgang = kvar.saknadeSidorPerChunk.slice(0, MAX_CHUNKAR_PER_ANROP);
+    const sidorDennaOmgang = dennaOmgang.reduce((summa, n) => summa + n, 0);
 
     const tak = transkriberingsTak(r.costSek);
-    if (kvar.sidor > 0) {
+    if (sidorDennaOmgang > 0) {
       if (tak <= 0) throw new KostnadsgransOverskriden(r.costSek, MAX_TRANSKRIBERING_SEK);
-      const belopp = uppskattadKostnadTranskribering(kvar.sidor);
+      const belopp = uppskattadKostnadTranskribering(sidorDennaOmgang);
       const reservation = await reserveraForSteg(lager.db, env, belopp);
       if (!reservation.ok) return refuseraRapport(lager, r);
       res = new Reservation(belopp);
@@ -1044,6 +1050,7 @@ async function korTranskribering(
       effort: env.effortGrounding,
       apiKey: env.anthropicApiKey,
       maxOutputTokensPerChunk: TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+      maxChunkar: MAX_CHUNKAR_PER_ANROP,
       redanKlara: klara,
       sparaSidor: (sidor) => lager.db.sparaSidtext(r.id, sidor, TRANSKRIBERING_KALLA),
       ...(options?.client ? { client: options.client } : {}),
@@ -1055,7 +1062,12 @@ async function korTranskribering(
         : {}),
     });
     spend = { spentSek: resultat.spentSek, calls: resultat.calls };
-    const skrivet = await rapportFramgang(lager, r, res, spend, { stage: "grundning" });
+    // Chunkar kvar: stegbytet uteblir. Framsteg gjordes (sidorna är sparade, spenden
+    // avstämd och bokförd), så försöken nollställs, leasen släpps och nästa invokering
+    // tar de chunkar som saknas. Först när alla sidor finns går rapporten till grundning.
+    const skrivet = await rapportFramgang(lager, r, res, spend, {
+      stage: resultat.kvarChunkar > 0 ? "transkribering" : "grundning",
+    });
     if (skrivet) trigger(options);
   } catch (error) {
     await rapportFel(lager, r, res, error, spend, false, arTerminaltTranskriberingsfel(error));

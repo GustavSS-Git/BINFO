@@ -89,6 +89,21 @@ export const TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK = 10_000;
  */
 export const MAX_TRANSKRIBERING_SEK = MAX_SIDOR_SKANNAD_RAPPORT * 0.25;
 
+/**
+ * Högst så här många chunkar (5 sidor var) transkriberas per Edge-invokering.
+ * Edge Functions har en hård CPU-gräns på 2 s (mjuk 1 s) per invokering. MÄTT i en
+ * lokal Supabase-stack (edge-runtime 1.74.3, 2026-10-10, 34-sidig skanning): en
+ * invokering med 4 chunkar loggade "CPU time soft limit reached" (och tidigare 7
+ * chunkar likaså); en med 3 chunkar gjorde det inte. Förberedelsen utan själva
+ * modellanropen (dela PDF:en, base64, countTokens) loggade ingen gräns — kostnaden
+ * ligger i att skicka/ta emot de stora anropen, och växer med antalet chunkar.
+ * Tre chunkar (15 sidor) per invokering ger marginal under den mjuka gränsen;
+ * resten tas av nästa invokering (reinvoke, ~1 s mellan). Värdet är en mätt
+ * säkerhetsmarginal, inte gränsen själv. Förhandskontrollen av värsta fallet
+ * gäller därför bara invokeringens egna chunkar.
+ */
+export const MAX_CHUNKAR_PER_ANROP = 3;
+
 /** Reservation för att transkribera `antalSidor` sidor (0 sidor = 0 kr). */
 export function uppskattadKostnadTranskribering(antalSidor: number): number {
   return antalSidor * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA;

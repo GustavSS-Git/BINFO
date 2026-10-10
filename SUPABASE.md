@@ -78,7 +78,7 @@ lease>`), so a step that finishes after an admin invalidate, a reaper sweep or
 a re-claim drops its result instead of overwriting the terminal state; spend is
 still reconciled. Per stage: reserve spend → one model call →
 reconcile → write results **on the rapport row** (not in the caches), reset
-`attempts`, reinvoke. Version guard: `rapport.pipeline_version` must equal the
+`attempts`, reinvoke (see "Reinvoke" below). Version guard: `rapport.pipeline_version` must equal the
 worker's `PIPELINE_VERSION`, else `failed`/`versionskonflikt` (which also
 frees the identity slot). The identity call never fails the job: a deterministic outcome (no identity,
 invalid/truncated answer, cost cap, refusal) continues without identity at
@@ -141,13 +141,28 @@ better, docs/PLAN-v2.md §1.9). `runGrounding`'s own guard (`ScannedPdfError` wh
 a page with text.
 
 - **`transkribering`** (`korTranskribering`, `steg.ts` → `transkribera`): the PDF
-  from storage is split with `pdf-lib` into 5-page chunks, run **in parallel in
-  one invocation**, one Sonnet call per chunk (model = `rapport.model`, effort =
+  from storage is split with `pdf-lib` into 5-page chunks, run **in parallel,
+  at most `MAX_CHUNKAR_PER_ANROP` = 3 chunks (15 pages) per Edge invocation**,
+  one Sonnet call per chunk (model = `rapport.model`, effort =
   `ANTHROPIC_EFFORT_GROUNDING`, `max_tokens` 12 000). Each finished chunk is
   upserted into `sidtext` at once (`sparaSidtext`, on `(rapport_id, sida)`), so
   a retry reads the stored pages (`hamtaSidtext` → `redanKlara`) and redoes only
   chunks with a missing page. Page markers are validated per chunk (one retry,
   then `TranskriberingMarkorFelError`).
+- **Batching per invocation (CPU).** Edge Functions have a hard CPU limit of 2 s
+  (soft 1 s) per invocation, production and local alike. Measured locally
+  (edge-runtime 1.74.3, 34-page scan): one invocation with 7 chunks, and one with 4,
+  logged "CPU time soft limit reached"; one with 3 did not, and the same
+  preparation without the model calls (split, base64, `countTokens`) logged
+  nothing — the cost grows with the size of the calls actually sent. So a
+  step handles at most 3 chunks; if chunks remain it records the progress (pages
+  saved, spend reconciled and added to `cost_sek`, stage stays `transkribering`,
+  `attempts` reset because progress was made, lease released) and reinvokes. A
+  34-page scan therefore takes three invocations (3 + 3 + 1 chunks) before
+  `grundning`. The reservation covers only the invocation's own pages, the
+  worst-case pre-flight only its own chunks, and the 15 kr ceiling below counts
+  `cost_sek` over all invocations and attempts. A deterministic error in any
+  batch is still terminal, and pages saved by earlier batches stay.
 - **Reuse across rapporter of the same bytes.** `sidtext.kalla` is
   `transkribering:v<TRANSKRIPTION_PROMPT_VERSION>` (`prompts.ts`; a hash test
   fails if the transcription prompt changes without a bump). A rapport with no
@@ -238,6 +253,23 @@ the same BRF adds "Det finns en nyare årsredovisning (ÅÅÅÅ) analyserad för
 föreningen." Both notes go into `datakvalitet.extraktionKonfidens.skal`.
 Legacy rows read the caches exactly as before.
 
+### Reinvoke (the worker calling itself)
+
+After a stage succeeds and leaves the rapport `queued` with more to do,
+`korNastaSteg` calls `reinvoke()`; the Edge Function wires it to a fire-and-forget
+`POST <PROJECT_URL>/functions/v1/analys-steg` with the same `apikey` header
+pg_cron uses (`supabase/functions/analys-steg/reinvoke.ts`, unit-tested;
+`EdgeRuntime.waitUntil` keeps the request alive after the response). **Verified
+on a local stack, 2026-10-10:** inside the Edge runtime `req.url` is the
+INTERNAL address (`http://kong:8081/analys-steg` — internal port, no
+`/functions/v1`), so the earlier `fetch(req.url)` was refused and every stage
+waited for the next minute tick (a text job took 176 s instead of 106 s). With the
+gateway URL a text job (`SBC årsredovisning.pdf`) went created → done in 77 s,
+54 s of it after the first claim (the rest is the wait for the first cron tick);
+stages chain within about a second of each other. `PROJECT_URL` is the secret the
+function already uses for its Supabase client (locally `http://kong:8000`,
+reachable from inside the runtime; the host-side `127.0.0.1:54321` is not).
+
 ### Admin CLI
 
 ```
@@ -266,6 +298,10 @@ serving the existing results; bump `PROMPT_VERSION` to force re-runs.
 
 ### Deploy order
 
+0. **Ahead of v2, standalone:** apply the retention hotfix
+   `20261008000000_retention_fix.sql` (nightly anonymisation has been failing
+   on current Storage; see "Retention facts" above). It is ordered before the
+   v2 migrations, so a later `db push` applies it first anyway.
 1. Kill switch on; let both queues drain (no `queued`/`running` in `analys`).
 2. `db push` (this migration, then `20261009120100_konto.sql`).
 3. `npm run deploy:edge` — the worker must know `claim_next_rapport_steg`
@@ -570,6 +606,24 @@ Three consequences for this layer:
    register references as orphaned. The paragraph below describes the
    pre-v2 state, which still applies to PDFs deleted before then
    (`npm run register -- inspect` flags them).
+
+   **Retention facts (verified on a local stack, 2026-10-10).** The command
+   scheduled by `20260924120000` starts with a direct `delete from
+   storage.objects`. Current Supabase Storage (storage-api v1.73.1 locally)
+   refuses that (the `protect_objects_delete` trigger: "Direct deletion from
+   storage tables is not allowed"). pg_cron runs the command as ONE
+   transaction, so the error also rolled back the `property_input`
+   anonymisation after it: `cron.job_run_details = failed`, nothing
+   anonymised. The hotfix `20261008000000_retention_fix.sql` reschedules
+   `binfo-retention` without the storage delete and anonymises the rows that
+   crossed 30 days meanwhile; it is standalone and ordered **before** the v2
+   migrations, so it can be applied to production on its own, ahead of v2.
+   `20261009120100_konto.sql` later replaces the command again (adds the `kvot`
+   purge), and its down-script (`supabase/rollback`) no longer restores the PDF
+   deletion — only the anonymisation. Local check after `db reset` (6
+   migrations): the command, run once via pg_cron, `succeeded`; a 40-day-old
+   `analys` row had `adress`/`postnummer`/`orgnr` emptied, a 5-day-old one was
+   untouched, and `kvot` windows older than 2 days were purged.
 
    Consequence worth noting: after 30 days the PDF is gone, so a *re-run* of a
    cached förening is impossible — only the cached output remains. That is

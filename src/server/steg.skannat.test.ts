@@ -34,6 +34,7 @@ import {
   TRANSKRIBERING_KALLA,
 } from "./register";
 import {
+  MAX_CHUNKAR_PER_ANROP,
   MAX_TRANSKRIBERING_SEK,
   TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
   UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
@@ -644,18 +645,23 @@ describe("transkriberingssteget", () => {
     });
   });
 
-  it("konstanterna (10 000 max_tokens, 15 kr tak) rymmer MAX_SIDOR_SKANNAD_RAPPORT (60 sidor) vid 8,6k in-tokens per chunk", async () => {
+  it("konstanterna (10 000 max_tokens, 15 kr tak) rymmer MAX_SIDOR_SKANNAD_RAPPORT (60 sidor) vid 8,6k in-tokens per chunk: förhandskontrollen gäller bara invokeringens 4 delar, så 12 delar tar fyra invokeringar", async () => {
     const lager = skapaFakeLager();
     const klient = skapaKlient({ inputTokens: 8_600 });
     const { rapportId } = await skannadVidTranskribering(lager, MAX_SIDOR_SKANNAD_RAPPORT);
-    await korNastaSteg(lager, buildEnv(), alternativ(klient));
+    const options = alternativ(klient);
+    const steg: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await korNastaSteg(lager, buildEnv(), options);
+      steg.push((await rapportNu(lager, rapportId)).stage);
+    }
+    expect(steg).toEqual(["transkribering", "transkribering", "transkribering", "grundning"]);
     expect(klient.ofKind("transkribering")).toHaveLength(12);
-    expect((await rapportNu(lager, rapportId)).stage).toBe("grundning");
   });
 
-  it("en chunk vars in-tokens spränger stegets tak ger synligt terminalt cost_cap utan spend", async () => {
+  it("delar vars in-tokens spränger stegets tak (3 delar à ~5,8 kr värsta fall) ger synligt terminalt cost_cap utan spend", async () => {
     const lager = skapaFakeLager();
-    const klient = skapaKlient({ inputTokens: 20_000 });
+    const klient = skapaKlient({ inputTokens: 250_000 });
     const { rapportId } = await skannadVidTranskribering(lager, MAX_SIDOR_SKANNAD_RAPPORT);
     await korNastaSteg(lager, buildEnv(), alternativ(klient));
     expect(klient.create).not.toHaveBeenCalled();
@@ -918,6 +924,146 @@ describe("återanvändning av transkriptioner mellan rapporter med samma bytes",
     await korNastaSteg(lager, buildEnv(), alternativ(klient));
     expect(klient.create).not.toHaveBeenCalled();
     expect(lager.db._allaSidtext(b.id)[0]?.text).toBe("egen 1");
+  });
+});
+
+describe("högst MAX_CHUNKAR_PER_ANROP delar per invokering (CPU-tak på Edge)", () => {
+  it("konstanten är 3 delar (15 sidor)", () => {
+    expect(MAX_CHUNKAR_PER_ANROP).toBe(3);
+  });
+
+  it("34 sidor: tre invokeringar (3 + 3 + 1 delar), sedan grundning — framsteg bokfört, spend avstämd, reinvoke efter varje", async () => {
+    const lager = skapaFakeLager();
+    const spend = spionera(lager);
+    const klient = skapaKlient();
+    const reinvoke = vi.fn();
+    const { rapportId } = await skannadVidTranskribering(lager, 34);
+    const options = alternativ(klient, { reinvoke });
+    const forstaSidor = (fran: number) =>
+      klient
+        .ofKind("transkribering")
+        .slice(fran)
+        .map((a) => a.forstaSida)
+        .sort((a, b) => a! - b!);
+
+    // Invocation 1: pages 1–15.
+    await korNastaSteg(lager, buildEnv(), options);
+    expect(forstaSidor(0)).toEqual([1, 6, 11]);
+    expect(klient.countTokens).toHaveBeenCalledTimes(3);
+    const efter1 = await rapportNu(lager, rapportId);
+    expect(efter1).toMatchObject({
+      stage: "transkribering",
+      status: "queued",
+      leaseUntil: null,
+      attempts: 0, // progress was made: the next invocation starts with fresh attempts
+      errorCode: null,
+    });
+    expect(efter1.costSek).toBeCloseTo(3 * KOSTNAD_PER_TRANSKRIBERINGSANROP, 9);
+    expect(lager.db._allaSidtext(rapportId)).toHaveLength(15);
+    expect(reinvoke).toHaveBeenCalledTimes(1);
+
+    // Invocation 2: pages 16–30.
+    await korNastaSteg(lager, buildEnv(), options);
+    expect(forstaSidor(3)).toEqual([16, 21, 26]);
+    expect((await rapportNu(lager, rapportId)).stage).toBe("transkribering");
+    expect(reinvoke).toHaveBeenCalledTimes(2);
+
+    // Invocation 3: the last chunk (pages 31–34), then on to grundning.
+    await korNastaSteg(lager, buildEnv(), options);
+    expect(forstaSidor(6)).toEqual([31]);
+    const efter3 = await rapportNu(lager, rapportId);
+    expect(efter3).toMatchObject({ stage: "grundning", status: "queued", attempts: 0 });
+    expect(efter3.costSek).toBeCloseTo(7 * KOSTNAD_PER_TRANSKRIBERINGSANROP, 9);
+    expect(lager.db._allaSidtext(rapportId)).toHaveLength(34);
+    expect(reinvoke).toHaveBeenCalledTimes(3);
+    expect(spend.reservationer).toEqual([
+      15 * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
+      15 * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
+      4 * UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
+    ]);
+    expect(spend.avstamningar).toHaveLength(3);
+  });
+
+  it("en hel skanning på 34 sidor går igenom hela maskinen: 3 transkriberingstick, sedan grundning, extraktion, bedömning", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const { rapport } = await laddaUpp(lager, await skannadPdf(34));
+    const steg = await korTillsTomt(lager, alternativ(klient));
+    expect(steg).toEqual([
+      "identifiering",
+      "transkribering",
+      "transkribering",
+      "transkribering",
+      "grundning",
+      "extraktion",
+      "bedomning",
+    ]);
+    expect((await rapportNu(lager, rapport.id)).status).toBe("done");
+  });
+
+  it("stegets tak (15 kr) gäller summan över invokeringarna: det som redan kostat minskar vad nästa får förbruka", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ inputTokens: 8_600 });
+    const { rapportId } = await skannadVidTranskribering(lager, 34);
+    const options = alternativ(klient);
+    await korNastaSteg(lager, buildEnv(), options);
+    expect(klient.ofKind("transkribering")).toHaveLength(3);
+    // 3 chunks need ~3,4 kr worst case; leave less than that of the 15 kr.
+    await lager.db.uppdateraRapport(rapportId, { costSek: 12 });
+
+    await korNastaSteg(lager, buildEnv(), options);
+
+    expect(klient.ofKind("transkribering")).toHaveLength(3); // no new call
+    expect(await rapportNu(lager, rapportId)).toMatchObject({
+      status: "failed",
+      stage: "transkribering",
+      errorCode: "cost_cap",
+    });
+  });
+
+  it("ett deterministiskt fel i den andra omgången är terminalt; sidorna från första omgången ligger kvar", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ avkortad: new Set([21]) });
+    const { rapportId } = await skannadVidTranskribering(lager, 34);
+    const options = alternativ(klient);
+    await korNastaSteg(lager, buildEnv(), options); // pages 1–15
+    expect((await rapportNu(lager, rapportId)).stage).toBe("transkribering");
+
+    await korNastaSteg(lager, buildEnv(), options);
+
+    expect(await rapportNu(lager, rapportId)).toMatchObject({
+      status: "failed",
+      stage: "transkribering",
+      errorCode: "validation",
+    });
+    const sidor = lager.db._allaSidtext(rapportId).map((s) => s.sida);
+    expect(sidor).toEqual(expect.arrayContaining(Array.from({ length: 15 }, (_, i) => i + 1)));
+    expect(sidor).not.toContain(21);
+    expect(await korNastaSteg(lager, buildEnv(), options)).toEqual({ claimed: false });
+  });
+
+  it("ett övergående fel i andra omgången går tre-försöksvägen och fortsätter därefter med bara de delar som saknas", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient({ kasta: new Map([[21, 1]]) });
+    const { rapportId } = await skannadVidTranskribering(lager, 34);
+    const options = alternativ(klient);
+    await korNastaSteg(lager, buildEnv(), options); // pages 1–15
+    await korNastaSteg(lager, buildEnv(), options); // chunk 21 throws, 16 and 26 finish
+    expect(await rapportNu(lager, rapportId)).toMatchObject({
+      status: "queued",
+      stage: "transkribering",
+      errorCode: "unknown",
+    });
+    const fore = klient.ofKind("transkribering").length;
+    await korNastaSteg(lager, buildEnv(), options); // the missing chunks 21 and 31
+    expect(
+      klient
+        .ofKind("transkribering")
+        .slice(fore)
+        .map((a) => a.forstaSida)
+        .sort((a, b) => a! - b!),
+    ).toEqual([21, 31]);
+    expect((await rapportNu(lager, rapportId)).stage).toBe("grundning");
   });
 });
 

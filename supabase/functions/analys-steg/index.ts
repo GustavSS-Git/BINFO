@@ -93,6 +93,7 @@ function kravPositivtTal(namn: string): number {
 // specifically so they're unit-testable under Vitest (see that file's doc
 // comment for why this file itself can't be imported by a Node test runner).
 import { valideraEffort, type ModelEffort } from "./effort.ts";
+import { byggReinvokeUrl } from "./reinvoke.ts";
 
 interface InlineEnv {
   maxDailySpendSek: number;
@@ -910,41 +911,30 @@ Deno.serve(async (req: Request) => {
     );
     const lager = byggLager(sb);
 
-    // Task 1.2 — remove the queue-waiting bottleneck: without this, a job
-    // only advances one stage per `binfo-tick` (every minute), so a
-    // three-stage job takes ~3-5 minutes of pure queue latency on top of the
-    // actual API time. `korNastaSteg` calls `reinvoke()` itself (see
-    // src/server/steg.ts) the moment a stage succeeds and leaves the row
-    // `queued` at a non-terminal stage — i.e. exactly when there's more work
-    // to do right now rather than at the next tick. This POSTs back to this
-    // SAME function (`req.url` — the URL this very invocation was reached
-    // at, so it works under any custom domain/project ref without deriving
-    // one from PROJECT_URL) with the identical `apikey` header pg_cron uses,
-    // so the auth check above passes the same way for a self-triggered
-    // invocation as for a cron-triggered one.
+    // Remove the queue-waiting bottleneck: without this, a job only advances one
+    // stage per `binfo-tick` (every minute). `korNastaSteg` calls `reinvoke()`
+    // itself (see src/server/steg.ts) the moment a stage succeeds and leaves the
+    // row `queued` with more work to do right now.
+    //
+    // VERIFIED on a local Supabase stack (2026-10-10): `req.url` inside the
+    // runtime is the INTERNAL address (`http://kong:8081/analys-steg` — internal
+    // port, no /functions/v1), which refuses the connection, so the old
+    // `fetch(req.url)` never landed and every stage waited for the next minute
+    // tick (a text job took 176 s instead of 106 s). The self-POST therefore goes
+    // through the public gateway, `<PROJECT_URL>/functions/v1/analys-steg`
+    // (reinvoke.ts), with the same `apikey` header pg_cron uses, so the auth check
+    // above passes the same way as for a cron-triggered invocation.
     //
     // Deliberately NOT awaited: this invocation must return its own HTTP
-    // response promptly (the reason the pipeline was split into one
-    // Anthropic call per invocation in the first place is the 150s wall-clock
-    // cap per invocation — see SUPABASE.md — and awaiting the next stage's
-    // full round trip here would chain that wait right back in). `.catch`
-    // swallows a failed self-invoke silently on purpose: `reinvoke`'s own doc
-    // comment in steg.ts says why — it is a pure speed-up, never a
-    // correctness dependency, and `binfo-tick`'s normal once-a-minute poll
-    // remains the safety net if this never fires or never lands.
-    //
-    // UNVERIFIED (no live deploy in this task — see the task report): whether
-    // an un-awaited `fetch` reliably finishes sending once this handler
-    // returns its response is a real Deno/Supabase Edge Runtime behaviour
-    // question this task could not verify without deploying. If the
-    // platform provides a "keep running after response" primitive (Supabase
-    // has documented `EdgeRuntime.waitUntil()` for background work in the
-    // past), feature-detect and use it so the outbound request isn't cut off
-    // mid-flight; degrade to the plain fire-and-forget call otherwise. Worst
-    // case if neither works: the reinvoke silently never lands, and the job
-    // proceeds at the pre-existing once-a-minute cadence — not a regression.
+    // response promptly (the reason the pipeline is split into small steps is the
+    // per-invocation wall-clock and CPU limits — see SUPABASE.md). `.catch`
+    // swallows a failed self-invoke on purpose: it is a pure speed-up, never a
+    // correctness dependency; `binfo-tick`'s once-a-minute poll remains the safety
+    // net. `EdgeRuntime.waitUntil` (when the runtime provides it) keeps the
+    // outbound request alive after the response has been sent.
+    const reinvokeUrl = byggReinvokeUrl(kravMiljovariabel("PROJECT_URL"));
     const reinvoke = () => {
-      const gjord = fetch(req.url, {
+      const gjord = fetch(reinvokeUrl, {
         method: "POST",
         headers: { apikey: expected },
       }).catch(() => {

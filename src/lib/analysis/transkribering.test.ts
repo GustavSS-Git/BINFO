@@ -8,6 +8,7 @@ import { ModelRefusedError, type AnthropicClientLike } from "./runExtraction";
 import {
   arOvergaendeApiFel,
   delaPdf,
+  delaPdfUrval,
   parseTranskription,
   STANDARD_DEADLINE_MS,
   TranskriberingMarkorFelError,
@@ -555,5 +556,74 @@ describe("transkribera — totalgräns i tid (deadline)", () => {
       deadlineMs: 40,
     }).catch((e: unknown) => e);
     expect(fel).toBeInstanceOf(TranskriberingMarkorFelError);
+  });
+});
+
+describe("delaPdfUrval", () => {
+  it("bygger bara de valda delarna men returnerar hela planen", async () => {
+    const { plan, bitar } = await delaPdfUrval(
+      await pdfMedSidor(12),
+      5,
+      (p) => new Set(p.filter((c) => c.forstaSida !== 6).map((c) => c.forstaSida)),
+    );
+    expect(plan.map((c) => [c.forstaSida, c.sidor])).toEqual([
+      [1, 5],
+      [6, 5],
+      [11, 2],
+    ]);
+    expect(bitar.map((b) => b.forstaSida)).toEqual([1, 11]);
+    expect(await antalSidorI(bitar[1]!.bytes)).toBe(2);
+  });
+});
+
+describe("transkribera — högst maxChunkar delar per körning (CPU-tak per Edge-invokering)", () => {
+  it("gör bara de första maxChunkar delarna som saknas, förhandskollar bara dem, och rapporterar hur många som återstår", async () => {
+    const client = okKlient();
+    const sparade: number[] = [];
+    const r = await transkribera(await pdfMedSidor(34), {
+      maxCostSek: 20,
+      client,
+      maxChunkar: 4,
+      sparaSidor: async (s) => {
+        sparade.push(...s.map((x) => x.sida));
+      },
+    });
+    expect(client.messages.create).toHaveBeenCalledTimes(4);
+    expect(client.messages.countTokens).toHaveBeenCalledTimes(4);
+    expect(r.kvarChunkar).toBe(3);
+    expect(r.sidor.map((s) => s.sida)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+    expect(sparade.sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+  });
+
+  it("nästa körning fortsätter med resten: de redan sparade delarna räknas inte mot gränsen", async () => {
+    const client = okKlient();
+    const redan = new Map<number, string>(
+      Array.from({ length: 20 }, (_, i) => [i + 1, `sparad ${i + 1}`] as [number, string]),
+    );
+    const r = await transkribera(await pdfMedSidor(34), {
+      maxCostSek: 20,
+      client,
+      maxChunkar: 4,
+      redanKlara: redan,
+    });
+    expect(client.messages.create).toHaveBeenCalledTimes(3);
+    expect(r.kvarChunkar).toBe(0);
+    expect(r.sidor).toHaveLength(34);
+    expect(r.sidor[0]!.text).toBe("sparad 1");
+  });
+
+  it("värsta fallet kontrolleras bara för körningens delar: 60 sidor ryms i ett tak där alla 12 delar tillsammans inte gjort det", async () => {
+    const client = okKlient();
+    // 4 chunks × (8500 in + 16000 out) ~ 7 kr worst case; 12 chunks would be ~21 kr.
+    const r = await transkribera(await pdfMedSidor(60), { maxCostSek: 10, client, maxChunkar: 4 });
+    expect(r.kvarChunkar).toBe(8);
+    expect(client.messages.create).toHaveBeenCalledTimes(4);
+  });
+
+  it("utan maxChunkar görs alla delar (oförändrat) och kvarChunkar är 0", async () => {
+    const client = okKlient();
+    const r = await transkribera(await pdfMedSidor(12), { maxCostSek: 20, client });
+    expect(r.kvarChunkar).toBe(0);
+    expect(r.sidor).toHaveLength(12);
   });
 });

@@ -11,6 +11,7 @@ import {
   UPPSKATTAD_KOSTNAD_GRUNDNING_SEK,
   UPPSKATTAD_KOSTNAD_TRANSKRIBERING_SEK_PER_SIDA,
   TRANSKRIBERING_MAX_OUTPUT_TOKENS_PER_CHUNK,
+  MAX_CHUNKAR_PER_ANROP,
   MAX_TRANSKRIBERING_SEK,
   transkriberingsTak,
   uppskattadKostnadTranskribering,
@@ -164,5 +165,9 @@ describe("transkribering (WS1): reservation och tak", () => {
     expect(transkriberingsTak(3.6)).toBeCloseTo(11.4, 10);
     expect(transkriberingsTak(15)).toBe(0);
     expect(transkriberingsTak(99)).toBe(0);
+  });
+
+  it("högst 3 chunkar (15 sidor) per Edge-invokering (CPU-tak, mätt lokalt: 4 gav mjuk gräns, 3 inte)", () => {
+    expect(MAX_CHUNKAR_PER_ANROP).toBe(3);
   });
 });

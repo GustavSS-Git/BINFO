@@ -55,13 +55,26 @@ export interface PdfBit {
   bytes: Uint8Array;
 }
 
-/** Splits a PDF into consecutive chunks of at most `chunkStorlek` pages, each a
- *  standalone PDF. The input bytes are not modified. Pure JS (pdf-lib), so it
- *  runs in Node, Deno and Workers. */
-export async function delaPdf(
+/** One chunk of the plan: which original pages it covers. */
+export interface PdfDel {
+  forstaSida: number;
+  sidor: number;
+}
+
+/**
+ * Splits a PDF into consecutive chunks of at most `chunkStorlek` pages and
+ * builds (copies + saves) only the ones `urval` selects, by `forstaSida`. The
+ * full plan is returned too, so a caller can tell how many chunks it left out.
+ * Building a chunk is the CPU-heavy part, which is why a caller with a CPU
+ * budget per invocation (the Edge Function, 2 s hard limit) selects only the
+ * chunks it will actually send. Pure JS (pdf-lib), so it runs in Node, Deno and
+ * Workers; the input bytes are not modified.
+ */
+export async function delaPdfUrval(
   pdfBytes: Uint8Array,
-  chunkStorlek: number = STANDARD_CHUNKSTORLEK,
-): Promise<PdfBit[]> {
+  chunkStorlek: number,
+  urval: (plan: readonly PdfDel[]) => ReadonlySet<number>,
+): Promise<{ plan: PdfDel[]; bitar: PdfBit[] }> {
   if (!Number.isInteger(chunkStorlek) || chunkStorlek < 1) {
     throw new Error(`chunkStorlek måste vara ett heltal >= 1, fick ${chunkStorlek}.`);
   }
@@ -77,17 +90,37 @@ export async function delaPdf(
   const antal = kalla.getPageCount();
   if (antal === 0) throw new Error("PDF:en har inga sidor.");
 
-  const bitar: PdfBit[] = [];
+  const plan: PdfDel[] = [];
   for (let fran = 0; fran < antal; fran += chunkStorlek) {
-    const till = Math.min(antal, fran + chunkStorlek);
+    plan.push({ forstaSida: fran + 1, sidor: Math.min(antal, fran + chunkStorlek) - fran });
+  }
+  const valda = urval(plan);
+  const bitar: PdfBit[] = [];
+  for (const del of plan) {
+    if (!valda.has(del.forstaSida)) continue;
+    const fran = del.forstaSida - 1;
     const bit = await PDFDocument.create();
     const kopior = await bit.copyPages(
       kalla,
-      Array.from({ length: till - fran }, (_, i) => fran + i),
+      Array.from({ length: del.sidor }, (_, i) => fran + i),
     );
     for (const sida of kopior) bit.addPage(sida);
-    bitar.push({ forstaSida: fran + 1, sidor: till - fran, bytes: await bit.save() });
+    bitar.push({ forstaSida: del.forstaSida, sidor: del.sidor, bytes: await bit.save() });
   }
+  return { plan, bitar };
+}
+
+/** Splits a PDF into consecutive chunks of at most `chunkStorlek` pages, each a
+ *  standalone PDF (all of them; see `delaPdfUrval` to build only some). */
+export async function delaPdf(
+  pdfBytes: Uint8Array,
+  chunkStorlek: number = STANDARD_CHUNKSTORLEK,
+): Promise<PdfBit[]> {
+  const { bitar } = await delaPdfUrval(
+    pdfBytes,
+    chunkStorlek,
+    (plan) => new Set(plan.map((d) => d.forstaSida)),
+  );
   return bitar;
 }
 
@@ -199,8 +232,8 @@ export function arOvergaendeApiFel(error: unknown): boolean {
 export interface TranskriberaOptions {
   /** Default STANDARD_MODELL. */
   model?: string;
-  /** Total budget for ALL chunks. The sum of every chunk's worst case must fit
-   *  (checked before any call is made), see `transkribera`. */
+  /** Total budget for the chunks of THIS run. The sum of their worst cases must
+   *  fit (checked before any call is made), see `transkribera`. */
   maxCostSek: number;
   /** Default "medium" (measured configuration). */
   effort?: ModelEffort;
@@ -222,6 +255,13 @@ export interface TranskriberaOptions {
   omforsokFordrojningMs?: number;
   /** Overall deadline for the whole run, default STANDARD_DEADLINE_MS. */
   deadlineMs?: number;
+  /**
+   * At most this many chunks are sent (and built, and pre-flighted) in this run;
+   * the rest stay for the next run (`kvarChunkar` in the result). Bounds the CPU
+   * an invocation spends on splitting, base64 and parsing — the Edge Function
+   * has a 2 s hard CPU limit. Default: no limit.
+   */
+  maxChunkar?: number;
 }
 
 export interface TranskriberaResultat {
@@ -229,11 +269,14 @@ export interface TranskriberaResultat {
   sidor: TranskriberadSida[];
   /** Real spend of THIS run (skipped chunks cost nothing). */
   spentSek: number;
+  /** Chunks that still lack pages after this run because of `maxChunkar` (0 when
+   *  the run finished everything it was asked to). */
+  kvarChunkar: number;
   /** Every `messages.create` call this run made (retries included), in the order they finished. */
   calls: ModelCallMetrics[];
 }
 
-function inneharAllaSidor(bit: PdfBit, klara: ReadonlyMap<number, string> | undefined): boolean {
+function inneharAllaSidor(bit: PdfDel, klara: ReadonlyMap<number, string> | undefined): boolean {
   if (!klara) return false;
   for (let n = bit.forstaSida; n < bit.forstaSida + bit.sidor; n++) {
     if (!klara.has(n)) return false;
@@ -272,18 +315,24 @@ export async function transkribera(
     sparaSidor,
     omforsokFordrojningMs = 1000,
     deadlineMs = STANDARD_DEADLINE_MS,
+    maxChunkar = Number.POSITIVE_INFINITY,
   } = options;
 
-  const bitar = await delaPdf(pdfBytes, chunkStorlek);
+  // Which chunks still need work: those without every page saved. Only the first
+  // `maxChunkar` of them are built and sent in this run.
+  const saknas = (del: PdfDel) => !inneharAllaSidor(del, redanKlara);
+  let behovsAntal = 0;
+  const { plan, bitar: attGora } = await delaPdfUrval(pdfBytes, chunkStorlek, (p) => {
+    const behov = p.filter(saknas);
+    behovsAntal = behov.length;
+    return new Set(behov.slice(0, maxChunkar).map((d) => d.forstaSida));
+  });
+  const kvarChunkar = Math.max(0, behovsAntal - attGora.length);
   const klaraSidor: TranskriberadSida[] = [];
-  const attGora: PdfBit[] = [];
-  for (const bit of bitar) {
-    if (inneharAllaSidor(bit, redanKlara)) {
-      for (let n = bit.forstaSida; n < bit.forstaSida + bit.sidor; n++) {
-        klaraSidor.push({ sida: n, text: redanKlara!.get(n)! });
-      }
-    } else {
-      attGora.push(bit);
+  for (const del of plan) {
+    if (saknas(del)) continue;
+    for (let n = del.forstaSida; n < del.forstaSida + del.sidor; n++) {
+      klaraSidor.push({ sida: n, text: redanKlara!.get(n)! });
     }
   }
 
@@ -436,7 +485,7 @@ export async function transkribera(
     }
 
     const sidor = [...klaraSidor, ...nyaSidor].sort((a, b) => a.sida - b.sida);
-    return { sidor, spentSek, calls };
+    return { sidor, spentSek, calls, kvarChunkar };
   } finally {
     clearTimeout(tidsgrans);
   }

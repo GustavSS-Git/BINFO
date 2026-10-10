@@ -204,4 +204,14 @@ describe("Edge-limmet speglar porten", () => {
       expect(kalla).toMatch(/rapport_id: rapportId, sida: \w+\.sida, text: \w+\.text, kalla/);
     }
   });
+
+  it("reinvoke går via PROJECT_URL + /functions/v1/analys-steg (reinvoke.ts), aldrig via req.url — verifierat lokalt: req.url är den interna adressen och vägras", () => {
+    expect(limmet).toContain('import { byggReinvokeUrl } from "./reinvoke.ts"');
+    expect(limmet).toContain('byggReinvokeUrl(kravMiljovariabel("PROJECT_URL"))');
+    const utanKommentarer = limmet
+      .split("\n")
+      .filter((rad) => !rad.trim().startsWith("//"))
+      .join("\n");
+    expect(utanKommentarer).not.toMatch(/fetch\(\s*req\.url/);
+  });
 });
