@@ -14,7 +14,13 @@
 -- replaces this command again (it adds the kvot purge).
 --
 -- PDF deletion is dropped, not fixed: owner decision 2026-10-09 — annual
--- reports are kept indefinitely for the register. `pdf_path` is left alone.
+-- reports are kept for the register. `pdf_path` is left alone.
+--
+-- Period: the buyer's address/postnummer/orgnr are blanked after 12 MONTHS
+-- (owner decision 2026-10-10, was 30 days): the register, the PDFs and the BRF
+-- analysis are not personal data about the buyer and are never touched; only
+-- the link "this visitor looked at this address" is, and a year lets buyers
+-- return to their analysis (including the valuation, which needs postnummer).
 
 select cron.unschedule('binfo-retention');
 
@@ -25,18 +31,18 @@ select cron.schedule(
   update analys
      set property_input = property_input
          || jsonb_build_object('adress', '', 'postnummer', '', 'orgnr', '')
-   where created_at < now() - interval '30 days'
+   where created_at < now() - interval '12 months'
      and (   coalesce(property_input->>'adress', '') <> ''
           or coalesce(property_input->>'postnummer', '') <> ''
           or coalesce(property_input->>'orgnr', '') <> '');
   $$
 );
 
--- One-off catch-up for rows that crossed 30 days while the job was failing.
+-- One-off catch-up for rows that crossed the period while the job was failing.
 update analys
    set property_input = property_input
        || jsonb_build_object('adress', '', 'postnummer', '', 'orgnr', '')
- where created_at < now() - interval '30 days'
+ where created_at < now() - interval '12 months'
    and (   coalesce(property_input->>'adress', '') <> ''
         or coalesce(property_input->>'postnummer', '') <> ''
         or coalesce(property_input->>'orgnr', '') <> '');
