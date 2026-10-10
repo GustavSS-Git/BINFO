@@ -90,7 +90,11 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 82 | 2026-10-09 | W1-wire E2E | E2E state machine: 34-p scan, transkribering 7 parallel chunks | claude-sonnet-5-5 | 58794 | 25113 | 0 | 0 | 3.58 | 148.82 |
 | 83 | 2026-10-09 | W1-wire E2E | E2E state machine: 34-p scan, grundning+extraktion+bedömning | claude-sonnet-5-5 | 61477 | 11494 | 0 | 0 | 2.31 | 151.12 |
 | 84 | 2026-10-09 | W1-wire E2E | E2E state machine: SBC text report, 3 stages | claude-sonnet-5-5 | 116517 | 8460 | 0 | 0 | 3.08 | 154.21 |
+| 85 | 2026-10-10 | Local integration | Local Supabase E2E (cron + Deno edge): SBC text report, 3 stages | claude-sonnet-5-5 | 115012 | 9167 | 0 | 0 | 3.12 | 157.33 |
+| 86 | 2026-10-10 | Local integration | Local Supabase E2E: 34-p scan, identifiering | claude-haiku-4-5 | 5067 | 48 | 0 | 0 | 0.05 | 157.38 |
+| 87 | 2026-10-10 | Local integration | Local Supabase E2E: 34-p scan, transkribering 7 chunks + grundning + extraktion + bedömning | claude-sonnet-5-5 | 118762 | 35103 | 0 | 0 | 5.75 | 163.13 |
+| 88 | 2026-10-10 | Local integration | Local Supabase E2E: Nabo text report with reinvoke fix, 3 stages | claude-sonnet-5-5 | 133039 | 12556 | 0 | 0 | 3.80 | 166.93 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
-**Running total: 154.21 SEK**
+**Running total: 166.93 SEK**
