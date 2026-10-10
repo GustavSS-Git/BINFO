@@ -9,7 +9,8 @@
 --
 -- It DESTROYS data: every forening, rapport, rapport_fil, sidtext and
 -- forening_adress row, and the analys.rapport_id links. The PDFs in storage
--- are untouched.
+-- are untouched (and stay: the konto down-script no longer restores the
+-- 30-day PDF deletion — see its retention note).
 --
 -- Register-linked analys rows (rapport_id set) carry no results of their own
 -- — those live on the rapport — and their own status/stage were never used

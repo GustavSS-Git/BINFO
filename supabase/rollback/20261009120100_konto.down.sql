@@ -11,23 +11,24 @@
 
 begin;
 
--- Retention: restore the previous command exactly as
--- 20260924120000_anonymise_property_input.sql scheduled it — including the
--- 30-day PDF deletion. Re-enabling PDF deletion is a product decision: drop
--- the first two statements below if the PDFs should stay.
+-- Retention: restore the previous command's property_input anonymisation
+-- (20260924120000_anonymise_property_input.sql) but NOT its 30-day PDF
+-- deletion. That command began with `delete from storage.objects`, which
+-- Supabase Storage (verified on storage-api v1.73.1, the version this project
+-- runs) now refuses: the `protect_objects_delete` trigger raises "Direct
+-- deletion from storage tables is not allowed" unless
+-- `storage.allow_delete_query` is set. pg_cron runs the command as one
+-- transaction, so that error also rolled back the anonymisation — verified
+-- on the local stack (cron.job_run_details: failed; property_input
+-- unchanged). Restoring it verbatim would bring that failure back. PDFs are
+-- therefore kept (and `pdf_path` left alone); if they should expire again,
+-- delete them through the Storage API, not SQL.
 select cron.unschedule('binfo-retention');
 
 select cron.schedule(
   'binfo-retention',
   '30 4 * * *',
   $$
-  delete from storage.objects
-   where bucket_id = 'arsredovisningar'
-     and created_at < now() - interval '30 days';
-  update analys
-     set pdf_path = null
-   where pdf_path is not null
-     and created_at < now() - interval '30 days';
   update analys
      set property_input = property_input
          || jsonb_build_object('adress', '', 'postnummer', '', 'orgnr', '')
