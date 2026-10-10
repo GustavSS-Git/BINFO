@@ -1,5 +1,9 @@
 # Handoff: valuation v3.2 (attribute-adjusted postcode effect)
 
+> **Resolved 2026-10-10.** v3.2 was evaluated (local branch `valuation-v3.2`, `ml/artifacts/valuation-v3.2/evaluation.json`)
+> and rejected: vs v3.1, 5-fold CV +0.38 pp (95 % CI +0.19…+0.58), Jul–Aug +0.15 (−0.27…+0.58), unseen postnummer +0.20
+> (−0.10…+0.50); the model-input variant reacts non-smoothly to small residual deltas. The owner chose **v3.1**, merged to `main`.
+
 Written 2026-10-10 by the previous session (context full). Read `CLAUDE.md`,
 `ml/artifacts/valuation-v3/MODEL_CARD.md` and `ml/artifacts/valuation-v3.1/MODEL_CARD.md` first.
 

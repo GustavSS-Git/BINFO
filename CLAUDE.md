@@ -44,7 +44,7 @@ per-apartment cost in kronor, and what to do before bidding.
 | `src/types/analysis.ts` | **The contract** for an analysis result and the price check (`PrisInput`, `PrisuppskattningResultat`), shared by client and server |
 | `src/data/` | `sampleAnalysis.ts` (static demo on `/exempel`), `mockData.ts` (calculator defaults + legacy demo `property`). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`. |
 | `supabase/` | `migrations/` (4 applied incl. the retention hotfix `20261008000000`; the 2 v2 migrations `20261009120000_register.sql` and `20261009120100_konto.sql` are applied at the v2 deploy), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored) |
-| `ml/` | Training (`train_valuation_v3.py`, `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3/` incl. `MODEL_CARD.md`), pytest suite |
+| `ml/` | Training (`train_valuation_v31.py` + `valuation_v31_lib.py` on top of `train_valuation_v3.py` / `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3.1/` = shipped, delta card to `artifacts/valuation-v3/MODEL_CARD.md`; `valuation-v3.2/` exists only on the local branch `valuation-v3.2`, rejected), pytest suite |
 | `data/raw/` | Svensk Mäklarstatistik transaction xlsx (committed, not confidential); `data/derived/` holds the mapping CSVs and price levels |
 | `fixtures/answer-key/` | Nyckeltal per test report (`<orgnr>.json`); "UTKAST" in `kalla.verifieradMot` (or `nyckeltalUtkast`) marks drafts awaiting owner verification |
 | `annual reports examples/` | Real test PDFs. Gitignored; never commit. `annual reports pdf as image example/` holds the two image-only reports; `SBC 2 årsredovnisng.pdf` is a raster scan; `test_rapport.pdf` has a garbled text layer. |
@@ -155,12 +155,17 @@ slightly more with it; see PLAN-v2 §5); `ANTHROPIC_PROMPT_CACHE=system` for bur
   read capability. Accounts later: Supabase Auth via `kontext.ts` only.
 - **Cron jobs:** `binfo-tick`, `binfo-reaper`, `binfo-retention`,
   `binfo-keep-alive`. Vault holds `project_url` and `automations_key`.
-- **Valuation coverage** (`src/lib/vardering/tackning.ts`, model card
-  `ml/artifacts/valuation-v3/`): Stockholms kommun → area model (CV MAPE
-  9.8 %); rest of the län → general relationships × the kommun's 12-month
+- **Valuation coverage** (`src/lib/vardering/tackning.ts`, model v3.1, card
+  `ml/artifacts/valuation-v3.1/` + `valuation-v3/`): Stockholms kommun → area model (CV MAPE
+  9.6 %); rest of the län → general relationships × the kommun's 12-month
   average kr/m²; outside the län → × the national average with a disclaimer
   first. Confidence never 'hog'; outside Stockholms kommun always 'lag'.
   Training data has a monthly fee but **no BRF identity and no BRF debt**.
+- **Postcode effect (v3.1, owner decision 2026-10-10):** a postnummer is shrunk
+  toward its 4-digit neighbourhood (k=5, k_group=5); a postnummer with no
+  training sale takes its neighbourhood's effect (replaces the 2026-10-07
+  "unseen postcodes: do nothing special"). A residual-based effect (v3.2) was
+  tested and rejected (worse CV, unstable on sparse postnummer).
 
 ## Commands
 
@@ -399,7 +404,7 @@ The frontend is also edited in Lovable, which pushes to `main` on GitHub.
   retention and bundling.
 - `PIPELINE.md`: pipeline design rationale.
 - `BENCHMARKS.md`: nyckeltal thresholds.
-- `ml/artifacts/valuation-v3/MODEL_CARD.md`: valuation model.
+- `ml/artifacts/valuation-v3.1/MODEL_CARD.md` (delta) + `ml/artifacts/valuation-v3/MODEL_CARD.md`: valuation model.
 - `ml/REGIONAL_DESIGN.md`: regional design.
 
 When a reference doc and the code disagree, the code wins. Fix the doc.
