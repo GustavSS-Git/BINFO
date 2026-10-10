@@ -43,7 +43,7 @@ per-apartment cost in kronor, and what to do before bidding.
 | `src/server/` | Server-only. `analysFn.ts` is the only client-importable file (server functions; **no module-scope values** — see Gotchas). `analys.ts` (create/status/result/preview), `register.ts` (register lookup, versioning, re-runs), `steg.ts` (job state machine on `rapport`), `prisuppskattning.ts` (price_estimate service), `kontext.ts` (device cookie + hashed IP), `principal.ts`, `behorighet.ts` (entitlement policy), `kvot.ts` (rate limits), `spend.ts`, `cache.ts` (legacy caches), `fel.ts` (error → buyer-safe Swedish), `env.ts`, `portar.ts` (`Lager`/`Databas` port), `kontoPortar.ts`, `supabase.ts` / `supabaseKonto.ts` (adapters), `__fakes__/` (in-memory fakes mirroring the SQL), `cli/` (`registerCli.ts`, `kontoCli.ts`, `analysCli.ts`, `verifyRls.ts`), `edge/build.ts` (bundles `steg.ts` for Deno) |
 | `src/types/analysis.ts` | **The contract** for an analysis result and the price check (`PrisInput`, `PrisuppskattningResultat`), shared by client and server |
 | `src/data/` | `sampleAnalysis.ts` (static demo on `/exempel`), `mockData.ts` (calculator defaults + legacy demo `property`). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`. |
-| `supabase/` | `migrations/` (3 applied + 2 v2 migrations NOT yet applied: `20261009120000_register.sql`, `20261009120100_konto.sql`), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored) |
+| `supabase/` | `migrations/` (4 applied incl. the retention hotfix `20261008000000`; the 2 v2 migrations `20261009120000_register.sql` and `20261009120100_konto.sql` are applied at the v2 deploy), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored) |
 | `ml/` | Training (`train_valuation_v3.py`, `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3/` incl. `MODEL_CARD.md`), pytest suite |
 | `data/raw/` | Svensk Mäklarstatistik transaction xlsx (committed, not confidential); `data/derived/` holds the mapping CSVs and price levels |
 | `fixtures/answer-key/` | Nyckeltal per test report (`<orgnr>.json`); "UTKAST" in `kalla.verifieradMot` (or `nyckeltalUtkast`) marks drafts awaiting owner verification |
@@ -121,8 +121,8 @@ per-apartment cost in kronor, and what to do before bidding.
 5. **Retention** (`binfo-retention`, daily, from the konto migration): blanks
    `adress`/`postnummer`/`orgnr` in `property_input` after 12 months (owner
    decision 2026-10-10; the register, PDFs and BRF analysis are never touched) and purges
-   quota rows after 2 days. PDFs are kept (register). Before v2 is deployed,
-   production still runs the old, failing command (hotfix `20261008000000`).
+   quota rows after 2 days. PDFs are kept (register). Production already runs
+   the 12-month anonymisation via the hotfix `20261008000000` (applied 2026-10-10).
 
 Measured 2026-10-09 (`claude-sonnet-5-5`, effort `medium`, API time; production
 adds ~10 s per stage for reinvokes):
@@ -139,9 +139,9 @@ slightly more with it; see PLAN-v2 §5); `ANTHROPIC_PROMPT_CACHE=system` for bur
 
 ## Database (Supabase, see `SUPABASE.md`)
 
-- **Production today** (3 migrations): `analys` (job rows), `extraktion_cache` /
+- **Production before the v2 deploy** (3 migrations + retention hotfix): `analys` (job rows), `extraktion_cache` /
   `analys_cache` (PK `(pdf_hash, model, prompt_version)`), `spend_day`.
-- **v2 migrations (written, verified on PGlite, NOT yet applied):**
+- **v2 migrations (verified on a local Supabase stack; applied at the v2 deploy):**
   - register: `forening`, `rapport` (shared, versioned job + result; partial
     unique on `(orgnr, rakenskapsar, pipeline_version)` and on
     `(pdf_hash, pipeline_version)` = the concurrency locks), `rapport_fil`,
@@ -317,8 +317,6 @@ cd ml && .venv/bin/pytest                  # ML tests
   refused by Storage, rolling back the anonymisation). Hotfix
   `20261008000000_retention_fix.sql` (12 months, no PDF deletion) was applied to
   production on 2026-10-10 via `main`.
-- Draft answer keys (the three scans, `test_rapport` nyckeltal) await owner
-  verification; scan accuracy figures are measured against those drafts.
 - Scans over 60 pages are refused (product limit, owner decision 2026-10-10).
 - PDFs, the register and BRF analyses are kept (not buyer data). Only the
   buyer's address/postnummer/orgnr are anonymised, after 12 months (owner,
