@@ -179,6 +179,7 @@ npm run konto -- radera|exportera <principalId>                     # LIVE GDPR 
 npm run verify-rls                         # LIVE: RLS with secret vs publishable key
 npm run build:edge / deploy:edge           # bundle / deploy analys-steg (deploy needs owner OK)
 npm run build:vardering-data               # regenerate src/lib/vardering/data from ml artifacts
+./scripts/v2-lokalt.sh [--nollstall]      # whole app on a LOCAL Supabase stack (Docker): db, cron, Edge Function, dev server; real Claude cost
 cd ml && .venv/bin/pytest                  # ML tests
 ```
 
@@ -312,10 +313,10 @@ cd ml && .venv/bin/pytest                  # ML tests
 - **v2 is not deployed.** Verified on a local Supabase stack (all migrations,
   rollbacks, 69 SQL tests, `verify-rls` 64/64, cron → Deno edge E2E), not on
   the hosted project.
-- **Production retention (pre-v2) has been failing**: the old command's direct
-  `delete from storage.objects` is refused by Storage, rolling back the
-  anonymisation. Hotfix migration `20261008000000_retention_fix.sql` (apply
-  standalone).
+- **Production retention was failing** (direct `delete from storage.objects`
+  refused by Storage, rolling back the anonymisation). Hotfix
+  `20261008000000_retention_fix.sql` (12 months, no PDF deletion) was applied to
+  production on 2026-10-10 via `main`.
 - Draft answer keys (the three scans, `test_rapport` nyckeltal) await owner
   verification; scan accuracy figures are measured against those drafts.
 - Scans over 60 pages are refused (product limit, owner decision 2026-10-10).
