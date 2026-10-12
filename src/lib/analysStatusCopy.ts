@@ -11,8 +11,8 @@
  * eller för lite) tills den här filen uppdaterats för hand — det är
  * medvetet, inte en risk.
  *
- * Uppmätt kall körning (september 2026): 195–326 sekunder totalt. Texten här
- * lovar därför aldrig "snart" eller "några sekunder" — bara vilket steg som
+ * Texten säger 3–5 minuter; uppmätt tid är ca 1–3 minuter (se CLAUDE.md).
+ * Texten här lovar därför aldrig "snart" eller "några sekunder" — bara vilket steg som
  * faktiskt pågår, plus ett ärligt tidsspann.
  */
 

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Button, Callout, Card, Field, PageHeader, TristateChoice } from "@/components/ui/binfo";
+import { Button, Card, Field, PageHeader, TristateChoice } from "@/components/ui/binfo";
 import { Prisrimlighet } from "@/components/AnalysRapport";
 import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
 import {
@@ -204,15 +204,6 @@ function Vardering() {
 
       {utfall?.typ === "ok" ? (
         <div className="mt-10">
-          <div className="mb-6">
-            <Callout variant="tip" title="Uppskattning utan årsredovisning">
-              <p>
-                Det här är en uppskattning som bara bygger på lägenhetens egna uppgifter. Vi har
-                inte läst föreningens årsredovisning, så föreningens ekonomi och lån ingår inte.
-              </p>
-            </Callout>
-          </div>
-
           <Prisrimlighet prisanalys={utfall.resultat.prisanalys} />
 
           <Card className="bg-primary text-primary-foreground">

@@ -30,7 +30,7 @@ export type StatusSvar = Awaited<ReturnType<typeof hamtaStatusFn>>;
 /**
  * Pollningsintervall medan jobbet varken är klart eller misslyckat. Några
  * sekunder, inte snabbare — varje pollning är en riktig tur-och-retur till
- * servern, och ett jobb tar 195–326 sekunder totalt (uppmätt kall körning), så det
+ * servern, och ett jobb tar minuter (texten säger 3–5 minuter; uppmätt ca 1–3 min, se CLAUDE.md), så det
  * finns inget att vinna på tätare pollning.
  */
 export const POLLNINGSINTERVALL_MS = 5000;
@@ -134,9 +134,10 @@ export function Pagar({ status }: { status: StatusVyIndata }) {
               , för en skannad årsredovisning{" "}
               <strong className="font-medium text-foreground">några minuter extra</strong>
             </>
-          ) : null}{" "}
-          — vi läser hela årsredovisningen och räknar på alla sju nyckeltal. Du kan gärna lämna den
-          här fliken öppen; sidan uppdateras automatiskt så fort analysen är klar.
+          ) : null}
+          . Vi går igenom hela årsredovisningen, granskar nyckeltalen och tar fram potentiella
+          varningsflaggor. Du kan gärna låta fliken vara öppen, sidan uppdateras automatiskt så
+          snart analysen är klar.
         </p>
       </Card>
     </div>
