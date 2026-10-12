@@ -14,13 +14,12 @@ import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   formatDrivareLabel,
   formatBudpremieText,
-  formatDataperiod,
   andelAvSkuldRad,
   arSkannad,
+  varderingsKallaText,
   varderingsTackningText,
   formatFigureVarde,
   formatVarde,
-  OMRADESINDELNING_ATTRIBUTION,
   SKANNAD_NOTIS,
   toppRodaFlaggor,
   type AndelAvSkuldRad,
@@ -542,8 +541,8 @@ export function Prisrimlighet({
             </p>
             {u.drivare.length > 0 ? (
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Vad påverkar värderingen
+                <p className="text-xs font-medium text-muted-foreground">
+                  Exempel på faktorer som påverkar värderingen utöver område:
                 </p>
                 <ul className="mt-1 space-y-1 text-sm text-foreground">
                   {u.drivare.map((d) => (
@@ -564,14 +563,11 @@ export function Prisrimlighet({
                 </div>
               </div>
             ) : null}
-            <p className="text-xs text-muted-foreground">
-              Bygger på försäljningar i Stockholm {formatDataperiod(u.dataperiod)}
-            </p>
+            <p className="text-xs text-muted-foreground">{varderingsKallaText(u.dataperiod)}</p>
 
             {tackningText?.typ === "lan" ? (
               <p className="text-xs text-muted-foreground">{tackningText.text}</p>
             ) : null}
-            <p className="text-xs text-muted-foreground">{OMRADESINDELNING_ATTRIBUTION}</p>
           </div>
         ) : null}
 

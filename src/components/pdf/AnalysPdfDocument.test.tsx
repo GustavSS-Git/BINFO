@@ -104,16 +104,18 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
   });
 
   it("includes page references for cited figures", () => {
-    expect(extractedText).toContain("s. 9");
+    expect(extractedText).toContain("s. 8");
   });
 
   it("includes the Övrig info section with counts, fee inclusion and väsentliga händelser", () => {
     expect(extractedText).toContain("Övrig info från årsredovisningen");
     expect(extractedText).toContain("Antal medlemmar");
-    expect(extractedText).toContain("72 st");
+    expect(extractedText).toContain("49 st");
     expect(extractedText).toContain("Antal lokaler");
     expect(extractedText).toContain("Vad ingår i avgiften");
-    expect(extractedText).toContain("Individuell mätning");
+    // The Pontonjären report states el is not included (no individual-metering note;
+    // the "Individuell mätning" label is covered in viewModel.test.ts).
+    expect(extractedText).toContain("Ingår ej");
     expect(extractedText).toContain("Väsentliga händelser");
     expect(extractedText).toContain(sampleAnalysis.forening.vasentligaHandelser?.[0]?.text ?? "");
   });
@@ -130,8 +132,8 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
     // survived as two separate, correctly-mapped characters.
     expect(extractedText).toContain("finansiell");
     expect(extractedText).toContain("Röda flaggor");
-    expect(extractedText).toContain("finns");
-    expect(extractedText).toContain("finansieras");
+    expect(extractedText).toContain("finansiering");
+    expect(extractedText).toContain("flaggor");
   });
 });
 
@@ -167,7 +169,7 @@ describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cle
     // whole document" check. The latter used to hold incidentally (nothing
     // else on the page mentioned Stockholm with a leading comma), but task
     // 4g/5's Binfo-värderingsmodell content legitimately says things like
-    // "OpenStreetMap-bidragsgivare (ODbL), Stockholms stad" — a real,
+    // "© OpenStreetMap-bidragsgivare (ODbL), Stockholms stad" — a real,
     // intentional mention unrelated to the address anonymisation this test
     // guards. sampleAnalysis.prisanalys is static sample data, not
     // recomputed from the anonymised input, so that text is present in both

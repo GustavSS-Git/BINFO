@@ -107,6 +107,47 @@ export function formatDataperiod(period: Dataperiod): string {
     : `${franLabel} ${franAr}–${tillLabel} ${tillAr}`;
 }
 
+const SV_MANADER_LANG = [
+  "januari",
+  "februari",
+  "mars",
+  "april",
+  "maj",
+  "juni",
+  "juli",
+  "augusti",
+  "september",
+  "oktober",
+  "november",
+  "december",
+];
+
+/** Som formatDataperiod men med hela månadsnamn, e.g. "januari–augusti 2026". */
+export function formatDataperiodLang(period: Dataperiod): string {
+  const [franAr, franManad] = period.fran.split("-");
+  const [tillAr, tillManad] = period.till.split("-");
+  const franIdx = franManad ? Number(franManad) - 1 : NaN;
+  const tillIdx = tillManad ? Number(tillManad) - 1 : NaN;
+  const franLabel = SV_MANADER_LANG[franIdx];
+  const tillLabel = SV_MANADER_LANG[tillIdx];
+  if (!franLabel || !tillLabel || !franAr || !tillAr) {
+    return `${period.fran}–${period.till}`;
+  }
+  if (franAr === tillAr && franIdx === tillIdx) return `${tillLabel} ${tillAr}`;
+  return franAr === tillAr
+    ? `${franLabel}–${tillLabel} ${tillAr}`
+    : `${franLabel} ${franAr}–${tillLabel} ${tillAr}`;
+}
+
+/** Källtext under värderingen (modelldata + områdesindelning); delas av webb och PDF. */
+export function varderingsKallaText(period: Dataperiod): string {
+  return (
+    `Modellen är tränad på bostadsrättsförsäljningar i Stockholm under perioden ${formatDataperiodLang(period)}, ` +
+    "baserade på data från Svensk Mäklarstatistik. Områdesindelningen bygger på data från " +
+    "© OpenStreetMap-bidragsgivare (ODbL), Stockholms stad och GeoNames (CC BY 4.0)."
+  );
+}
+
 /** Svensk enhetstext för en Figure-enhet. */
 export function formatEnhet(unit: Figure["unit"]): string {
   switch (unit) {
@@ -185,10 +226,6 @@ export function formatFigureVarde(figure: Figure): string {
  * klientbundeln (se dess filkommentar). Håll de två i synk för hand om
  * caveat-budskapet någonsin ändras; de säger avsiktligt samma sak.
  */
-export const OMRADESINDELNING_ATTRIBUTION =
-  "Områdesindelning: Binfos egen, baserad på © OpenStreetMap-bidragsgivare (ODbL), Stockholms " +
-  "stad och GeoNames (CC BY 4.0).";
-
 export const VARDERINGSDRIVARE_CAVEAT =
   "Det här är genomsnittliga effekter för hela Stockholm (eller för området, där det står " +
   "inom parentes), inte en beräkning för just din lägenhet.";

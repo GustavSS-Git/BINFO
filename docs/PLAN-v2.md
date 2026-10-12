@@ -1,5 +1,7 @@
 # Binfo v2 — plan
 
+> **Archived 2026-10-12.** v2 is done and merged into `main`. The current plan is `PLAN.md` at the repo root.
+
 Status: **APPROVED by owner 2026-10-09** (all recommendations D1–D9 accepted). Execution in progress on branch `v2`. Base commit `0f4bdbc`.
 Owner answers to the Phase 1 questions are recorded in §0. Every later change to this plan is
 logged in §9 with date and reason.

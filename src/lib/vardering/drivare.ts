@@ -31,11 +31,12 @@
  *      contradicts the city-wide effect is never shown; the city-wide
  *      figure is used instead. Owner decision: no correlation presented as
  *      causation.
- *   5. The continuous effects (rooms+1, floor+1, fee_per_sqm+10, boarea+10)
+ *   5. The continuous effects (rooms+1, floor+1, fee_per_sqm+10)
  *      are always included as general, city-wide, unscaled "all else equal"
  *      information (never adjusted to this apartment's actual room count /
- *      floor / build year / area), ordered after the categorical ones.
- *      build_year+10 is deliberately left out — see EXCLUDED_EFFECT_IDS.
+ *      floor / area), ordered after the categorical ones.
+ *      build_year+10 and boarea+10 are deliberately left out — see
+ *      EXCLUDED_EFFECT_IDS.
  *   6. effektProcent and the CI bounds are rounded to one decimal place for
  *      display here; the generated data file keeps full precision.
  */
@@ -48,8 +49,10 @@ import type { Varderingsdrivare, VarderingsTackning } from "@/types/analysis";
  *  2026-10-08: the report does not explain how a building's age moves the
  *  price. The effect itself stays in effects.json and in the model — only
  *  the driver list leaves it out. "fee_per_sqm+100" (v2's collinearity
- *  artefact) no longer exists in the data at all. */
-const EXCLUDED_EFFECT_IDS = new Set<string>(["build_year+10"]);
+ *  artefact) no longer exists in the data at all.
+ *  "boarea+10" ("10 kvm större boarea (pris per kvm)") is hidden by owner
+ *  decision 2026-10-12: display only; model and valuation unchanged. */
+const EXCLUDED_EFFECT_IDS = new Set<string>(["build_year+10", "boarea+10"]);
 
 /** Continuous, always-shown, city-wide effects — see rule 5 above. Order
  *  here is the display order. */

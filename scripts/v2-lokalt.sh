@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Try the v2 app on this machine against a LOCAL Supabase stack (Docker).
 #
-#   git checkout v2 && ./scripts/v2-lokalt.sh            # keeps local data between runs
+#   ./scripts/v2-lokalt.sh                               # keeps local data between runs
 #   ./scripts/v2-lokalt.sh --nollstall                   # wipes the local DB first
 #
 # What it does: starts local Supabase, applies all migrations (first run), sets
@@ -26,8 +26,9 @@ NODE22="$HOME/.nvm/versions/node/v22.23.2/bin"
 [ -d "$NODE22" ] && export PATH="$NODE22:$PATH"
 SB=(npx --yes supabase@2.117.0)
 
-if [ "$(git branch --show-current)" != "v2" ]; then
-  echo "Kör skriptet från grenen v2:  git checkout v2" >&2
+# v2 is merged into main; any branch that has the register migration works.
+if ! ls supabase/migrations/*_register.sql >/dev/null 2>&1; then
+  echo "Den här grenen saknar v2-migrationerna (register). Byt till main." >&2
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then

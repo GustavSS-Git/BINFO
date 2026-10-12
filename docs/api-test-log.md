@@ -97,7 +97,13 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 89 | 2026-10-10 | Local integration 2 | Local Supabase E2E after reinvoke fix: SBC text report (per-call tokens not logged by the Edge Function) | claude-sonnet-5-5 | — | — | 0 | 0 | 3.02 | 169.95 |
 | 90 | 2026-10-10 | Local integration 2 | Local Supabase E2E after reinvoke fix: 34-p scan incl. Haiku identity (per-call tokens not logged) | claude-sonnet-5-5 + haiku-4-5 | — | — | 0 | 0 | 6.13 | 176.08 |
 | 91 | 2026-10-10 | Local integration 2 | Local CPU experiment: one 3-chunk transcription invocation | claude-sonnet-5-5 | — | — | 0 | 0 | 1.57 | 177.65 |
+| 92 | 2026-10-12 | E new /exempel example | Brf Pontonjären 3 (716420-0599) FY2025, run 1 of 2, REJECTED: judging wrote "nästan 90 %" of loans maturing in 2026 vs 74 % in the report (3 calls: grundning 2.263, extraktion 0.760, bedömning 0.493 kr) | claude-sonnet-5-5 | 123372 | 11572 | 0 | 0 | 3.52 | 181.17 |
+| 93 | 2026-10-12 | E new /exempel example | Brf Pontonjären 3 (716420-0599) FY2025, run 2 of 2, ACCEPTED, now `src/data/sampleAnalysis.ts` (3 calls: grundning 2.177, extraktion 0.725, bedömning 0.607 kr) | claude-sonnet-5-5 | 121623 | 11850 | 0 | 0 | 3.51 | 184.68 |
+| 94 | 2026-10-12 | Supervisor (UI copy verification) | Local Supabase E2E: text report Brf Beckasinen 14 (716421-9722) to screenshot the new waiting text, report and PDF (per-call tokens not logged) | claude-sonnet-5-5 | — | — | 0 | 0 | 2.66 | 187.34 |
+| 95 | 2026-10-12 | Supervisor (UI copy verification) | Local Supabase E2E: scanned report Brf Startfältet (Årsredovisning bild 2.pdf) incl. Haiku identity, to screenshot the scan waiting text (per-call tokens not logged) | claude-sonnet-5-5 + haiku-4-5 | — | — | 0 | 0 | 4.47 | 191.81 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
-**Running total: 177.65 SEK**
+Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs/2026-10-12-exempel-pontonjaren-calls.jsonl` (from the CLI log tables; no t_start/t_end). Wall clock: run 1 70.1 s, run 2 75.7 s.
+
+**Running total: 191.81 SEK**

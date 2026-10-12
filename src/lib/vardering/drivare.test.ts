@@ -2,12 +2,7 @@ import { describe, expect, it } from "vitest";
 import { drivareForInput, hamtaVarderingsdrivareCaveat } from "./drivare";
 import { effectsData } from "./data";
 
-const CONTINUOUS_LABELS = [
-  "Ett rum till",
-  "En våning högre",
-  "10 kr/m² högre månadsavgift",
-  "10 kvm större boarea (pris per kvm)",
-];
+const CONTINUOUS_LABELS = ["Ett rum till", "En våning högre", "10 kr/m² högre månadsavgift"];
 
 describe("drivareForInput", () => {
   it("shows the area-specific elevator=nej effect when significant for that omrade", () => {
@@ -86,6 +81,19 @@ describe("drivareForInput", () => {
       expect(result.some((d) => d.label.includes("nyare byggnad"))).toBe(false);
     }
     expect(effectsData.effects.some((e) => e.id === "build_year+10")).toBe(true);
+  });
+
+  it("never shows the boarea+10 row (owner decision 2026-10-12), but keeps it in the data", () => {
+    for (const tackning of ["stockholm", "lan", "utanfor_lan"] as const) {
+      for (const omrade of [null, "Östermalm"] as const) {
+        const result = drivareForInput({ hiss: "nej", balkong: "nej" }, omrade, tackning);
+        expect(result.some((d) => d.label.includes("boarea"))).toBe(false);
+        expect(result.map((d) => d.label)).toEqual(
+          expect.arrayContaining(["Ett rum till", "En våning högre"]),
+        );
+      }
+    }
+    expect(effectsData.effects.some((e) => e.id === "boarea+10")).toBe(true);
   });
 
   it("shows fee_per_sqm+10 as a city-wide, negative, significant driver (valuation-v3)", () => {

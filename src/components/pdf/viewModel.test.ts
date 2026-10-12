@@ -8,18 +8,18 @@ describe("buildPdfViewModel — sample analysis", () => {
   const vm = buildPdfViewModel(sampleAnalysis);
 
   it("carries the förening name and formatted skapad date", () => {
-    expect(vm.foreningNamn).toBe("Brf Granen 10-11");
+    expect(vm.foreningNamn).toBe("Brf Pontonjären 3");
     expect(vm.skapadLabel).toContain("2026");
   });
 
   it("includes every red flag, not just the top two, most severe first", () => {
     expect(vm.rodaFlaggor).toHaveLength(sampleAnalysis.rodaFlaggor.length);
     const severities = vm.rodaFlaggor.map((f) => f.severity);
-    expect(severities).toEqual(["hog", "hog", "medel", "medel"]);
+    expect(severities).toEqual(["medel", "medel", "lag", "lag"]);
   });
 
   it("keeps each red flag's page reference", () => {
-    expect(vm.rodaFlaggor[0]?.pageRef).toBe("s. 5");
+    expect(vm.rodaFlaggor[0]?.pageRef).toBe("s. 18");
   });
 
   it("includes only the six key figures the main analysis shows (visasIHuvudanalys, status !== okant)", () => {
@@ -41,11 +41,13 @@ describe("buildPdfViewModel — sample analysis", () => {
   it("carries Binfos värderingsunderlag (task 4g) — område, intervall, drivare, databasis, attribution", () => {
     expect(vm.prisanalys.varderingsunderlag).toBeDefined();
     const u = vm.prisanalys.varderingsunderlag;
-    expect(u?.omradeText).toContain("Stockholm");
+    expect(u?.omradeText).toContain("Kungsholmen");
     expect(u?.intervallText).toMatch(/Sannolikt mellan/);
     expect(u?.drivare.length).toBeGreaterThan(0);
-    expect(u?.dataBasisText).toMatch(/Bygger på \d/);
-    expect(u?.attributionText).toContain("OpenStreetMap");
+    expect(u?.metadataText).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
+    expect(u?.kallaText).toContain("Svensk Mäklarstatistik");
+    expect(u?.kallaText).toContain("januari–augusti 2026");
+    expect(u?.kallaText).toContain("OpenStreetMap");
   });
 
   it("carries the budpremie text (task 5)", () => {
@@ -54,7 +56,7 @@ describe("buildPdfViewModel — sample analysis", () => {
 
   it("includes all four räntestress scenarios (0–3 percentage points), in order", () => {
     expect(vm.rantestress.rader.map((r) => r.okningPe)).toEqual([0, 1, 2, 3]);
-    expect(vm.rantestress.rader[3]?.nyManadsavgift).toBe("4 836 kr");
+    expect(vm.rantestress.rader[3]?.nyManadsavgift).toBe("3 944 kr");
   });
 
   it("omits totalManadskostnad per row when the analysis has no loan data", () => {
@@ -68,23 +70,37 @@ describe("buildPdfViewModel — sample analysis", () => {
   });
 
   it("carries betyg and motivering verbatim", () => {
-    expect(vm.betyg).toBe("D");
+    expect(vm.betyg).toBe("B");
     expect(vm.betygMotivering).toBe(sampleAnalysis.betygMotivering);
   });
 
   it("builds ovrigInfo from the sample's real antalMedlemmar/antalLokaler/avgiftInkluderarKallor/individuellMatning", () => {
     expect(vm.ovrigInfo).toBeDefined();
     const antalMedlemmar = vm.ovrigInfo?.antal.find((a) => a.label === "Antal medlemmar");
-    expect(antalMedlemmar?.valueText).toBe("72 st");
-    expect(antalMedlemmar?.pageRef).toBe("s. 8");
+    expect(antalMedlemmar?.valueText).toBe("49 st");
+    expect(antalMedlemmar?.pageRef).toBe("s. 7");
 
     const antalLokaler = vm.ovrigInfo?.antal.find((a) => a.label === "Antal lokaler");
-    expect(antalLokaler?.valueText).toBe("6 st");
+    expect(antalLokaler?.valueText).toBe("2 st");
 
     const el = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
-    expect(el?.statusText).toBe("Ingår");
-    expect(el?.pageRef).toBe("s. 15");
-    expect(el?.matningText).toBe("Individuell mätning");
+    expect(el?.statusText).toBe("Ingår ej");
+    expect(el?.pageRef).toBe("s. 8");
+    // The Pontonjären report does not address individual metering, so no matningText.
+    expect(el?.matningText).toBeUndefined();
+
+    // Individual metering is shown when the report states it (synthetic variant of the sample).
+    const medMatning = buildPdfViewModel({
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        individuellMatning: {
+          el: { matning: "ja", ref: { page: 15, excerpt: "El mäts individuellt" } },
+        },
+      },
+    });
+    const elMatt = medMatning.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
+    expect(elMatt?.matningText).toBe("Individuell mätning");
 
     const bredband = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "bredband");
     expect(bredband?.matningText).toBeUndefined();
@@ -191,15 +207,15 @@ describe("buildPdfViewModel — edge cases", () => {
     };
     const vm = buildPdfViewModel(anonymAnalys);
     const adressRad = vm.summary.find((row) => row.label === "Adress");
-    expect(adressRad?.value).toBe("Adressen raderad efter 12 månader · Stockholm");
-    expect(adressRad?.value).not.toContain(", Stockholm");
+    expect(adressRad?.value).toBe("Adressen raderad efter 12 månader · Kungsholmen");
+    expect(adressRad?.value).not.toContain(", Kungsholmen");
   });
 
   it("still prints '<adress>, <ort>' when the address has not been anonymised", () => {
     const adressRad = buildPdfViewModel(sampleAnalysis).summary.find(
       (row) => row.label === "Adress",
     );
-    expect(adressRad?.value).toBe("Granstigen 10, Stockholm");
+    expect(adressRad?.value).toBe("Baltzar von Platens gata 6, Kungsholmen");
   });
 
   it("renders a figure with value null + tecken negativ via formatFigureVarde, not as 'Uppgift saknas'", () => {
@@ -322,8 +338,9 @@ describe("buildPdfViewModel — valuation coverage tier", () => {
   });
 
   it("carries the disclaimer for utanfor_lan", () => {
-    const u = buildPdfViewModel(med({ tackning: "utanfor_lan", omrade: null, prisniva })).prisanalys
-      .varderingsunderlag;
+    const u = buildPdfViewModel(
+      med({ tackning: "utanfor_lan", omrade: null, kommun: null, prisniva }),
+    ).prisanalys.varderingsunderlag;
     expect(u?.tackningTitel).toBe("Utanför Binfos täckningsområde");
     expect(u?.disclaimerText).toContain("utanför Stockholms län");
     expect(u?.metodText).toBeUndefined();
@@ -356,25 +373,26 @@ describe("buildPdfViewModel — andel av föreningens lån (v2)", () => {
 
   it("has no debt row when the analysis has no andelAvForeningensSkuld", () => {
     expect(buildPdfViewModel(medAndel(undefined)).prisanalys.andelAvSkuld).toBeUndefined();
-    expect(buildPdfViewModel(sampleAnalysis).prisanalys.andelAvSkuld).toBeUndefined();
+    // The sample carries the debt share: 3 617 kr/m² × 48 m² = 173 616 kr.
+    expect(buildPdfViewModel(sampleAnalysis).prisanalys.andelAvSkuld).toBeDefined();
   });
 
   it("writes skuld/m² × boarea (from the nyckeltal), says it is not part of the valuation, and cites the page", () => {
-    // sample: 8 990 kr/m² (nyckeltalet) × 54 m² = 485 460 kr
+    // sample: 3 617 kr/m² (nyckeltalet) × 48 m² = 173 616 kr
     const vm = buildPdfViewModel(
       medAndel({
-        value: 485_460,
+        value: 173_616,
         unit: "kr",
         source: "berakning",
-        ref: { page: 9, excerpt: "Skuldsättning / kvm upplåten bostadsrätt, kr 8 990" },
+        ref: { page: 8, excerpt: "Skuldsättning / kvm upplåten bostadsrätt, kr 3 617" },
       }),
     );
     // sv-SE separates thousands with a non-breaking space; compare with plain spaces.
     expect(vm.prisanalys.andelAvSkuld?.text.replace(/\s/g, " ")).toBe(
-      "Lägenhetens ungefärliga andel av föreningens lån: ca 485 460 kr " +
-        "(8 990 kr/m² × 54,0 m²). Ingår inte i värderingen.",
+      "Lägenhetens ungefärliga andel av föreningens lån: ca 173 616 kr " +
+        "(3 617 kr/m² × 48,0 m²). Ingår inte i värderingen.",
     );
-    expect(vm.prisanalys.andelAvSkuld?.pageRef).toBe("s. 9");
+    expect(vm.prisanalys.andelAvSkuld?.pageRef).toBe("s. 8");
     expect(vm.prisanalys.andelAvSkuld?.osaker).toBeUndefined();
   });
 

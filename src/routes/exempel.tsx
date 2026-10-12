@@ -37,9 +37,9 @@ function Exempel() {
     <div className="mx-auto max-w-4xl px-5 py-14">
       <PageHeader eyebrow="Exempelrapport" title="Så här ser en analys ut" />
       <div className="mb-8 rounded-lg border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-foreground">
-        Det här är en exempelrapport — en riktig analys av en riktig årsredovisning (Brf Granen
-        10-11), men en tidigare körning, inte en ny analys av just den bostad du är intresserad av.
-        Vill du analysera din egen bostad?{" "}
+        Det här är en exempelrapport — en riktig analys av en riktig årsredovisning (Brf Pontonjären
+        3), men en tidigare körning, inte en ny analys av just den bostad du är intresserad av. Vill
+        du analysera din egen bostad?{" "}
         <Link to="/analysera" className="font-medium text-primary underline underline-offset-2">
           Ladda upp en årsredovisning
         </Link>
