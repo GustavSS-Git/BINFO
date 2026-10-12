@@ -368,7 +368,7 @@ cd ml && .venv/bin/pytest                  # ML tests
   falls back to "hittades inte". `.env.local` points at **production**, so
   `npm run dev` with it hits the real project: never create analyses that way.
   To see the waiting screens either use `./scripts/v2-lokalt.sh` (Docker, local
-  Supabase; the script still refuses to run unless the branch is `v2`) or
+  Supabase; overrides every `PROJECT_*` var with local values) or
   render `Pagar` with fake props in a test.
 - **Slow checks.** Cold `npm test`, `npm run lint` and `npm run typecheck` each
   take 1–2+ minutes; use a long timeout or run them in the background.
