@@ -78,7 +78,7 @@ function Index() {
             <p className="mt-6 text-sm text-muted-foreground">
               Bara priskoll?{" "}
               <Link to="/vardering" className="font-medium text-primary underline underline-offset-2">
-                Gratis och direkt
+                Klicka här
               </Link>
             </p>
             <p className="mt-4 text-sm text-muted-foreground">
