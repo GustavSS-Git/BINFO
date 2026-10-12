@@ -1,6 +1,6 @@
 # Binfo — plan: UI copy changes + new example analysis
 
-Status: **APPROVED by owner 2026-10-12**; executing on branch `ui-copy-exempel`. Base: `main` @ 42e8d7c.
+Status: **DONE 2026-10-12** (approved by owner 2026-10-12; branch `ui-copy-exempel`, merged into `main`). Base: `main` @ 42e8d7c.
 Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
 
 ## Owner answers (Phase 1, 2026-10-12)
@@ -169,3 +169,21 @@ re-run margin). Every run is logged.
 
 - 2026-10-12: Phase 1 done. Repo read (4 parallel agents), CLAUDE.md updated,
   owner questions answered, plan drafted.
+- 2026-10-12: Execution done.
+  - A (waiting text, Priskoll callout) and B (source paragraph, heading,
+    boarea row hidden, PDF) were done in parallel and reviewed.
+  - E (example): run 1 was rejected (judging wrote "nästan 90 %" vs 74 % in
+    the report); run 2 was accepted (grade B).
+  - Verification:
+    - Checks: typecheck clean; 71 files / 1602 tests passing; lint 0 errors /
+      7 warnings; build OK.
+    - Local Supabase E2E: text report (Beckasinen 14) and scan (Startfältet).
+    - Playwright screenshots at 1280/390 px of the waiting screen (normal +
+      scan), preview, full report, `/vardering`, `/exempel`, and the PDF
+      exports' text.
+    - Repo grep: old strings remain only in negative test assertions, this
+      plan, and the ML label data (model untouched).
+  - Spend: 3.52 + 3.51 (example) + 2.66 + 4.47 (local E2E) = 14.16 kr;
+    running total 191.81 kr.
+  - Open: example judging text says "femårsserien" for a four-year energy
+    series (figures correct; not re-run).

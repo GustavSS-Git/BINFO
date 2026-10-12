@@ -32,7 +32,7 @@ describe("Prisrimlighet — delad av rapporten och /vardering", () => {
     expect(html).not.toContain("Är priset rimligt?");
     expect(html).not.toContain("Pris per kvadratmeter");
     expect(html).not.toContain("(jämfört per m²)");
-    expect(html).toContain("2 365 580 kr");
+    expect(html).toContain("5 681 607 kr");
   });
 
   it("behåller de ägardolda elementen dolda (leverantör, spann, drivarnas förbehåll)", () => {

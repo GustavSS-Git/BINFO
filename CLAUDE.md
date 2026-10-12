@@ -80,12 +80,16 @@ per-apartment cost in kronor, and what to do before bidding.
   (`RAPPORTSTEG_TEXT`, `SKANNAD_UPPTACKT_TEXT`, …) and `STEG_TEXT` in
   `src/lib/analysStatusCopy.ts` (also all error copy).
 - **Price check section**: `Prisrimlighet` in `src/components/AnalysRapport.tsx`
-  is shared by the full report, `/exempel` and `/vardering`. Its source lines use
-  `formatDataperiod` and constants (`OMRADESINDELNING_ATTRIBUTION`,
-  `VARDERINGSDRIVARE_CAVEAT`, tier texts) from `src/lib/analysisView.ts`.
-- **PDF export** builds its own strings in `src/components/pdf/viewModel.ts`
-  (data-basis line with n, typical error, model version; drivers without a
-  heading; the caveat is visible there). Change web copy → check the PDF too.
+  is shared by the full report, `/exempel` and `/vardering`. The source
+  paragraph ("Modellen är tränad på … Svensk Mäklarstatistik. Områdesindelningen
+  bygger på …") is `varderingsKallaText` (period via `formatDataperiodLang`,
+  "januari–augusti 2026"); the factor heading is "Exempel på faktorer som
+  påverkar värderingen utöver område:"; caveat/tier texts are also in
+  `src/lib/analysisView.ts`.
+- **PDF export** builds its own view model in `src/components/pdf/viewModel.ts`
+  (`metadataText`: n, typical error, model version; `kallaText` = the same
+  source paragraph; the same heading over the drivers; the caveat is visible
+  there). Change web copy → check the PDF too.
 - `/vardering` page copy lives in `src/routes/vardering.tsx`.
 
 ## Valuation factor rows ("drivers")
@@ -97,21 +101,33 @@ per-apartment cost in kronor, and what to do before bidding.
   `src/lib/vardering/data/effects.data.ts`.
 - `src/lib/vardering/drivare.ts` (`drivareForInput`, called from
   `prisdata.ts`) selects per apartment: only `signifikant`, never `=okant`, never
-  `EXCLUDED_EFFECT_IDS`; hiss/balkong only when the input says `nej` and tackning
+  `EXCLUDED_EFFECT_IDS` (`build_year+10`, owner 2026-10-08; `boarea+10`,
+  owner 2026-10-12 — display only, the model keeps both); hiss/balkong only when the input says `nej` and tackning
   is `stockholm` (area-specific hiss effect when significant and not
   sign-contradicting). Effects are % of kr/m², one decimal.
 - `balcony=nej` is not significant (n = 10 "nej" sales in training, 45 %
-  `okant`), so no balcony row is ever shown.
+  `okant`; −2.65 %, 95 % CI −14.4 to +10.7), so no balcony row is shown; the
+  selection would show "Ingen balkong" automatically if a future model makes it
+  significant.
 - The data period is a hard-coded constant `DATA_PERIOD` in
   `ml/train_valuation.py`, parsed by `scripts/buildVarderingData.ts` into the
-  manifest/general-model `dataPeriod`; the UI formats it (`formatDataperiod`).
+  manifest/general-model `dataPeriod`; the UI formats it at render time
+  (`formatDataperiodLang` on web/PDF, short `formatDataperiod` in server texts).
 - Areas (`omrade`) are Binfo's own (`data/derived/postnummer_omrade.csv`);
   Vasastan and Norrmalm are one area, "Vasastan-Norrmalm".
 
 ## Example analysis (`/exempel`)
 
 - `src/data/sampleAnalysis.ts` is a pasted snapshot of real CLI output, not
-  regenerated automatically; there is no regeneration script.
+  regenerated automatically; there is no regeneration script. Current example
+  (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
+  `annual reports examples/exemple_analysis_report/`, gitignored) + the owner's
+  real listing Baltzar von Platens gata 6, 112 42 (Kungsholmen: best training
+  coverage, 644 sales, CV MAPE 7.6 %). Valuation v3.1.
+- Check the judging text against the PDF before accepting a run: the first
+  2026-10-12 run wrote "nästan 90 %" where the report says 74 % and was
+  rejected. Tests in `src/components/pdf/*.test.ts*` and
+  `Prisrimlighet.test.tsx` assert the sample's content and must follow it.
 - To regenerate: write `{ "input": PropertyInput }` (strict, unknown keys
   rejected), then
   `ANTHROPIC_MODEL=claude-sonnet-5-5 npm run -s extract -- <pdf> input.json > out.json`
@@ -226,7 +242,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 7 warnings)
 npm run typecheck           # tsc --noEmit
-npm test                    # vitest run (2026-10-12: 70 files, 1592 tests)
+npm test                    # vitest run (2026-10-12: 71 files, 1602 tests)
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
 npm run verify-extraction -- <dir>         # score against fixtures/answer-key (spend; VERIFY_FROM_RESULTS=<dir> = free)
 npm run analys -- <pdf> <input.json>       # LIVE Supabase job + spend
