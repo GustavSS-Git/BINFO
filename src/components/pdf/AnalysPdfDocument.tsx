@@ -660,6 +660,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             <Text style={styles.priceLabel}>Område: {u.omradeText}</Text>
             {u.drivare.length > 0 ? (
               <View style={{ marginTop: 4 }}>
+                <Text style={styles.summaryLabel}>
+                  Exempel på faktorer som påverkar värderingen utöver område:
+                </Text>
                 {u.drivare.map((d) => (
                   <View key={d.label} style={styles.driverRow}>
                     <Text style={styles.summaryLabel}>{d.label}</Text>
@@ -678,9 +681,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
                 </Text>
               </View>
             ) : null}
-            <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.dataBasisText}</Text>
+            <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.metadataText}</Text>
             {u.metodText ? <Text style={styles.confidenceNote}>{u.metodText}</Text> : null}
-            <Text style={styles.confidenceNote}>{u.attributionText}</Text>
+            <Text style={styles.confidenceNote}>{u.kallaText}</Text>
           </View>
         ) : null}
         {p.budpremieText ? (

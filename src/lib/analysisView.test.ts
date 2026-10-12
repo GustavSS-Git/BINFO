@@ -3,11 +3,13 @@ import {
   costItemOsaker,
   formatBudpremieText,
   formatDataperiod,
+  formatDataperiodLang,
   formatDrivareLabel,
   formatEnhet,
   formatFigureVarde,
   formatSkapadDatum,
   formatVarde,
+  varderingsKallaText,
   toppRodaFlaggor,
   varderingsTackningText,
 } from "./analysisView";
@@ -317,5 +319,32 @@ describe("varderingsTackningText", () => {
       expect(t?.text).not.toContain("undefined");
       expect(t?.text).not.toContain("null");
     }
+  });
+});
+
+describe("formatDataperiodLang", () => {
+  it("uses full month names within a year", () => {
+    expect(formatDataperiodLang({ fran: "2026-01-01", till: "2026-08-31" })).toBe(
+      "januari–augusti 2026",
+    );
+  });
+  it("collapses a single month", () => {
+    expect(formatDataperiodLang({ fran: "2026-08-01", till: "2026-08-31" })).toBe("augusti 2026");
+  });
+  it("shows both years across a year boundary", () => {
+    expect(formatDataperiodLang({ fran: "2025-11-01", till: "2026-02-28" })).toBe(
+      "november 2025–februari 2026",
+    );
+  });
+  it("falls back to the raw dates when malformed", () => {
+    expect(formatDataperiodLang({ fran: "", till: "" })).toBe("–");
+  });
+});
+
+describe("varderingsKallaText", () => {
+  it("builds the exact source paragraph", () => {
+    expect(varderingsKallaText({ fran: "2026-01-01", till: "2026-08-31" })).toBe(
+      "Modellen är tränad på bostadsrättsförsäljningar i Stockholm under perioden januari–augusti 2026, baserade på data från Svensk Mäklarstatistik. Områdesindelningen bygger på data från © OpenStreetMap-bidragsgivare (ODbL), Stockholms stad och GeoNames (CC BY 4.0).",
+    );
   });
 });

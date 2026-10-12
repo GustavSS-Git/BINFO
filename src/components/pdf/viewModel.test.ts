@@ -44,8 +44,10 @@ describe("buildPdfViewModel — sample analysis", () => {
     expect(u?.omradeText).toContain("Stockholm");
     expect(u?.intervallText).toMatch(/Sannolikt mellan/);
     expect(u?.drivare.length).toBeGreaterThan(0);
-    expect(u?.dataBasisText).toMatch(/Bygger på \d/);
-    expect(u?.attributionText).toContain("OpenStreetMap");
+    expect(u?.metadataText).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
+    expect(u?.kallaText).toContain("Svensk Mäklarstatistik");
+    expect(u?.kallaText).toContain("januari–augusti 2026");
+    expect(u?.kallaText).toContain("OpenStreetMap");
   });
 
   it("carries the budpremie text (task 5)", () => {

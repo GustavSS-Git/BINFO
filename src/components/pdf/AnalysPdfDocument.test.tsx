@@ -167,7 +167,7 @@ describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cle
     // whole document" check. The latter used to hold incidentally (nothing
     // else on the page mentioned Stockholm with a leading comma), but task
     // 4g/5's Binfo-värderingsmodell content legitimately says things like
-    // "OpenStreetMap-bidragsgivare (ODbL), Stockholms stad" — a real,
+    // "© OpenStreetMap-bidragsgivare (ODbL), Stockholms stad" — a real,
     // intentional mention unrelated to the address anonymisation this test
     // guards. sampleAnalysis.prisanalys is static sample data, not
     // recomputed from the anonymised input, so that text is present in both

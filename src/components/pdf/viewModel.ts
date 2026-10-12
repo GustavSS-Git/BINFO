@@ -12,12 +12,11 @@ import {
   arSkannad,
   formatDrivareLabel,
   formatBudpremieText,
-  formatDataperiod,
   formatFigureVarde,
   formatSkapadDatum,
   formatVarde,
-  OMRADESINDELNING_ATTRIBUTION,
   SKANNAD_NOTIS,
+  varderingsKallaText,
   varderingsTackningText,
 } from "@/lib/analysisView";
 import type {
@@ -103,8 +102,8 @@ export interface PdfVarderingsunderlag {
   metodText: string | undefined;
   intervallText: string | undefined;
   drivare: PdfVarderingsdrivare[];
-  dataBasisText: string;
-  attributionText: string;
+  metadataText: string;
+  kallaText: string;
 }
 
 /** Raden "Lägenhetens ungefärliga andel av föreningens lån" (bara full analys). */
@@ -307,10 +306,8 @@ function buildVarderingsunderlag(
       effektProcentText: `${d.effektProcent >= 0 ? "+" : ""}${d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %`,
       positiv: d.effektProcent >= 0,
     })),
-    dataBasisText:
-      `Bygger på ${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar i Stockholm ` +
-      `${formatDataperiod(u.dataperiod)} · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
-    attributionText: OMRADESINDELNING_ATTRIBUTION,
+    metadataText: `${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
+    kallaText: varderingsKallaText(u.dataperiod),
   };
 }
 
