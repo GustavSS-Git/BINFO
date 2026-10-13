@@ -1,0 +1,99 @@
+{
+  "countTokens": [
+    {
+      "model": "claude-sonnet-5-5",
+      "system": "Du är en noggrann finansiell analytiker som läser svenska bostadsrättsföreningars årsredovisningar åt en bostadsköpare.\n\nDin uppgift i detta steg är ENDAST att hitta och citera källunderlag — inte att sammanställa eller bedöma. Gå igenom rapporten och leta reda på följande, i den mån de finns i rapporten:\n\nFöreningens identitet: namn, organisationsnummer, om föreningen är äkta eller oäkta bostadsrättsförening, byggår, antal lägenheter, föreningens totalyta, vilket räkenskapsår rapporten avser.\n\nAntal medlemmar: föreningens medlemsantal VID RÄKENSKAPSÅRETS SLUT. Rapporter skriver ofta detta som \"Föreningen hade vid årets slut 43 (41) medlemmar\" — då är 43 talet att citera (nuvarande år), inte jämförelsetalet inom parentes (föregående år). Blanda inte ihop detta med ett annat tal som råkar stå nära ordet \"medlemmar\" i en annan mening (t.ex. ett årtal, ett styrelsemöte eller ett antal ledamöter) — citera bara meningen som uttryckligen anger det totala medlemsantalet. Vissa rapporter (särskilt från Riksbyggen i denna typ av underlag) anger bara antal lägenheter, aldrig medlemsantal — säg då inget om medlemsantal.\n\nAntal hyresrätter och antal lokaler: leta efter hur många av föreningens enheter som är hyresrätter respektive lokaler (kontor, butik, förråd som föreningen hyr ut eller äger som lokal — INTE gemensamhetsutrymmen som \"föreningslokal\" eller \"samlingslokal\", och INTE en areauppgift i kvadratmeter som råkar innehålla ordet \"lokal\" eller \"garagelokal\"). En lokal nämns ibland med sin upplåtelseform i samma mening, t.ex. \"2 lokaler (hyresrätt)\" — citera då både antalet och att det är hyresrätt. Räkna bara enheter rapporten uttryckligen anger som lokaler eller hyresrätter; gissa aldrig utifrån vad som är vanligt.\n\nDe sju lagstadgade nyckeltalen (BFNAR 2023:1) — leta upp exakta värden för var och en:\n- Årsavgift per m² upplåten med bostadsrätt\n- Årsavgifternas andel av totala rörelseintäkter\n- Skuldsättning per m² totalyta\n- Skuldsättning per m² bostadsrättsyta\n- Sparande per m² totalyta\n- Räntekänslighet\n- Energikostnad per m² totalyta\nSkuldsättning per kvm: anger rapporten bara ett enda skuldtal per kvm utan att tydligt skilja på totalyta och bostadsrättsyta (t.ex. \"Lån per kvm bostadsyta, kr 2 284\" eller \"Skuldsättningsgrad kr/kvm 3 089\"), citera det ändå — det ska redovisas som skuldsättning per m² bostadsrättsyta (skuldsattning_per_m2_brf_yta), inte utelämnas.\n\nLånebok: total räntebärande skuld, eventuell förfalloprofil (när lån omsätts och till vilken ränta), genomsnittlig ränta. Säger rapporten uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder — citera den meningen, den är själva svaret på \"total räntebärande skuld\".\n\nTotal räntebärande skuld är summan av BÅDE den långfristiga och den kortfristiga delen av lånen (t.ex. \"Skulder till kreditinstitut\" under långfristiga skulder PLUS \"Skulder till kreditinstitut\" eller \"Kortfristig del av skuld\" / \"Kortfr. del av skuld\" under kortfristiga skulder). Vissa föreningar bokför lånet under en annan rubrik, t.ex. \"Övriga skulder\" med en not som visar att det är ett lån — leta då upp både posten i balansräkningen och noten, och citera båda delarna var för sig. Står en tryckt totalsumma för lånen (t.ex. i en låne-not), citera den också.\n\nKontrollsummor — citera dessa särskilt, de används för att kontrollera att siffrorna hänger ihop: \"Summa tillgångar\" och \"Summa eget kapital och skulder\" (balansräkningen), årets årsavgifter (intäkten \"Årsavgifter\" i resultaträkningen, i kronor), föreningens bostadsrättsyta i kvadratmeter (ytan upplåten med bostadsrätt) och de räntebärande skulderna.\n\nUnderhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade (citera varje planerad åtgärd för sig — de kan nämnas på olika sidor).\n\nVäsentliga händelser: händelser efter räkenskapsårets slut eller annan väsentlig information i förvaltningsberättelsen som en köpare bör känna till.\n\nVad som ingår i månadsavgiften: söker rapporten uttryckligen nämna om t.ex. värme, vatten, el, bredband eller tv ingår i avgiften eller bekostas separat av medlemmarna (ofta under \"I årsavgiften ingår...\" eller liknande formulering, t.ex. \"I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme\" eller en explicit uteslutning som \"Kostnader för medlemmarnas elförbrukning ingår inte i årsavgiften\"). Citera var i rapporten varje sådan post uttryckligen nämns, en post i taget — olika poster nämns ofta i olika meningar eller på olika sidor. VIKTIGT: en mening om föreningens EGEN fastighetsförsäkring (t.ex. \"X ingår ej i föreningens fastighetsförsäkring\") handlar INTE om vad som ingår i medlemmarnas avgift — citera den aldrig som ett svar på om en post ingår i avgiften.\n\nIndividuell mätning (IMD): letar rapporten uttryckligen nämna att el, vatten eller värme mäts och debiteras individuellt per lägenhet (t.ex. \"Kostnader för el ... tas ut via årsavgiften genom individuell mätning\" eller \"I begreppet årsavgift ingår inte IMD-avgifter\"). Citera vilken specifik post (el, vatten eller värme) det gäller — om rapporten bara nämner \"IMD\" utan att säga vilken förbrukning det avser, notera det men koppla det inte till fel post.\n\nFöreningens fastighet(er) och adress(er): fastighetsbeteckning(ar) (t.ex. \"Pontonjären 3\") och gatuadress(er) till föreningens egna byggnader, med postnummer och ort när rapporten anger dem (t.ex. \"Föreningen äger fastigheten Pontonjären 3 på Baltzar von Platens gata 6 i Stockholm\"). Det är föreningens EGNA fastighet som avses — inte förvaltarens, revisorns, styrelseledamöternas eller en banks adress, och inte en c/o-adress för post. Anger rapporten ingen: säg det, gissa aldrig.\n\nFör varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "document",
+              "source": {
+                "type": "content",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Brf Testgården\nOrg.nr 769616-0253"
+                  },
+                  {
+                    "type": "text",
+                    "text": "Förvaltningsberättelse"
+                  },
+                  {
+                    "type": "text",
+                    "text": "Nyckeltal | 2025 | 2024"
+                  },
+                  {
+                    "type": "text",
+                    "text": "Årsavgift kr/kvm | 670 | 640"
+                  }
+                ]
+              },
+              "title": "Årsredovisning (transkriberad)",
+              "citations": {
+                "enabled": true
+              }
+            },
+            {
+              "type": "text",
+              "text": "Läs igenom den bifogade årsredovisningen och redovisa, med citat, allt du hittar enligt instruktionerna i systemprompten."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "create": [
+    {
+      "params": {
+        "model": "claude-sonnet-5-5",
+        "max_tokens": 16000,
+        "system": "Du är en noggrann finansiell analytiker som läser svenska bostadsrättsföreningars årsredovisningar åt en bostadsköpare.\n\nDin uppgift i detta steg är ENDAST att hitta och citera källunderlag — inte att sammanställa eller bedöma. Gå igenom rapporten och leta reda på följande, i den mån de finns i rapporten:\n\nFöreningens identitet: namn, organisationsnummer, om föreningen är äkta eller oäkta bostadsrättsförening, byggår, antal lägenheter, föreningens totalyta, vilket räkenskapsår rapporten avser.\n\nAntal medlemmar: föreningens medlemsantal VID RÄKENSKAPSÅRETS SLUT. Rapporter skriver ofta detta som \"Föreningen hade vid årets slut 43 (41) medlemmar\" — då är 43 talet att citera (nuvarande år), inte jämförelsetalet inom parentes (föregående år). Blanda inte ihop detta med ett annat tal som råkar stå nära ordet \"medlemmar\" i en annan mening (t.ex. ett årtal, ett styrelsemöte eller ett antal ledamöter) — citera bara meningen som uttryckligen anger det totala medlemsantalet. Vissa rapporter (särskilt från Riksbyggen i denna typ av underlag) anger bara antal lägenheter, aldrig medlemsantal — säg då inget om medlemsantal.\n\nAntal hyresrätter och antal lokaler: leta efter hur många av föreningens enheter som är hyresrätter respektive lokaler (kontor, butik, förråd som föreningen hyr ut eller äger som lokal — INTE gemensamhetsutrymmen som \"föreningslokal\" eller \"samlingslokal\", och INTE en areauppgift i kvadratmeter som råkar innehålla ordet \"lokal\" eller \"garagelokal\"). En lokal nämns ibland med sin upplåtelseform i samma mening, t.ex. \"2 lokaler (hyresrätt)\" — citera då både antalet och att det är hyresrätt. Räkna bara enheter rapporten uttryckligen anger som lokaler eller hyresrätter; gissa aldrig utifrån vad som är vanligt.\n\nDe sju lagstadgade nyckeltalen (BFNAR 2023:1) — leta upp exakta värden för var och en:\n- Årsavgift per m² upplåten med bostadsrätt\n- Årsavgifternas andel av totala rörelseintäkter\n- Skuldsättning per m² totalyta\n- Skuldsättning per m² bostadsrättsyta\n- Sparande per m² totalyta\n- Räntekänslighet\n- Energikostnad per m² totalyta\nSkuldsättning per kvm: anger rapporten bara ett enda skuldtal per kvm utan att tydligt skilja på totalyta och bostadsrättsyta (t.ex. \"Lån per kvm bostadsyta, kr 2 284\" eller \"Skuldsättningsgrad kr/kvm 3 089\"), citera det ändå — det ska redovisas som skuldsättning per m² bostadsrättsyta (skuldsattning_per_m2_brf_yta), inte utelämnas.\n\nLånebok: total räntebärande skuld, eventuell förfalloprofil (när lån omsätts och till vilken ränta), genomsnittlig ränta. Säger rapporten uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder — citera den meningen, den är själva svaret på \"total räntebärande skuld\".\n\nTotal räntebärande skuld är summan av BÅDE den långfristiga och den kortfristiga delen av lånen (t.ex. \"Skulder till kreditinstitut\" under långfristiga skulder PLUS \"Skulder till kreditinstitut\" eller \"Kortfristig del av skuld\" / \"Kortfr. del av skuld\" under kortfristiga skulder). Vissa föreningar bokför lånet under en annan rubrik, t.ex. \"Övriga skulder\" med en not som visar att det är ett lån — leta då upp både posten i balansräkningen och noten, och citera båda delarna var för sig. Står en tryckt totalsumma för lånen (t.ex. i en låne-not), citera den också.\n\nKontrollsummor — citera dessa särskilt, de används för att kontrollera att siffrorna hänger ihop: \"Summa tillgångar\" och \"Summa eget kapital och skulder\" (balansräkningen), årets årsavgifter (intäkten \"Årsavgifter\" i resultaträkningen, i kronor), föreningens bostadsrättsyta i kvadratmeter (ytan upplåten med bostadsrätt) och de räntebärande skulderna.\n\nUnderhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade (citera varje planerad åtgärd för sig — de kan nämnas på olika sidor).\n\nVäsentliga händelser: händelser efter räkenskapsårets slut eller annan väsentlig information i förvaltningsberättelsen som en köpare bör känna till.\n\nVad som ingår i månadsavgiften: söker rapporten uttryckligen nämna om t.ex. värme, vatten, el, bredband eller tv ingår i avgiften eller bekostas separat av medlemmarna (ofta under \"I årsavgiften ingår...\" eller liknande formulering, t.ex. \"I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme\" eller en explicit uteslutning som \"Kostnader för medlemmarnas elförbrukning ingår inte i årsavgiften\"). Citera var i rapporten varje sådan post uttryckligen nämns, en post i taget — olika poster nämns ofta i olika meningar eller på olika sidor. VIKTIGT: en mening om föreningens EGEN fastighetsförsäkring (t.ex. \"X ingår ej i föreningens fastighetsförsäkring\") handlar INTE om vad som ingår i medlemmarnas avgift — citera den aldrig som ett svar på om en post ingår i avgiften.\n\nIndividuell mätning (IMD): letar rapporten uttryckligen nämna att el, vatten eller värme mäts och debiteras individuellt per lägenhet (t.ex. \"Kostnader för el ... tas ut via årsavgiften genom individuell mätning\" eller \"I begreppet årsavgift ingår inte IMD-avgifter\"). Citera vilken specifik post (el, vatten eller värme) det gäller — om rapporten bara nämner \"IMD\" utan att säga vilken förbrukning det avser, notera det men koppla det inte till fel post.\n\nFöreningens fastighet(er) och adress(er): fastighetsbeteckning(ar) (t.ex. \"Pontonjären 3\") och gatuadress(er) till föreningens egna byggnader, med postnummer och ort när rapporten anger dem (t.ex. \"Föreningen äger fastigheten Pontonjären 3 på Baltzar von Platens gata 6 i Stockholm\"). Det är föreningens EGNA fastighet som avses — inte förvaltarens, revisorns, styrelseledamöternas eller en banks adress, och inte en c/o-adress för post. Anger rapporten ingen: säg det, gissa aldrig.\n\nFör varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "document",
+                "source": {
+                  "type": "content",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Brf Testgården\nOrg.nr 769616-0253"
+                    },
+                    {
+                      "type": "text",
+                      "text": "Förvaltningsberättelse"
+                    },
+                    {
+                      "type": "text",
+                      "text": "Nyckeltal | 2025 | 2024"
+                    },
+                    {
+                      "type": "text",
+                      "text": "Årsavgift kr/kvm | 670 | 640"
+                    }
+                  ]
+                },
+                "title": "Årsredovisning (transkriberad)",
+                "citations": {
+                  "enabled": true
+                }
+              },
+              {
+                "type": "text",
+                "text": "Läs igenom den bifogade årsredovisningen och redovisa, med citat, allt du hittar enligt instruktionerna i systemprompten."
+              }
+            ]
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        }
+      },
+      "harSignal": false
+    }
+  ]
+}

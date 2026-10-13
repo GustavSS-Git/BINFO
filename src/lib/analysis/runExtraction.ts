@@ -1,13 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractionResult } from "@/types/analysis";
-import { berikaNyckeltal, implausibelNegativAnmarkning } from "./benchmarks";
 import { extractPdfText } from "./pdf";
-import { ModelTruncatedError, extractWithRetry, type ModelCaller } from "./extract";
 import {
-  harledSkuldfriaNyckeltal,
-  rensaSkuldfriaKonfidensSkal,
-  tolkaNyckeltal,
-} from "./tolkaVarde";
+  ExtractionValidationError,
+  ModelTruncatedError,
+  provaMedOmforsok,
+  type ModelCaller,
+  type Utfall,
+} from "./extract";
 import {
   buildExtractionSystemPrompt,
   buildExtractionUserPrompt,
@@ -25,7 +25,17 @@ import {
   type ModelPricing,
 } from "./costGuard";
 import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
-import { kontrolleraRimlighet } from "./rimlighet";
+import {
+  fyllIOkandaAvgiftsposter,
+  SKANNAD_KONFIDENS_SKAL,
+  slutforExtraktion,
+  type AvstamdExtraktion,
+  type ExtraktionsKontext,
+} from "./slutfor";
+
+// Kept importable from here (callers and tests predate slutfor.ts).
+export { fyllIOkandaAvgiftsposter, SKANNAD_KONFIDENS_SKAL };
+import type { Sidreferensfynd } from "./sidreferenser";
 import {
   byggTranskriptionsblock,
   byggTranskriptionsdokument,
@@ -197,6 +207,9 @@ export interface RunExtractionResult {
   /** Every `messages.create` call this run actually made, in order —
    *  grounding's one call followed by extraction's one-or-two (on retry). */
   calls: ModelCallMetrics[];
+  /** The page-reference check's findings (sidreferenser.ts); empty when no page
+   *  texts were given. */
+  sidreferenser?: Sidreferensfynd[];
 }
 
 /** Builds the real Anthropic client, cast to the narrow shape this module
@@ -209,6 +222,51 @@ export function resolveClient(
   if (options.client) return options.client;
   const real = options.apiKey ? new Anthropic({ apiKey: options.apiKey }) : new Anthropic();
   return real as unknown as AnthropicClientLike;
+}
+
+// ---------------------------------------------------------------------------
+// Build / parse split (docs/PLAN-v3.md §3.2). Every pipeline stage is a pure
+// `bygg<Stage>Request(...)` that returns the exact Messages create parameters,
+// and a pure `tolka<Stage>Svar(message, ...)` that reads the answer. The
+// synchronous functions of this module (and of analyze.ts, identitetModell.ts,
+// transkribering.ts) are compositions of the two around the API call,
+// cost guard and metrics, so the Message Batches path (src/lib/analysis/bulk)
+// sends and reads byte-identical requests/answers. Golden tests
+// (requestBodies.golden.test.ts) pin the request bodies.
+// ---------------------------------------------------------------------------
+
+/** The parameters of one `messages.create` call, exactly as sent. */
+export type SkapaParams = Parameters<AnthropicClientLike["messages"]["create"]>[0];
+/** One `messages.create` answer (a Batches result's `message` has the same shape). */
+export type SvarMeddelande = Awaited<ReturnType<AnthropicClientLike["messages"]["create"]>>;
+/** The parameters of the (free) `messages.countTokens` pre-flight for a request. */
+export type RakneParams = Parameters<AnthropicClientLike["messages"]["countTokens"]>[0];
+
+/** `countTokens` takes the request minus the output settings. */
+export function tillRakneParams(params: SkapaParams): RakneParams {
+  return { model: params.model, system: params.system, messages: params.messages };
+}
+
+/** What every request builder needs besides its stage-specific input. */
+export interface BegarInst {
+  model: string;
+  maxTokens: number;
+  /** Reasoning depth; omitted from the request entirely when unset. */
+  effort?: ModelEffort | undefined;
+}
+
+/**
+ * A refusal or a cut-off answer is a visible, non-retryable failure for every
+ * stage. Throws the pipeline's own error; the caller that owns the spend
+ * bookkeeping annotates it (annotateSpend).
+ */
+export function kontrolleraStoppgrund(
+  svar: Pick<SvarMeddelande, "stop_reason">,
+  steg: string,
+  maxTokens: number,
+): void {
+  if (svar.stop_reason === "refusal") throw new ModelRefusedError(steg);
+  if (svar.stop_reason === "max_tokens") throw new ModelTruncatedError(steg, maxTokens);
 }
 
 function findTextBlock(content: Array<{ type: string; text?: string }>): string | undefined {
@@ -427,7 +485,20 @@ export async function runGrounding(
     throw new ScannedPdfError();
   }
 
-  const documentBlock = {
+  return korGrundningsanrop(
+    byggGrundningRequestFranPdf(pdfBytes, { model, maxTokens: maxOutputTokensGrounding, effort }),
+    { typ: "pdf" },
+    pdfSaknarTextlager,
+    { model, maxCostSek, pricing, maxOutputTokensGrounding },
+    options,
+  );
+}
+
+// ---- grounding: build / parse ----------------------------------------------
+
+/** The native-PDF `document` block: base64 PDF with citations enabled. */
+export function pdfDokumentblock(pdfBytes: Uint8Array) {
+  return {
     type: "document" as const,
     source: {
       type: "base64" as const,
@@ -436,14 +507,67 @@ export async function runGrounding(
     },
     citations: { enabled: true },
   };
+}
 
-  return korGrundningsanrop(
-    documentBlock,
-    (content) => extractGroundingFindings(content as GroundingTextBlock[]),
-    pdfSaknarTextlager,
-    { model, maxCostSek, pricing, maxOutputTokensGrounding, effort },
-    options,
-  );
+/** Grounding request over any citable `document` block. */
+export function byggGrundningRequest(dokument: object, inst: BegarInst): SkapaParams {
+  const { model, maxTokens, effort } = inst;
+  return {
+    model,
+    max_tokens: maxTokens,
+    system: buildGroundingSystemPrompt(),
+    messages: [
+      {
+        role: "user" as const,
+        content: [dokument, { type: "text" as const, text: buildGroundingUserPrompt() }],
+      },
+    ],
+    ...(effort ? { output_config: { effort } } : {}),
+  };
+}
+
+/** Grounding request over the report's native PDF (page_location citations). */
+export function byggGrundningRequestFranPdf(pdfBytes: Uint8Array, inst: BegarInst): SkapaParams {
+  return byggGrundningRequest(pdfDokumentblock(pdfBytes), inst);
+}
+
+/** Grounding request over a transcription (content_block_location citations).
+ *  Throws `TomTranskriptionError` when the transcription holds no text. */
+export function byggGrundningRequestFranTranskription(
+  sidor: readonly Transkriptionssida[],
+  inst: BegarInst,
+): SkapaParams {
+  const block = byggTranskriptionsblock(sidor);
+  if (block.length === 0) throw new TomTranskriptionError();
+  return byggGrundningRequest(byggTranskriptionsdokument(block), inst);
+}
+
+/** Which route produced the grounding request — decides how citations are read. */
+export type GrundningsKalla =
+  { typ: "pdf" } | { typ: "transkription"; sidor: readonly Transkriptionssida[] };
+
+/**
+ * Reads a grounding answer into the findings text the extraction prompt takes.
+ * Page numbers come only from the API's citations: `page_location` for a PDF,
+ * `content_block_location` mapped through the transcription's block -> page map
+ * (a page number the map does not give is never accepted). Throws on a refusal
+ * or a cut-off answer: grounding's output is free text, so a truncated answer
+ * would otherwise pass as a merely shorter findings list.
+ */
+export function tolkaGrundningSvar(
+  svar: SvarMeddelande,
+  kalla: GrundningsKalla,
+  maxTokens: number,
+): { groundingText: string } {
+  kontrolleraStoppgrund(svar, "Grundningen", maxTokens);
+  const fynd =
+    kalla.typ === "pdf"
+      ? extractGroundingFindings(svar.content as GroundingTextBlock[])
+      : extraheraTranskriptionsfynd(
+          svar.content.filter((b): b is InnehallsCitatBlock => typeof b.text === "string"),
+          byggTranskriptionsblock(kalla.sidor),
+        ).fynd;
+  return { groundingText: formatGroundingForExtraction(fynd) };
 }
 
 /**
@@ -453,44 +577,25 @@ export async function runGrounding(
  * route's own way of reading citations into findings.
  */
 async function korGrundningsanrop(
-  documentBlock: object,
-  taFynd: (content: AnthropicResponseContent) => Grundfynd[],
+  begaran: SkapaParams,
+  kalla: GrundningsKalla,
   pdfSaknarTextlager: boolean,
   inst: {
     model: string;
     maxCostSek: number;
     pricing: ModelPricing;
     maxOutputTokensGrounding: number;
-    effort: ModelEffort | undefined;
   },
   klientVal: Pick<RunExtractionOptions, "apiKey" | "client">,
 ): Promise<RunGroundingResult> {
-  const { model, maxCostSek, pricing, maxOutputTokensGrounding, effort } = inst;
+  const { model, maxCostSek, pricing, maxOutputTokensGrounding } = inst;
   const client = resolveClient(klientVal);
 
-  const groundingSystem = buildGroundingSystemPrompt();
-  const groundingMessages = [
-    {
-      role: "user" as const,
-      content: [documentBlock, { type: "text" as const, text: buildGroundingUserPrompt() }],
-    },
-  ];
-
-  const groundingCount = await client.messages.countTokens({
-    model,
-    system: groundingSystem,
-    messages: groundingMessages,
-  });
+  const groundingCount = await client.messages.countTokens(tillRakneParams(begaran));
   enforceCostLimit(groundingCount.input_tokens, maxOutputTokensGrounding, maxCostSek, pricing);
 
   const start = performance.now();
-  const groundingResponse = await client.messages.create({
-    model,
-    max_tokens: maxOutputTokensGrounding,
-    system: groundingSystem,
-    messages: groundingMessages,
-    ...(effort ? { output_config: { effort } } : {}),
-  });
+  const groundingResponse = await client.messages.create(begaran);
   const latencyMs = performance.now() - start;
   const calls = [
     buildCallMetrics({
@@ -504,28 +609,18 @@ async function korGrundningsanrop(
   ];
   const spentSek = calls[0]!.costSek;
 
-  if (groundingResponse.stop_reason === "refusal") {
-    throw annotateSpend(new ModelRefusedError("Grundningen"), spentSek, calls);
-  }
-
-  // Grounding's output is free text, not JSON — a truncated response would
-  // otherwise pass through silently as a merely-shorter groundingText
-  // instead of an error, and extraction downstream would just see fewer
-  // findings than the report actually contains.
-  if (groundingResponse.stop_reason === "max_tokens") {
-    throw annotateSpend(
-      new ModelTruncatedError("Grundningen", maxOutputTokensGrounding),
-      spentSek,
-      calls,
+  try {
+    const { groundingText } = tolkaGrundningSvar(
+      groundingResponse,
+      kalla,
+      maxOutputTokensGrounding,
     );
+    return { groundingText, spentSek, pdfSaknarTextlager, calls };
+  } catch (error) {
+    // Refusal / cut-off: the call was paid for.
+    throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
   }
-
-  const groundingText = formatGroundingForExtraction(taFynd(groundingResponse.content));
-
-  return { groundingText, spentSek, pdfSaknarTextlager, calls };
 }
-
-type AnthropicResponseContent = Array<{ type: string; text?: string; citations?: unknown }>;
 
 /** Thrown before any API call when a transcription holds no text at all. */
 export class TomTranskriptionError extends Error {
@@ -562,18 +657,15 @@ export async function runGroundingFranTranskription(
     effort,
   } = options;
 
-  const block = byggTranskriptionsblock(sidor);
-  if (block.length === 0) throw new TomTranskriptionError();
-
   return korGrundningsanrop(
-    byggTranskriptionsdokument(block),
-    (content) =>
-      extraheraTranskriptionsfynd(
-        content.filter((b): b is InnehallsCitatBlock => typeof b.text === "string"),
-        block,
-      ).fynd,
+    byggGrundningRequestFranTranskription(sidor, {
+      model,
+      maxTokens: maxOutputTokensGrounding,
+      effort,
+    }),
+    { typ: "transkription", sidor },
     true,
-    { model, maxCostSek, pricing, maxOutputTokensGrounding, effort },
+    { model, maxCostSek, pricing, maxOutputTokensGrounding },
     options,
   );
 }
@@ -592,46 +684,73 @@ export interface RunStructuredExtractionOptions extends Omit<
    * confidence at 'medel' with a skäl line. Default 'textlager'.
    */
   kalla?: "textlager" | "skannad";
+  /**
+   * Page texts (1-based page -> text) the cited pages are verified against
+   * (sidreferenser.ts): pdf.js text of a text PDF, the transcription of a scan.
+   * Omitted = the references are not verified. Pass none for a 'trasigt' text
+   * layer, whose pdf.js text does not reflect what the model read.
+   */
+  sidtexter?: ReadonlyMap<number, string>;
+}
+
+// ---- extraction: build / parse ---------------------------------------------
+
+export interface ExtraktionInst extends BegarInst {
+  promptCache: PromptCacheMode;
+}
+
+/** The request for one extraction attempt from ready-made prompt texts. */
+export function byggExtraktionRequestFranPrompt(
+  systemText: string,
+  userText: string,
+  inst: ExtraktionInst,
+): SkapaParams {
+  const { model, maxTokens, effort, promptCache } = inst;
+  return {
+    model,
+    max_tokens: maxTokens,
+    // The system prompt is fully static (breakpoint 1); the user block is the
+    // same on the validation retry (breakpoint 2) — see buildUserContent.
+    system: buildSystemParam(systemText, promptCache),
+    messages: [{ role: "user" as const, content: buildUserContent(userText, promptCache) }],
+    ...(effort ? { output_config: { effort } } : {}),
+  };
+}
+
+/** The extraction request for a grounding text. */
+export function byggExtraktionRequest(groundingText: string, inst: ExtraktionInst): SkapaParams {
+  return byggExtraktionRequestFranPrompt(
+    buildExtractionSystemPrompt(),
+    buildExtractionUserPrompt(groundingText),
+    inst,
+  );
 }
 
 /**
- * The model sometimes lists only SOME of the five fee-inclusion posts in
- * `avgiftInkluderarEnligtForening` although the schema requires all five (measured
- * 2026-10-09: it dropped "varme" and "vatten" on a scanned report and burned a retry).
- * A post the model gave no answer for is unknown by definition, so it becomes "okant" —
- * never "nej" (unknown is not false).
+ * The model's parsed JSON from one extraction answer. Throws on a refusal or a
+ * cut-off (never retried: the same prompt gives the same refusal/truncation).
  */
-export function fyllIOkandaAvgiftsposter(raw: unknown): void {
-  if (raw === null || typeof raw !== "object") return;
-  const forening = (raw as { forening?: unknown }).forening;
-  if (forening === null || typeof forening !== "object") return;
-  const poster = (forening as { avgiftInkluderarEnligtForening?: unknown })
-    .avgiftInkluderarEnligtForening;
-  if (poster === null || typeof poster !== "object" || Array.isArray(poster)) return;
-  const objekt = poster as Record<string, unknown>;
-  for (const post of ["varme", "vatten", "el", "bredband", "tv"]) {
-    if (objekt[post] === undefined) objekt[post] = "okant";
-  }
+export function raExtraktionssvar(svar: SvarMeddelande, maxTokens: number): unknown {
+  kontrolleraStoppgrund(svar, "Extraktionen", maxTokens);
+  return parseModelJson(svar.content);
 }
 
-/** The skäl line added to the confidence of a scanned report. */
-export const SKANNAD_KONFIDENS_SKAL =
-  "Årsredovisningen saknade textlager; siffrorna är avlästa från sidbilder.";
-
-/** Removes every `osaker` key anywhere in the model's raw JSON: only the
- *  deterministic check (rimlighet.ts) may mark a figure as uncertain. */
-function stripOsaker(varde: unknown): void {
-  if (Array.isArray(varde)) {
-    for (const v of varde) stripOsaker(v);
-  } else if (varde !== null && typeof varde === "object") {
-    const objekt = varde as Record<string, unknown>;
-    delete objekt["osaker"];
-    for (const v of Object.values(objekt)) stripOsaker(v);
-  }
+/**
+ * One extraction answer, read and validated: the shared validator
+ * (slutfor.ts `slutforExtraktion`) on the parsed JSON. A failed validation is
+ * returned, not thrown — the caller owns the retry (the synchronous pipeline
+ * here retries once, the batch importer in the next round).
+ */
+export function tolkaExtraktionSvar(
+  svar: SvarMeddelande,
+  ctx: ExtraktionsKontext,
+  maxTokens: number,
+): Utfall<AvstamdExtraktion> {
+  return slutforExtraktion(raExtraktionssvar(svar, maxTokens), ctx);
 }
 
 /** Call 2 — structured JSON, grounded only in call 1's findings. Retried
- *  once on validation failure (extractWithRetry). Never sees the PDF: this
+ *  once on validation failure. Never sees the PDF: this
  *  call is text-only, no document block, no citations feature. */
 export async function runStructuredExtraction(
   groundingText: string,
@@ -648,6 +767,7 @@ export async function runStructuredExtraction(
     maxOutputTokensExtraction = 16000,
     pdfSaknarTextlager = false,
     kalla = "textlager",
+    sidtexter,
     effort,
     promptCache = false,
   } = options;
@@ -659,23 +779,19 @@ export async function runStructuredExtraction(
   const extractionSystem = buildExtractionSystemPrompt();
   const extractionUser = buildExtractionUserPrompt(groundingText);
 
-  const callModel: ModelCaller = async (systemText, userText) => {
-    // The system prompt is fully static (breakpoint 1); the user block is the
-    // same on the validation retry (breakpoint 2) — see buildUserContent.
-    const system = buildSystemParam(systemText, promptCache);
-    const messages = [{ role: "user" as const, content: buildUserContent(userText, promptCache) }];
+  const anropa: ModelCaller = async (systemText, userText) => {
+    const begaran = byggExtraktionRequestFranPrompt(systemText, userText, {
+      model,
+      maxTokens: maxOutputTokensExtraction,
+      effort,
+      promptCache,
+    });
     // Pre-flight stays worst case: assumes no cache read (full input price).
-    const count = await client.messages.countTokens({ model, system, messages });
+    const count = await client.messages.countTokens(tillRakneParams(begaran));
     enforceCostLimit(count.input_tokens, maxOutputTokensExtraction, maxCostSek - spentSek, pricing);
 
     const start = performance.now();
-    const response = await client.messages.create({
-      model,
-      max_tokens: maxOutputTokensExtraction,
-      system,
-      messages,
-      ...(effort ? { output_config: { effort } } : {}),
-    });
+    const response = await client.messages.create(begaran);
     const latencyMs = performance.now() - start;
     const metrics = buildCallMetrics({
       stage: "extraktion",
@@ -688,148 +804,46 @@ export async function runStructuredExtraction(
     calls.push(metrics);
     spentSek += metrics.costSek;
 
-    if (response.stop_reason === "refusal") {
-      throw annotateSpend(new ModelRefusedError("Extraktionen"), spentSek, calls);
+    try {
+      // A refusal or cut-off is diagnosed immediately (see ModelTruncatedError):
+      // otherwise it is just malformed JSON, and the retry would very likely hit
+      // the same truncation again for no benefit.
+      return raExtraktionssvar(response, maxOutputTokensExtraction);
+    } catch (error) {
+      throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
     }
-
-    // Diagnose a cut-off response immediately (see ModelTruncatedError) —
-    // otherwise it's just malformed JSON to parseModelJson below, and the
-    // retry would very likely hit the same truncation again for no benefit.
-    if (response.stop_reason === "max_tokens") {
-      throw annotateSpend(
-        new ModelTruncatedError("Extraktionen", maxOutputTokensExtraction),
-        spentSek,
-        calls,
-      );
-    }
-
-    const raw = parseModelJson(response.content);
-    // pdfSaknarTextlager and kalla are already known deterministically (grounding's
-    // step 0 / which route produced the grounding text) — never trust the model's
-    // own claim about them, override unconditionally. An `osaker` marker is only
-    // ever set by the deterministic sanity check, so any the model emitted goes.
-    if (raw !== null && typeof raw === "object") {
-      stripOsaker(raw);
-      fyllIOkandaAvgiftsposter(raw);
-      if ("datakvalitet" in raw) {
-        const dk = (raw as { datakvalitet: unknown }).datakvalitet;
-        if (dk !== null && typeof dk === "object") {
-          (dk as { pdfSaknarTextlager?: unknown }).pdfSaknarTextlager = pdfSaknarTextlager;
-          (dk as { kalla?: unknown }).kalla = kalla;
-        }
-      }
-    }
-    return raw;
   };
 
-  let extraction: ExtractionResult;
+  // pdfSaknarTextlager and kalla are already known deterministically (grounding's
+  // step 0 / which route produced the grounding text) — never the model's own
+  // claim. Everything after the model's answer — cleaning, Zod, the deterministic
+  // reconciliation, the sanity checks, the scan confidence cap and the page-
+  // reference check — is slutfor.ts (`slutforExtraktion`), shared with the bulk
+  // importer.
+  const ctx: ExtraktionsKontext = { pdfSaknarTextlager, kalla, sidtexter };
+
+  let avstamd: AvstamdExtraktion;
   try {
-    extraction = await extractWithRetry(extractionSystem, extractionUser, callModel);
+    avstamd = await provaMedOmforsok(
+      () => anropa(extractionSystem, extractionUser),
+      (raw) => slutforExtraktion(raw, ctx),
+      (zodError, raw, attempts) => new ExtractionValidationError(zodError, raw, attempts),
+    );
   } catch (error) {
-    // A validation failure only reaches here after extractWithRetry's own
-    // retry already made a second paid call — annotate whatever `calls`
-    // already holds (ModelTruncatedError above already carries its own,
-    // narrower snapshot from the moment it was thrown; this `catch` only
-    // widens it if a later attempt added to `calls` since — extractWithRetry
-    // never retries after ModelTruncatedError, so in practice that only
-    // matters for ModelValidationError below).
+    // A validation failure only reaches here after the one retry already made a
+    // second paid call — annotate whatever `calls` already holds
+    // (ModelTruncatedError above already carries its own, narrower snapshot from
+    // the moment it was thrown; this `catch` only widens it if a later attempt
+    // added to `calls` since — a truncation is never retried, so in practice that
+    // only matters for ModelValidationError).
     throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
   }
 
-  // Deterministic reconciliation, in order:
-  //   1. tolkaNyckeltal — for any figure whose printed cell was not a plain
-  //      number (figure.tryckt set), the deterministic parser's reading of
-  //      that verbatim text OVERRIDES whatever number the model itself put
-  //      in figure.value. A regex over the report's own text is strictly
-  //      more trustworthy than the model's own arithmetic on it.
-  //   2. harledSkuldfriaNyckeltal — a provably debt-free association
-  //      (lanebok.totalSkuld.value === 0, per buildExtractionSystemPrompt's
-  //      "skuldfri" rule) derives 0 for räntekänslighet and both
-  //      skuldsättning/m² figures wherever they're still null — see
-  //      tolkaVarde.ts's doc comment. Runs BEFORE berikaNyckeltal so the
-  //      derived 0s are graded exactly like any other figure, not left
-  //      "okant" and re-derived downstream.
-  //   3. berikaNyckeltal — pass 1's prompt always emits status: "okant" (see
-  //      buildExtractionSystemPrompt); the model isn't asked to judge, only
-  //      to find and cite. This is where the judgement actually happens:
-  //      deterministic, benchmark-backed, and now sign-aware (a figure whose
-  //      only known fact is its tecken can still be graded — see
-  //      benchmarks.ts's bedomStatus).
-  // Any disagreement either step surfaces (the model's number vs. the
-  // printed text, or an implausible negative reading on a "lower is
-  // better" figure) is recorded in datakvalitet.extraktionKonfidens.skal —
-  // there is no dedicated field for it in the contract, and this is an
-  // existing one built for exactly "why confidence is reduced".
-  const { keyFigures: tolkadeNyckeltal, avvikelser: tolkningsAvvikelser } = tolkaNyckeltal(
-    extraction.forening.keyFigures,
-  );
-  const skuldfriaNyckeltal = harledSkuldfriaNyckeltal(
-    extraction.forening.lanebok?.totalSkuld,
-    tolkadeNyckeltal,
-  );
-  const gradeadeNyckeltal = berikaNyckeltal(skuldfriaNyckeltal);
-  const implausibelaAnmarkningar = gradeadeNyckeltal
-    .map((kf) => implausibelNegativAnmarkning(kf))
-    .filter((s): s is string => s !== undefined);
-  const anmarkningar = [...tolkningsAvvikelser, ...implausibelaAnmarkningar];
-
-  // The model's own "debt figures missing" note is stale once the debt-free
-  // rule has filled them in (see rensaSkuldfriaKonfidensSkal).
-  const harleddes = skuldfriaNyckeltal.some((kf, i) => kf !== tolkadeNyckeltal[i]);
-  const modellensKonfidens = rensaSkuldfriaKonfidensSkal(
-    extraction.datakvalitet.extraktionKonfidens,
-    harleddes,
-  );
-
-  const extraktionKonfidens =
-    anmarkningar.length > 0
-      ? {
-          // A disagreement between the model and the printed text (or an
-          // implausible negative reading) is exactly the kind of thing that
-          // should visibly lower confidence — but never RAISE it back to
-          // "hog" if something else already lowered it further ("lag").
-          niva: modellensKonfidens.niva === "hog" ? ("medel" as const) : modellensKonfidens.niva,
-          skal: [...(modellensKonfidens.skal ?? []), ...anmarkningar],
-        }
-      : modellensKonfidens;
-
-  const enrichedExtraction: ExtractionResult = {
-    ...extraction,
-    forening: {
-      ...extraction.forening,
-      keyFigures: gradeadeNyckeltal,
-    },
-    datakvalitet: {
-      ...extraction.datakvalitet,
-      extraktionKonfidens,
-    },
-  };
-
-  //   4. kontrolleraRimlighet (rimlighet.ts) — cross-checks the figures against each
-  //      other and against the raw totals (balance sheet, fees, area, debt) and against
-  //      plausible ranges. A failure marks the figure `osaker`, adds a skäl and lowers
-  //      the confidence one level; it never hides or changes a value.
-  const { extraction: kontrollerad } = kontrolleraRimlighet(enrichedExtraction);
-
-  //   5. A scanned report's figures were read off page images by the model, not out of
-  //      a text layer: confidence is capped at 'medel' and says so.
-  const slutlig = kalla === "skannad" ? kapKonfidensForSkannad(kontrollerad) : kontrollerad;
-
-  return { extraction: slutlig, spentSek, calls };
-}
-
-function kapKonfidensForSkannad(extraction: ExtractionResult): ExtractionResult {
-  const konfidens = extraction.datakvalitet.extraktionKonfidens;
-  const skal = konfidens.skal ?? [];
   return {
-    ...extraction,
-    datakvalitet: {
-      ...extraction.datakvalitet,
-      extraktionKonfidens: {
-        niva: konfidens.niva === "hog" ? "medel" : konfidens.niva,
-        skal: skal.includes(SKANNAD_KONFIDENS_SKAL) ? skal : [...skal, SKANNAD_KONFIDENS_SKAL],
-      },
-    },
+    extraction: avstamd.extraction,
+    spentSek,
+    calls,
+    sidreferenser: avstamd.sidreferenser,
   };
 }
 
@@ -860,6 +874,7 @@ export async function runExtraction(
     extraction,
     spentSek: spentStructured,
     calls: extractionCalls,
+    sidreferenser,
   } = await runStructuredExtraction(groundingText, {
     ...restOptions,
     maxCostSek: options.maxCostSek - spentGrounding,
@@ -870,5 +885,6 @@ export async function runExtraction(
     extraction,
     spentSek: spentGrounding + spentStructured,
     calls: [...groundingCalls, ...extractionCalls],
+    ...(sidreferenser ? { sidreferenser } : {}),
   };
 }

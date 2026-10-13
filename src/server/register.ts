@@ -38,6 +38,7 @@
  * here that would use identity falls back to `pdf_hash` for it.
  */
 
+import { losRegisteromrade } from "@/lib/register/omraden";
 import { PROMPT_VERSION, TRANSKRIPTION_PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { IDENTITET_PROMPT_VERSION } from "@/lib/analysis/identitetModell";
 import {
@@ -56,6 +57,7 @@ import type {
   Databas,
   Lager,
   NyRapportRad,
+  OmradeKalla,
   RapportDelta,
   RapportFilRad,
   RapportRad,
@@ -837,4 +839,128 @@ export async function kopplaUppladdning(
   }
 
   return skapaNyRapport(db, upp, fil, identitet, beroenden);
+}
+
+// ---------------------------------------------------------------------------
+// The public register (docs/PLAN-v3.md §2.2, §2.5): slug, area and summary
+// ---------------------------------------------------------------------------
+
+/**
+ * `<namn>-<orgnr>`: lowercase, å/ä -> a, ö -> o, é -> e (other diacritics are
+ * dropped), every run of non-alphanumerics becomes one hyphen, hyphens trimmed.
+ * The orgnr suffix makes the slug unique per association, so two BRFs with the
+ * same name never collide.
+ */
+export function slugForForening(namn: string | null, orgnr: string): string {
+  const bas = (namn ?? "")
+    .toLowerCase()
+    .replace(/[åä]/g, "a")
+    .replace(/ö/g, "o")
+    .replace(/é/g, "e")
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${bas === "" ? "brf" : bas}-${orgnr}`;
+}
+
+/**
+ * Resolves a register area from postnummer. The REAL resolver comes from the
+ * area-mapping workstream (W4, src/lib/register/omraden.ts: postnummer ->
+ * stadsdel -> registeromrade); it plugs in as the `losOmrade` argument of
+ * `uppdateraRegisterForOrgnr` (the call sites in steg.ts pass the default
+ * until then). `kalla` says which evidence the list is (the report's own
+ * addresses, or buyers' postnummer).
+ */
+export type LosRegisteromrade = (
+  postnummerLista: string[],
+  kalla: OmradeKalla,
+) => { omrade: string | null };
+
+/** Never assigns an area (tests). */
+export const INGET_REGISTEROMRADE: LosRegisteromrade = () => ({ omrade: null });
+
+/** The register's area taxonomy (src/lib/register/omraden.ts): postnummer →
+ *  stadsdel → one of the 19 register areas, or `ovriga-stockholm`. */
+export const STANDARD_REGISTEROMRADE: LosRegisteromrade = (postnummerLista, kalla) => ({
+  omrade: losRegisteromrade([{ postnummer: postnummerLista, kalla }]).omrade,
+});
+
+function femsiffrigtPostnummer(pn: string | undefined): string | null {
+  if (pn === undefined) return null;
+  const rent = normaliseraPostnummer(pn);
+  return /^\d{5}$/.test(rent) ? rent : null;
+}
+
+/**
+ * After a rapport is done (and after identity/ersatt changes): writes the
+ * association's own addresses from its latest servable extraction as
+ * forening_adress kalla 'rapport', decides slug + register area, and refreshes
+ * its register_sammanfattning row.
+ *
+ * Area priority: the report's own addresses, else buyers' postnummer. A resolver
+ * answer of null leaves any known area alone. Best effort: it never throws (a
+ * register hiccup must not fail a finished analysis).
+ */
+export async function uppdateraRegisterForOrgnr(
+  db: Databas,
+  orgnr: string,
+  losOmrade: LosRegisteromrade = STANDARD_REGISTEROMRADE,
+): Promise<void> {
+  try {
+    const forening = await db.hamtaForening(orgnr);
+    const rapporter = await db.listaRapporter({ orgnr });
+    let extraction: ExtractionResult | null = null;
+    for (const r of rapporter) {
+      if (r.status !== "done") continue;
+      const innehall = tolkaRapportInnehall(r);
+      if (innehall) {
+        extraction = innehall.extraction;
+        break;
+      }
+    }
+
+    const rapportPostnummer: string[] = [];
+    for (const a of extraction?.forening.adresser ?? []) {
+      const pn = femsiffrigtPostnummer(a.postnummer);
+      await db.registreraForeningAdress({
+        orgnr,
+        postnummer: pn,
+        kommunKod: null,
+        omrade: null,
+        adress: a.gatuadress,
+        kalla: "rapport",
+      });
+      if (pn !== null && !rapportPostnummer.includes(pn)) rapportPostnummer.push(pn);
+    }
+
+    let omrade: string | null = null;
+    let omradeKalla: OmradeKalla | null = null;
+    if (rapportPostnummer.length > 0) {
+      omrade = losOmrade(rapportPostnummer, "rapport_adress").omrade;
+      if (omrade !== null) omradeKalla = "rapport_adress";
+    }
+    if (omrade === null) {
+      const kopare = (await db.hamtaForeningAdresser(orgnr))
+        .filter((a) => a.kalla === "anvandare")
+        .map((a) => a.postnummer)
+        .filter((p): p is string => p !== null);
+      if (kopare.length > 0) {
+        omrade = losOmrade(kopare, "anvandare").omrade;
+        if (omrade !== null) omradeKalla = "anvandare";
+      }
+    }
+
+    await db.sattForeningOmrade(orgnr, {
+      slug: slugForForening(forening?.namn ?? null, orgnr),
+      registeromrade: omrade,
+      omradeKalla,
+    });
+    await db.uppdateraRegisterSammanfattning(orgnr, PIPELINE_VERSION);
+  } catch (fel) {
+    console.warn(
+      `[register] Kunde inte uppdatera registret för ${orgnr}: ` +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
 }

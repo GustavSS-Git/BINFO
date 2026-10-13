@@ -8,7 +8,7 @@ import { BENCHMARKS } from "./benchmarks";
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "6";
+export const PROMPT_VERSION = "7";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -60,6 +60,8 @@ Väsentliga händelser: händelser efter räkenskapsårets slut eller annan väs
 Vad som ingår i månadsavgiften: söker rapporten uttryckligen nämna om t.ex. värme, vatten, el, bredband eller tv ingår i avgiften eller bekostas separat av medlemmarna (ofta under "I årsavgiften ingår..." eller liknande formulering, t.ex. "I årsavgiften ingår kostnader för bredband, el, kabel-tv, vatten och värme" eller en explicit uteslutning som "Kostnader för medlemmarnas elförbrukning ingår inte i årsavgiften"). Citera var i rapporten varje sådan post uttryckligen nämns, en post i taget — olika poster nämns ofta i olika meningar eller på olika sidor. VIKTIGT: en mening om föreningens EGEN fastighetsförsäkring (t.ex. "X ingår ej i föreningens fastighetsförsäkring") handlar INTE om vad som ingår i medlemmarnas avgift — citera den aldrig som ett svar på om en post ingår i avgiften.
 
 Individuell mätning (IMD): letar rapporten uttryckligen nämna att el, vatten eller värme mäts och debiteras individuellt per lägenhet (t.ex. "Kostnader för el ... tas ut via årsavgiften genom individuell mätning" eller "I begreppet årsavgift ingår inte IMD-avgifter"). Citera vilken specifik post (el, vatten eller värme) det gäller — om rapporten bara nämner "IMD" utan att säga vilken förbrukning det avser, notera det men koppla det inte till fel post.
+
+Föreningens fastighet(er) och adress(er): fastighetsbeteckning(ar) (t.ex. "Pontonjären 3") och gatuadress(er) till föreningens egna byggnader, med postnummer och ort när rapporten anger dem (t.ex. "Föreningen äger fastigheten Pontonjären 3 på Baltzar von Platens gata 6 i Stockholm"). Det är föreningens EGNA fastighet som avses — inte förvaltarens, revisorns, styrelseledamöternas eller en banks adress, och inte en c/o-adress för post. Anger rapporten ingen: säg det, gissa aldrig.
 
 För varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.`;
 }
@@ -236,6 +238,12 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     },
     "vasentligaHandelser": [
       { "text": "Föreningen har beslutat om en avgiftshöjning på 8 % från 2026.", "ref": { "page": 4, "excerpt": "styrelsen beslutat om höja årsavgiften med 8 %" } }
+    ],
+    "adresser": [
+      { "gatuadress": "Exempelvägen 12", "postnummer": "123 45", "ort": "Stockholm", "ref": { "page": 3, "excerpt": "Föreningen äger fastigheten Exempel 3 på Exempelvägen 12, 123 45 Stockholm" } }
+    ],
+    "fastighetsbeteckningar": [
+      { "beteckning": "Exempel 3", "ref": { "page": 3, "excerpt": "Föreningen äger fastigheten Exempel 3" } }
     ]
   },
   "datakvalitet": {
@@ -264,6 +272,8 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - individuellMatning: sätt en post (el/vatten/varme) ENDAST när rapporten uttryckligen säger att just den förbrukningen mäts och debiteras individuellt per lägenhet (t.ex. "Kostnader för el ... tas ut via årsavgiften genom individuell mätning" eller "I begreppet årsavgift ingår inte IMD-avgifter" — koppla den senare bara till en specifik post om rapporten säger vilken). "matning" är alltid "ja" eller "nej", ALDRIG "okant" — en post rapporten inte tar upp UTELÄMNAS helt, den sätts inte till "okant". "ref" är obligatoriskt med excerpt när posten finns.
 - antalMedlemmar: föreningens medlemsantal vid räkenskapsårets slut, ALDRIG jämförelsetalet inom parentes för föregående år (t.ex. "43 (41) medlemmar" → 43). Utelämna hela fältet om rapporten bara anger antal lägenheter, inte medlemsantal.
 - antalHyresratter / antalLokaler: sätt bara när rapporten uttryckligen anger föreningens hyresrätter respektive lokaler som egna enheter (t.ex. "2 lokaler (hyresrätt)"). Räkna aldrig en areauppgift i kvadratmeter (t.ex. "garagelokaler 130 kvm") eller ett gemensamhetsutrymme ("föreningslokal", "samlingslokal") som en lokal i den här betydelsen.
+- adresser: föreningens EGNA gatuadress(er), en post per adress, ENDAST när fynden uttryckligen anger dem. "gatuadress" är gatunamnet och numret (t.ex. "Baltzar von Platens gata 6") utan postnummer och ort, skrivet som i rapporten. "postnummer" skrivs "NNN NN" (fem siffror med ett mellanslag efter de tre första) och "ort" som i rapporten — utelämna båda när rapporten inte anger dem i samband med adressen, gissa aldrig utifrån gatunamnet. "ref" är obligatorisk med excerpt ordagrant ur fyndlistan. Skriv aldrig förvaltarens, revisorns, en styrelseledamots eller en banks adress och inte en c/o-adress för post; sätt aldrig ett ortnamn som gatuadress. Utelämna hela fältet när fynden inte anger någon gatuadress.
+- fastighetsbeteckningar: föreningens fastighetsbeteckning(ar) (t.ex. "Pontonjären 3", "Kungsholmen 1:23"), en post per beteckning, ENDAST när fynden uttryckligen anger dem, med "ref" och excerpt som ovan. Utelämna hela fältet när fynden inte anger någon.
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
 - Skuldsättning per kvm med otydlig bas: finns bara ett skuldtal per kvm och det framgår inte om det avser totalyta eller bostadsrättsyta (t.ex. "Lån per kvm bostadsyta" eller "Skuldsättningsgrad kr/kvm" — säger etiketten inte uttryckligen "totalyta" är basen oklar), lägg det under skuldsattning_per_m2_brf_yta med sitt citat och låt skuldsattning_per_m2_totalyta vara null. Ett tal är bättre än inget här — de två brukar ligga nära varandra.
 - Skuldfri förening: säger fynden uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder, sätt lanebok.totalSkuld till { "value": 0, "unit": "kr", "source": "arsredovisning", "ref": { ... } } med en ref till det stället — nyckeltalscellerna (rantekanslighet, skuldsattning_per_m2_totalyta, skuldsattning_per_m2_brf_yta) lämnas precis som de står tryckta i rapporten, ett senare steg härleder dem vid behov.

@@ -59,6 +59,7 @@ export interface RapportSammanfattning {
   createdAt: string;
   finishedAt: string | null;
   ersattAv: string | null;
+  proveniens: RapportRad["proveniens"];
 }
 
 async function sammanfatta(lager: Lager, r: RapportRad): Promise<RapportSammanfattning> {
@@ -83,6 +84,7 @@ async function sammanfatta(lager: Lager, r: RapportRad): Promise<RapportSammanfa
     createdAt: r.createdAt,
     finishedAt: r.finishedAt,
     ersattAv: r.ersattAv,
+    proveniens: r.proveniens,
   };
 }
 

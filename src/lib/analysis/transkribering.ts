@@ -8,14 +8,16 @@ import {
   type ModelPricing,
 } from "./costGuard";
 import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
-import { ModelTruncatedError } from "./extract";
 import { buildTranskriberingSystemPrompt, buildTranskriberingUserPrompt } from "./prompts";
 import {
-  ModelRefusedError,
+  kontrolleraStoppgrund,
   resolveClient,
+  tillRakneParams,
   toBase64,
   type AnthropicClientLike,
   type ModelEffort,
+  type SkapaParams,
+  type SvarMeddelande,
 } from "./runExtraction";
 
 /**
@@ -176,6 +178,69 @@ export function parseTranskription(
     }
   }
   return fel.length > 0 ? { ok: false, fel } : { ok: true, sidor };
+}
+
+// ---------------------------------------------------------------------------
+// Build / parse of one chunk (docs/PLAN-v3.md §3.2)
+// ---------------------------------------------------------------------------
+
+export interface TranskriptionInst {
+  model: string;
+  /** Worst-case output tokens for the chunk. */
+  maxTokens: number;
+  effort: ModelEffort;
+}
+
+/** The request for one chunk: its pages as a native `document` block (no
+ *  citations), plus the page-numbering instruction. */
+export function byggTranskriptionRequest(
+  bit: Pick<PdfBit, "forstaSida" | "sidor" | "bytes">,
+  inst: TranskriptionInst,
+): SkapaParams {
+  return {
+    model: inst.model,
+    max_tokens: inst.maxTokens,
+    system: buildTranskriberingSystemPrompt(),
+    messages: [
+      {
+        role: "user" as const,
+        content: [
+          {
+            type: "document" as const,
+            source: {
+              type: "base64" as const,
+              media_type: "application/pdf" as const,
+              data: toBase64(bit.bytes),
+            },
+          },
+          {
+            type: "text" as const,
+            text: buildTranskriberingUserPrompt(bit.forstaSida, bit.sidor),
+          },
+        ],
+      },
+    ],
+    output_config: { effort: inst.effort },
+  };
+}
+
+/**
+ * Reads one chunk's answer: the page markers validated against the chunk's
+ * pages (`parseTranskription`). Wrong markers are RETURNED (`ok: false`), not
+ * thrown — the caller owns the one retry. Throws on a refusal or a cut-off.
+ */
+export function tolkaTranskriptionSvar(
+  svar: SvarMeddelande,
+  forstaSida: number,
+  antalSidor: number,
+  maxTokens: number,
+): TranskriptionsTolkning {
+  kontrolleraStoppgrund(svar, "Transkriberingen", maxTokens);
+  const text = svar.content
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text as string)
+    .join("\n");
+  return parseTranskription(text, forstaSida, antalSidor);
 }
 
 // ---------------------------------------------------------------------------
@@ -347,34 +412,19 @@ export async function transkribera(
   try {
     if (attGora.length > 0) {
       const client = resolveClient(options);
-      const system = buildTranskriberingSystemPrompt();
 
       const forberedda = attGora.map((bit) => ({
         bit,
-        messages: [
-          {
-            role: "user" as const,
-            content: [
-              {
-                type: "document" as const,
-                source: {
-                  type: "base64" as const,
-                  media_type: "application/pdf" as const,
-                  data: toBase64(bit.bytes),
-                },
-              },
-              {
-                type: "text" as const,
-                text: buildTranskriberingUserPrompt(bit.forstaSida, bit.sidor),
-              },
-            ],
-          },
-        ],
+        begaran: byggTranskriptionRequest(bit, {
+          model,
+          maxTokens: maxOutputTokensPerChunk,
+          effort,
+        }),
       }));
 
       // Free pre-flight for every chunk before the first paid call.
       const antalTokens = await Promise.all(
-        forberedda.map((f) => client.messages.countTokens({ model, system, messages: f.messages })),
+        forberedda.map((f) => client.messages.countTokens(tillRakneParams(f.begaran))),
       );
       const varstaFall = antalTokens.map((c) =>
         estimateCostSek(c.input_tokens, maxOutputTokensPerChunk, pricing),
@@ -385,7 +435,7 @@ export async function transkribera(
       }
 
       const korChunk = async (index: number): Promise<void> => {
-        const { bit, messages } = forberedda[index]!;
+        const { bit, begaran } = forberedda[index]!;
         const sistaSida = bit.forstaSida + bit.sidor - 1;
         const inputTokens = antalTokens[index]!.input_tokens;
         let overgaendeFelAnvant = false;
@@ -410,16 +460,7 @@ export async function transkribera(
           let svar;
           const start = performance.now();
           try {
-            svar = await client.messages.create(
-              {
-                model,
-                max_tokens: maxOutputTokensPerChunk,
-                system,
-                messages,
-                output_config: { effort },
-              },
-              { signal: avbryt.signal },
-            );
+            svar = await client.messages.create(begaran, { signal: avbryt.signal });
           } catch (error) {
             reserveratSek -= varsta;
             if (avbryt.signal.aborted) throw new TranskriberingTidsgransError(deadlineMs);
@@ -444,22 +485,18 @@ export async function transkribera(
           calls.push(metrics);
           spentSek += metrics.costSek;
 
-          if (svar.stop_reason === "refusal") {
-            throw annotateSpend(new ModelRefusedError("Transkriberingen"), spentSek, calls);
-          }
-          if (svar.stop_reason === "max_tokens") {
-            throw annotateSpend(
-              new ModelTruncatedError("Transkriberingen", maxOutputTokensPerChunk),
-              spentSek,
-              calls,
+          let tolkning;
+          try {
+            tolkning = tolkaTranskriptionSvar(
+              svar,
+              bit.forstaSida,
+              bit.sidor,
+              maxOutputTokensPerChunk,
             );
+          } catch (error) {
+            // Refusal / cut-off: the call was paid for.
+            throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
           }
-
-          const text = svar.content
-            .filter((b) => b.type === "text" && typeof b.text === "string")
-            .map((b) => b.text as string)
-            .join("\n");
-          const tolkning = parseTranskription(text, bit.forstaSida, bit.sidor);
           if (tolkning.ok) {
             nyaSidor.push(...tolkning.sidor);
             if (sparaSidor) await sparaSidor(tolkning.sidor);

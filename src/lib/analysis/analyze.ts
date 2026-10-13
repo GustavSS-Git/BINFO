@@ -1,22 +1,21 @@
-import type { AnalysisResult, ExtractionResult, Fraga, PageRef } from "@/types/analysis";
-import {
-  ModelTruncatedError,
-  ModelValidationError,
-  validateWithRetry,
-  type ModelCaller,
-} from "./extract";
+import type { AnalysisResult, ExtractionResult, Fraga } from "@/types/analysis";
+import { ModelValidationError, provaMedOmforsok, type ModelCaller, type Utfall } from "./extract";
 import { buildAnalysSystemPrompt, buildAnalysUserPrompt } from "./prompts";
-import { buildAnalysJudgementSchema } from "./schema";
 import {
-  ModelRefusedError,
+  type BegarInst,
   type PromptCacheMode,
+  type SkapaParams,
+  type SvarMeddelande,
   buildSystemParam,
   buildUserContent,
+  kontrolleraStoppgrund,
   parseModelJson,
   resolveClient,
+  tillRakneParams,
   type AnthropicClientLike,
   type ModelEffort,
 } from "./runExtraction";
+import { slutforBedomning, tillatnaSidor } from "./slutfor";
 import {
   enforceCostLimit,
   prissattningForModell,
@@ -62,35 +61,61 @@ export class AnalysValidationError extends ModelValidationError {
   }
 }
 
-function samlaSidor(varde: unknown, sidor: Set<number>): void {
-  if (Array.isArray(varde)) {
-    for (const post of varde) samlaSidor(post, sidor);
-    return;
-  }
-  if (varde === null || typeof varde !== "object") return;
-  for (const [nyckel, undervarde] of Object.entries(varde)) {
-    if (
-      nyckel === "ref" &&
-      undervarde !== null &&
-      typeof undervarde === "object" &&
-      typeof (undervarde as PageRef).page === "number"
-    ) {
-      sidor.add((undervarde as PageRef).page);
-    }
-    samlaSidor(undervarde, sidor);
-  }
+// Kept importable from here (callers and tests predate slutfor.ts).
+export { tillatnaSidor };
+
+// ---------------------------------------------------------------------------
+// Build / parse (docs/PLAN-v3.md §3.2): the request is a pure function of the
+// finished extraction, the answer is read against the same extraction.
+// ---------------------------------------------------------------------------
+
+export interface BedomningInst extends BegarInst {
+  promptCache: PromptCacheMode;
 }
 
-/**
- * Every page number that actually occurs in the extraction. Walks the whole
- * structure rather than enumerating the known ref sites: missing one would
- * mean rejecting a legitimate citation, and the contract may grow more
- * optional refs (it already has several) without this needing an edit.
- */
-export function tillatnaSidor(extraction: ExtractionResult): Set<number> {
-  const sidor = new Set<number>();
-  samlaSidor(extraction, sidor);
-  return sidor;
+/** The judging request from ready-made prompt texts (one attempt). */
+export function byggBedomningRequestFranPrompt(
+  systemText: string,
+  userText: string,
+  inst: BedomningInst,
+): SkapaParams {
+  const { model, maxTokens, effort, promptCache } = inst;
+  return {
+    model,
+    max_tokens: maxTokens,
+    system: buildSystemParam(systemText, promptCache),
+    messages: [{ role: "user" as const, content: buildUserContent(userText, promptCache) }],
+    ...(effort ? { output_config: { effort } } : {}),
+  };
+}
+
+/** The judging request for a finished (verified) extraction. */
+export function byggBedomningRequest(
+  extraction: ExtractionResult,
+  inst: BedomningInst,
+): SkapaParams {
+  return byggBedomningRequestFranPrompt(
+    buildAnalysSystemPrompt(),
+    buildAnalysUserPrompt(extraction, tillatnaSidor(extraction)),
+    inst,
+  );
+}
+
+/** The model's parsed JSON from one judging answer; throws on a refusal or cut-off. */
+export function raBedomningssvar(svar: SvarMeddelande, maxTokens: number): unknown {
+  kontrolleraStoppgrund(svar, "Bedömningen", maxTokens);
+  return parseModelJson(svar.content);
+}
+
+/** One judging answer, read and validated against the extraction it was written
+ *  for (invented ids, pages and 'saknad_uppgift' questions fail). A failed
+ *  validation is returned, not thrown — the caller owns the retry. */
+export function tolkaBedomningSvar(
+  svar: SvarMeddelande,
+  extraction: ExtractionResult,
+  maxTokens: number,
+): Utfall<AnalysJudgement> {
+  return slutforBedomning(extraction, raBedomningssvar(svar, maxTokens));
 }
 
 /**
@@ -104,18 +129,13 @@ export async function analysera(
   extraction: ExtractionResult,
   callModel: ModelCaller,
 ): Promise<AnalysJudgement> {
-  const sidor = tillatnaSidor(extraction);
-  const parsed = await validateWithRetry(
-    buildAnalysJudgementSchema(sidor),
-    buildAnalysSystemPrompt(),
-    buildAnalysUserPrompt(extraction, sidor),
-    callModel,
+  const systemText = buildAnalysSystemPrompt();
+  const userText = buildAnalysUserPrompt(extraction, tillatnaSidor(extraction));
+  return provaMedOmforsok(
+    () => callModel(systemText, userText),
+    (raw) => slutforBedomning(extraction, raw),
     (zodError, raw, attempts) => new AnalysValidationError(zodError, raw, attempts),
   );
-  // Zod's inferred optional-field type allows an explicit `undefined`;
-  // exactOptionalPropertyTypes doesn't. Runtime shape is already
-  // Zod-verified — this reconciles the two type systems, nothing more.
-  return parsed as AnalysJudgement;
 }
 
 export interface RunAnalysOptions {
@@ -173,20 +193,18 @@ export async function runAnalys(
   const calls: ModelCallMetrics[] = [];
 
   const callModel: ModelCaller = async (systemText, userText) => {
-    const system = buildSystemParam(systemText, promptCache);
-    const messages = [{ role: "user" as const, content: buildUserContent(userText, promptCache) }];
+    const begaran = byggBedomningRequestFranPrompt(systemText, userText, {
+      model,
+      maxTokens: maxOutputTokens,
+      effort,
+      promptCache,
+    });
     // Pre-flight stays worst case: assumes no cache read (full input price).
-    const count = await client.messages.countTokens({ model, system, messages });
+    const count = await client.messages.countTokens(tillRakneParams(begaran));
     enforceCostLimit(count.input_tokens, maxOutputTokens, maxCostSek - spentSek, pricing);
 
     const start = performance.now();
-    const response = await client.messages.create({
-      model,
-      max_tokens: maxOutputTokens,
-      system,
-      messages,
-      ...(effort ? { output_config: { effort } } : {}),
-    });
+    const response = await client.messages.create(begaran);
     const latencyMs = performance.now() - start;
     const metrics = buildCallMetrics({
       stage: "bedomning",
@@ -199,18 +217,14 @@ export async function runAnalys(
     calls.push(metrics);
     spentSek += metrics.costSek;
 
-    if (response.stop_reason === "refusal") {
-      throw annotateSpend(new ModelRefusedError("Bedömningen"), spentSek, calls);
+    try {
+      // A truncated response is a capacity problem, not a shape problem —
+      // diagnosed immediately rather than surfacing later as an opaque
+      // JSON-parse/validation failure after a wasted retry.
+      return raBedomningssvar(response, maxOutputTokens);
+    } catch (error) {
+      throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;
     }
-
-    // A truncated response is a capacity problem, not a shape problem —
-    // diagnose it as one immediately rather than let it surface later as an
-    // opaque JSON-parse/validation failure after a wasted retry.
-    if (response.stop_reason === "max_tokens") {
-      throw annotateSpend(new ModelTruncatedError("Bedömningen", maxOutputTokens), spentSek, calls);
-    }
-
-    return parseModelJson(response.content);
   };
 
   let analys: AnalysJudgement;

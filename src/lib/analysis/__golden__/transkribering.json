@@ -1,0 +1,112 @@
+{
+  "countTokens": [
+    {
+      "model": "claude-sonnet-5-5",
+      "system": "Du är en exakt transkriberare av skannade svenska årsredovisningar. Du ska skriva av texten på varje sida ordagrant, inget annat.\n\nRegler:\n- Transkribera VARJE sida i dokumentet, i läsordning, ordagrant. Sammanfatta, tolka och rätta ingenting.\n- Tabeller skrivs som rader med \" | \" mellan cellerna, en tabellrad per rad, med kolumnrubrikerna (t.ex. årtalen) överst. Behåll tomma celler som tomma.\n- Siffror skrivs EXAKT som de är tryckta: behåll mellanslag som tusentalsavgränsare (\"12 867 450\"), decimalkomma (\"10,19\"), minustecken, parenteser, \"tkr\", \"neg\", \"-\" och procenttecken. Slå aldrig ihop eller räkna om tal.\n- Markera början av varje sida på en egen rad med \"=== SIDA n ===\" där n är sidans ORIGINALNUMMER i hela dokumentet (användaren anger vilket nummer den första sidan i denna del har; nästa sida har +1 osv.). Ett tryckt sidnummer på sidan är bara text och ska transkriberas som text.\n- Är text eller en siffra oläslig: skriv [oläsligt] på stället. Gissa aldrig.\n- Handskrivna signaturer, logotyper och bilder: skriv [signatur], [logotyp] eller [bild] där de förekommer.\n- Ingen inledning, ingen avslutning, inga kommentarer — bara transkriptionen.\n\nVIKTIGT: PDF-filen kan innehålla ett automatiskt textlager som är trasigt (siffror och ord uppdelade i enstaka tecken, tecken som saknas eller fel). Förlita dig ALDRIG på textlagret. Transkribera endast det du ser på sidans bild.",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "document",
+              "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "sidor": 2
+              }
+            },
+            {
+              "type": "text",
+              "text": "Detta dokument innehåller 2 sidaor. Den första sidan har originalnummer 6 (alltså \"=== SIDA 6 ===\"), den sista har nummer 7. Transkribera alla sidor."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "system": "Du är en exakt transkriberare av skannade svenska årsredovisningar. Du ska skriva av texten på varje sida ordagrant, inget annat.\n\nRegler:\n- Transkribera VARJE sida i dokumentet, i läsordning, ordagrant. Sammanfatta, tolka och rätta ingenting.\n- Tabeller skrivs som rader med \" | \" mellan cellerna, en tabellrad per rad, med kolumnrubrikerna (t.ex. årtalen) överst. Behåll tomma celler som tomma.\n- Siffror skrivs EXAKT som de är tryckta: behåll mellanslag som tusentalsavgränsare (\"12 867 450\"), decimalkomma (\"10,19\"), minustecken, parenteser, \"tkr\", \"neg\", \"-\" och procenttecken. Slå aldrig ihop eller räkna om tal.\n- Markera början av varje sida på en egen rad med \"=== SIDA n ===\" där n är sidans ORIGINALNUMMER i hela dokumentet (användaren anger vilket nummer den första sidan i denna del har; nästa sida har +1 osv.). Ett tryckt sidnummer på sidan är bara text och ska transkriberas som text.\n- Är text eller en siffra oläslig: skriv [oläsligt] på stället. Gissa aldrig.\n- Handskrivna signaturer, logotyper och bilder: skriv [signatur], [logotyp] eller [bild] där de förekommer.\n- Ingen inledning, ingen avslutning, inga kommentarer — bara transkriptionen.\n\nVIKTIGT: PDF-filen kan innehålla ett automatiskt textlager som är trasigt (siffror och ord uppdelade i enstaka tecken, tecken som saknas eller fel). Förlita dig ALDRIG på textlagret. Transkribera endast det du ser på sidans bild.",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "document",
+              "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "sidor": 5
+              }
+            },
+            {
+              "type": "text",
+              "text": "Detta dokument innehåller 5 sidaor. Den första sidan har originalnummer 1 (alltså \"=== SIDA 1 ===\"), den sista har nummer 5. Transkribera alla sidor."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "create": [
+    {
+      "params": {
+        "model": "claude-sonnet-5-5",
+        "max_tokens": 16000,
+        "system": "Du är en exakt transkriberare av skannade svenska årsredovisningar. Du ska skriva av texten på varje sida ordagrant, inget annat.\n\nRegler:\n- Transkribera VARJE sida i dokumentet, i läsordning, ordagrant. Sammanfatta, tolka och rätta ingenting.\n- Tabeller skrivs som rader med \" | \" mellan cellerna, en tabellrad per rad, med kolumnrubrikerna (t.ex. årtalen) överst. Behåll tomma celler som tomma.\n- Siffror skrivs EXAKT som de är tryckta: behåll mellanslag som tusentalsavgränsare (\"12 867 450\"), decimalkomma (\"10,19\"), minustecken, parenteser, \"tkr\", \"neg\", \"-\" och procenttecken. Slå aldrig ihop eller räkna om tal.\n- Markera början av varje sida på en egen rad med \"=== SIDA n ===\" där n är sidans ORIGINALNUMMER i hela dokumentet (användaren anger vilket nummer den första sidan i denna del har; nästa sida har +1 osv.). Ett tryckt sidnummer på sidan är bara text och ska transkriberas som text.\n- Är text eller en siffra oläslig: skriv [oläsligt] på stället. Gissa aldrig.\n- Handskrivna signaturer, logotyper och bilder: skriv [signatur], [logotyp] eller [bild] där de förekommer.\n- Ingen inledning, ingen avslutning, inga kommentarer — bara transkriptionen.\n\nVIKTIGT: PDF-filen kan innehålla ett automatiskt textlager som är trasigt (siffror och ord uppdelade i enstaka tecken, tecken som saknas eller fel). Förlita dig ALDRIG på textlagret. Transkribera endast det du ser på sidans bild.",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "document",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/pdf",
+                  "sidor": 2
+                }
+              },
+              {
+                "type": "text",
+                "text": "Detta dokument innehåller 2 sidaor. Den första sidan har originalnummer 6 (alltså \"=== SIDA 6 ===\"), den sista har nummer 7. Transkribera alla sidor."
+              }
+            ]
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        }
+      },
+      "harSignal": true
+    },
+    {
+      "params": {
+        "model": "claude-sonnet-5-5",
+        "max_tokens": 16000,
+        "system": "Du är en exakt transkriberare av skannade svenska årsredovisningar. Du ska skriva av texten på varje sida ordagrant, inget annat.\n\nRegler:\n- Transkribera VARJE sida i dokumentet, i läsordning, ordagrant. Sammanfatta, tolka och rätta ingenting.\n- Tabeller skrivs som rader med \" | \" mellan cellerna, en tabellrad per rad, med kolumnrubrikerna (t.ex. årtalen) överst. Behåll tomma celler som tomma.\n- Siffror skrivs EXAKT som de är tryckta: behåll mellanslag som tusentalsavgränsare (\"12 867 450\"), decimalkomma (\"10,19\"), minustecken, parenteser, \"tkr\", \"neg\", \"-\" och procenttecken. Slå aldrig ihop eller räkna om tal.\n- Markera början av varje sida på en egen rad med \"=== SIDA n ===\" där n är sidans ORIGINALNUMMER i hela dokumentet (användaren anger vilket nummer den första sidan i denna del har; nästa sida har +1 osv.). Ett tryckt sidnummer på sidan är bara text och ska transkriberas som text.\n- Är text eller en siffra oläslig: skriv [oläsligt] på stället. Gissa aldrig.\n- Handskrivna signaturer, logotyper och bilder: skriv [signatur], [logotyp] eller [bild] där de förekommer.\n- Ingen inledning, ingen avslutning, inga kommentarer — bara transkriptionen.\n\nVIKTIGT: PDF-filen kan innehålla ett automatiskt textlager som är trasigt (siffror och ord uppdelade i enstaka tecken, tecken som saknas eller fel). Förlita dig ALDRIG på textlagret. Transkribera endast det du ser på sidans bild.",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "document",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/pdf",
+                  "sidor": 5
+                }
+              },
+              {
+                "type": "text",
+                "text": "Detta dokument innehåller 5 sidaor. Den första sidan har originalnummer 1 (alltså \"=== SIDA 1 ===\"), den sista har nummer 5. Transkribera alla sidor."
+              }
+            ]
+          }
+        ],
+        "output_config": {
+          "effort": "medium"
+        }
+      },
+      "harSignal": true
+    }
+  ]
+}

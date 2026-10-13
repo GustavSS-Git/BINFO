@@ -15,18 +15,16 @@ import { PDFDocument } from "pdf-lib";
 import { z } from "zod";
 import { enforceCostLimit, prissattningForModell } from "./costGuard";
 import { annotateSpend, buildCallMetrics, type ModelCallMetrics } from "./callMetrics";
+import { ModelValidationError, provaMedOmforsok, type ModelCaller, type Utfall } from "./extract";
 import {
-  ModelTruncatedError,
-  ModelValidationError,
-  validateWithRetry,
-  type ModelCaller,
-} from "./extract";
-import {
-  ModelRefusedError,
+  kontrolleraStoppgrund,
   parseModelJson,
   resolveClient,
+  tillRakneParams,
   toBase64,
   type AnthropicClientLike,
+  type SkapaParams,
+  type SvarMeddelande,
 } from "./runExtraction";
 import { arGiltigtOrgnr, normaliseraOrgnr, type Rapportidentitet } from "./identitet";
 
@@ -81,7 +79,7 @@ const SvarSchema = z.object({
 });
 
 /** Copies the first `antal` pages into a new, small PDF. The input bytes are not modified. */
-async function forstaSidor(pdfBytes: Uint8Array, antal: number): Promise<Uint8Array> {
+export async function forstaSidor(pdfBytes: Uint8Array, antal: number): Promise<Uint8Array> {
   try {
     const kalla = await PDFDocument.load(pdfBytes.slice());
     const sidor = Math.min(antal, kalla.getPageCount());
@@ -111,6 +109,69 @@ function tillIdentitet(svar: z.infer<typeof SvarSchema>): Rapportidentitet | nul
   return { orgnr, rakenskapsar: ar, namn: namn === "" || namn.length > 120 ? null : namn };
 }
 
+// ---------------------------------------------------------------------------
+// Build / parse (docs/PLAN-v3.md §3.2)
+// ---------------------------------------------------------------------------
+
+/** The identity request for the report's first pages (`forstaSidor(pdf, 3)`),
+ *  as a plain document block without citations. Haiku 4.5 takes no effort setting. */
+export function byggIdentitetRequest(
+  kortPdf: Uint8Array,
+  model: string = STANDARDMODELL,
+): SkapaParams {
+  return byggIdentitetRequestFranPrompt(kortPdf, SYSTEM_PROMPT, USER_PROMPT, model);
+}
+
+function byggIdentitetRequestFranPrompt(
+  kortPdf: Uint8Array,
+  system: string,
+  user: string,
+  model: string,
+): SkapaParams {
+  return {
+    model,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    system,
+    messages: [
+      {
+        role: "user" as const,
+        content: [
+          {
+            type: "document" as const,
+            source: {
+              type: "base64" as const,
+              media_type: "application/pdf" as const,
+              data: toBase64(kortPdf),
+            },
+          },
+          { type: "text" as const, text: user },
+        ],
+      },
+    ],
+  };
+}
+
+/** The model's parsed JSON from one identity answer; throws on a cut-off or refusal. */
+export function raIdentitetssvar(svar: SvarMeddelande): unknown {
+  kontrolleraStoppgrund(svar, "Identifieringen", MAX_OUTPUT_TOKENS);
+  return parseModelJson(svar.content);
+}
+
+/** Zod + normalisation of one identity answer. `identitet: null` is a valid
+ *  outcome ("not confident"); a malformed answer is a failed validation. */
+export function valideraIdentitetssvar(raw: unknown): Utfall<Rapportidentitet | null> {
+  const parsed = SvarSchema.safeParse(raw);
+  return parsed.success
+    ? { ok: true, value: tillIdentitet(parsed.data) }
+    : { ok: false, zodError: parsed.error, raw };
+}
+
+/** One identity answer, read and validated (a failed validation is returned,
+ *  not thrown: the caller owns the retry). */
+export function tolkaIdentitetSvar(svar: SvarMeddelande): Utfall<Rapportidentitet | null> {
+  return valideraIdentitetssvar(raIdentitetssvar(svar));
+}
+
 export async function identifieraMedModell(
   pdfBytes: Uint8Array,
   options: IdentifieraMedModellOptions,
@@ -121,32 +182,16 @@ export async function identifieraMedModell(
   const kortPdf = await forstaSidor(pdfBytes, ANTAL_SIDOR);
   const client = resolveClient(options);
 
-  const documentBlock = {
-    type: "document" as const,
-    source: {
-      type: "base64" as const,
-      media_type: "application/pdf" as const,
-      data: toBase64(kortPdf),
-    },
-  };
-
   const calls: ModelCallMetrics[] = [];
   let spentSek = 0;
 
   const callModel: ModelCaller = async (system, user) => {
-    const messages = [
-      { role: "user" as const, content: [documentBlock, { type: "text" as const, text: user }] },
-    ];
-    const count = await client.messages.countTokens({ model, system, messages });
+    const begaran = byggIdentitetRequestFranPrompt(kortPdf, system, user, model);
+    const count = await client.messages.countTokens(tillRakneParams(begaran));
     enforceCostLimit(count.input_tokens, MAX_OUTPUT_TOKENS, maxCostSek - spentSek, pricing);
 
     const start = performance.now();
-    const response = await client.messages.create({
-      model,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      system,
-      messages,
-    });
+    const response = await client.messages.create(begaran);
     const latencyMs = performance.now() - start;
     const metrics = buildCallMetrics({
       stage: "identifiering",
@@ -159,25 +204,17 @@ export async function identifieraMedModell(
     calls.push(metrics);
     spentSek += metrics.costSek;
 
-    if (response.stop_reason === "max_tokens") {
-      throw new ModelTruncatedError("Identifieringen", MAX_OUTPUT_TOKENS);
-    }
-    if (response.stop_reason === "refusal") {
-      throw new ModelRefusedError("Identifieringen");
-    }
-    return parseModelJson(response.content);
+    return raIdentitetssvar(response);
   };
 
   try {
-    const svar = await validateWithRetry(
-      SvarSchema,
-      SYSTEM_PROMPT,
-      USER_PROMPT,
-      callModel,
+    const identitet = await provaMedOmforsok(
+      () => callModel(SYSTEM_PROMPT, USER_PROMPT),
+      valideraIdentitetssvar,
       (zodError, raw, attempts) =>
         new ModelValidationError("Identifieringen", zodError, raw, attempts),
     );
-    return { identitet: tillIdentitet(svar), spentSek, calls };
+    return { identitet, spentSek, calls };
   } catch (error) {
     // Every call so far was real and paid for, whichever error ends the run.
     throw error instanceof Error ? annotateSpend(error, spentSek, calls) : error;

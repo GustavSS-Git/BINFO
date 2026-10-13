@@ -101,9 +101,16 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 93 | 2026-10-12 | E new /exempel example | Brf Pontonjären 3 (716420-0599) FY2025, run 2 of 2, ACCEPTED, now `src/data/sampleAnalysis.ts` (3 calls: grundning 2.177, extraktion 0.725, bedömning 0.607 kr) | claude-sonnet-5-5 | 121623 | 11850 | 0 | 0 | 3.51 | 184.68 |
 | 94 | 2026-10-12 | Supervisor (UI copy verification) | Local Supabase E2E: text report Brf Beckasinen 14 (716421-9722) to screenshot the new waiting text, report and PDF (per-call tokens not logged) | claude-sonnet-5-5 | — | — | 0 | 0 | 2.66 | 187.34 |
 | 95 | 2026-10-12 | Supervisor (UI copy verification) | Local Supabase E2E: scanned report Brf Startfältet (Årsredovisning bild 2.pdf) incl. Haiku identity, to screenshot the scan waiting text (per-call tokens not logged) | claude-sonnet-5-5 + haiku-4-5 | — | — | 0 | 0 | 4.47 | 191.81 |
+| 96 | 2026-10-13 | W3 pipeline | `verify-extraction` over all 13 answer-key PDFs, PROMPT_VERSION 7 (first wording: long address paragraph in the middle of the grounding prompt), 42 calls, 4 scans incl. | claude-sonnet-5-5 | — | — | 0 | 0 | 40.20 | 232.01 |
+| 97 | 2026-10-13 | W3 pipeline | Albohem (`SBC årsredovisning.pdf`) x2, v7 first wording, extraction only (per-call tokens not logged; CLI cost line) | claude-sonnet-5-5 | — | — | 0 | 0 | 5.19 | 237.20 |
+| 98 | 2026-10-13 | W3 pipeline | Albohem x3, PROMPT_VERSION 6 control (prompts.ts temporarily restored from HEAD) | claude-sonnet-5-5 | — | — | 0 | 0 | 7.94 | 245.14 |
+| 99 | 2026-10-13 | W3 pipeline | Albohem x2, v7 with the address paragraph moved to the end of the grounding prompt | claude-sonnet-5-5 | — | — | 0 | 0 | 5.06 | 250.20 |
+| 100 | 2026-10-13 | W3 pipeline | Albohem x3, v7 with a SHORTER address paragraph at the end (the shipped wording) | claude-sonnet-5-5 | — | — | 0 | 0 | 8.04 | 258.24 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
 Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs/2026-10-12-exempel-pontonjaren-calls.jsonl` (from the CLI log tables; no t_start/t_end). Wall clock: run 1 70.1 s, run 2 75.7 s.
 
-**Running total: 191.81 SEK**
+Per-call raw records for entry 96 (W3 full run): `docs/api-runs/2026-10-13-w3-v7-verify-calls.jsonl`. Entries 97-100 are single `npm run extract` runs (extraction only); only the CLI cost line was kept.
+
+**Running total: 258.24 SEK**

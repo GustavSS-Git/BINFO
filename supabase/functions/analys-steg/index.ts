@@ -304,6 +304,7 @@ interface RapportKolumner {
   started_at: string | null;
   finished_at: string | null;
   ersatt_av: string | null;
+  proveniens?: "api" | "batch" | "offline-session";
 }
 
 function rapportFranKolumner(row: RapportKolumner): RapportRad {
@@ -331,6 +332,7 @@ function rapportFranKolumner(row: RapportKolumner): RapportRad {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     ersattAv: row.ersatt_av,
+    proveniens: row.proveniens ?? "api",
   };
 }
 
@@ -357,6 +359,7 @@ function rapportTillKolumner(delta: Partial<RapportRad>): Record<string, unknown
   if ("startedAt" in delta) row["started_at"] = delta.startedAt;
   if ("finishedAt" in delta) row["finished_at"] = delta.finishedAt;
   if ("ersattAv" in delta) row["ersatt_av"] = delta.ersattAv;
+  if ("proveniens" in delta) row["proveniens"] = delta.proveniens;
   return row;
 }
 
@@ -781,6 +784,47 @@ function byggLager(sb: any) {
           p_kalla: rad.kalla,
         });
         if (error) throw new Error(`registreraForeningAdress misslyckades: ${error.message}`);
+      },
+
+      // v3 register: mirrors hamtaForeningAdresser / sattForeningOmrade /
+      // uppdateraRegisterSammanfattning in src/server/supabase.ts.
+      async hamtaForeningAdresser(orgnr: string) {
+        const { data, error } = await sb
+          .from("forening_adress")
+          .select("orgnr, postnummer, adress, kalla")
+          .eq("orgnr", orgnr);
+        if (error) throw new Error(`hamtaForeningAdresser misslyckades: ${error.message}`);
+        return data as Array<{
+          orgnr: string;
+          postnummer: string | null;
+          adress: string | null;
+          kalla: "rapport" | "anvandare";
+        }>;
+      },
+
+      async sattForeningOmrade(
+        orgnr: string,
+        falt: {
+          slug: string | null;
+          registeromrade: string | null;
+          omradeKalla: "rapport_adress" | "import" | "anvandare" | null;
+        },
+      ): Promise<void> {
+        const { error } = await sb.rpc("satt_forening_omrade", {
+          p_orgnr: orgnr,
+          p_slug: falt.slug,
+          p_registeromrade: falt.registeromrade,
+          p_omrade_kalla: falt.omradeKalla,
+        });
+        if (error) throw new Error(`sattForeningOmrade misslyckades: ${error.message}`);
+      },
+
+      async uppdateraRegisterSammanfattning(orgnr: string, pipelineVersion: string): Promise<void> {
+        const { error } = await sb.rpc("uppdatera_register_sammanfattning", {
+          p_orgnr: orgnr,
+          p_pipeline_version: pipelineVersion,
+        });
+        if (error) throw new Error(`uppdateraRegisterSammanfattning misslyckades: ${error.message}`);
       },
 
       // WS1 scan transcriptions — mirrors hamtaSidtext/sparaSidtext in

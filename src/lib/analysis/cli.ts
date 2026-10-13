@@ -10,6 +10,7 @@ import {
   type ModelEffort,
 } from "./runExtraction";
 import { korExtraktion } from "./korExtraktion";
+import { sammanfattaSidreferenser } from "./sidreferenser";
 import { TranskriberingMarkorFelError } from "./transkribering";
 import { AnalysValidationError, runAnalys } from "./analyze";
 // Never bundled for the client (this file is a Node CLI run via `tsx`, not
@@ -187,6 +188,11 @@ async function main() {
     .map((t) => `${t.stage} ${(t.wallMs / 1000).toFixed(1)} s (${t.spentSek.toFixed(2)} kr)`)
     .join(", ");
   console.error(`Textlager: ${korning.textlager}. Steg: ${stegTider}.`);
+  const sidref = sammanfattaSidreferenser(korning.sidreferenser);
+  console.error(
+    `Sidreferenser: ${sidref.ok}/${sidref.kontrollerade} stämde, ${sidref.korrigerade} korrigerade, ` +
+      `${sidref.saknas} osäkra, ${sidref.ejKontrollerbara} ej kontrollerbara.`,
+  );
 
   if (!inputPath) {
     console.log(JSON.stringify(extraction, null, 2));

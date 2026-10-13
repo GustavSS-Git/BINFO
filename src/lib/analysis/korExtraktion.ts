@@ -10,6 +10,7 @@ import {
   type ModelEffort,
   type PromptCacheMode,
 } from "./runExtraction";
+import type { Sidreferensfynd } from "./sidreferenser";
 import { klassificeraTextlager, type Textlager } from "./textlager";
 import { transkribera, type TranskriberadSida } from "./transkribering";
 
@@ -56,6 +57,8 @@ export interface KorExtraktionResultat {
   /** The cap that applied to this run (callers continue to judging under it). */
   tak: number;
   extraction: ExtractionResult;
+  /** The page-reference check's findings (sidreferenser.ts). */
+  sidreferenser: Sidreferensfynd[];
   calls: ModelCallMetrics[];
   spentSek: number;
   steg: StegTid[];
@@ -111,6 +114,10 @@ export async function korExtraktion(
   try {
     let groundingText: string;
     let pdfSaknarTextlager: boolean;
+    // Page texts the extraction's page references are checked against: the
+    // transcription of a scan, pdf.js text of a text PDF. Not for a garbled
+    // ('trasigt') layer — what the model read there is the page image, not that text.
+    let sidtexter: Map<number, string> | undefined;
     if (textlager === "saknas") {
       logg(`Textlager saknas (${pages.length} sidor) — transkriberar sidbilderna...`);
       const klara = await lasTranskriptionsfil(transkriptionsFil);
@@ -142,6 +149,7 @@ export async function korExtraktion(
       );
       groundingText = grundning.groundingText;
       pdfSaknarTextlager = grundning.pdfSaknarTextlager;
+      sidtexter = new Map(transkription.sidor.map((s) => [s.sida, s.text]));
     } else {
       if (textlager === "trasigt") {
         logg("Textlagret är trasigt — går den vanliga vägen (uppmätt bättre än skannvägen).");
@@ -158,6 +166,7 @@ export async function korExtraktion(
       );
       groundingText = grundning.groundingText;
       pdfSaknarTextlager = grundning.pdfSaknarTextlager;
+      if (textlager === "ok") sidtexter = new Map(pages.map((text, i) => [i + 1, text]));
     }
 
     logg(`Grundning klar (${steg[steg.length - 1]!.spentSek.toFixed(2)} kr). Kör extraktion...`);
@@ -171,6 +180,7 @@ export async function korExtraktion(
           pdfSaknarTextlager,
           promptCache,
           kalla: textlager === "saknas" ? "skannad" : "textlager",
+          ...(sidtexter ? { sidtexter } : {}),
         }),
       ),
     );
@@ -179,6 +189,7 @@ export async function korExtraktion(
       textlager,
       tak: maxCostSek,
       extraction: strukturerad.extraction,
+      sidreferenser: strukturerad.sidreferenser ?? [],
       calls,
       spentSek,
       steg,

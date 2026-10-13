@@ -136,6 +136,10 @@ export type Textlager = "ok" | "saknas" | "trasigt";
  *  `ogiltigforklaradResultat` in fel.ts. */
 export type RapportErrorCode = AnalysErrorCode | "ogiltigforklarad";
 
+/** Where a rapport's result came from (`rapport.proveniens`, migration
+ *  20261013120100_register_v3.sql). The worker writes 'api'. */
+export type Proveniens = "api" | "batch" | "offline-session";
+
 /** One row of `rapport` — one analysis of one årsredovisning, shared by every
  *  buyer who uploads that report. */
 export interface RapportRad {
@@ -169,6 +173,7 @@ export interface RapportRad {
   /** Set together with status 'ersatt': the rapport this one turned out to
    *  duplicate. Readers follow it (see `foljErsattAv`). */
   ersattAv: string | null;
+  proveniens: Proveniens;
 }
 
 export interface NyRapportRad {
@@ -187,6 +192,8 @@ export interface NyRapportRad {
   judgement?: unknown;
   costSek?: number;
   finishedAt?: string | null;
+  /** Default 'api'. */
+  proveniens?: Proveniens;
 }
 
 /** The fields of a rapport that may be changed by a plain update. Identity
@@ -232,6 +239,17 @@ export interface NyForeningAdress {
   adress: string | null;
   kalla: "rapport" | "anvandare";
 }
+
+/** A `forening_adress` row as the register area assignment reads it. */
+export interface ForeningAdressRad {
+  orgnr: string;
+  postnummer: string | null;
+  adress: string | null;
+  kalla: "rapport" | "anvandare";
+}
+
+/** How a BRF's register area was decided (`forening.omrade_kalla`). */
+export type OmradeKalla = "rapport_adress" | "import" | "anvandare";
 
 /** Filter for `listaRapporter`. Results are newest first. */
 export interface RapportFilter {
@@ -403,6 +421,17 @@ export interface Databas {
   hamtaForening(orgnr: string): Promise<ForeningRad | null>;
   /** Wraps `registrera_forening_adress` (upsert on the natural key). */
   registreraForeningAdress(rad: NyForeningAdress): Promise<void>;
+  /** All `forening_adress` rows of one BRF. */
+  hamtaForeningAdresser(orgnr: string): Promise<ForeningAdressRad[]>;
+  /** Wraps `satt_forening_omrade`: sets slug / register area; a changed slug
+   *  keeps the old one in `forening_slug`. Null fields leave the column as is. */
+  sattForeningOmrade(
+    orgnr: string,
+    falt: { slug: string | null; registeromrade: string | null; omradeKalla: OmradeKalla | null },
+  ): Promise<void>;
+  /** Wraps `uppdatera_register_sammanfattning`: recomputes the BRF's row in
+   *  `register_sammanfattning` (prefers a rapport at `pipelineVersion`). */
+  uppdateraRegisterSammanfattning(orgnr: string, pipelineVersion: string): Promise<void>;
 
   /** The transcribed pages of a rapport (`sidtext`), ordered by page. Empty
    *  when nothing has been transcribed yet. With `kalla`, only pages with

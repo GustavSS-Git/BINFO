@@ -1,0 +1,56 @@
+{
+  "countTokens": [
+    {
+      "model": "claude-haiku-4-5",
+      "system": "Du läser de första sidorna av en svensk bostadsrättsförenings årsredovisning (kan vara en skannad bild).\nSvara ENDAST med ett JSON-objekt, utan förklaring och utan kodstaket: {\"orgnr\": string|null, \"rakenskapsar\": number|null, \"namn\": string|null}.\n- orgnr: FÖRENINGENS organisationsnummer på formen NNNNNN-NNNN. Inte revisorns, förvaltarens eller något annat bolags nummer.\n- rakenskapsar: året då räkenskapsåret SLUTAR, som heltal. Räkenskapsåret 2024-09-01 till 2025-08-31 ger 2025. Läs det ur räkenskapsårets uttryckliga datum eller år, inte ur en flerårsöversikt.\n- namn: föreningens namn, kopierat tecken för tecken som det står tryckt (inklusive siffror och bindestreck), t.ex. \"Brf Granen 10-11\".\nAnvänd null för allt som inte står tryckt i dokumentet. Gissa aldrig.",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "document",
+              "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "sidor": 3
+              }
+            },
+            {
+              "type": "text",
+              "text": "Vilken förening och vilket räkenskapsår gäller denna årsredovisning? Svara med JSON."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "create": [
+    {
+      "params": {
+        "model": "claude-haiku-4-5",
+        "max_tokens": 300,
+        "system": "Du läser de första sidorna av en svensk bostadsrättsförenings årsredovisning (kan vara en skannad bild).\nSvara ENDAST med ett JSON-objekt, utan förklaring och utan kodstaket: {\"orgnr\": string|null, \"rakenskapsar\": number|null, \"namn\": string|null}.\n- orgnr: FÖRENINGENS organisationsnummer på formen NNNNNN-NNNN. Inte revisorns, förvaltarens eller något annat bolags nummer.\n- rakenskapsar: året då räkenskapsåret SLUTAR, som heltal. Räkenskapsåret 2024-09-01 till 2025-08-31 ger 2025. Läs det ur räkenskapsårets uttryckliga datum eller år, inte ur en flerårsöversikt.\n- namn: föreningens namn, kopierat tecken för tecken som det står tryckt (inklusive siffror och bindestreck), t.ex. \"Brf Granen 10-11\".\nAnvänd null för allt som inte står tryckt i dokumentet. Gissa aldrig.",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "document",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/pdf",
+                  "sidor": 3
+                }
+              },
+              {
+                "type": "text",
+                "text": "Vilken förening och vilket räkenskapsår gäller denna årsredovisning? Svara med JSON."
+              }
+            ]
+          }
+        ]
+      },
+      "harSignal": false
+    }
+  ]
+}

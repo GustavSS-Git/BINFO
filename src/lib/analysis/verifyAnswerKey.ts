@@ -1,10 +1,11 @@
-import { readFile, readdir } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { APIConnectionError } from "@anthropic-ai/sdk";
 import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
 import { type runStructuredExtraction, type ModelEffort } from "./runExtraction";
 import { korExtraktion, type StegTid } from "./korExtraktion";
+import { sammanfattaSidreferenser, type Sidreferensfynd } from "./sidreferenser";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
 import { STANDARD_MODELL } from "./costGuard";
 import type { FeeInclusion, KeyFigureId } from "@/types/analysis";
@@ -248,6 +249,9 @@ async function main() {
   // <pdf>` (an ExtractionResult); only `.forening` is read. Fixtures without a
   // file are skipped.
   const fromResultsDir = process.env["VERIFY_FROM_RESULTS"];
+  // VERIFY_SAVE_RESULTS=<dir>: write each live result (+ page-reference findings
+  // and the per-call records) to <dir>/<pdf>.json, so it can be re-scored for free.
+  const sparResultatDir = process.env["VERIFY_SAVE_RESULTS"];
   const fixtures = await loadFixtures();
 
   const verifierad = nyRakning();
@@ -318,6 +322,7 @@ async function main() {
     let calls: ModelCallMetrics[];
     let steg: StegTid[] = [];
     let textlager: string | undefined;
+    let sidreferenser: Sidreferensfynd[] = [];
     const wallStart = performance.now();
     try {
       if (sparatResultat) {
@@ -347,6 +352,7 @@ async function main() {
         calls = korning.calls;
         steg = korning.steg;
         textlager = korning.textlager;
+        sidreferenser = korning.sidreferenser;
       }
     } catch (error) {
       console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
@@ -370,6 +376,52 @@ async function main() {
     if (extraction.datakvalitet?.kalla) {
       console.log(
         `  Källa: ${extraction.datakvalitet.kalla}, konfidens: ${extraction.datakvalitet.extraktionKonfidens.niva}`,
+      );
+    }
+
+    // Page-reference check (sidreferenser.ts): printed for every report, every
+    // finding that is not "ok" is listed.
+    if (!sparatResultat) {
+      const sr = sammanfattaSidreferenser(sidreferenser);
+      console.log(
+        `  Sidreferenser: ${sr.ok}/${sr.kontrollerade} stämde, ${sr.korrigerade} korrigerade, ` +
+          `${sr.saknas} osäkra, ${sr.ejKontrollerbara} ej kontrollerbara`,
+      );
+      for (const f of sidreferenser.filter((x) => x.status !== "ok")) {
+        console.log(
+          `    ${f.status} ${f.sokvag} (sida ${f.sida}${f.nySida ? ` -> ${f.nySida}` : ""}` +
+            `${f.andraSidor?.length ? `, finns på ${f.andraSidor.join("/")}` : ""}): "${f.utdrag.slice(0, 80)}"`,
+        );
+      }
+    }
+    for (const a of extraction.forening.adresser ?? []) {
+      console.log(
+        `  Adress: ${a.gatuadress}${a.postnummer ? `, ${a.postnummer}` : ""}${a.ort ? ` ${a.ort}` : ""}` +
+          ` (sida ${a.ref.page}: "${a.ref.excerpt ?? ""}")`,
+      );
+    }
+    for (const b of extraction.forening.fastighetsbeteckningar ?? []) {
+      console.log(
+        `  Fastighetsbeteckning: ${b.beteckning} (sida ${b.ref.page}: "${b.ref.excerpt ?? ""}")`,
+      );
+    }
+    if (sparResultatDir && !sparatResultat) {
+      // Same shape `VERIFY_FROM_RESULTS` reads back (only `.forening` and
+      // `.datakvalitet` are used), plus the page-reference findings and the raw
+      // per-call records for docs/api-runs.
+      await mkdir(sparResultatDir, { recursive: true });
+      const namn = path.basename(fixture.kalla.fil);
+      await writeFile(
+        path.join(sparResultatDir, `${namn}.json`),
+        JSON.stringify({ ...extraction, sidreferenser }, null, 2),
+      );
+      await writeFile(
+        path.join(sparResultatDir, `${namn}.calls.json`),
+        JSON.stringify(
+          { textlager, steg, calls, spentSek, wallMs: performance.now() - wallStart },
+          null,
+          2,
+        ),
       );
     }
 

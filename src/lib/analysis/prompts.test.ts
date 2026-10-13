@@ -15,7 +15,12 @@ import {
   extractGroundingFindings,
   formatGroundingForExtraction,
 } from "./prompts";
-import { KeyFigureIdSchema, KontrollsummorSchema, StatusSchema } from "./schema";
+import {
+  ExtractionResultSchema,
+  KeyFigureIdSchema,
+  KontrollsummorSchema,
+  StatusSchema,
+} from "./schema";
 import { extraktion } from "./__fixtures__/extraktion";
 import { tillatnaSidor } from "./analyze";
 import { BENCHMARKS } from "./benchmarks";
@@ -456,6 +461,60 @@ describe("kontrollsummor (PROMPT_VERSION 6)", () => {
   });
 });
 
+describe("föreningens adress(er) och fastighetsbeteckning(ar) (PROMPT_VERSION 7)", () => {
+  it("grundningen ber om fastighetsbeteckning och gatuadress med postnummer och ort, och utesluter andras adresser", () => {
+    const p = buildGroundingSystemPrompt();
+    expect(p).toMatch(/Föreningens fastighet\(er\) och adress\(er\)/);
+    expect(p).toContain("fastighetsbeteckning(ar)");
+    expect(p).toMatch(/postnummer och ort/);
+    expect(p).toMatch(/inte förvaltarens, revisorns, styrelseledamöternas/);
+    expect(p).toMatch(/gissa aldrig/);
+  });
+
+  it("extraktionen fyller adresser och fastighetsbeteckningar bara när fynden anger dem, och utelämnar annars fältet", () => {
+    const p = buildExtractionSystemPrompt();
+    expect(p).toContain('"adresser": [');
+    expect(p).toContain('"fastighetsbeteckningar": [');
+    expect(p).toMatch(/adresser: föreningens EGNA gatuadress\(er\)/);
+    expect(p).toMatch(/Utelämna hela fältet när fynden inte anger någon gatuadress/);
+    expect(p).toMatch(/fastighetsbeteckningar: föreningens fastighetsbeteckning\(ar\)/);
+  });
+
+  it("exemplet i prompten följer kontraktet: adresser och fastighetsbeteckningar validerar mot ExtractionResultSchema", () => {
+    const p = buildExtractionSystemPrompt();
+    const start = p.indexOf('{\n  "schemaVersion"');
+    const slut = p.indexOf("\n}\n\nSkarpa regler", start);
+    const exempel = JSON.parse(p.slice(start, slut + 2)) as {
+      forening: { adresser: unknown; fastighetsbeteckningar: unknown };
+    };
+    expect(exempel.forening.adresser).toBeDefined();
+    const resultat = ExtractionResultSchema.safeParse({
+      ...extraktion,
+      forening: {
+        ...extraktion.forening,
+        adresser: exempel.forening.adresser,
+        fastighetsbeteckningar: exempel.forening.fastighetsbeteckningar,
+      },
+    });
+    expect(resultat.success, JSON.stringify(resultat.error?.issues)).toBe(true);
+  });
+
+  it("schemat avvisar en adress utan citat och ett postnummer som inte är fem siffror", () => {
+    const med = (adresser: unknown) =>
+      ExtractionResultSchema.safeParse({
+        ...extraktion,
+        forening: { ...extraktion.forening, adresser },
+      }).success;
+    expect(
+      med([{ gatuadress: "Exempelvägen 12", ref: { page: 3, excerpt: "Exempelvägen 12" } }]),
+    ).toBe(true);
+    expect(med([{ gatuadress: "Exempelvägen 12", ref: { page: 3 } }])).toBe(false);
+    expect(
+      med([{ gatuadress: "Exempelvägen 12", postnummer: "1234", ref: { page: 3, excerpt: "x" } }]),
+    ).toBe(false);
+  });
+});
+
 describe("buildTranskriberingSystemPrompt", () => {
   it("kräver ordagrann avskrift med originalsidnummer och att textlagret aldrig ska litas på", () => {
     const p = buildTranskriberingSystemPrompt();
@@ -470,8 +529,8 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 6 sedan skuldsummering, kontrollsummor och transkriberingsprompten tillkom", () => {
-    expect(PROMPT_VERSION).toBe("6");
+  it("är 7 sedan föreningens adresser och fastighetsbeteckningar tillkom (6: skuldsummering, kontrollsummor)", () => {
+    expect(PROMPT_VERSION).toBe("7");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -492,7 +551,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("ed3f3a431162cea47f9104e74a3cf1bbda6d6d9e46d34b385d29c56f08431b57");
+    expect(hash).toBe("b07110deb36686da52a11288aa5e305b513b1b904b5f5f3d24152408ae42d4d4");
   });
 });
 

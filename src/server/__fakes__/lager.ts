@@ -19,6 +19,8 @@
  */
 
 import type {
+  ForeningAdressRad,
+  OmradeKalla,
   AnalysCacheRad,
   AnalysRad,
   Databas,
@@ -95,12 +97,57 @@ function kontrolleraRapport(r: RapportRad): void {
   }
 }
 
+/** Mirrors the table `register_sammanfattning` (the nyckeltal as columns). */
+export interface RegisterSammanfattningRad {
+  orgnr: string;
+  slug: string | null;
+  namn: string | null;
+  registeromrade: string | null;
+  rakenskapsar: number;
+  rapportId: string;
+  pipelineVersion: string;
+  nyckeltal: Record<string, number | null>;
+  betyg: string | null;
+  analysdatum: string;
+}
+
+const SAMMANFATTADE_NYCKELTAL = [
+  "arsavgift_per_m2_brf_yta",
+  "arsavgift_andel_av_rorelseintakter",
+  "skuldsattning_per_m2_totalyta",
+  "skuldsattning_per_m2_brf_yta",
+  "sparande_per_m2_totalyta",
+  "rantekanslighet",
+  "energikostnad_per_m2_totalyta",
+] as const;
+
+/** Mirrors `register_nyckeltal`: the figure's value, null when missing/null. */
+function nyckeltalVarde(extraction: unknown, id: string): number | null {
+  const lista = (extraction as { forening?: { keyFigures?: unknown } } | null)?.forening
+    ?.keyFigures;
+  if (!Array.isArray(lista)) return null;
+  const kf = lista.find((k) => (k as { id?: unknown })?.id === id) as
+    { figure?: { value?: unknown } } | undefined;
+  const v = kf?.figure?.value;
+  return typeof v === "number" ? v : null;
+}
+
 export interface FakeDatabas extends Databas {
   /** Test-only peeks — not part of the port. */
   _allaRapporter(): RapportRad[];
   _allaRapportFiler(): RapportFilRad[];
   _allaAnalyser(): AnalysRad[];
   _allaAdresser(): Array<NyForeningAdress & { forstSedd: string; senastSedd: string }>;
+  /** `forening.slug / registeromrade / omrade_kalla` of one BRF. */
+  _foreningOmrade(orgnr: string): {
+    slug: string | null;
+    registeromrade: string | null;
+    omradeKalla: OmradeKalla | null;
+  } | null;
+  /** `forening_slug`: old slug -> orgnr. */
+  _slugHistorik(): Array<{ slug: string; orgnr: string }>;
+  /** `register_sammanfattning`, one row per BRF. */
+  _registerSammanfattning(): RegisterSammanfattningRad[];
   /** Every sidtext row of one rapport, with its kalla. */
   _allaSidtext(rapportId: string): Array<Sidtext & { kalla: SidtextKalla }>;
   /** The LIVE `analys` table (not a copy). Shared with the konto fake
@@ -122,6 +169,12 @@ function skapaFakeDatabas(): FakeDatabas {
   const rapporter = new Map<string, RapportRad>();
   const rapportFiler = new Map<string, RapportFilRad>();
   const foreningar = new Map<string, ForeningRad>();
+  const foreningOmrade = new Map<
+    string,
+    { slug: string | null; registeromrade: string | null; omradeKalla: OmradeKalla | null }
+  >();
+  const slugHistorik: Array<{ slug: string; orgnr: string }> = [];
+  const sammanfattningar = new Map<string, RegisterSammanfattningRad>();
   const adresser = new Map<string, NyForeningAdress & { forstSedd: string; senastSedd: string }>();
   /** rapport_id -> sida -> row (pk (rapport_id, sida)). */
   const sidtext = new Map<string, Map<number, { text: string; kalla: SidtextKalla }>>();
@@ -319,6 +372,7 @@ function skapaFakeDatabas(): FakeDatabas {
         startedAt: null,
         finishedAt: rad.finishedAt ?? null,
         ersattAv: null,
+        proveniens: rad.proveniens ?? "api",
       };
       kontrolleraRapport(ny);
       if (ny.orgnr !== null && !foreningar.has(ny.orgnr)) {
@@ -542,6 +596,85 @@ function skapaFakeDatabas(): FakeDatabas {
       });
     },
 
+    async hamtaForeningAdresser(orgnr: string): Promise<ForeningAdressRad[]> {
+      return [...adresser.values()]
+        .filter((a) => a.orgnr === orgnr)
+        .map((a) => ({
+          orgnr: a.orgnr,
+          postnummer: a.postnummer,
+          adress: a.adress,
+          kalla: a.kalla,
+        }));
+    },
+
+    async sattForeningOmrade(orgnr, falt): Promise<void> {
+      if (!foreningar.has(orgnr)) throw new Error(`Fake: okänd forening ${orgnr}.`);
+      const nu = foreningOmrade.get(orgnr) ?? {
+        slug: null,
+        registeromrade: null,
+        omradeKalla: null,
+      };
+      if (nu.slug !== null && falt.slug !== null && nu.slug !== falt.slug) {
+        if (!slugHistorik.some((h) => h.slug === nu.slug)) {
+          slugHistorik.push({ slug: nu.slug, orgnr });
+        }
+      }
+      if (falt.slug !== null) {
+        for (const [o, f] of foreningOmrade) {
+          if (o !== orgnr && f.slug === falt.slug) {
+            throw new Error("Fake: forening_slug_uniq — sluggen används av en annan förening.");
+          }
+        }
+      }
+      foreningOmrade.set(orgnr, {
+        slug: falt.slug ?? nu.slug,
+        registeromrade: falt.registeromrade ?? nu.registeromrade,
+        omradeKalla: falt.registeromrade !== null ? falt.omradeKalla : nu.omradeKalla,
+      });
+    },
+
+    async uppdateraRegisterSammanfattning(orgnr: string, pipelineVersion: string): Promise<void> {
+      // Mirrors uppdatera_register_sammanfattning: latest räkenskapsår, then the
+      // given pipeline version, then the most recently finished.
+      const kandidater = [...rapporter.values()]
+        .filter(
+          (r) =>
+            r.orgnr === orgnr &&
+            r.status === "done" &&
+            r.extraction !== null &&
+            r.judgement !== null,
+        )
+        .sort(
+          (a, b) =>
+            b.rakenskapsar! - a.rakenskapsar! ||
+            Number(b.pipelineVersion === pipelineVersion) -
+              Number(a.pipelineVersion === pipelineVersion) ||
+            (b.finishedAt ?? "").localeCompare(a.finishedAt ?? ""),
+        );
+      const r = kandidater[0];
+      if (!r) {
+        sammanfattningar.delete(orgnr);
+        return;
+      }
+      const f = foreningar.get(orgnr);
+      const o = foreningOmrade.get(orgnr);
+      const betyg = (r.judgement as { betyg?: unknown } | null)?.betyg;
+      sammanfattningar.set(orgnr, {
+        orgnr,
+        slug: o?.slug ?? null,
+        namn: f?.namn ?? null,
+        registeromrade: o?.registeromrade ?? null,
+        rakenskapsar: r.rakenskapsar!,
+        rapportId: r.id,
+        pipelineVersion: r.pipelineVersion,
+        nyckeltal: Object.fromEntries(
+          SAMMANFATTADE_NYCKELTAL.map((id) => [id, nyckeltalVarde(r.extraction, id)]),
+        ),
+        betyg: typeof betyg === "string" && "ABCDE".includes(betyg) ? betyg : null,
+        analysdatum: r.finishedAt ?? r.createdAt,
+      });
+    },
+
     async hamtaSidtext(rapportId: string, kalla?: SidtextKalla): Promise<Sidtext[]> {
       const rader = sidtext.get(rapportId);
       if (!rader) return [];
@@ -589,6 +722,9 @@ function skapaFakeDatabas(): FakeDatabas {
       [...(sidtext.get(rapportId) ?? [])]
         .map(([sida, rad]) => ({ sida, text: rad.text, kalla: rad.kalla }))
         .sort((a, b) => a.sida - b.sida),
+    _foreningOmrade: (orgnr) => foreningOmrade.get(orgnr) ?? null,
+    _slugHistorik: () => [...slugHistorik],
+    _registerSammanfattning: () => [...sammanfattningar.values()],
     _analysTabell: () => analysRader,
   };
 }

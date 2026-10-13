@@ -62,6 +62,15 @@ export class ModelTruncatedError extends Error {
   }
 }
 
+/**
+ * Outcome of validating one model answer: the value, or the Zod error plus the
+ * raw answer (what `ModelValidationError` reports after the last attempt).
+ * Returned instead of thrown so a caller that owns the retry itself (the
+ * synchronous pipeline here, the Message Batches importer next round) decides
+ * what a failed attempt means.
+ */
+export type Utfall<T> = { ok: true; value: T } | { ok: false; zodError: z.ZodError; raw: unknown };
+
 /** Builds the error thrown once the last attempt has also failed validation. */
 export type ValidationErrorFactory = (
   zodError: z.ZodError,
@@ -98,6 +107,26 @@ export async function validateWithRetry<S extends z.ZodTypeAny>(
   }
 
   throw createError(lastError!, lastRaw, maxAttempts);
+}
+
+/**
+ * The same one-retry policy as `validateWithRetry`, for a caller whose
+ * validation is a function returning a `Utfall` (see slutfor.ts) rather than a
+ * bare Zod schema. `anropa` makes one model call and returns its raw JSON.
+ */
+export async function provaMedOmforsok<T>(
+  anropa: () => Promise<unknown>,
+  validera: (raw: unknown) => Utfall<T>,
+  createError: ValidationErrorFactory,
+  maxAttempts = 2,
+): Promise<T> {
+  let senaste: Extract<Utfall<T>, { ok: false }> | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const utfall = validera(await anropa());
+    if (utfall.ok) return utfall.value;
+    senaste = utfall;
+  }
+  throw createError(senaste!.zodError, senaste!.raw, maxAttempts);
 }
 
 /** Pass 1's binding of validateWithRetry. */

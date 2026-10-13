@@ -72,6 +72,8 @@ import { KostnadsgransOverskriden } from "@/lib/analysis/costGuard";
 import { ModelTruncatedError, ModelValidationError } from "@/lib/analysis/extract";
 import { errorHasKnownSpend, type ModelCallMetrics } from "@/lib/analysis/callMetrics";
 import { PDFDocument } from "pdf-lib";
+import { extractPdfText } from "@/lib/analysis/pdf";
+import { sammanfattaSidreferenser } from "@/lib/analysis/sidreferenser";
 import { namnLiknar as namnLiknarStandard, type Rapportidentitet } from "@/lib/analysis/identitet";
 import { identifieraMedModell as identifieraMedModellStandard } from "@/lib/analysis/identitetModell";
 import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
@@ -99,6 +101,7 @@ import {
   type CacheNyckel,
 } from "./cache";
 import { lasPropertyInputFranRad } from "./lagratInput";
+import { loggaStegfel } from "./stegLogg";
 import type { Env } from "./env";
 import { tolkaFel, versionskonfliktResultat } from "./fel";
 import type {
@@ -119,6 +122,7 @@ import {
   SidtextOfullstandigError,
   TRANSKRIBERING_KALLA,
   registreraAnvandarAdress,
+  uppdateraRegisterForOrgnr,
   stegEfterIdentifiering,
   UPPSKATTAD_KOSTNAD_IDENTIFIERING_SEK,
 } from "./register";
@@ -297,6 +301,7 @@ async function avslutaMedFel(
   const faktisktSpenderatSek = errorHasKnownSpend(error) ? error.spentSek : knownSpentSek;
   await reservation.avstam(lager.db, faktisktSpenderatSek);
   const { errorCode, message } = tolkaFel(error);
+  loggaStegfel(`analys ${rad.id} steg ${rad.stage}`, errorCode, error);
   if (rad.attempts < 3) {
     // Släpp tillbaka till kön UTAN att återlämna försöket — det är genuint
     // konsumerat. Felet skrivs ändå transient så ett UI/en människa kan se
@@ -691,6 +696,7 @@ async function rapportFel(
     : kand;
   await reservation.avstam(lager.db, faktiskt.spentSek);
   const { errorCode, message } = tolkaFel(error);
+  loggaStegfel(`rapport ${r.id} steg ${r.stage} försök ${r.attempts}`, errorCode, error);
   const kostnad = redanBokford ? {} : kostnadsDelta(r, faktiskt);
   if (r.attempts < 3 && !terminal) {
     // Tillbaka i kön utan att återlämna försöket (samma som slapp_rapport_steg
@@ -765,6 +771,8 @@ async function registreraAdresserForRapport(
         await registreraAnvandarAdress(lager.db, orgnr, postnummer);
       }
     }
+    // A new buyer postnummer can change the fallback area (see register.ts).
+    await uppdateraRegisterForOrgnr(lager.db, orgnr);
   } catch (fel) {
     console.warn(
       `[register] Kunde inte registrera adresser för rapport ${rapportId}: ` +
@@ -1157,6 +1165,27 @@ async function forsokIdentitetFranExtraktion(
   }
 }
 
+/**
+ * Sidtexterna som extraktionens sidhänvisningar kontrolleras mot
+ * (sidreferenser.ts): den sparade transkriptionen för en skanning, pdf.js-text
+ * för en PDF med textlager. Inget för ett 'trasigt' textlager — där läste
+ * modellen sidbilden, inte den trasiga texten, så en kontroll mot texten skulle
+ * markera allt som osäkert. Hämtas FÖRE modellanropet: ett fel här kostar inget.
+ */
+async function hamtaSidtexterForKontroll(
+  lager: Lager,
+  r: RapportRad,
+): Promise<Map<number, string> | undefined> {
+  if (r.textlager === "trasigt") return undefined;
+  if (r.textlager === "saknas") {
+    const sidor = await lager.db.hamtaSidtext(r.id, TRANSKRIBERING_KALLA);
+    return sidor.length > 0 ? new Map(sidor.map((s) => [s.sida, s.text])) : undefined;
+  }
+  // pdf.js detaches the buffer it is given — hand it a copy.
+  const { pages } = await extractPdfText((await lasRapportPdf(lager, r)).slice());
+  return new Map(pages.map((text, i) => [i + 1, text]));
+}
+
 /** Steg 2 — strukturerad extraktion. Resultatet sparas på rapportraden i
  *  samma (leasade) uppdatering som stegbytet. */
 async function korRapportExtraktion(
@@ -1175,15 +1204,24 @@ async function korRapportExtraktion(
     // avläst ur sidbilder: datakvalitet.kalla = 'skannad', konfidensen kapas vid
     // 'medel' (runStructuredExtraction).
     const skannad = r.textlager === "saknas";
+    const sidtexter = await hamtaSidtexterForKontroll(lager, r);
     const result = await runStructuredExtraction(r.grundtext ?? "", {
       model: r.model,
       maxCostSek: env.maxCostPerAnalysisSek,
       pdfSaknarTextlager: skannad,
       kalla: skannad ? "skannad" : "textlager",
       effort: env.effortExtraction,
+      ...(sidtexter ? { sidtexter } : {}),
       ...(options?.client ? { client: options.client } : {}),
     });
     spend = { spentSek: result.spentSek, calls: result.calls };
+    const sidref = sammanfattaSidreferenser(result.sidreferenser ?? []);
+    if (sidref.korrigerade > 0 || sidref.saknas > 0) {
+      console.info(
+        `[sidreferenser] Rapport ${r.id}: ${sidref.ok}/${sidref.kontrollerade} stämde, ` +
+          `${sidref.korrigerade} sidnummer korrigerades, ${sidref.saknas} kunde inte styrkas.`,
+      );
+    }
     const skrivet = await rapportFramgang(lager, r, res, spend, {
       stage: "bedomning",
       grundtext: null,
@@ -1288,7 +1326,7 @@ async function korRapportBedomning(
     }
 
     await res.avstam(lager.db, spend.spentSek);
-    await skrivLeasad(lager, rad, {
+    const klar = await skrivLeasad(lager, rad, {
       status: "done",
       stage: "klar",
       leaseUntil: null,
@@ -1297,6 +1335,11 @@ async function korRapportBedomning(
       errorMessage: null,
       finishedAt: new Date().toISOString(),
     });
+    if (klar) {
+      // The identity may have been set from the extraction after `r` was claimed.
+      const farsk = await lager.db.hamtaRapport(r.id);
+      if (farsk?.orgnr) await uppdateraRegisterForOrgnr(lager.db, farsk.orgnr);
+    }
   } catch (error) {
     await rapportFel(lager, rad, res, error, spend, bokford);
   }
