@@ -62,6 +62,18 @@ const kalkyl: SparadKalkylPost = {
 };
 
 describe("profilens listor", () => {
+  it("visar månadskostnaden som ett spann när osäkra avgiftsposter ger ett", () => {
+    const html = renderToStaticMarkup(
+      <KalkylLista
+        kalkyler={[
+          { ...kalkyl, sammanfattning: { ...kalkyl.sammanfattning!, totalPerManadHog: 16_200 } },
+        ]}
+        onRadera={noop}
+      />,
+    ).replace(/\u00a0|&nbsp;/g, " ");
+    expect(html).toContain("14 500 kr–16 200 kr i månaden efter ränteavdrag");
+  });
+
   it("visar tomma lägen med en väg vidare", () => {
     const html = renderToStaticMarkup(
       <>
@@ -94,7 +106,8 @@ describe("profilens listor", () => {
     expect(html).toContain("Ta bort från listan");
     expect(html).toContain("Värdering 5 681 607 kr");
     expect(html).toContain("Kungsholmen");
-    expect(html).toContain("14 500 kr i månaden");
+    // Old summaries (no upper bound) show one figure, labelled as after ränteavdrag.
+    expect(html).toContain("14 500 kr i månaden efter ränteavdrag");
     expect(html).toContain("Belåningsgrad 85 %");
     expect(html).toContain("Radera");
     expect(html).toContain(">Öppna<");

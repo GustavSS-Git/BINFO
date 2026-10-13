@@ -167,6 +167,7 @@ describe("tomma och ogiltiga fält", () => {
     ]);
     expect(sammanfattaKalkyl(kalkyl())).toEqual({
       totalPerManad: null,
+      totalPerManadHog: null,
       belaningsgradProcent: null,
       amorteringstaktProcent: null,
       kvarAttLevaPaKalp: null,

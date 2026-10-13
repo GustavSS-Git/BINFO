@@ -87,7 +87,12 @@ export type KalkylUnderlag = z.infer<typeof KalkylUnderlagSchema>;
  *  from the inputs given (e.g. no loan amount). */
 export const KalkylSammanfattningSchema = z
   .object({
+    /** Monthly total after ränteavdrag, lower bound ("vet ej" fee items
+     *  assumed included in the avgift). */
     totalPerManad: z.number().finite().nullable(),
+    /** Upper bound of the same total ("vet ej" items assumed not included).
+     *  Optional: summaries saved before 2026-10-13 lack it. */
+    totalPerManadHog: z.number().finite().nullable().optional(),
     belaningsgradProcent: z.number().finite().nullable(),
     amorteringstaktProcent: z.number().finite().nullable(),
     kvarAttLevaPaKalp: z.number().finite().nullable(),

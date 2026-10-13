@@ -563,6 +563,7 @@ export function sammanfattaKalkyl(u: KalkylUnderlag): KalkylSammanfattning {
   const r = beraknaKalkyl(u);
   return {
     totalPerManad: r.fyllt.total ? r.nu.summor.nettoLag : null,
+    totalPerManadHog: r.fyllt.total ? r.nu.summor.nettoHog : null,
     belaningsgradProcent: r.fyllt.belaning
       ? Math.round(r.lan.belaningsgradProcent * 10) / 10
       : null,

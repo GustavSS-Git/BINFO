@@ -298,7 +298,15 @@ export function KalkylLista({
                   s === null
                     ? []
                     : [
-                        ...(s.totalPerManad !== null ? [`${kr(s.totalPerManad)} i månaden`] : []),
+                        ...(s.totalPerManad !== null
+                          ? [
+                              s.totalPerManadHog !== undefined &&
+                              s.totalPerManadHog !== null &&
+                              s.totalPerManadHog !== s.totalPerManad
+                                ? `${kr(s.totalPerManad)}–${kr(s.totalPerManadHog)} i månaden efter ränteavdrag`
+                                : `${kr(s.totalPerManad)} i månaden efter ränteavdrag`,
+                            ]
+                          : []),
                         ...(s.belaningsgradProcent !== null
                           ? [`Belåningsgrad ${prosent(s.belaningsgradProcent)}`]
                           : []),
