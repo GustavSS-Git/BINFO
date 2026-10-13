@@ -1186,6 +1186,17 @@ async function hamtaSidtexterForKontroll(
       const sidor = await lager.db.hamtaSidtext(r.id, TRANSKRIBERING_KALLA);
       return sidor.length > 0 ? new Map(sidor.map((s) => [s.sida, s.text])) : undefined;
     }
+    // A retried attempt skips the parse: if the previous attempt was killed by
+    // the Edge CPU hard limit (which no try/catch sees), parsing again would
+    // fail every retry and with it the rapport. Measured 2026-10-13: pdf.js
+    // costs 200–430 ms CPU on the test reports (up to 12 MB), so this is a
+    // safety net, not the normal path.
+    if (r.attempts > 1) {
+      console.info(
+        `[sidreferenser] Rapport ${r.id}: sidkontrollen hoppas över (försök ${r.attempts}).`,
+      );
+      return undefined;
+    }
     const pdf = await lasRapportPdf(lager, r);
     // pdf.js over the whole PDF costs Edge CPU (2 s free-plan limit) and memory
     // in proportion to the file; uploads are accepted up to 25 MB. Above this

@@ -197,6 +197,29 @@ describe("extraktion: sidtexter för sidkontrollen är best effort", () => {
   });
 });
 
+describe("extraktion: ett omförsök hoppar över PDF-tolkningen", () => {
+  it("efter ett avbrutet försök (t.ex. Edge-CPU-taket) läses PDF:en inte igen", async () => {
+    const lager = skapaFakeLager();
+    const klient = skapaKlient();
+    const id = await tillExtraktion(lager, await textPdf());
+    // A previous attempt was claimed and then killed (no try/catch saw it).
+    await lager.db.uppdateraRapport(id, { attempts: 1 });
+    const riktig = lager.filer.hamta.bind(lager.filer);
+    let lasningar = 0;
+    lager.filer.hamta = async (sokvag: string) => {
+      lasningar++;
+      return riktig(sokvag);
+    };
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    await kor(lager, klient.client);
+
+    expect(await rapportNu(lager, id)).toMatchObject({ status: "done", errorCode: null });
+    expect(lasningar).toBe(0);
+    expect(info.mock.calls.some((c) => String(c[0]).includes("försök 2"))).toBe(true);
+  });
+});
+
 describe("bedömning: registeruppdateringen efter klar är best effort", () => {
   it("hamtaRapport som kastar efter att rapporten blivit klar fäller den inte", async () => {
     const lager = skapaFakeLager();
