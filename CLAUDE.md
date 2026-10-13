@@ -11,8 +11,8 @@ per-apartment cost in kronor, and what to do before bidding.
 **State on 2026-10-13:**
 - v2 (scans, register, price check, account-ready infra) is merged and deployed
   in production (verified 2026-10-13 via `register -- list`: a done rapport from
-  2026-10-10). Open incident: Pontonjären 3 uploads fail at `grundning` with
-  `unknown` (see docs/DECISIONS.md).
+  2026-10-10). The 2026-10-13 incident (Edge `ANTHROPIC_API_KEY` not rotated) is fixed;
+  a production upload was verified the same day.
 - Next up is the accounts / public BRF register / bulk import / calculator
   export work. Its plan is in `PLAN.md` (pointer) and `docs/`.
 - Baseline (branch `v3`): typecheck clean, 1602/1602 tests, lint 0 errors.
