@@ -197,3 +197,13 @@ export function sidaFranUnderlag(u: KalkylUnderlag): KalkylSida {
 export function arGiltigtUnderlag(u: KalkylUnderlag): boolean {
   return KalkylUnderlagSchema.safeParse(u).success;
 }
+
+/** Avviker någon av bankens-kalkyl-uppgifterna (KALP) från förvalet? Förvalet är inga barn,
+ *  lika många vuxna som låntagare och standardkalkylräntan. */
+export function kalpArAndrad(u: KalkylUnderlag): boolean {
+  return (
+    u.barn.length > 0 ||
+    u.antalVuxna !== u.antalLantagare ||
+    u.kalkylrantaProcent !== tal("kalkylranta_standard")
+  );
+}

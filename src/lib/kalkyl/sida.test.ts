@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { tolkaFalt, tolkaTal } from "./indata";
 import {
   arGiltigtUnderlag,
+  kalpArAndrad,
   sidaFranSokning,
   sidaFranUnderlag,
   tomSida,
@@ -126,5 +127,17 @@ describe("sidaFranSokning (förifyllning)", () => {
     });
     expect(s).toEqual(tomSida());
     expect(s.boarea).toBe("");
+  });
+});
+
+describe("kalpArAndrad", () => {
+  const bas = underlagFranSida(tomSida()).underlag;
+  it("förvalet är inte ändrat", () => {
+    expect(kalpArAndrad(bas)).toBe(false);
+  });
+  it("barn, vuxna ≠ låntagare eller annan kalkylränta räknas som ändrat", () => {
+    expect(kalpArAndrad({ ...bas, barn: ["0-3"] })).toBe(true);
+    expect(kalpArAndrad({ ...bas, antalVuxna: bas.antalLantagare + 1 })).toBe(true);
+    expect(kalpArAndrad({ ...bas, kalkylrantaProcent: bas.kalkylrantaProcent + 1 })).toBe(true);
   });
 });

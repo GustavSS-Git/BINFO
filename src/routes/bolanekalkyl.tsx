@@ -33,6 +33,7 @@ import { REGLER, STATUS_ETIKETT, tal, type Regel } from "@/lib/kalkyl/regler";
 import {
   BARN_ALDRAR,
   sidaFranSokning,
+  kalpArAndrad,
   sidaFranUnderlag,
   underlagFranSida,
   type KalkylSida,
@@ -198,6 +199,14 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
     [sida, uppgifter.ingar],
   );
   const r = useMemo(() => beraknaKalkyl(underlag), [underlag]);
+  // Fördjupningen är stängd som standard, men öppen så snart någon KALP-uppgift
+  // avviker från förvalet (skrivs in, eller kommer med en öppnad/återställd kalkyl),
+  // så att ingens siffror göms.
+  const kalpAndrad = kalpArAndrad(underlag);
+  const [fordjupningOppen, setFordjupningOppen] = useState(kalpAndrad);
+  useEffect(() => {
+    if (kalpAndrad) setFordjupningOppen(true);
+  }, [kalpAndrad]);
   const { fyllt } = r;
   const harRantekanslighet = underlag.rantekanslighetProcent !== undefined;
   const harTotal = fyllt.total;
@@ -449,7 +458,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               onChange={(v) => sat("antalPersoner", v)}
               placeholder={String(underlag.antalPersoner)}
               error={fel.antalPersoner ?? null}
-              hint="Styr schablonen för vattenkostnad. Lämna tomt för antal vuxna + barn."
+              hint="Styr schablonen för vattenkostnad."
             />
             <div>
               <span className="mb-1.5 block text-sm font-medium text-foreground">
@@ -536,53 +545,6 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                   kräver en uppladdad årsredovisning för att räkna med i totalen.
                 </p>
               ) : null}
-            </div>
-
-            <div className="border-t border-border pt-6">
-              <p className={RUBRIK}>Bankens kalkyl (KALP)</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Banken räknar med en högre ränta och schablonmässiga levnadskostnader för hushållet.
-              </p>
-              <div className="mt-4 grid gap-5">
-                <Field
-                  id="kalkyl-antal-vuxna"
-                  label="Antal vuxna i hushållet"
-                  type="text"
-                  inputMode="numeric"
-                  value={sida.antalVuxna}
-                  onChange={(v) => sat("antalVuxna", v)}
-                  placeholder={String(underlag.antalVuxna)}
-                  error={fel.antalVuxna ?? null}
-                  hint="Lämna tomt för samma antal som låntagare."
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  {BARN_ALDRAR.map((alder) => (
-                    <Field
-                      key={alder}
-                      id={`kalkyl-barn-${alder}`}
-                      label={BARN_ETIKETT[alder]}
-                      suffix="st"
-                      type="text"
-                      inputMode="numeric"
-                      value={sida.barn[alder]}
-                      onChange={(v) => sat("barn", { ...sida.barn, [alder]: v })}
-                      placeholder="0"
-                      error={fel[`barn:${alder}`] ?? null}
-                    />
-                  ))}
-                </div>
-                <Field
-                  id="kalkyl-kalkylranta"
-                  label="Kalkylränta"
-                  suffix="%"
-                  type="text"
-                  inputMode="decimal"
-                  value={sida.kalkylranta}
-                  onChange={(v) => sat("kalkylranta", v)}
-                  error={fel.kalkylranta ?? null}
-                  hint="Ett antagande, inte en regel: varje bank sätter sin egen kalkylränta. Förvalt är 7 %."
-                />
-              </div>
             </div>
           </div>
         </Card>
@@ -818,150 +780,6 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
             </p>
           </Card>
 
-          <Card>
-            <h2 className="text-base font-semibold text-foreground">Om räntan ändras</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Total månadskostnad efter ränteavdrag.
-              {harRantekanslighet
-                ? " Avgiften räknas upp med föreningens räntekänslighet."
-                : " Bara din egen ränta stressas: avgiftens känslighet är okänd."}
-            </p>
-            {fyllt.ranta ? (
-              <div className="mt-3 divide-y divide-border">
-                {r.scenarier.map((s) => (
-                  <div key={s.id} className="py-3">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm text-muted-foreground">
-                        {s.namn} ({procentText(s.rantaProcent)} %)
-                      </span>
-                      <span className="text-sm font-medium text-foreground">
-                        {harTotal
-                          ? s.summor.harSpann
-                            ? `${Math.round(s.summor.nettoLag).toLocaleString("sv-SE")} – ${kr(s.summor.nettoHog)}`
-                            : kr(s.summor.nettoLag)
-                          : VET_EJ}
-                      </span>
-                    </div>
-                    {harTotal ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Ränta {kr(s.rantekostnad)} · avgift {kr(s.manadsavgift)}
-                        {s.avgiftsokning > 0 ? ` (+${kr(s.avgiftsokning)})` : ""}
-                        {harInkomst ? ` · kvar efter boendet ${kr(s.kvarEfterBoende)}` : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Fyll i ränta till vänster för att se scenarierna.
-              </p>
-            )}
-          </Card>
-
-          <Card>
-            <h2 className="text-base font-semibold text-foreground">
-              Kvar att leva på enligt bankens kalkyl
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Nettoinkomst minus ränta vid kalkylräntan ({procentText(r.kalp.kalkylrantaProcent)}{" "}
-              %), amortering, avgift, värme och Konsumentverkets levnadskostnader för hushållet.
-            </p>
-            {r.kalp.beraknad && r.kalp.kvarAttLevaPa !== null ? (
-              <>
-                <div className="mt-3 divide-y divide-border">
-                  {r.kalp.boendeRader.map((rad) => (
-                    <Rad
-                      key={rad.id}
-                      label={rad.namn}
-                      value={rad.belopp}
-                      {...(rad.anmarkning !== undefined ? { note: rad.anmarkning } : {})}
-                    />
-                  ))}
-                  <Rad
-                    label="Levnadskostnader (Konsumentverket 2026)"
-                    value={r.kalp.levnadskostnader?.summa ?? 0}
-                  />
-                  <Rad label="Hushållets nettoinkomst" value={r.kalp.nettoinkomstPerManad} />
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    {r.kalp.utfall === "minus" ? "Underskott per månad" : "Överskott per månad"}
-                  </p>
-                  <p
-                    className={`mt-1 font-display text-4xl ${
-                      r.kalp.utfall === "minus" ? "text-destructive" : "text-foreground"
-                    }`}
-                  >
-                    {r.kalp.kvarAttLevaPa < 0 ? "−" : ""}
-                    {kr(Math.abs(r.kalp.kvarAttLevaPa))}
-                  </p>
-                </div>
-                <details className="mt-4 rounded-lg border border-border bg-secondary/40">
-                  <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-                    Så räknas levnadskostnaderna
-                  </summary>
-                  <div className="border-t border-border px-4 pb-4 pt-3">
-                    <div className="divide-y divide-border">
-                      {r.kalp.levnadskostnader?.rader.map((rad) => (
-                        <div
-                          key={rad.id}
-                          className="flex items-center justify-between gap-3 py-2 text-xs"
-                        >
-                          <span className="text-muted-foreground">
-                            {rad.namn}
-                            {rad.ingarIAvgift ? " (ingår i avgiften)" : ""}
-                          </span>
-                          <span className="font-medium text-foreground">
-                            {rad.belopp < 0 ? "− " : ""}
-                            {kr(Math.abs(rad.belopp))}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </details>
-              </>
-            ) : r.kalp.hushalletForStort ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Konsumentverkets tabell gäller hushåll upp till 7 personer, så vi kan inte räkna ut
-                bankens kalkyl för ett större hushåll.
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Fyll i {r.kalp.saknas.join(", ")} för att räkna ut bankens kalkyl.
-              </p>
-            )}
-            <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-              {r.kalp.forutsattningar.map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card>
-            <details>
-              <summary className="cursor-pointer text-sm font-medium text-foreground">
-                Regler och antaganden som kalkylen använder
-              </summary>
-              <div className="mt-3 divide-y divide-border">
-                {REGLER.filter((x) => !x.id.startsWith("kv_")).map((x) => (
-                  <RegelRad key={x.id} regel={x} />
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Konsumentverkets alla tabellvärden finns i{" "}
-                <a
-                  className="underline"
-                  href="https://publikationer.konsumentverket.se/downloads/kostnadsberakningar-hushallskostnader-2026-sv-kov_tga_32d.pdf"
-                >
-                  Hushållskostnader 2026
-                </a>
-                .
-              </p>
-            </details>
-          </Card>
-
           <div data-slot="kalkyl-atgarder">
             <KalkylExport
               underlag={underlag}
@@ -1001,6 +819,223 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
           </div>
         </div>
       </div>
+
+      <section
+        data-slot="kalkyl-fordjupning"
+        aria-label="Fördjupning"
+        className="mt-12 border-t border-border pt-8"
+      >
+        <details
+          open={fordjupningOppen}
+          onToggle={(e) => setFordjupningOppen(e.currentTarget.open)}
+          className="rounded-lg border border-border bg-secondary/40"
+        >
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+            Fördjupning: räntescenarier och bankens kalkyl (valfritt)
+          </summary>
+          <div className="space-y-6 border-t border-border px-4 pb-6 pt-4">
+            <p className="text-sm text-muted-foreground">
+              Det här behövs inte för att förstå månadskostnaden ovan. Här kan du se vad som händer
+              om räntan ändras och hur banken brukar räkna på om ni klarar lånet.
+            </p>
+            <Card>
+              <h3 className="text-base font-semibold text-foreground">Om räntan ändras</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Så mycket kan månadskostnaden bli om räntan stiger eller sjunker. Total
+                månadskostnad efter ränteavdrag.
+                {harRantekanslighet
+                  ? " Avgiften räknas upp med föreningens räntekänslighet."
+                  : " Bara din egen ränta stressas: avgiftens känslighet är okänd."}
+              </p>
+              {fyllt.ranta ? (
+                <div className="mt-3 divide-y divide-border">
+                  {r.scenarier.map((s) => (
+                    <div key={s.id} className="py-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-sm text-muted-foreground">
+                          {s.namn} ({procentText(s.rantaProcent)} %)
+                        </span>
+                        <span className="text-sm font-medium text-foreground">
+                          {harTotal
+                            ? s.summor.harSpann
+                              ? `${Math.round(s.summor.nettoLag).toLocaleString("sv-SE")} – ${kr(s.summor.nettoHog)}`
+                              : kr(s.summor.nettoLag)
+                            : VET_EJ}
+                        </span>
+                      </div>
+                      {harTotal ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Ränta {kr(s.rantekostnad)} · avgift {kr(s.manadsavgift)}
+                          {s.avgiftsokning > 0 ? ` (+${kr(s.avgiftsokning)})` : ""}
+                          {harInkomst ? ` · kvar efter boendet ${kr(s.kvarEfterBoende)}` : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Fyll i ränta ovan för att se scenarierna.
+                </p>
+              )}
+            </Card>
+
+            <Card>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Bankens kalkyl (KALP)</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Banker räknar med en högre ränta och schablonkostnader för hushållet för att se om
+                  lånet går ihop även om räntan stiger. Här anger du vilka som bor i hushållet.
+                </p>
+                <div className="mt-4 grid gap-5">
+                  <Field
+                    id="kalkyl-antal-vuxna"
+                    label="Antal vuxna i hushållet"
+                    type="text"
+                    inputMode="numeric"
+                    value={sida.antalVuxna}
+                    onChange={(v) => sat("antalVuxna", v)}
+                    placeholder={String(underlag.antalVuxna)}
+                    error={fel.antalVuxna ?? null}
+                    hint="Lämna tomt för samma antal som låntagare."
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    {BARN_ALDRAR.map((alder) => (
+                      <Field
+                        key={alder}
+                        id={`kalkyl-barn-${alder}`}
+                        label={BARN_ETIKETT[alder]}
+                        suffix="st"
+                        type="text"
+                        inputMode="numeric"
+                        value={sida.barn[alder]}
+                        onChange={(v) => sat("barn", { ...sida.barn, [alder]: v })}
+                        placeholder="0"
+                        error={fel[`barn:${alder}`] ?? null}
+                      />
+                    ))}
+                  </div>
+                  <Field
+                    id="kalkyl-kalkylranta"
+                    label="Kalkylränta"
+                    suffix="%"
+                    type="text"
+                    inputMode="decimal"
+                    value={sida.kalkylranta}
+                    onChange={(v) => sat("kalkylranta", v)}
+                    error={fel.kalkylranta ?? null}
+                    hint="Ett antagande, inte en regel: varje bank sätter sin egen kalkylränta. Förvalt är 7 %."
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <h2 className="text-base font-semibold text-foreground">
+                Kvar att leva på enligt bankens kalkyl
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Nettoinkomst minus ränta vid kalkylräntan ({procentText(r.kalp.kalkylrantaProcent)}{" "}
+                %), amortering, avgift, värme och Konsumentverkets levnadskostnader för hushållet.
+              </p>
+              {r.kalp.beraknad && r.kalp.kvarAttLevaPa !== null ? (
+                <>
+                  <div className="mt-3 divide-y divide-border">
+                    {r.kalp.boendeRader.map((rad) => (
+                      <Rad
+                        key={rad.id}
+                        label={rad.namn}
+                        value={rad.belopp}
+                        {...(rad.anmarkning !== undefined ? { note: rad.anmarkning } : {})}
+                      />
+                    ))}
+                    <Rad
+                      label="Levnadskostnader (Konsumentverket 2026)"
+                      value={r.kalp.levnadskostnader?.summa ?? 0}
+                    />
+                    <Rad label="Hushållets nettoinkomst" value={r.kalp.nettoinkomstPerManad} />
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      {r.kalp.utfall === "minus" ? "Underskott per månad" : "Överskott per månad"}
+                    </p>
+                    <p
+                      className={`mt-1 font-display text-4xl ${
+                        r.kalp.utfall === "minus" ? "text-destructive" : "text-foreground"
+                      }`}
+                    >
+                      {r.kalp.kvarAttLevaPa < 0 ? "−" : ""}
+                      {kr(Math.abs(r.kalp.kvarAttLevaPa))}
+                    </p>
+                  </div>
+                  <details className="mt-4 rounded-lg border border-border bg-secondary/40">
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+                      Så räknas levnadskostnaderna
+                    </summary>
+                    <div className="border-t border-border px-4 pb-4 pt-3">
+                      <div className="divide-y divide-border">
+                        {r.kalp.levnadskostnader?.rader.map((rad) => (
+                          <div
+                            key={rad.id}
+                            className="flex items-center justify-between gap-3 py-2 text-xs"
+                          >
+                            <span className="text-muted-foreground">
+                              {rad.namn}
+                              {rad.ingarIAvgift ? " (ingår i avgiften)" : ""}
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {rad.belopp < 0 ? "− " : ""}
+                              {kr(Math.abs(rad.belopp))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </>
+              ) : r.kalp.hushalletForStort ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Konsumentverkets tabell gäller hushåll upp till 7 personer, så vi kan inte räkna
+                  ut bankens kalkyl för ett större hushåll.
+                </p>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Fyll i {r.kalp.saknas.join(", ")} för att räkna ut bankens kalkyl.
+                </p>
+              )}
+              <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                {r.kalp.forutsattningar.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </Card>
+
+            <Card>
+              <h3 className="text-base font-semibold text-foreground">Regler och antaganden</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Det här är reglerna och siffrorna som kalkylen räknar med, och var de kommer ifrån.
+              </p>
+              <div>
+                <div className="mt-3 divide-y divide-border">
+                  {REGLER.filter((x) => !x.id.startsWith("kv_")).map((x) => (
+                    <RegelRad key={x.id} regel={x} />
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Konsumentverkets alla tabellvärden finns i{" "}
+                  <a
+                    className="underline"
+                    href="https://publikationer.konsumentverket.se/downloads/kostnadsberakningar-hushallskostnader-2026-sv-kov_tga_32d.pdf"
+                  >
+                    Hushållskostnader 2026
+                  </a>
+                  .
+                </p>
+              </div>
+            </Card>
+          </div>
+        </details>
+      </section>
     </div>
   );
 }
