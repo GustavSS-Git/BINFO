@@ -413,8 +413,15 @@ cd ml && .venv/bin/pytest                  # ML tests
   100 000 per person per year, 21 % above. The cap is per person, so the number
   of borrowers matters. From 2026, unsecured loans get no deduction (mortgages
   unaffected).
-- **Living costs** (if a KALP is ever added): Konsumentverket "Hushållskostnader
-  2026" is the citable source; bank kalkylräntor are not public or regulated.
+- **KALP** (v3, `src/lib/kalkyl/levnadskostnader.ts`): Konsumentverket
+  "Hushållskostnader 2026" living costs; kalkylränta 7 % is an editable
+  assumption (bank kalkylräntor are neither public nor regulated). No double
+  counting: Konsumentverket's household costs already include hushållsel,
+  vatten, internet and hemförsäkring, so only värme comes from Binfo's drift
+  schablons. Verdict = sign + amount, no threshold words.
+- **Rules registry** (`src/lib/kalkyl/regler.ts`) is the single source for every
+  calculator rule, shown in the UI, PDF and Excel with source and date. Change a
+  rule there, bump `REGELVERSION`, and the Excel parity test must still pass.
 - **Seven statutory nyckeltal** (BFNAR 2023:1, from FY2023). Extraction must
   produce all seven:
   - årsavgift/m² bostadsrättsyta

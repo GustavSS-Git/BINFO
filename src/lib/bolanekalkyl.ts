@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseSparaTyp } from "@/lib/till";
 import type { FeeInclusion, PropertyInput } from "@/types/analysis";
 
 /**
@@ -39,6 +40,12 @@ export interface BolanekalkylSearch {
    *  tyst presentera talet som ett känt pris. Samma
    *  `| undefined`-resonemang som ovan. */
   prisUppskattning: boolean | undefined;
+  /** Id (uuid) på en sparad kalkyl i kontot som ska öppnas (`?sparad=`).
+   *  Valfri nyckel så att länkar från andra sidor inte behöver ange den; tolkaren
+   *  sätter den ändå alltid (till `undefined` vid skräp), se kommentaren ovan. */
+  sparad?: string | undefined;
+  /** Väntande Spara-åtgärd efter inloggning (`?spara=kalkyl`). Samma valfria nyckel. */
+  spara?: "kalkyl" | undefined;
 }
 
 /**
@@ -58,6 +65,13 @@ export function veljRantekanslighetForSok(
   return rantekanslighetProcent !== null && rantekanslighetProcent > 0
     ? rantekanslighetProcent
     : undefined;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ett uuid som sträng, annars `undefined` (skräp, fel typ, för långt). */
+function tolkaUuid(varde: unknown): string | undefined {
+  return typeof varde === "string" && UUID.test(varde) ? varde : undefined;
 }
 
 const positivtTal = z.coerce.number().positive().finite();
@@ -103,6 +117,8 @@ export function parseBolanekalkylSearch(search: Record<string, unknown>): Bolane
     pris: tolkaPositivtTal(search["pris"]),
     boarea: tolkaPositivtTal(search["boarea"]),
     prisUppskattning: tolkaBoolean(search["prisUppskattning"]),
+    sparad: tolkaUuid(search["sparad"]),
+    spara: parseSparaTyp(search["spara"]) === "kalkyl" ? "kalkyl" : undefined,
   };
 }
 

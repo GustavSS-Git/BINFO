@@ -22,6 +22,24 @@ describe("parseBolanekalkylSearch", () => {
     expect(parseBolanekalkylSearch({ prisUppskattning: 2 }).prisUppskattning).toBeUndefined();
   });
 
+  it("tolkar sparad (uuid) och spara (bara kalkyl) och kastar aldrig på skräp", () => {
+    const id = "3f2c1a9e-8b7d-4c6e-9a10-1234567890ab";
+    expect(parseBolanekalkylSearch({ sparad: id }).sparad).toBe(id);
+    expect(parseBolanekalkylSearch({ sparad: id.toUpperCase() }).sparad).toBe(id.toUpperCase());
+    for (const skrap of ["abc", "", `${id}x`, "../../konto", 123, null, [id], { a: 1 }, true]) {
+      const r = parseBolanekalkylSearch({ sparad: skrap });
+      expect(r.sparad).toBeUndefined();
+      expect(Object.keys(r)).toContain("sparad");
+    }
+    expect(parseBolanekalkylSearch({ spara: "kalkyl" }).spara).toBe("kalkyl");
+    for (const skrap of ["vardering", "x", 1, true, null, ["kalkyl"]]) {
+      const r = parseBolanekalkylSearch({ spara: skrap });
+      expect(r.spara).toBeUndefined();
+      expect(Object.keys(r)).toContain("spara");
+    }
+    expect(() => parseBolanekalkylSearch({ sparad: Symbol("x"), spara: {} })).not.toThrow();
+  });
+
   it("returnerar alla nycklar som undefined när inga sökparametrar finns", () => {
     expect(parseBolanekalkylSearch({})).toEqual({
       manadsavgift: undefined,
