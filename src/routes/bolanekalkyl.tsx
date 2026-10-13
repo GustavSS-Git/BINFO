@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Card, Field, PageHeader, Badge, Toggle, Tag, TristateChoice } from "@/components/ui/binfo";
 import { avgiftPoster, kr, kalkylDefaults } from "@/data/mockData";
+import { KalkylExport } from "@/components/kalkyl/KalkylExport";
 import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
 import { parseBolanekalkylSearch, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import { beraknaKalkyl } from "@/lib/kalkyl/berakna";
@@ -726,8 +727,9 @@ function Bolanekalkyl() {
             </details>
           </Card>
 
-          {/* Platshållare: Spara / Ladda ner PDF / Ladda ner Excel läggs in här. */}
-          <div data-slot="kalkyl-atgarder" />
+          <div data-slot="kalkyl-atgarder">
+            <KalkylExport underlag={underlag} />
+          </div>
         </div>
       </div>
     </div>
