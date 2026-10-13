@@ -325,6 +325,7 @@ export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
     "Lösenordet måste vara minst 10 tecken (och högst 72 byte). Det får inte heller vara ett " +
     "lösenord som förekommit i ett dataintrång eller det du redan har.",
   ogiltig_inloggning: "Fel e-postadress eller lösenord.",
+  kraver_nuvarande_losenord: "Ange ditt nuvarande lösenord för att byta till ett nytt.",
   epost_ej_bekraftad:
     "E-postadressen är inte bekräftad ännu. Klicka på länken i bekräftelsemejlet först.",
   ogiltig_lank:

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { skapaFakeAuth } from "./__fakes__/auth";
 import { fakeKallor } from "./__fakes__/kallor";
 import { skapaFakeKontoDatabas } from "./__fakes__/konto";
@@ -14,7 +14,7 @@ import {
   type KontoBeroenden,
 } from "./auth";
 import { ENHET_COOKIE, losKontext } from "./kontext";
-import { ACCESS_COOKIE, REFRESH_COOKIE } from "./sessionCookies";
+import { ACCESS_COOKIE, ATERST_COOKIE, REFRESH_COOKIE } from "./sessionCookies";
 
 const ENHET = "AAAAAAAAAAAAAAAAAAAAAA";
 const LOSEN = "ett-langt-losenord";
@@ -299,7 +299,7 @@ describe("loggaUt och raderaKonto", () => {
       sammanfattning: {},
       regelversion: "r1",
     });
-    expect(await raderaKonto(await t.beroenden())).toEqual({ ok: true });
+    expect(await raderaKonto(await t.beroenden(), { losenord: LOSEN })).toEqual({ ok: true });
     expect(t.db.sparadeKalkyler.size).toBe(0);
     expect(t.db.principaler.has(ctx.principalId!)).toBe(false);
     expect(t.auth.anvandare.size).toBe(0);
@@ -314,7 +314,157 @@ describe("loggaUt och raderaKonto", () => {
   it("raderaKonto utan session: ej_inloggad och inget raderas", async () => {
     const t = await bygg();
     t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
-    expect(await raderaKonto(await t.beroenden())).toMatchObject({ felKod: "ej_inloggad" });
+    expect(await raderaKonto(await t.beroenden(), { losenord: LOSEN })).toMatchObject({
+      felKod: "ej_inloggad",
+    });
     expect(t.auth.anvandare.size).toBe(1);
+  });
+});
+
+describe("återställningsmarkör och omautentisering", () => {
+  afterEach(() => vi.useRealTimers());
+
+  async function aterstall(t: Awaited<ReturnType<typeof bygg>>, epost = "anna@example.se") {
+    t.auth.skapaBekraftadAnvandare(epost, LOSEN);
+    await begarAterstallning(await t.beroenden(), { epost });
+    const m = t.auth.mejl.at(-1)!;
+    await bekraftaEpost(await t.beroenden(), { tokenHash: m.tokenHash, typ: "recovery" });
+  }
+  const NYTT = "helt-nytt-losenord";
+
+  it("markör sätts bara för recovery, inte signup; liten och med rätt attribut", async () => {
+    const t = await bygg();
+    await registreraKonto(await t.beroenden(), { epost: "ny@example.se", losenord: LOSEN });
+    await bekraftaEpost(await t.beroenden(), {
+      tokenHash: t.auth.mejl[0]!.tokenHash,
+      typ: "signup",
+    });
+    expect(t.kallor.cookies.has(ATERST_COOKIE)).toBe(false);
+
+    const t2 = await bygg();
+    await aterstall(t2);
+    const satt = t2.kallor.satta.find((c) => c.namn === ATERST_COOKIE)!;
+    expect(satt.alternativ).toEqual({
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 900,
+    });
+    expect(satt.varde).toMatch(/^\d+\.[0-9a-f]{64}$/);
+    expect((ATERST_COOKIE + "=" + satt.varde).length).toBeLessThan(120);
+  });
+
+  it("recovery-markör räcker; rensas efter lyckat byte", async () => {
+    const t = await bygg();
+    await aterstall(t);
+    expect(await sattNyttLosenord(await t.beroenden(), { losenord: NYTT })).toEqual({ ok: true });
+    expect(t.kallor.cookies.get(ATERST_COOKIE)).toBe("");
+    expect(await sattNyttLosenord(await t.beroenden(), { losenord: NYTT + "2" })).toMatchObject({
+      felKod: "kraver_nuvarande_losenord",
+    });
+  });
+
+  it("ingen markör och inget nuvarande lösenord: kraver_nuvarande_losenord", async () => {
+    const t = await bygg();
+    t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    const r = await sattNyttLosenord(await t.beroenden(), { losenord: NYTT });
+    expect(r).toMatchObject({ ok: false, felKod: "kraver_nuvarande_losenord" });
+    expect(r.ok === false && r.meddelande).toBe(
+      "Ange ditt nuvarande lösenord för att byta till ett nytt.",
+    );
+  });
+
+  it("rätt nuvarande lösenord fungerar utan att byta session-cookies", async () => {
+    const t = await bygg();
+    t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    const refreshForst = t.kallor.cookies.get(REFRESH_COOKIE);
+    const antalSatta = t.kallor.satta.length;
+    const r = await sattNyttLosenord(await t.beroenden(), {
+      losenord: NYTT,
+      nuvarandeLosenord: LOSEN,
+    });
+    expect(r).toEqual({ ok: true });
+    // verification did not touch the cookies on its own
+    const nya = t.kallor.satta.slice(antalSatta);
+    expect(nya.some((c) => c.namn === REFRESH_COOKIE && c.varde === refreshForst)).toBe(false);
+    await loggaUt(await t.beroenden());
+    expect(
+      await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: NYTT }),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("fel nuvarande lösenord nekas och räknas mot inloggningskvoten", async () => {
+    const t = await bygg();
+    t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    const svar: unknown[] = [];
+    for (let i = 0; i < 6; i++)
+      svar.push(
+        await sattNyttLosenord(await t.beroenden(), {
+          losenord: NYTT,
+          nuvarandeLosenord: "fel-lösenord-x",
+        }),
+      );
+    expect(svar[0]).toMatchObject({ ok: false, felKod: "ogiltig_inloggning" });
+    expect(svar[5]).toMatchObject({ ok: false, felKod: "kvot" });
+    // even the right password is now refused
+    expect(
+      await sattNyttLosenord(await t.beroenden(), { losenord: NYTT, nuvarandeLosenord: LOSEN }),
+    ).toMatchObject({ felKod: "kvot" });
+  });
+
+  it("markör för annan användare nekas", async () => {
+    const t = await bygg();
+    await aterstall(t, "anna@example.se");
+    await loggaUt(await t.beroenden());
+    t.auth.skapaBekraftadAnvandare("bo@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "bo@example.se", losenord: LOSEN });
+    expect(t.kallor.cookies.get(ATERST_COOKIE)).toMatch(/^\d+\./);
+    expect(await sattNyttLosenord(await t.beroenden(), { losenord: NYTT })).toMatchObject({
+      felKod: "kraver_nuvarande_losenord",
+    });
+  });
+
+  it("utgången markör nekas", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-13T10:00:00Z"));
+    const t = await bygg();
+    await aterstall(t);
+    vi.setSystemTime(new Date("2026-10-13T10:15:01Z"));
+    expect(await sattNyttLosenord(await t.beroenden(), { losenord: NYTT })).toMatchObject({
+      felKod: "kraver_nuvarande_losenord",
+    });
+  });
+
+  it("manipulerad markör nekas (signatur och tid)", async () => {
+    const t = await bygg();
+    await aterstall(t);
+    const [ms, sig] = t.kallor.cookies.get(ATERST_COOKIE)!.split(".");
+    const flip = sig!.replace(/^./, sig![0] === "a" ? "b" : "a");
+    for (const v of [`${ms}.${flip}`, `${Number(ms) + 600_000}.${sig}`, "skräp", `${ms}`]) {
+      t.kallor.cookies.set(ATERST_COOKIE, v);
+      expect(await sattNyttLosenord(await t.beroenden(), { losenord: NYTT })).toMatchObject({
+        felKod: "kraver_nuvarande_losenord",
+      });
+    }
+  });
+
+  it("raderaKonto kräver rätt lösenord", async () => {
+    const t = await bygg();
+    t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    expect(await raderaKonto(await t.beroenden(), {})).toMatchObject({
+      felKod: "ogiltig_inloggning",
+    });
+    expect(await raderaKonto(await t.beroenden(), { losenord: "fel-lösenord-x" })).toMatchObject({
+      felKod: "ogiltig_inloggning",
+    });
+    expect(t.auth.anvandare.size).toBe(1);
+    expect(t.db.principaler.size).toBeGreaterThan(0);
+    expect(await raderaKonto(await t.beroenden(), { losenord: LOSEN })).toEqual({ ok: true });
+    expect(t.auth.anvandare.size).toBe(0);
   });
 });

@@ -25,6 +25,7 @@
 import { z } from "zod";
 import type {
   BegarAterstallningSvar,
+  KontoFel,
   BekraftaEpostSvar,
   LoggaInSvar,
   LoggaUtSvar,
@@ -51,7 +52,14 @@ import {
   kontrolleraRegistreringskvot,
 } from "./kvot";
 import { sakerstallKontoPrincipal } from "./principal";
-import { lasSessionCookies, rensaSessionCookies, sattSessionCookies } from "./sessionCookies";
+import {
+  harGiltigtAterstallningsmarke,
+  lasSessionCookies,
+  rensaAterstallningsmarke,
+  rensaSessionCookies,
+  sattAterstallningsmarke,
+  sattSessionCookies,
+} from "./sessionCookies";
 import { skapaAuthPort } from "./supabaseAuth";
 import { skapaKontoDatabas } from "./supabaseKonto";
 
@@ -99,7 +107,12 @@ const BekraftaSchema = z.object({
   typ: z.enum(["signup", "recovery", "email_change"]),
 });
 
-const NyttLosenordInSchema = z.object({ losenord: NyttLosenordSchema });
+const NyttLosenordInSchema = z.object({
+  losenord: NyttLosenordSchema,
+  nuvarandeLosenord: z.string().min(1).max(1024).optional(),
+});
+
+const RaderaSchema = z.object({ losenord: z.string().min(1).max(1024) });
 
 function arObjekt(data: unknown): Record<string, unknown> {
   return typeof data === "object" && data !== null ? (data as Record<string, unknown>) : {};
@@ -226,21 +239,64 @@ export async function bekraftaEpost(b: KontoBeroenden, data: unknown): Promise<B
 
   const { principalId } = await sakerstallKontoPrincipal(b.db, r.anvandare.id, b.kontext.enhetId);
   sattSessionCookies(b.kallor, r.session);
+  if (parsed.data.typ === "recovery") {
+    await sattAterstallningsmarke(b.kallor, b.hemlighet, r.anvandare.id);
+  }
   return { ok: true, typ: parsed.data.typ, epost: r.anvandare.epost, principalId };
 }
 
-/** Sets a new password for the logged-in user — in practice the session the
- *  recovery link just created. */
+/**
+ * Re-authenticates the logged-in account with its password. Counts against the
+ * login rate limit (checked first; a failed attempt keeps its count, a correct
+ * one gives it back). The verification session is ended again and NO cookies
+ * are set from it.
+ */
+async function verifieraLosenord(
+  b: KontoBeroenden,
+  epost: string,
+  losenord: string,
+): Promise<KontoFel | null> {
+  const epostHash = await hashaEpost(epost, b.hemlighet);
+  const kvot = await kontrolleraInloggningskvot(b.db, b.kontext, epostHash);
+  if (!kvot.ok) return kontoFel("kvot");
+  const r = await b.auth.loggaIn(epost, losenord);
+  if (!r.ok) {
+    switch (r.orsak) {
+      case "ogiltig_inloggning":
+      case "ej_bekraftad":
+        return kontoFel("ogiltig_inloggning");
+      case "kvot":
+        return kontoFel("kvot");
+      default:
+        console.warn(`[auth] losenordsverifiering misslyckades (${r.orsak})`);
+        return kontoFel("unknown");
+    }
+  }
+  await b.auth.loggaUt(r.session.accessToken);
+  await aterlamnaInloggningskvot(b.db, b.kontext, epostHash);
+  return null;
+}
+
+/** Sets a new password for the logged-in user. Allowed with a fresh recovery
+ *  marker for THIS user (see bekraftaEpost) or with the current password. */
 export async function sattNyttLosenord(
   b: KontoBeroenden,
   data: unknown,
 ): Promise<SattNyttLosenordSvar> {
-  if (b.kontext.konto === undefined) return kontoFel("ej_inloggad");
+  const konto = b.kontext.konto;
+  if (konto === undefined) return kontoFel("ej_inloggad");
   const parsed = NyttLosenordInSchema.safeParse(arObjekt(data));
   if (!parsed.success) return kontoFel("svagt_losenord");
 
   const { accessToken, refreshToken } = lasSessionCookies(b.kallor);
   if (refreshToken === undefined) return kontoFel("ej_inloggad");
+
+  const medMarke = await harGiltigtAterstallningsmarke(b.kallor, b.hemlighet, konto.authUserId);
+  if (!medMarke) {
+    if (parsed.data.nuvarandeLosenord === undefined) return kontoFel("kraver_nuvarande_losenord");
+    const fel = await verifieraLosenord(b, konto.epost, parsed.data.nuvarandeLosenord);
+    if (fel !== null) return fel;
+  }
 
   const r = await b.auth.uppdateraLosenord(
     { accessToken: accessToken ?? "", refreshToken },
@@ -260,6 +316,7 @@ export async function sattNyttLosenord(
     }
   }
   if (r.session !== null) sattSessionCookies(b.kallor, r.session);
+  rensaAterstallningsmarke(b.kallor);
   return { ok: true };
 }
 
@@ -270,15 +327,21 @@ export async function sattNyttLosenord(
  * (rapport, forening, PDFs) is never touched. The data goes first on purpose:
  * if deleting the Auth user fails the person can retry, whereas the reverse
  * order could leave personal data behind with no owner to ask for it.
+ * Requires the account password (a stolen session cookie must not suffice).
  */
-export async function raderaKonto(b: KontoBeroenden): Promise<RaderaKontoSvar> {
+export async function raderaKonto(b: KontoBeroenden, data: unknown): Promise<RaderaKontoSvar> {
   const { konto, principalId } = b.kontext;
   if (konto === undefined || principalId === null) return kontoFel("ej_inloggad");
+  const parsed = RaderaSchema.safeParse(arObjekt(data));
+  if (!parsed.success) return kontoFel("ogiltig_inloggning");
+  const fel = await verifieraLosenord(b, konto.epost, parsed.data.losenord);
+  if (fel !== null) return fel;
   try {
     await b.db.raderaPrincipal(principalId);
     await b.auth.raderaAnvandare(konto.authUserId);
   } finally {
     rensaSessionCookies(b.kallor);
+    rensaAterstallningsmarke(b.kallor);
   }
   return { ok: true };
 }

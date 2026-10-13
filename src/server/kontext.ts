@@ -225,6 +225,25 @@ export async function hashaEpost(epost: string, hemlighet: string): Promise<stri
   return hex(signatur);
 }
 
+/** Version label of the derived password-recovery marker key. */
+export const ATERST_NYCKEL_ETIKETT = "binfo-aterst-v1";
+
+/**
+ * hex(HMAC) of `meddelande` under a key derived from `hemlighet` and a domain
+ * `etikett` — the same construction as `hashaIp` / `hashaEpost`. Used to sign
+ * the short-lived recovery marker (./sessionCookies.ts).
+ */
+export async function hmacMedEtikett(
+  hemlighet: string,
+  etikett: string,
+  meddelande: string,
+): Promise<string> {
+  const rot = await hmacNyckel(kodare.encode(hemlighet));
+  const harledd = await crypto.subtle.sign("HMAC", rot, kodare.encode(etikett));
+  const nyckel = await hmacNyckel(harledd);
+  return hex(await crypto.subtle.sign("HMAC", nyckel, kodare.encode(meddelande)));
+}
+
 export interface AktivSession {
   anvandare: AuthAnvandare;
   principalId: string;

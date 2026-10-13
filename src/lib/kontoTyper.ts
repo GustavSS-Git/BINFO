@@ -31,6 +31,8 @@ export type KontoFelKod =
   | "svagt_losenord"
   /** Wrong email or password (deliberately not telling which). */
   | "ogiltig_inloggning"
+  /** Changing the password needs the current one (no fresh recovery link). */
+  | "kraver_nuvarande_losenord"
   /** Right password, but the email address is not verified yet. */
   | "epost_ej_bekraftad"
   /** Email link expired, already used or malformed. */
@@ -86,6 +88,18 @@ export type BekraftaEpostSvar = KontoSvar<{
 }>;
 
 export type SattNyttLosenordSvar = KontoSvar;
+
+/** `nuvarandeLosenord` may be omitted only right after a recovery link
+ *  (server-side marker cookie, 15 min); otherwise it is required. */
+export interface SattNyttLosenordIndata {
+  losenord: string;
+  nuvarandeLosenord?: string;
+}
+
+/** Deleting the account re-authenticates with the password. */
+export interface RaderaKontoIndata {
+  losenord: string;
+}
 
 // ---------------------------------------------------------------------------
 // Saved items and the profile lists

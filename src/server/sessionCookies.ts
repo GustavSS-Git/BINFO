@@ -17,6 +17,7 @@
  */
 
 import type { AuthSession } from "./kontoPortar";
+import { ATERST_NYCKEL_ETIKETT, hmacMedEtikett } from "./kontext";
 import type { CookieAlternativ, KontextKallor } from "./kontext";
 
 export const ACCESS_COOKIE = "binfo_sa";
@@ -79,4 +80,63 @@ export function sattSessionCookies(kallor: KontextKallor, session: AuthSession):
 export function rensaSessionCookies(kallor: KontextKallor): void {
   kallor.sattCookie(ACCESS_COOKIE, "", alternativ(0));
   kallor.sattCookie(REFRESH_COOKIE, "", alternativ(0));
+}
+
+// ---------------------------------------------------------------------------
+// Recovery marker
+// ---------------------------------------------------------------------------
+
+/** Proof that THIS browser just followed a password-recovery email link. */
+export const ATERST_COOKIE = "binfo_aterst";
+export const ATERST_MAX_AGE_SEK = 15 * 60;
+
+const ATERST_MONSTER = /^(\d{10,16})\.([0-9a-f]{64})$/;
+
+async function signeraAterst(
+  hemlighet: string,
+  authUserId: string,
+  utgarMs: number,
+): Promise<string> {
+  return hmacMedEtikett(hemlighet, ATERST_NYCKEL_ETIKETT, `${authUserId}.${utgarMs}`);
+}
+
+/** Value: `<expiresAtMs>.<hex HMAC of "<authUserId>.<expiresAtMs>">`. */
+export async function sattAterstallningsmarke(
+  kallor: KontextKallor,
+  hemlighet: string,
+  authUserId: string,
+  nuMs: number = Date.now(),
+): Promise<void> {
+  const utgarMs = nuMs + ATERST_MAX_AGE_SEK * 1000;
+  const varde = `${utgarMs}.${await signeraAterst(hemlighet, authUserId, utgarMs)}`;
+  kravStorlek(ATERST_COOKIE, varde);
+  kallor.sattCookie(ATERST_COOKIE, varde, alternativ(ATERST_MAX_AGE_SEK));
+}
+
+function likaKonstantTid(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** True only for an unexpired, untampered marker issued for `authUserId`. */
+export async function harGiltigtAterstallningsmarke(
+  kallor: KontextKallor,
+  hemlighet: string,
+  authUserId: string,
+  nuMs: number = Date.now(),
+): Promise<boolean> {
+  const ra = kallor.lasCookie(ATERST_COOKIE);
+  const m = ra === undefined ? null : ATERST_MONSTER.exec(ra);
+  if (m === null) return false;
+  const utgarMs = Number(m[1]);
+  if (!Number.isSafeInteger(utgarMs) || utgarMs <= nuMs) return false;
+  // Never accept a marker living longer than we issue them.
+  if (utgarMs > nuMs + ATERST_MAX_AGE_SEK * 1000) return false;
+  return likaKonstantTid(m[2]!, await signeraAterst(hemlighet, authUserId, utgarMs));
+}
+
+export function rensaAterstallningsmarke(kallor: KontextKallor): void {
+  kallor.sattCookie(ATERST_COOKIE, "", alternativ(0));
 }
