@@ -36,3 +36,4 @@ One line each: date — decision — rationale. Owner decisions are marked (owne
 ## Execution
 
 - 2026-10-12 — Owner published `main` in Lovable before the planned v2 deploy. Production Priskoll verified working (quota RPC exists → konto migration is applied in production; docs said pending). Register tables and v2 Edge worker unverified; a production test upload needs owner OK.
+- 2026-10-13 — Production check (owner-approved test upload, Pontonjären 3): v2 IS deployed in production (register live; Brf Laxöringen 1 analysed OK on 2026-10-10 for 3.46 kr). But both Pontonjären uploads (2026-10-12 15:34 and 2026-10-13 11:05 UTC) failed at stage `grundning` after 3 fast attempts, 0 kr, errorCode `unknown`. Local API key works. Root cause pending Edge Function logs.

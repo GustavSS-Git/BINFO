@@ -8,14 +8,14 @@ bolånekalkyl and a köpguide. Competitors (Lusa, AI BRF, Allabrf) grade the
 *cooperative*; Binfo's point is grading the *transaction*: price,
 per-apartment cost in kronor, and what to do before bidding.
 
-**State on 2026-10-12:**
-- Production runs the pre-v2 backend.
-- v2 (scans, register, price check, account-ready infra) is merged into `main`
-  but not deployed; see Gotchas before any Lovable publish.
+**State on 2026-10-13:**
+- v2 (scans, register, price check, account-ready infra) is merged and deployed
+  in production (verified 2026-10-13 via `register -- list`: a done rapport from
+  2026-10-10). Open incident: Pontonjären 3 uploads fail at `grundning` with
+  `unknown` (see docs/DECISIONS.md).
 - Next up is the accounts / public BRF register / bulk import / calculator
   export work. Its plan is in `PLAN.md` (pointer) and `docs/`.
-- Baseline: typecheck clean, 1602/1602 tests, lint red only from Lovable
-  formatting.
+- Baseline (branch `v3`): typecheck clean, 1602/1602 tests, lint 0 errors.
 
 ## Stack
 
@@ -470,9 +470,10 @@ cd ml && .venv/bin/pytest                  # ML tests
 - **Deploy order for v2** (see SUPABASE.md): kill switch on → drain → `db push`
   (register, then konto) → `deploy:edge` → Lovable publish →
   `register -- backfill-legacy` (dry-run, then real) → kill switch off.
-- **`main` already contains v2 server code that needs the v2 schema.** A Lovable
-  publish before `db push` + `deploy:edge` breaks production uploads (no
-  `rapport` table, no `ta_kvot`). Never publish ahead of the v2 deploy.
+- **Lovable publish = production deploy of the web app.** When code on `main`
+  needs a new migration or Edge Function version, apply those first (`db push`,
+  `deploy:edge`), then publish; a `PROMPT_VERSION` bump needs both sides
+  deployed close together.
 - **Lovable formats differently.** Its editor reflows code wider than the
   repo's prettier (printWidth 100), so `npm run lint` shows prettier errors
   after a Lovable edit. Fix with `npx eslint --fix <files>` in a separate
@@ -492,9 +493,8 @@ cd ml && .venv/bin/pytest                  # ML tests
 
 ## Known limitations (October 2026)
 
-- **v2 is not deployed.** Verified on a local Supabase stack (all migrations,
-  rollbacks, ad-hoc SQL checks that are not committed, `verify-rls` 64/64,
-  cron → Deno edge E2E), not on the hosted project.
+- **v2 is deployed** (production register live since 2026-10-10; the docs said
+  otherwise until 2026-10-13).
 - **Production retention was failing** (direct `delete from storage.objects`
   refused by Storage, rolling back the anonymisation). Hotfix
   `20261008000000_retention_fix.sql` (12 months, no PDF deletion) was applied to
