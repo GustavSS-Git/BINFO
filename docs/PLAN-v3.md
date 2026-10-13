@@ -806,3 +806,8 @@ at 1 req/s.
 | 2026-10-13 | W2 accounts frontend merged (eca98e9): local E2E 41 steps, 0 defects; mobile nav wraps (Lovable) | done |
 | 2026-10-13 | Production analysis verified after Edge key rotation (Pontonjären, ~90 s) | done |
 | 2026-10-13 | W5 register + SEO merged (fb1bbf0): verify-rls 97/97 local; no Set-Cookie on cached pages; 390 px overflow fixed | done |
+| 2026-10-13 | W7 exports merged (58e9cac): Excel parity 69 scenarios ±1 kr; verified in Microsoft Excel; SSR guard → Worker 1.70 MB gz | done |
+| 2026-10-13 | Kalkyl Spara/re-open + profile exports (2c34c34); summary range fix (295fe09); local E2E clean | done |
+| 2026-10-13 | Security review (2 high, 4 medium, 7 low) → fixes merged (d9a5ba7); M3 kept, L3 documented | done |
+| 2026-10-13 | Local Deno E2E of v7 (Beckasinen 14, 2.88 kr); retry safety net (bea5eff); full checks: tsc clean, lint 0 errors, 2093/2093 tests, build OK | done |
+| 2026-10-13 | v3 ready for owner review and deploy (docs/DEPLOY-v3.md) | waiting for owner |
