@@ -1,7 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Button, Card, Field, PageHeader, TristateChoice } from "@/components/ui/binfo";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  Field,
+  PageHeader,
+  TristateChoice,
+} from "@/components/ui/binfo";
 import { Prisrimlighet } from "@/components/AnalysRapport";
+import { InfoRuta, FelRuta } from "@/components/konto/AuthSida";
+import { SparaKnapp } from "@/components/konto/SparaKnapp";
+import { useAterstallUtkast } from "@/components/konto/useAterstallUtkast";
+import { formatSkapadDatum } from "@/lib/analysisView";
+import { MAX_ETIKETT_TECKEN } from "@/lib/kontoTyper";
+import { inloggningsSok, parseSparaTyp } from "@/lib/till";
+import { VarderingUtkastSchema, skrivUtkast, type VarderingUtkast } from "@/lib/utkast";
 import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
 import {
   TOM_VARDERING_FORM,
@@ -11,8 +27,12 @@ import {
   validateraVarderingForm,
   type VarderingFormFields,
 } from "@/lib/varderingForm";
-import { hamtaPrisuppskattningFn } from "@/server/analysFn";
-import type { PrisuppskattningResultat } from "@/types/analysis";
+import {
+  hamtaPrisuppskattningFn,
+  hamtaSparadVarderingFn,
+  sparaVarderingFn,
+} from "@/server/analysFn";
+import type { PrisInput, PrisuppskattningResultat } from "@/types/analysis";
 
 export const Route = createFileRoute("/vardering")({
   head: () => ({
@@ -30,7 +50,15 @@ export const Route = createFileRoute("/vardering")({
       },
     ],
   }),
-  component: Vardering,
+  // `sparad`: öppna en sparad värdering. `spara`: slutför ett väntande Spara efter inloggning.
+  validateSearch: (s: Record<string, unknown>) => {
+    const spara = parseSparaTyp(s["spara"]);
+    return {
+      ...(typeof s["sparad"] === "string" && s["sparad"] !== "" ? { sparad: s["sparad"] } : {}),
+      ...(spara !== undefined ? { spara } : {}),
+    };
+  },
+  component: VarderingSida,
 });
 
 /** Antingen ett lyckat svar eller ett fel att visa ordagrant. `serverfel`
@@ -40,8 +68,140 @@ type Utfall =
   | { typ: "fel"; errorMessage: string }
   | { typ: "serverfel" };
 
+function VarderingSida() {
+  const { sparad } = Route.useSearch();
+  return sparad !== undefined ? <SparadVardering id={sparad} /> : <Vardering />;
+}
+
+const SERVERFEL_TEXT = "Något gick fel. Försök igen om en stund.";
+
+function SparadVardering({ id }: { id: string }) {
+  const navigate = useNavigate();
+  const q = useQuery({
+    queryKey: ["sparad-vardering", id],
+    queryFn: () => hamtaSparadVarderingFn({ data: { id } }),
+    retry: false,
+  });
+  const [nyttResultat, setNyttResultat] = useState<PrisuppskattningResultat | null>(null);
+  const [raknarOm, setRaknarOm] = useState(false);
+  const [omFel, setOmFel] = useState<string | null>(null);
+
+  const kravInloggning = q.data !== undefined && !q.data.ok && q.data.felKod === "ej_inloggad";
+  useEffect(() => {
+    if (kravInloggning) {
+      void navigate({
+        to: "/konto/logga-in",
+        search: inloggningsSok(`/vardering?sparad=${encodeURIComponent(id)}`, undefined),
+      });
+    }
+  }, [kravInloggning, id, navigate]);
+
+  const raknaOm = async (input: PrisInput) => {
+    if (raknarOm) return;
+    setRaknarOm(true);
+    setOmFel(null);
+    try {
+      const svar = await hamtaPrisuppskattningFn({ data: input });
+      if (svar.ok) setNyttResultat(svar.resultat);
+      else setOmFel(svar.errorMessage);
+    } catch (error) {
+      console.error("[vardering] omräkning kastade:", error);
+      setOmFel(SERVERFEL_TEXT);
+    } finally {
+      setRaknarOm(false);
+    }
+  };
+
+  let innehall;
+  if (q.isPending || kravInloggning) {
+    innehall = <p className="text-sm text-muted-foreground">Hämtar den sparade värderingen…</p>;
+  } else if (q.isError) {
+    innehall = <FelRuta>{SERVERFEL_TEXT}</FelRuta>;
+  } else if (!q.data.ok) {
+    innehall = (
+      <FelRuta>
+        {q.data.felKod === "hittades_inte" ? "Värderingen hittades inte." : q.data.meddelande}
+      </FelRuta>
+    );
+  } else {
+    const v = q.data.vardering;
+    const input = v.input;
+    innehall = (
+      <div className="space-y-6">
+        <Card>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-display text-2xl text-foreground">
+              {v.etikett ?? "Sparad värdering"}
+            </h2>
+            <Badge>Sparad {formatSkapadDatum(v.skapad)}</Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Så här såg värderingen ut när du sparade den (modell {v.modellVersion}). Modellen
+            uppdateras över tid; räkna om för att se vad dagens modell säger.
+          </p>
+          {input !== null ? (
+            <div className="mt-4">
+              <Button onClick={() => void raknaOm(input)} disabled={raknarOm}>
+                {raknarOm ? "Räknar om…" : "Räkna om med dagens modell"}
+              </Button>
+            </div>
+          ) : null}
+          {omFel !== null ? (
+            <div className="mt-4">
+              <FelRuta>{omFel}</FelRuta>
+            </div>
+          ) : null}
+        </Card>
+
+        {v.resultat !== null ? (
+          <Prisrimlighet prisanalys={v.resultat.prisanalys} />
+        ) : (
+          <Callout variant="flag" title="Kan inte visas som den sparades">
+            <p>
+              Den sparade värderingen har ett format som inte längre stöds.
+              {input !== null
+                ? " Du kan räkna om den med uppgifterna du angav."
+                : " Uppgifterna går inte heller att läsa, så den kan inte öppnas."}
+            </p>
+          </Callout>
+        )}
+
+        {nyttResultat !== null ? (
+          <div>
+            <h2 className="mb-4 font-display text-2xl text-foreground">
+              Omräknat med dagens modell
+            </h2>
+            <Prisrimlighet prisanalys={nyttResultat.prisanalys} />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-5 py-14">
+      <PageHeader eyebrow="Sparad värdering" title="Bara priskoll" />
+      {innehall}
+      <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
+        <Link
+          to="/vardering"
+          search={{}}
+          className="font-medium text-primary underline underline-offset-2"
+        >
+          Gör en ny värdering
+        </Link>
+        <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+          Till Mitt konto
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function Vardering() {
   const navigate = useNavigate();
+  const { spara: sparaParam } = Route.useSearch();
+  const [etikett, setEtikett] = useState("");
   const [form, setForm] = useState<VarderingFormFields>(TOM_VARDERING_FORM);
   const [visaFel, setVisaFel] = useState(false);
   const [skickar, setSkickar] = useState(false);
@@ -53,19 +213,14 @@ function Vardering() {
   const fel = validateraVarderingForm(form);
   const harFel = harVarderingsfel(fel);
 
-  const kor = async () => {
-    if (skickar) return; // förhindra dubbelskick
-    if (harFel) {
-      setVisaFel(true);
-      return;
-    }
-    const input = buildPrisInput(form, { hiss: uppgifter.hiss, balkong: uppgifter.balkong });
+  /** Kör värderingen för ett redan byggt underlag och visar resultatet. */
+  const varderaOchVisa = async (input: PrisInput, skickatFormular: VarderingFormFields) => {
     setSkickar(true);
     setUtfall(null);
     try {
       const svar = await hamtaPrisuppskattningFn({ data: input });
       if (svar.ok) {
-        setUtfall({ typ: "ok", resultat: svar.resultat, skickatFormular: form });
+        setUtfall({ typ: "ok", resultat: svar.resultat, skickatFormular });
       } else {
         // Serverns meddelande är köparsäkert och visas ordagrant (även vid
         // validation/kvot/behorighet).
@@ -79,6 +234,44 @@ function Vardering() {
     }
   };
 
+  const kor = async () => {
+    if (skickar) return; // förhindra dubbelskick
+    if (harFel) {
+      setVisaFel(true);
+      return;
+    }
+    const input = buildPrisInput(form, { hiss: uppgifter.hiss, balkong: uppgifter.balkong });
+    await varderaOchVisa(input, form);
+  };
+
+  const sparaStatus = useAterstallUtkast<VarderingUtkast>({
+    typ: "vardering",
+    spara: sparaParam,
+    schema: VarderingUtkastSchema,
+    rensaParam: () =>
+      void navigate({
+        to: "/vardering",
+        search: {},
+        replace: true,
+      }),
+    aterstall: async (utkast) => {
+      setForm(utkast.form);
+      setEtikett(utkast.etikett);
+      setUppgifter({ hiss: utkast.hiss, balkong: utkast.balkong });
+      if (harVarderingsfel(validateraVarderingForm(utkast.form))) {
+        setVisaFel(true);
+        return { ok: false, meddelande: "Uppgifterna du fyllde i är inte kompletta längre." };
+      }
+      const input = buildPrisInput(utkast.form, { hiss: utkast.hiss, balkong: utkast.balkong });
+      const etikettText = utkast.etikett.trim();
+      const svar = await sparaVarderingFn({
+        data: { prisInput: input, ...(etikettText !== "" ? { etikett: etikettText } : {}) },
+      });
+      void varderaOchVisa(input, utkast.form);
+      return svar.ok ? { ok: true } : svar;
+    },
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-5 py-14">
       <PageHeader
@@ -86,6 +279,57 @@ function Vardering() {
         title="Bara priskoll"
         lead="Fyll i lägenhetens uppgifter så får du Binfos värdering direkt — utan att ladda upp någon årsredovisning."
       />
+
+      {sparaStatus.typ === "kraver_inloggning" ? (
+        <div className="mb-6">
+          <Callout variant="tip" title="Logga in för att spara">
+            <p>
+              Du behöver vara inloggad för att slutföra sparandet.{" "}
+              <Link
+                to="/konto/logga-in"
+                search={inloggningsSok("/vardering", "vardering")}
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Logga in
+              </Link>
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "saknas" ? (
+        <div className="mb-6">
+          <Callout variant="tip" title="Utkastet finns inte kvar">
+            <p>
+              Uppgifterna du fyllde i före inloggningen hittades inte (de sparas högst ett dygn, och
+              bara i den här webbläsaren). Fyll i dem igen och tryck på Spara.
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "sparar" ? (
+        <div className="mb-6">
+          <InfoRuta>
+            <p>Sparar din värdering…</p>
+          </InfoRuta>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "sparad" ? (
+        <div className="mb-6">
+          <InfoRuta>
+            <p className="font-medium">Din värdering är sparad i ditt konto.</p>
+            <p>
+              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+                Se den i Mitt konto
+              </Link>
+            </p>
+          </InfoRuta>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "fel" ? (
+        <div className="mb-6">
+          <FelRuta>Värderingen kunde inte sparas: {sparaStatus.meddelande}</FelRuta>
+        </div>
+      ) : null}
 
       <Card>
         <h2 className="font-display text-2xl text-foreground">Lägenhetens uppgifter</h2>
@@ -205,6 +449,55 @@ function Vardering() {
       {utfall?.typ === "ok" ? (
         <div className="mt-10">
           <Prisrimlighet prisanalys={utfall.resultat.prisanalys} />
+
+          {sparaStatus.typ === "sparad" ? null : (
+            <Card className="mb-6">
+              <h2 className="font-display text-2xl text-foreground">Spara värderingen</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Spara den i ditt konto för att hitta tillbaka till den och kunna räkna om den
+                senare.
+              </p>
+              <div className="mt-4 max-w-sm">
+                <Field
+                  label="Namn"
+                  optional
+                  type="text"
+                  placeholder="Till exempel adressen"
+                  value={etikett}
+                  onChange={(v) => setEtikett(v.slice(0, MAX_ETIKETT_TECKEN))}
+                />
+              </div>
+              <div className="mt-5">
+                <SparaKnapp
+                  key={utfall.resultat.skapad}
+                  typ="vardering"
+                  etikettKnapp="Spara värderingen"
+                  till="/vardering"
+                  spara={() => {
+                    const e = etikett.trim();
+                    return sparaVarderingFn({
+                      data: {
+                        prisInput: utfall.resultat.input,
+                        ...(e !== "" ? { etikett: e } : {}),
+                      },
+                    });
+                  }}
+                  skrivUtkast={() =>
+                    skrivUtkast(
+                      "vardering",
+                      {
+                        form: utfall.skickatFormular,
+                        hiss: utfall.resultat.input.hiss,
+                        balkong: utfall.resultat.input.balkong,
+                        etikett,
+                      } satisfies VarderingUtkast,
+                      "/vardering",
+                    )
+                  }
+                />
+              </div>
+            </Card>
+          )}
 
           <Card className="bg-primary text-primary-foreground">
             <h2 className="font-display text-2xl md:text-3xl">Granska även föreningen</h2>

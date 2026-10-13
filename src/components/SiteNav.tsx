@@ -1,12 +1,39 @@
 import { Link } from "@tanstack/react-router";
+import { useSession } from "@/lib/session";
 
 const links = [
   { to: "/", label: "Hem" },
   { to: "/analysera", label: "Analysera" },
   { to: "/vardering", label: "Priskoll" },
+  { to: "/brf", label: "BRF-register" },
   { to: "/bolanekalkyl", label: "Bolånekalkyl" },
   { to: "/guide", label: "Guide" },
 ];
+
+const lankKlass =
+  "rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-secondary data-[status=active]:text-foreground";
+
+/** Konto-länken längst till höger. Platsen är reserverad (osynlig text) medan
+ *  sessionen hämtas, så att navet inte hoppar när "Logga in" blir "Mitt konto". */
+function KontoLank() {
+  const { lage } = useSession();
+  if (lage === "laddar") {
+    return (
+      <span aria-hidden="true" className="invisible rounded-full px-3 py-2 text-sm">
+        Mitt konto
+      </span>
+    );
+  }
+  return lage === "inloggad" ? (
+    <Link to="/konto" className={lankKlass}>
+      Mitt konto
+    </Link>
+  ) : (
+    <Link to="/konto/logga-in" className={lankKlass}>
+      Logga in
+    </Link>
+  );
+}
 
 export function SiteNav() {
   return (
@@ -21,11 +48,12 @@ export function SiteNav() {
               key={l.to}
               to={l.to}
               activeOptions={{ exact: l.to === "/" }}
-              className="rounded-full px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-secondary data-[status=active]:text-foreground"
+              className={lankKlass}
             >
               {l.label}
             </Link>
           ))}
+          <KontoLank />
         </div>
       </nav>
     </header>

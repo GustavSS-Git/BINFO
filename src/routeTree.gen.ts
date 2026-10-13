@@ -17,6 +17,12 @@ import { Route as GuideRouteImport } from './routes/guide'
 import { Route as VarderingRouteImport } from './routes/vardering'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
 import { Route as ForhandsvisningAnalysisIdRouteImport } from './routes/forhandsvisning_.$analysisId'
+import { Route as KontoIndexRouteImport } from './routes/konto.index'
+import { Route as KontoBekraftaRouteImport } from './routes/konto.bekrafta'
+import { Route as KontoGlomtLosenordRouteImport } from './routes/konto.glomt-losenord'
+import { Route as KontoLoggaInRouteImport } from './routes/konto.logga-in'
+import { Route as KontoNyttLosenordRouteImport } from './routes/konto.nytt-losenord'
+import { Route as KontoSkapaRouteImport } from './routes/konto.skapa'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -59,6 +65,36 @@ const ForhandsvisningAnalysisIdRoute =
     path: '/forhandsvisning/$analysisId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const KontoIndexRoute = KontoIndexRouteImport.update({
+  id: '/konto/',
+  path: '/konto/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoBekraftaRoute = KontoBekraftaRouteImport.update({
+  id: '/konto/bekrafta',
+  path: '/konto/bekrafta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoGlomtLosenordRoute = KontoGlomtLosenordRouteImport.update({
+  id: '/konto/glomt-losenord',
+  path: '/konto/glomt-losenord',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoLoggaInRoute = KontoLoggaInRouteImport.update({
+  id: '/konto/logga-in',
+  path: '/konto/logga-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoNyttLosenordRoute = KontoNyttLosenordRouteImport.update({
+  id: '/konto/nytt-losenord',
+  path: '/konto/nytt-losenord',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoSkapaRoute = KontoSkapaRouteImport.update({
+  id: '/konto/skapa',
+  path: '/konto/skapa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -69,6 +105,12 @@ export interface FileRoutesByFullPath {
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
+  '/konto/bekrafta': typeof KontoBekraftaRoute
+  '/konto/glomt-losenord': typeof KontoGlomtLosenordRoute
+  '/konto/logga-in': typeof KontoLoggaInRoute
+  '/konto/nytt-losenord': typeof KontoNyttLosenordRoute
+  '/konto/skapa': typeof KontoSkapaRoute
+  '/konto/': typeof KontoIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -79,6 +121,12 @@ export interface FileRoutesByTo {
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
+  '/konto/bekrafta': typeof KontoBekraftaRoute
+  '/konto/glomt-losenord': typeof KontoGlomtLosenordRoute
+  '/konto/logga-in': typeof KontoLoggaInRoute
+  '/konto/nytt-losenord': typeof KontoNyttLosenordRoute
+  '/konto/skapa': typeof KontoSkapaRoute
+  '/konto': typeof KontoIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -90,6 +138,12 @@ export interface FileRoutesById {
   '/vardering': typeof VarderingRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
   '/forhandsvisning_/$analysisId': typeof ForhandsvisningAnalysisIdRoute
+  '/konto/bekrafta': typeof KontoBekraftaRoute
+  '/konto/glomt-losenord': typeof KontoGlomtLosenordRoute
+  '/konto/logga-in': typeof KontoLoggaInRoute
+  '/konto/nytt-losenord': typeof KontoNyttLosenordRoute
+  '/konto/skapa': typeof KontoSkapaRoute
+  '/konto/': typeof KontoIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -102,6 +156,12 @@ export interface FileRouteTypes {
     | '/vardering'
     | '/analys/$analysisId'
     | '/forhandsvisning/$analysisId'
+    | '/konto/bekrafta'
+    | '/konto/glomt-losenord'
+    | '/konto/logga-in'
+    | '/konto/nytt-losenord'
+    | '/konto/skapa'
+    | '/konto/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -112,6 +172,12 @@ export interface FileRouteTypes {
     | '/vardering'
     | '/analys/$analysisId'
     | '/forhandsvisning/$analysisId'
+    | '/konto/bekrafta'
+    | '/konto/glomt-losenord'
+    | '/konto/logga-in'
+    | '/konto/nytt-losenord'
+    | '/konto/skapa'
+    | '/konto'
   id:
     | '__root__'
     | '/'
@@ -122,6 +188,12 @@ export interface FileRouteTypes {
     | '/vardering'
     | '/analys_/$analysisId'
     | '/forhandsvisning_/$analysisId'
+    | '/konto/bekrafta'
+    | '/konto/glomt-losenord'
+    | '/konto/logga-in'
+    | '/konto/nytt-losenord'
+    | '/konto/skapa'
+    | '/konto/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -133,6 +205,12 @@ export interface RootRouteChildren {
   VarderingRoute: typeof VarderingRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
   ForhandsvisningAnalysisIdRoute: typeof ForhandsvisningAnalysisIdRoute
+  KontoBekraftaRoute: typeof KontoBekraftaRoute
+  KontoGlomtLosenordRoute: typeof KontoGlomtLosenordRoute
+  KontoLoggaInRoute: typeof KontoLoggaInRoute
+  KontoNyttLosenordRoute: typeof KontoNyttLosenordRoute
+  KontoSkapaRoute: typeof KontoSkapaRoute
+  KontoIndexRoute: typeof KontoIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -193,6 +271,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForhandsvisningAnalysisIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/konto/': {
+      id: '/konto/'
+      path: '/konto'
+      fullPath: '/konto/'
+      preLoaderRoute: typeof KontoIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto/bekrafta': {
+      id: '/konto/bekrafta'
+      path: '/konto/bekrafta'
+      fullPath: '/konto/bekrafta'
+      preLoaderRoute: typeof KontoBekraftaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto/glomt-losenord': {
+      id: '/konto/glomt-losenord'
+      path: '/konto/glomt-losenord'
+      fullPath: '/konto/glomt-losenord'
+      preLoaderRoute: typeof KontoGlomtLosenordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto/logga-in': {
+      id: '/konto/logga-in'
+      path: '/konto/logga-in'
+      fullPath: '/konto/logga-in'
+      preLoaderRoute: typeof KontoLoggaInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto/nytt-losenord': {
+      id: '/konto/nytt-losenord'
+      path: '/konto/nytt-losenord'
+      fullPath: '/konto/nytt-losenord'
+      preLoaderRoute: typeof KontoNyttLosenordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto/skapa': {
+      id: '/konto/skapa'
+      path: '/konto/skapa'
+      fullPath: '/konto/skapa'
+      preLoaderRoute: typeof KontoSkapaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -205,6 +325,12 @@ const rootRouteChildren: RootRouteChildren = {
   VarderingRoute: VarderingRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,
   ForhandsvisningAnalysisIdRoute: ForhandsvisningAnalysisIdRoute,
+  KontoBekraftaRoute: KontoBekraftaRoute,
+  KontoGlomtLosenordRoute: KontoGlomtLosenordRoute,
+  KontoLoggaInRoute: KontoLoggaInRoute,
+  KontoNyttLosenordRoute: KontoNyttLosenordRoute,
+  KontoSkapaRoute: KontoSkapaRoute,
+  KontoIndexRoute: KontoIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
