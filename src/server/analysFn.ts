@@ -28,6 +28,8 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
+import { sammanfattaKalkyl } from "@/lib/kalkyl/berakna";
+import { REGELVERSION } from "@/lib/kalkyl/regler";
 import type { PrisInput } from "@/types/analysis";
 import {
   skapaAnalys as skapaAnalysImpl,
@@ -61,6 +63,7 @@ import {
   listaSparat,
   raderaSparadKalkyl,
   raderaSparadVardering,
+  sparaKalkyl,
   sparaVardering,
   taBortAnalysFranLista,
   type SparatBeroenden,
@@ -371,5 +374,19 @@ export const hamtaMinaUppgifterFn = createServerFn({ method: "GET" }).handler(as
   }
 });
 
-// sparaKalkylFn is wired once the calculator library (W6) provides
-// `sammanfattaKalkyl` + the rules version (see docs/v3-wiring/W1.md).
+/** `underlag` is validated by `KalkylUnderlagSchema` in `sparaKalkyl`;
+ *  `unknown` here on purpose, so a malformed draft becomes `ogiltig_indata`
+ *  rather than a thrown error. Pass `id` to update an existing kalkyl. The
+ *  list-view summary is computed server-side with the calculator library. */
+export const sparaKalkylFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { underlag: unknown; etikett?: string; id?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await sparaKalkyl(await sparatFor(envFromProcess()), data, {
+        beraknaSammanfattning: sammanfattaKalkyl,
+        regelversion: REGELVERSION,
+      });
+    } catch (fel) {
+      throw sakertFel("sparaKalkylFn", fel);
+    }
+  });

@@ -15,6 +15,12 @@
  * `verifierad: null` och `TODO: unverified placeholder`.
  */
 
+/** Version of this registry, stored with every saved kalkyl
+ *  (`sparad_kalkyl.regelversion`). Bump it (date of the change) whenever a
+ *  rule's value or a formula changes, so a saved kalkyl shows which rules it
+ *  was computed with. */
+export const REGELVERSION = "2026-10-13";
+
 export type RegelGrupp =
   | "Bolån och amortering"
   | "Ränteavdrag"
