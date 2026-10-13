@@ -70,6 +70,11 @@ export function SiteFooter() {
           till mäklare, bank eller förening. Analyserna är beslutsstöd, inte finansiell rådgivning.
           Slutgiltiga ansvaret ligger hos du som köpare.
         </p>
+        <p className="mt-4">
+          <Link to="/integritet" className="underline">
+            Integritet och personuppgifter
+          </Link>
+        </p>
       </div>
     </footer>
   );

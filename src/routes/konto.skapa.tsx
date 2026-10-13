@@ -111,6 +111,13 @@ function SkapaKonto() {
           {skickar ? "Skapar konto…" : "Skapa konto"}
         </Button>
       </form>
+      <p className="mt-4 text-xs text-muted-foreground">
+        Läs hur vi hanterar dina uppgifter i{" "}
+        <Link to="/integritet" className="underline underline-offset-2">
+          integritetspolicyn
+        </Link>
+        .
+      </p>
       <p className="mt-6 text-sm text-muted-foreground">
         Har du redan ett konto?{" "}
         <Link

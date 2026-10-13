@@ -9,6 +9,7 @@ import {
 import { Betygsmarke } from "@/components/register/RegisterLista";
 import { Callout, Card, LinkButton, PageHeader, SectionTitle } from "@/components/ui/binfo";
 import { SKANNAD_NOTIS, formatFigureVarde, formatSkapadDatum } from "@/lib/analysisView";
+import { KONTAKT_EPOST } from "@/lib/kontakt";
 import { ALDRE_VERSION_TEXT, type RegisterArsvy, type RegisterForeningVy } from "@/lib/registerVy";
 import type { KeyFigureId } from "@/types/analysis";
 
@@ -175,7 +176,14 @@ export function ForeningSida({ vy }: { vy: RegisterForeningVy }) {
       <div className="mt-8 space-y-2 text-xs text-muted-foreground">
         <p>
           Siffrorna är hämtade ur föreningens årsredovisning och kan innehålla tolkningsfel. Hittar
-          du ett fel? Kontakta oss.
+          du ett fel?{" "}
+          {KONTAKT_EPOST === null ? (
+            "Kontakta oss."
+          ) : (
+            <a className="underline" href={`mailto:${KONTAKT_EPOST}`}>
+              Mejla oss
+            </a>
+          )}
         </p>
         <p>
           Områdesindelning: © OpenStreetMap-bidragsgivare (ODbL), Stockholms stad. Analysen är
