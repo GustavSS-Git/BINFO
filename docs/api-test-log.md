@@ -106,6 +106,7 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 98 | 2026-10-13 | W3 pipeline | Albohem x3, PROMPT_VERSION 6 control (prompts.ts temporarily restored from HEAD) | claude-sonnet-5-5 | — | — | 0 | 0 | 7.94 | 245.14 |
 | 99 | 2026-10-13 | W3 pipeline | Albohem x2, v7 with the address paragraph moved to the end of the grounding prompt | claude-sonnet-5-5 | — | — | 0 | 0 | 5.06 | 250.20 |
 | 100 | 2026-10-13 | W3 pipeline | Albohem x3, v7 with a SHORTER address paragraph at the end (the shipped wording) | claude-sonnet-5-5 | — | — | 0 | 0 | 8.04 | 258.24 |
+| 101 | 2026-10-13 | v3 supervisor | Albohem x3 regression check on the shipped v7 wording (`verify-extraction`, 3 parallel runs): 24/24 fields in all 3 (2.71 + 2.72 + 2.60 kr) | claude-sonnet-5-5 | — | — | 0 | 0 | 8.03 | 266.27 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
@@ -113,4 +114,4 @@ Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs
 
 Per-call raw records for entry 96 (W3 full run): `docs/api-runs/2026-10-13-w3-v7-verify-calls.jsonl`. Entries 97-100 are single `npm run extract` runs (extraction only); only the CLI cost line was kept.
 
-**Running total: 258.24 SEK**
+**Running total: 266.27 SEK**
