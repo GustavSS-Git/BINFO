@@ -28,6 +28,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
+import type { PrisInput } from "@/types/analysis";
 import {
   skapaAnalys as skapaAnalysImpl,
   hamtaStatus as hamtaStatusImpl,
@@ -35,19 +36,50 @@ import {
   hamtaForhandsvisning as hamtaForhandsvisningImpl,
   type SkapaAnalysArgs,
 } from "./analys";
+import {
+  begarAterstallning,
+  bekraftaEpost,
+  hamtaSession,
+  kontextMedSession,
+  loggaIn,
+  loggaUt,
+  raderaKonto,
+  registreraKonto,
+  sattNyttLosenord,
+  skapaKontoBeroenden,
+} from "./auth";
 import { skapaBehorighet } from "./behorighet";
 import { sakertFel, sakertSkapaFel } from "./fel";
 import { envFromProcess, type Env } from "./env";
-import { losKontext, tanstackKontextKallor, type Kontext } from "./kontext";
+import type { Kontext } from "./kontext";
 import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
+import {
+  hamtaMinaUppgifter,
+  hamtaSparadKalkyl,
+  hamtaSparadVardering,
+  listaSparat,
+  raderaSparadKalkyl,
+  raderaSparadVardering,
+  sparaVardering,
+  taBortAnalysFranLista,
+  type SparatBeroenden,
+} from "./sparat";
 import { skapaLager } from "./supabase";
 import { skapaKontoDatabas } from "./supabaseKonto";
 
-/** Who is asking — the first call in every handler. The single insertion
- *  point for Supabase Auth is inside `losKontext`, not here. */
+/** Who is asking — the first call in every handler. With
+ *  `PROJECT_PUBLISHABLE_KEY` set, a logged-in session resolves to the account
+ *  principal (`kontextMedSession` → `losKontext`); without it, behaviour is
+ *  the anonymous device principal exactly as before. */
 function kontextFor(env: Env): Promise<Kontext> {
-  return losKontext({ kallor: tanstackKontextKallor(), hemlighet: env.supabaseSecretKey });
+  return kontextMedSession(env);
+}
+
+/** Session + account store for a saved-item handler. Needs the publishable key. */
+async function sparatFor(env: Env): Promise<SparatBeroenden> {
+  const b = await skapaKontoBeroenden(env);
+  return { kontext: b.kontext, db: b.db };
 }
 
 // The policy is built per call, never at module scope: a module-level value
@@ -171,3 +203,173 @@ export const hamtaPrisuppskattningFn = createServerFn({ method: "POST" })
       throw sakertFel("hamtaPrisuppskattningFn", fel);
     }
   });
+
+// ---------------------------------------------------------------------------
+// Konton (v3): inloggning, sparade objekt och GDPR. Kontofel RETURNERAS som
+// `{ ok: false, felKod, meddelande }` (svensk text ur fel.ts); bara oväntade
+// fel kastas, via sakertFel. Typerna för svaren finns i src/lib/kontoTyper.ts.
+// ---------------------------------------------------------------------------
+
+export const hamtaSessionFn = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return hamtaSession(await kontextFor(envFromProcess()));
+  } catch (fel) {
+    throw sakertFel("hamtaSessionFn", fel);
+  }
+});
+
+export const registreraKontoFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { epost: string; losenord: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await registreraKonto(await skapaKontoBeroenden(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("registreraKontoFn", fel);
+    }
+  });
+
+export const loggaInFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { epost: string; losenord: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await loggaIn(await skapaKontoBeroenden(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("loggaInFn", fel);
+    }
+  });
+
+export const loggaUtFn = createServerFn({ method: "POST" }).handler(async () => {
+  try {
+    return await loggaUt(await skapaKontoBeroenden(envFromProcess()));
+  } catch (fel) {
+    throw sakertFel("loggaUtFn", fel);
+  }
+});
+
+export const begarAterstallningFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { epost: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await begarAterstallning(await skapaKontoBeroenden(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("begarAterstallningFn", fel);
+    }
+  });
+
+/** Called from client code after hydration (never a loader): mail scanners
+ *  that open the link must not burn the one-time token. */
+export const bekraftaEpostFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { tokenHash: string; typ: "signup" | "recovery" | "email_change" }) => data,
+  )
+  .handler(async ({ data }) => {
+    try {
+      return await bekraftaEpost(await skapaKontoBeroenden(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("bekraftaEpostFn", fel);
+    }
+  });
+
+export const sattNyttLosenordFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { losenord: string; nuvarandeLosenord?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await sattNyttLosenord(await skapaKontoBeroenden(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("sattNyttLosenordFn", fel);
+    }
+  });
+
+export const raderaKontoFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { losenord: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await raderaKonto(await skapaKontoBeroenden(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("raderaKontoFn", fel);
+    }
+  });
+
+export const sparaVarderingFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { prisInput: PrisInput; etikett?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await sparaVardering(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("sparaVarderingFn", fel);
+    }
+  });
+
+export const listaSparatFn = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return await listaSparat(await sparatFor(envFromProcess()));
+  } catch (fel) {
+    throw sakertFel("listaSparatFn", fel);
+  }
+});
+
+export const hamtaSparadVarderingFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await hamtaSparadVardering(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("hamtaSparadVarderingFn", fel);
+    }
+  });
+
+export const raderaSparadVarderingFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await raderaSparadVardering(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("raderaSparadVarderingFn", fel);
+    }
+  });
+
+export const hamtaSparadKalkylFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await hamtaSparadKalkyl(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("hamtaSparadKalkylFn", fel);
+    }
+  });
+
+export const raderaSparadKalkylFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await raderaSparadKalkyl(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("raderaSparadKalkylFn", fel);
+    }
+  });
+
+export const taBortAnalysFranListaFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { analysisId: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await taBortAnalysFranLista(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("taBortAnalysFranListaFn", fel);
+    }
+  });
+
+/** GDPR export, returned as a ready-made JSON document (the client offers it
+ *  as a download), so free-form stored inputs never cross the typed
+ *  server-function boundary as `unknown`. */
+export const hamtaMinaUppgifterFn = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const svar = await hamtaMinaUppgifter(await sparatFor(envFromProcess()));
+    if (!svar.ok) return svar;
+    return { ok: true as const, json: JSON.stringify(svar.uppgifter, null, 2) };
+  } catch (fel) {
+    throw sakertFel("hamtaMinaUppgifterFn", fel);
+  }
+});
+
+// sparaKalkylFn is wired once the calculator library (W6) provides
+// `sammanfattaKalkyl` + the rules version (see docs/v3-wiring/W1.md).

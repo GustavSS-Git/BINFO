@@ -37,7 +37,10 @@ import type {
 import type { Env } from "./env";
 import { kontoFel, KontoEjKonfigureratError } from "./fel";
 import {
+  ENHET_COOKIE,
+  ENHET_COOKIE_ALTERNATIV,
   hashaEpost,
+  skapaEnhetId,
   losKontext,
   tanstackKontextKallor,
   type Kontext,
@@ -197,6 +200,10 @@ export async function loggaUt(b: KontoBeroenden): Promise<LoggaUtSvar> {
     if (accessToken !== undefined) await b.auth.loggaUt(accessToken);
   } finally {
     rensaSessionCookies(b.kallor);
+    // A fresh device id: the old one is merged into the account principal, so
+    // keeping it would attribute later anonymous uploads on this (possibly
+    // shared) device to the account that just logged out.
+    b.kallor.sattCookie(ENHET_COOKIE, skapaEnhetId(), { ...ENHET_COOKIE_ALTERNATIV });
   }
   return { ok: true };
 }

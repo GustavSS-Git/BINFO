@@ -14,6 +14,7 @@ import {
   type KontoBeroenden,
 } from "./auth";
 import { ENHET_COOKIE, losKontext } from "./kontext";
+import { medPrincipal } from "./principal";
 import { ACCESS_COOKIE, ATERST_COOKIE, REFRESH_COOKIE } from "./sessionCookies";
 
 const ENHET = "AAAAAAAAAAAAAAAAAAAAAA";
@@ -285,6 +286,20 @@ describe("loggaUt och raderaKonto", () => {
     expect(t.kallor.cookies.get(ACCESS_COOKIE)).toBe("");
     expect(hamtaSession(await t.lasKontext())).toEqual({ inloggad: false });
     expect(await loggaUt(await t.beroenden())).toEqual({ ok: true });
+  });
+
+  it("loggaUt ger enheten ett nytt id, så senare anonyma uppladdningar inte hamnar på kontot", async () => {
+    const t = await bygg();
+    t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    const fore = t.kallor.cookies.get(ENHET_COOKIE);
+    const kontoPrincipal = (await t.lasKontext()).principalId;
+    await loggaUt(await t.beroenden());
+    const efter = t.kallor.cookies.get(ENHET_COOKIE);
+    expect(efter).toBeDefined();
+    expect(efter).not.toBe(fore);
+    const anonym = await medPrincipal(t.db, await t.lasKontext());
+    expect(anonym.principalId).not.toBe(kontoPrincipal);
   });
 
   it("raderaKonto tar bort data, Auth-användaren och cookies; inloggning går inte längre", async () => {
