@@ -13,9 +13,13 @@ per-apartment cost in kronor, and what to do before bidding.
   in production (verified 2026-10-13 via `register -- list`: a done rapport from
   2026-10-10). The 2026-10-13 incident (Edge `ANTHROPIC_API_KEY` not rotated) is fixed;
   a production upload was verified the same day.
-- Next up is the accounts / public BRF register / bulk import / calculator
-  export work. Its plan is in `PLAN.md` (pointer) and `docs/`.
-- Baseline (branch `v3`): typecheck clean, 1602/1602 tests, lint 0 errors.
+- **v3** (accounts, public BRF register `/brf`, calculator rules/KALP/exports,
+  pipeline v7 with cited BRF addresses + page-reference verifier) is built on
+  branch `v3` and verified on a local Supabase stack, **not yet deployed**
+  (needs migrations `20261013120000_konto_v3` + `20261013120100_register_v3`,
+  `deploy:edge`, Supabase Auth URL/template settings, then a Lovable publish;
+  see `docs/PLAN-v3.md` §5 and `docs/auth-setup.md`).
+- Plan/status: `docs/PLAN-v3.md`; decisions: `docs/DECISIONS.md`.
 
 ## Stack
 
@@ -47,13 +51,16 @@ per-apartment cost in kronor, and what to do before bidding.
 | `src/` top level | `router.tsx` (fresh `QueryClient` per `getRouter()`), `start.ts` (TanStack Start middleware: error page + CSRF filter on server functions), `server.ts` (SSR entry wrapping swallowed 500s into an HTML error page; set via `tanstackStart.server.entry` in `vite.config.ts`), `styles.css` (Tailwind 4 `@theme` oklch tokens; the `.dark` block is unused shadcn default), `hooks/use-mobile.tsx` |
 | `src/components/` | `AnalysRapport` (full report; exports `Prisrimlighet`, also used by `/vardering`), `AnalysStatus` (polling, waiting, `Misslyckad`, `HittadesInte`), `PropertySummary`, `SiteNav` (+ `SiteFooter`; flat link row, no mobile menu), `pdf/` (PDF export via `@react-pdf/renderer`, lazy-loaded client-only: `download.tsx` → `AnalysPdfDocument.tsx`; `viewModel.ts` is the pure data layer; `fonts.ts`, `theme.ts` (hex palette, disclaimer), `filename.ts` are reusable for other PDFs) |
 | `src/components/ui/binfo.tsx` | Binfo UI kit (Card, Button, LinkButton, Field, Badge, Callout, TristateChoice, Tag, Toggle, PageHeader…). Other `ui/*.tsx` files are shadcn primitives. |
-| `src/lib/` | Client-safe helpers: `uppgifter.ts` (in-memory store shared across routes), `analyseraForm.ts` / `varderingForm.ts` (form parsing/validation), `senasteAnalyser.ts` (localStorage "recent analyses", the only browser persistence), `analysStatusCopy.ts` (error copy; its code union is type-checked against the server's), `analysStatusVy.ts` (status texts/notices), `analysisView.ts`, `bolanekalkyl.ts` (calculator search params), `skatt2026.ts` (2026 income tax, per-person ränteavdrag), `propertyType.ts`, `utils.ts`, `error-capture.ts` / `error-page.ts` (English, `lang="en"`) / `lovable-error-reporting.ts` |
+| `src/lib/kalkyl/` | Bolånekalkyl (client-safe, pure): `underlag.ts` (`KalkylUnderlag`, versioned input shared by page, saved kalkyl and exports), `regler.ts` (every rule/constant with source + date, `REGELVERSION`, Konsumentverket 2026 tables), `berakna.ts` (`beraknaKalkyl`, `sammanfattaKalkyl`), `levnadskostnader.ts` (KALP), `indata.ts` (input parsing/limits), `sida.ts` (page state ↔ underlag), `xlsx.ts` (Excel export with live formulas; exceljs) |
+| `src/lib/register/` | Public register areas: `omraden.ts` (19 areas + `ovriga-stockholm`, `losRegisteromrade`), generated `data/postnummerStadsdel.data.ts` (`npm run build:register-data`; never hand-edit) |
+| `src/components/konto/`, `register/`, `kalkyl/` | Account UI (`SparaKnapp`, `SparaKalkylKnapp`, `useSparaKalkyl`, `ProfilListor`, `AuthSida`), register UI (`RegisterLista`, `ForeningSida`), `KalkylExport` (PDF/Excel buttons). `pdf/` also has `KalkylPdfDocument` + `kalkylViewModel` + `downloadKalkyl` (lazy). |
+| `src/lib/` | Client-safe helpers: `session.ts` (session hook over `hamtaSessionFn`), `utkast.ts` (logged-out Spara drafts: sessionStorage + 24 h localStorage mirror), `till.ts` (`saneraTill`: same-origin redirect targets only), `kontoTyper.ts` (account server-function types), `registerVy.ts`, `sitemap.ts`, `uppgifter.ts` (in-memory store shared across routes), `analyseraForm.ts` / `varderingForm.ts` (form parsing/validation), `senasteAnalyser.ts` (localStorage "recent analyses", the only browser persistence), `analysStatusCopy.ts` (error copy; its code union is type-checked against the server's), `analysStatusVy.ts` (status texts/notices), `analysisView.ts`, `bolanekalkyl.ts` (calculator search params), `skatt2026.ts` (2026 income tax, per-person ränteavdrag), `propertyType.ts`, `utils.ts`, `error-capture.ts` / `error-page.ts` (English, `lang="en"`) / `lovable-error-reporting.ts` |
 | `src/lib/analysis/` | Pipeline: `pdf.ts` + `textlager.ts` (text layer: `ok`/`saknas`/`trasigt`), `identitet.ts` (local orgnr/year/name) + `identitetModell.ts` (Haiku on pages 1–3), `transkribering.ts` + `transkriptionsblock.ts` (scans: parallel page transcription → citable custom-content document), `runExtraction.ts` (grounding on PDF or transcription + structured extraction), `rimlighet.ts` (deterministic sanity checks → `Figure.osaker`), `analyze.ts` (judging), `prompts.ts` (+ `PROMPT_VERSION`), `schema.ts` (Zod mirror of the contract), `tolkaVarde.ts`, `benchmarks.ts`, `assemble.ts` (final `AnalysisResult`; shared price core `byggPrisanalysUtanForening`), `prisdata.ts`, `costGuard.ts` (prices per model, `STANDARD_MODELL`), `callMetrics.ts`, `korExtraktion.ts` (sequential composition for the CLIs), `extract.ts` (`extractWithRetry`: blind re-roll, no error feedback), `answerKey.ts`, `calc/` (`manadskostnad`, `amortering`, `ranteavdrag`, `rantestress`, `schabloner`, `spann`), CLIs `cli.ts` and `verifyAnswerKey.ts` |
 | `src/lib/vardering/` | **Server-only** valuation engine: TS evaluator of the exported LightGBM trees, tiering (`tackning.ts`), drivers (`drivare.ts`), `budpremie.ts`, postcode/kommun maps (`postnummer.ts`, `kommunKodning.ts`), `vardera.ts` (entry), `features.ts`, `tree.ts`, `data.ts`, `types.ts`. `data/*.data.ts` is generated by `npm run build:vardering-data`; never hand-edit it. |
-| `src/server/` | Server-only. `analysFn.ts` is the only client-importable file (server functions; **no module-scope values** — see Gotchas). `analys.ts` (create/status/result/preview), `register.ts` (register lookup, versioning, re-runs), `steg.ts` (job state machine on `rapport`), `prisuppskattning.ts` (price_estimate service), `kontext.ts` (device cookie + hashed IP), `lagratInput.ts`, `principal.ts`, `behorighet.ts` (entitlement policy), `kvot.ts` (rate limits), `spend.ts`, `cache.ts` (legacy caches), `fel.ts` (error → buyer-safe Swedish), `env.ts`, `portar.ts` (`Lager`/`Databas` port), `kontoPortar.ts`, `supabase.ts` / `supabaseKonto.ts` (adapters), `__fakes__/` (`lager.ts`, `konto.ts`: in-memory fakes mirroring the SQL), `cli/` (`registerCli.ts`, `kontoCli.ts`, `analysCli.ts`, `verifyRls.ts`), `edge/build.ts` (bundles `steg.ts` for Deno) |
+| `src/server/` | Server-only. `analysFn.ts` is the only client-importable file (server functions; **no module-scope values** — see Gotchas). `analys.ts` (create/status/result/preview), `register.ts` (register lookup, versioning, re-runs), `steg.ts` (job state machine on `rapport`), `prisuppskattning.ts` (price_estimate service), `kontext.ts` (device cookie + hashed IP + session → principal), `auth.ts` (Supabase Auth flows: register/login/logout/verify/reset/new password/delete account), `sessionCookies.ts` (`binfo_sa`/`binfo_sr`/`binfo_aterst`), `supabaseAuth.ts` (Auth adapter), `sparat.ts` (saved valuations/kalkyler, GDPR export; one ownership helper `kravAgare`), `registerPublik.ts` (public register reads: BRF-level only), `stegLogg.ts` (stage-failure logging), `lagratInput.ts`, `principal.ts`, `behorighet.ts` (entitlement policy), `kvot.ts` (rate limits), `spend.ts`, `cache.ts` (legacy caches), `fel.ts` (error → buyer-safe Swedish), `env.ts`, `portar.ts` (`Lager`/`Databas` port), `kontoPortar.ts`, `supabase.ts` / `supabaseKonto.ts` (adapters), `__fakes__/` (`lager.ts`, `konto.ts`: in-memory fakes mirroring the SQL), `cli/` (`registerCli.ts`, `kontoCli.ts`, `analysCli.ts`, `verifyRls.ts`), `edge/build.ts` (bundles `steg.ts` for Deno) |
 | `src/types/analysis.ts` | **The contract** for an analysis result and the price check (`PrisInput`, `PrisuppskattningResultat`), shared by client and server |
 | `src/data/` | `sampleAnalysis.ts` (static `AnalysisResult` on `/exempel`; see "Example analysis"), `mockData.ts` (calculator defaults + legacy demo `property` "Brf Lindgården", unrelated to `/exempel`). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`. |
-| `supabase/` | `migrations/` (4 applied incl. the retention hotfix `20261008000000`; the 2 v2 migrations `20261009120000_register.sql` and `20261009120100_konto.sql` are applied at the v2 deploy), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored; also `reinvoke.ts`, `effort.ts` + their two vitest files, the only tests outside `src/`). `config.toml` references a `seed.sql` that doesn't exist (harmless). No SQL test files are committed. |
+| `supabase/` | `migrations/` (6 applied in production incl. the v2 `register` + `konto`; the 2 v3 migrations `20261013120000_konto_v3.sql` and `20261013120100_register_v3.sql` are applied at the v3 deploy), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored; also `reinvoke.ts`, `effort.ts` + their two vitest files, the only tests outside `src/`). `config.toml` references a `seed.sql` that doesn't exist (harmless). No SQL test files are committed. |
 | `ml/` | Training (`train_valuation_v31.py` + `valuation_v31_lib.py` on top of `train_valuation_v3.py` / `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3.1/` = shipped, delta card to `artifacts/valuation-v3/MODEL_CARD.md`; `valuation-v3.2/` exists only on the local branch `valuation-v3.2`, rejected), pytest suite |
 | `data/raw/` | Svensk Mäklarstatistik transaction xlsx (committed, not confidential); `data/derived/` holds the mapping CSVs and price levels |
 | `fixtures/answer-key/` | Nyckeltal per test report (`<orgnr>.json`, 13 keys, all owner-verified as of 2026-10-10; "UTKAST" in `kalla.verifieradMot` would mark a draft). Pontonjären 3 has no key. `fixtures/property-input-example.json` is a sample `PropertyInput`. |
@@ -75,27 +82,32 @@ per-apartment cost in kronor, and what to do before bidding.
   - `/analys/$analysisId`: the full report (`hamtaResultatFn`); any error,
     including a refused entitlement, redirects to the preview.
 - `/vardering`: "Bara priskoll" — the valuation without a PDF
-  (`hamtaPrisuppskattningFn`), free, rate-limited, stateless.
+  (`hamtaPrisuppskattningFn`), free, rate-limited. "Spara" (account) and
+  re-open via `?sparad=<id>` (stored snapshot + "Räkna om med dagens modell").
+- `/konto` (profile), `/konto/{logga-in,skapa,glomt-losenord,bekrafta,nytt-losenord}`:
+  accounts (all `noindex`). `/konto/bekrafta` verifies only on a button press
+  (mail scanners must not burn one-time tokens). `?till=` is sanitised.
+- `/brf`, `/brf/omrade/$omrade`, `/brf/$slug`: the public register (BRF-level
+  data only; cacheable; must never set cookies). `/sitemap.xml` is a server route.
 - `/exempel`: static demo report (`AnalysRapport` over `sampleAnalysis`; the
   BRF name in the intro box is hard-coded in `src/routes/exempel.tsx`).
-- `/bolanekalkyl`: client-only calculator. Optional search params `manadsavgift`,
-  `rantekanslighet`, `pris`, `boarea`, `prisUppskattning` (read once at mount).
-  Loan, rate and income live only in component `useState` and are deliberately
-  never persisted or sent to the server (`manadskostnad.ts` comment). Math is
-  in `src/lib/analysis/calc/` + `skatt2026.ts`; some logic (kvar att leva på,
-  override deltas, tier badges) is inline in the route.
-  - Known inconsistency: the monthly total uses `calc/ranteavdrag.ts`
-    (household-pooled 100k × borrowers, not limited by tax paid), while
-    "Tillbaka i deklarationen" uses `beraknaHushallSkatt` (per person, limited
-    by tax). They differ for low or uneven incomes.
-  - Cost schablons (`schabloner.ts`) and `BANKERNAS_TYPISKA_TAK = 5.0` are
-    marked unverified placeholders; `skatt2026.ts` constants have no cited source.
-  - Boarea defaults to 58 m² from the legacy `mockData` property when unknown.
+- `/bolanekalkyl`: calculator; all math in `src/lib/kalkyl/berakna.ts` (the
+  route only renders). Search params `manadsavgift`, `rantekanslighet`, `pris`,
+  `boarea`, `prisUppskattning` (read once at mount), plus `sparad`/`spara` for
+  saved kalkyler. Inputs are sent to the server only on an explicit "Spara" by
+  a logged-in user (owner decision 2026-10-12). PDF/Excel export buttons
+  (`KalkylExport`, lazy, behind an SSR guard).
+  - One ränteavdrag computation (per person, limited by tax) for the total and
+    "Tillbaka i deklarationen"; one home for the 50/70 % thresholds
+    (`calc/amortering.ts`).
+  - Drift schablons (`schabloner.ts`) and the 5× bank skuldkvot are still
+    unverified placeholders, labelled "Schablon"/"Antagande" everywhere.
 - `/guide`: buying guide (checked steps in `useState` only).
-- **SEO state:** SSR on every route; static `head()` per route. No sitemap,
-  canonical, `og:image` or JSON-LD; `robots.txt` allows all and has no
-  `Sitemap:` line. `/analys` and `/forhandsvisning` lack `noindex`. Root 404 and
-  error pages are in English.
+- **SEO:** SSR on every route. Register pages have real-figure titles and
+  descriptions, canonical, og:*, JSON-LD (Organization + BreadcrumbList);
+  `/sitemap.xml`; `robots.txt` has a `Sitemap:` line; `public/og.png`
+  (`scripts/genereraOgBild.mjs`). `/analys`, `/forhandsvisning`, `/konto*` are
+  `noindex`. 404/error pages are Swedish.
 
 ## Where UI copy lives
 
@@ -163,7 +175,7 @@ per-apartment cost in kronor, and what to do before bidding.
 - The price check alone can be recomputed offline and free with
   `byggPrisanalys(input, new ModellPrisdatakalla())`.
 
-## Data flow of a full analysis (v2, merged into `main`, not yet deployed)
+## Data flow of a full analysis (v2 deployed; v3 changes marked)
 
 1. **`skapaAnalysFn` → `skapaAnalys`** (`src/server/analys.ts`, Worker). In order:
    1. `losKontext` (device cookie `binfo_enhet`, HMAC'd IP) — the single place
@@ -207,9 +219,13 @@ per-apartment cost in kronor, and what to do before bidding.
       blind retry; deterministic reconciliation
       (`tolkaNyckeltal` → `harledSkuldfriaNyckeltal` → `berikaNyckeltal` →
       `kontrolleraRimlighet`); scans tagged `kalla: 'skannad'`, konfidens ≤ medel.
-      **Gap:** the model copies `ref.page`/`excerpt` from the findings text and
-      nothing verifies the page against the grounding citations or the excerpt
-      against the page text.
+      **v3:** `sidreferenser.ts` verifies every cited excerpt against the page
+      text (pdf.js, or `sidtext` for scans; skipped for `trasigt`): wrong page →
+      corrected, not found → `osaker` + question. Unverifiable addresses are
+      dropped. `slutfor.ts` is the single post-model validator. v3 also extracts
+      `forening.adresser`/`fastighetsbeteckningar` (cited) and, when a rapport
+      is done, writes `forening_adress kalla='rapport'`, assigns the register
+      area (`losRegisteromrade`) + slug, and refreshes `register_sammanfattning`.
    5. `bedomning`: judging over the extraction only (never sees buyer data;
       page refs must be a subset of the extraction's pages); result stored on
       the rapport; dry assembly.
@@ -217,8 +233,9 @@ per-apartment cost in kronor, and what to do before bidding.
      Buyer-level (assembled per read) = `input`, `prisanalys`, `rantestress`,
      missing-data questions, the fee-deviation question.
    - `PIPELINE_VERSION` = `p<PROMPT_VERSION>.i<IDENTITET_PROMPT_VERSION>.s<SCHEMA_MAJOR>`
-     (currently `p6.i1.s1`, `register.ts`). No provenance column exists on
-     `rapport` (only `model`, `cost_sek`).
+     (production `p6.i1.s1`; v3 = `p7.i1.s1`). v3 adds `rapport.proveniens`
+     (`api` default). Each stage has pure `bygg*Request`/`tolka*Svar` (golden
+     tests pin the request bodies).
 4. **Reads** re-assemble on every read from the rapport's extraction/judgement +
    the buyer's `property_input`; only results that parse with the current
    schemas are served (older compatible versions with a note + one lazy re-run).
@@ -250,9 +267,9 @@ citations and effort) is not used anywhere yet.
 
 ## Database (Supabase, see `SUPABASE.md`)
 
-- **Production before the v2 deploy** (3 migrations + retention hotfix): `analys` (job rows), `extraktion_cache` /
+- **Base** (init migrations + retention hotfix): `analys` (job rows), `extraktion_cache` /
   `analys_cache` (PK `(pdf_hash, model, prompt_version)`), `spend_day`.
-- **v2 migrations (verified on a local Supabase stack; applied at the v2 deploy):**
+- **v2 migrations (in production):**
   - register: `forening`, `rapport` (shared, versioned job + result; partial
     unique on `(orgnr, rakenskapsar, pipeline_version)` and on
     `(pdf_hash, pipeline_version)` = the concurrency locks), `rapport_fil`,
@@ -260,22 +277,32 @@ citations and effort) is not used anywhere yet.
     `claim_next_rapport_steg` etc.
   - konto: `principal`, `behorighet` (empty), `kvot` + `ta_kvot`,
     `analys.principal_id`, `radera_principal`, final `binfo-retention`.
+- **v3 migrations (verified locally: all 8 apply, `verify-rls` 97/97; pending
+  production):**
+  - konto_v3: `sparad_vardering`, `sparad_kalkyl`, `sakerstall_konto_principal`,
+    `lista_mina_analyser`, `radera_min_analys`; merge + erasure cover saved items.
+  - register_v3: `rapport.proveniens`, `forening.slug/registeromrade/omrade_kalla`,
+    `forening_slug` (renamed-slug history), `pg_trgm` index on `namn`,
+    `register_sammanfattning` (one row per BRF, maintained by
+    `uppdatera_register_sammanfattning`), `satt_forening_omrade`.
 - **Access:** RLS on with zero policies; functions `security invoker`. The v2
   functions are execute-only for `service_role`; the init-migration functions
   were never revoked from `anon` (RLS still blocks them). The browser has no
   Supabase client; every read/write goes through server functions with the
   secret key.
-- **Identity:** anonymous device principal (`principal`, created lazily on the
-  first upload); `principalId` is always null in `losKontext` until accounts
-  exist. Only `analys.principal_id` links data to a principal; nothing stores
-  valuations or calculations. The UUID `analysisId` is the read capability (no
-  ownership check on reads). Accounts plug in at `losKontext` (`kontext.ts`);
-  `principal.auth_user_id` and `sla_samman_principal` (merge a device into an
-  account) already exist. `config.toml` has local Auth enabled but unused.
-- **Register location data:** the BRF's own address is not extracted
-  (`ForeningSchema` has no address/postnummer). `forening_adress` holds only
-  `kalla='anvandare'` rows (buyer postnummer → kommun/område); `kalla='rapport'`
-  has no writer.
+- **Identity (v3):** Supabase Auth, server-side only (httpOnly `binfo_sa`/
+  `binfo_sr` cookies; `losKontext` validates/refreshes and maps the auth user
+  to a `typ='konto'` principal; the device's anonymous principal is merged once
+  on first login; logout rotates `binfo_enhet`). Without
+  `PROJECT_PUBLISHABLE_KEY`, everything behaves anonymously as before. Password
+  change needs a 15-min signed reset marker (`binfo_aterst`) or the current
+  password; account deletion needs the password. Saved items are filtered by
+  principal in one helper (`kravAgare`). The UUID `analysisId` is still the
+  read capability for analyses. Local Auth config + Swedish templates:
+  `supabase/config.toml`, `docs/epostmallar/`; hosted setup: `docs/auth-setup.md`.
+- **Register location data (v3):** `forening_adress` has `kalla='rapport'`
+  (from the report) and `'anvandare'` (buyer postnummer); the register area is
+  decided rapport address > buyer postnummer (`register.ts`).
 - **Cron jobs:** `binfo-tick`, `binfo-reaper`, `binfo-retention`,
   `binfo-keep-alive`. Vault holds `project_url` and `automations_key`.
 - **Valuation coverage** (`src/lib/vardering/tackning.ts`, model v3.1, card
@@ -306,9 +333,9 @@ citations and effort) is not used anywhere yet.
 npm install
 npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
-npm run lint                # eslint . (2026-10-12 @36c44bd: 49 prettier errors from Lovable edits + 7 warnings; target 0 errors)
+npm run lint                # eslint . (baseline: 0 errors, 7 react-refresh warnings in shadcn ui/*)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-12: 71 files, 1602 tests, all passing)
+npm test                    # vitest run (v3, 2026-10-13: ~98 files, ~2070 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
@@ -319,6 +346,8 @@ npm run konto -- radera|exportera <principalId>                     # LIVE GDPR 
 npm run verify-rls                         # LIVE: RLS with secret vs publishable key
 npm run build:edge / deploy:edge           # bundle / deploy analys-steg (deploy needs owner OK)
 npm run build:vardering-data               # regenerate src/lib/vardering/data from ml artifacts
+npm run build:register-data                # regenerate src/lib/register/data from data/derived/postnummer_stadsdel.csv
+node --import tsx scripts/seedLokaltRegister.ts   # LOCAL stack only: seed /brf with test BRFs (refuses non-local PROJECT_URL)
 ./scripts/v2-lokalt.sh [--nollstall]      # whole app on a LOCAL Supabase stack (Docker): db, cron, Edge Function, dev server; real Claude cost
 cd ml && .venv/bin/pytest                  # ML tests
 ```
@@ -489,10 +518,22 @@ cd ml && .venv/bin/pytest                  # ML tests
   To see the waiting screens either use `./scripts/v2-lokalt.sh` (Docker, local
   Supabase; overrides every `PROJECT_*` var with local values) or
   render `Pagar` with fake props in a test.
+- **Lazy client-only libraries** (`@react-pdf`, `exceljs`): reach them only via
+  a dynamic `import()` guarded by `if (import.meta.env.SSR) return;` in the
+  click handler. Without the guard they land in the Worker bundle (v3 measured
+  2.71 → 1.70 MB gzipped with it; Cloudflare's free-plan limit is 3 MB).
+- **Cacheable public pages must not set cookies.** `/brf*` and `/sitemap.xml`
+  send `Cache-Control: public, s-maxage=…`; their server functions skip
+  `losKontext` on purpose. Never call a session/kontext function from their
+  loaders.
+- **Dev server ports.** The wrapper defaults to 8080, but `npx vite dev --port
+  <n>` works; parallel agents should use their own port.
 - **Slow checks.** Cold `npm test`, `npm run lint` and `npm run typecheck` each
   take 1–2+ minutes; use a long timeout or run them in the background.
 - **Playwright** is not a project dependency; Chromium builds are cached in
-  `~/Library/Caches/ms-playwright`.
+  `~/Library/Caches/ms-playwright` (pass `executablePath` to the cached
+  `chromium_headless_shell-*/…/chrome-headless-shell` if a newer playwright
+  package expects a build that isn't downloaded).
 
 ## Known limitations (October 2026)
 
@@ -508,8 +549,11 @@ cd ml && .venv/bin/pytest                  # ML tests
   2026-10-10). The privacy text still needs a stated basis for keeping PDFs
   that name board members (public documents). Delete PDFs via the Storage API, never
   with SQL (Storage refuses direct deletes).
-- No accounts yet (anonymous device principals only); entitlements grant
-  everything; GDPR erasure/export are owner-run CLI commands.
+- Accounts exist on `v3` (not deployed). Entitlements still grant everything.
+  No MFA. Pages that need login check it client-side after hydration (SSR shows
+  "Laddar…"). The public register is filled only by user uploads (bulk
+  pre-population cut, owner 2026-10-13). No contact address exists for "Hittar
+  du ett fel?" on BRF pages (owner to supply).
 - Volontären `antalLokaler` is still missed (1 vs null), pre-existing.
 - Every 5 s status poll reads `rapport` rows with `select *` (large jsonb) and
   Zod-parses the stored result; fine at today's volume.
@@ -518,20 +562,28 @@ cd ml && .venv/bin/pytest                  # ML tests
 - Docs drift: SUPABASE.md still has some pre-v2 facts (30-day retention, 80 %
   scan threshold, 12k transcription tokens); PIPELINE.md's cost paragraph is
   from September. The code wins.
-- Accessibility gaps in the kit: `Field` has no `aria-invalid`/`aria-describedby`,
-  `Toggle` has no `aria-pressed`.
+- Accessibility gaps in the kit: `Toggle` has no `aria-pressed`; `Field` has
+  no `autocomplete`/`name` (password managers get no hints). `Field` got
+  `aria-invalid`/`aria-describedby` in v3.
+- Mobile nav: `SiteNav` is a flat wrapping row (three rows at 390 px with the
+  account and register links); a mobile menu is on the Lovable list.
+- The xlsx export has no cached formula values (`fullCalcOnLoad`): Excel and
+  Numbers compute on open (verified in Excel), but Quick Look shows empty cells.
 
-## Workstreams (v2 — status in `docs/PLAN-v2.md`)
+## Workstreams
+
+v3 (accounts, register, calculator, exports, pipeline v7): `docs/PLAN-v3.md`.
+v2 (all done, see `docs/PLAN-v2.md`):
 
 1. **Scanned reports — done** (code). Transcription → citable grounding,
    sanity checks, scan notice and "osäker" markers in the UI.
 2. **Separate price estimate — done.** `/vardering` + `price_estimate` service;
    full analysis adds the debt-share comment line (owner decision: no debt in
    the model, no andelstal).
-3. **Register — done** (code; migration pending apply). orgnr + fiscal year,
+3. **Register — done.** orgnr + fiscal year,
    hash pre-check, cheap identity stage, versioned lazy re-runs, admin CLI.
-4. **Account-ready infrastructure — done** (code; migration pending apply).
-   Device principal, entitlement layer, quotas, GDPR CLI; Supabase Auth later.
+4. **Account-ready infrastructure — done.** Device principal, entitlement
+   layer, quotas, GDPR CLI (Supabase Auth added in v3).
 5. **Prompt caching — measured; off by default** (no net saving per isolated
    report; the register removes repeat cost).
 
