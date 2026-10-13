@@ -10,6 +10,7 @@ import type {
   AnalysisResult,
   Budpremie,
   CostItemId,
+  Datakvalitet,
   Dataperiod,
   FeeInclusion,
   Figure,
@@ -376,6 +377,6 @@ export const SKANNAD_NOTIS =
   "Årsredovisningen var skannad; siffrorna är avlästa från sidbilderna och kan innehålla fel – " +
   "kontrollera de viktigaste mot rapporten.";
 
-export function arSkannad(analys: Pick<AnalysisResult, "datakvalitet">): boolean {
+export function arSkannad(analys: { datakvalitet: Pick<Datakvalitet, "kalla"> }): boolean {
   return analys.datakvalitet.kalla === "skannad";
 }

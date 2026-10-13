@@ -37,6 +37,7 @@ export const Route = createFileRoute("/forhandsvisning_/$analysisId")({
   head: () => ({
     meta: [
       { title: "Din analys — Binfo" },
+      { name: "robots", content: "noindex" },
       {
         name: "description",
         content: "Riskbetyg och de viktigaste röda flaggorna, gratis.",

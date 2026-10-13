@@ -40,6 +40,12 @@ const DAG_PUBLISHABLE = "1999-01-02";
 // them can be picked up by the worker or matched by a register lookup.
 const PROBE_ORGNR = "000000-0000";
 const PROBE_ORGNR_PUBLISHABLE = "000000-0001";
+// v3 register: a second secret-written forening, the foreign-key target for
+// the publishable insert into register_sammanfattning (its primary key is the
+// orgnr, so it cannot reuse PROBE_ORGNR without a key conflict masking RLS).
+const PROBE_ORGNR_FK = "000000-0002";
+const PROBE_SLUG = "verify-rls-probe";
+const PROBE_SLUG_PUBLISHABLE = "verify-rls-probe-publishable";
 const PROBE_POSTNUMMER = "00000";
 const PROBE_PIPELINE_VERSION = "verify-rls-probe";
 const PROBE_PDF_HASH = "verify-rls-probe";
@@ -213,6 +219,9 @@ async function skrivProbeRader(
   const forening = await secretClient
     .from("forening")
     .insert({ orgnr: PROBE_ORGNR, namn: "verify-rls probe" });
+  const foreningFk = await secretClient
+    .from("forening")
+    .insert({ orgnr: PROBE_ORGNR_FK, namn: "verify-rls probe fk" });
   // status 'failed' + stage 'klar' + own pipeline_version + no identity:
   // never claimable, never found by a register lookup.
   const rapport = await secretClient
@@ -238,6 +247,7 @@ async function skrivProbeRader(
 
   const resultat: Array<[string, unknown]> = [
     ["forening", forening.error],
+    ["forening (fk-mål)", foreningFk.error],
     ["rapport", rapport.error],
     ["principal", principal.error],
   ];
@@ -282,6 +292,21 @@ async function skrivProbeRader(
           secretClient
             .from("kvot")
             .insert({ nyckel: PROBE_KVOT, fonster_start: "1999-01-01T00:00:00Z", antal: 0 }),
+      ],
+      [
+        "register_sammanfattning",
+        () =>
+          secretClient.from("register_sammanfattning").insert({
+            orgnr: PROBE_ORGNR,
+            rakenskapsar: 1999,
+            rapport_id: rid,
+            pipeline_version: PROBE_PIPELINE_VERSION,
+            analysdatum: "1999-01-01T00:00:00Z",
+          }),
+      ],
+      [
+        "forening_slug",
+        () => secretClient.from("forening_slug").insert({ slug: PROBE_SLUG, orgnr: PROBE_ORGNR }),
       ],
       [
         "sparad_vardering",
@@ -412,6 +437,26 @@ async function provaV2Tabeller(secretClient: Klient, publishableClient: Klient, 
       },
       publishableNyckel: ["nyckel", PROBE_KVOT_PUBLISHABLE],
       uppdatering: { antal: 999 },
+    },
+    {
+      tabell: "register_sammanfattning",
+      nyckel: ["orgnr", PROBE_ORGNR],
+      publishableRad: {
+        orgnr: PROBE_ORGNR_FK,
+        rakenskapsar: 1999,
+        rapport_id: ids.rapportId,
+        pipeline_version: PROBE_PIPELINE_VERSION,
+        analysdatum: "1999-01-01T00:00:00Z",
+      },
+      publishableNyckel: ["orgnr", PROBE_ORGNR_FK],
+      uppdatering: { namn: "verify-rls hijack" },
+    },
+    {
+      tabell: "forening_slug",
+      nyckel: ["slug", PROBE_SLUG],
+      publishableRad: { slug: PROBE_SLUG_PUBLISHABLE, orgnr: PROBE_ORGNR },
+      publishableNyckel: ["slug", PROBE_SLUG_PUBLISHABLE],
+      uppdatering: { orgnr: PROBE_ORGNR_FK },
     },
     {
       tabell: "sparad_vardering",
@@ -549,6 +594,25 @@ async function provaV2Rpcer(secretClient: Klient, publishableClient: Klient, utf
     },
     { namn: "lista_mina_analyser", args: { p_principal: slumpId } },
     { namn: "radera_min_analys", args: { p_principal: slumpId, p_analys: crypto.randomUUID() } },
+    // v3 register. If allowed, the first would delete the probe summary row
+    // (the probe BRF has no done rapport) and the second would set a slug.
+    {
+      namn: "uppdatera_register_sammanfattning",
+      args: { p_orgnr: PROBE_ORGNR, p_pipeline_version: null },
+      sidoeffekt: async () =>
+        !(await finnsRad(secretClient, "register_sammanfattning", "orgnr", PROBE_ORGNR)),
+    },
+    {
+      namn: "satt_forening_omrade",
+      args: {
+        p_orgnr: PROBE_ORGNR,
+        p_slug: "verify-rls-hijack",
+        p_registeromrade: null,
+        p_omrade_kalla: null,
+      },
+      sidoeffekt: () => finnsRad(secretClient, "forening", "slug", "verify-rls-hijack"),
+    },
+    { namn: "register_nyckeltal", args: { p_extraction: {}, p_id: "x" } },
     {
       namn: "registrera_forening",
       args: { p_orgnr: PROBE_ORGNR_PUBLISHABLE, p_namn: "verify-rls publishable" },
@@ -620,6 +684,31 @@ async function provaV2Rpcer(secretClient: Klient, publishableClient: Klient, utf
       namn: "sakerstall_principal",
       args: { p_enhet_id: PROBE_ENHET },
       ok: (d) => typeof d === "string",
+    },
+    // v3 register. The unknown orgnr has no rapport and no summary row, so the
+    // recompute is a harmless no-op; the slug goes on the probe BRF only.
+    {
+      namn: "uppdatera_register_sammanfattning",
+      args: { p_orgnr: "000000-0003", p_pipeline_version: null },
+      ok: () => true,
+    },
+    {
+      namn: "satt_forening_omrade",
+      args: {
+        p_orgnr: PROBE_ORGNR,
+        p_slug: "verify-rls-probe-brf",
+        p_registeromrade: null,
+        p_omrade_kalla: null,
+      },
+      ok: () => true,
+    },
+    {
+      namn: "register_nyckeltal",
+      args: {
+        p_extraction: { forening: { keyFigures: [{ id: "x", figure: { value: 5 } }] } },
+        p_id: "x",
+      },
+      ok: (d) => d === 5,
     },
     // Two unknown ids: the function's own check raises — which proves it ran.
     {
@@ -730,6 +819,25 @@ async function stada(secretClient: Klient): Promise<void> {
       (await secretClient.from("principal").delete().in("id", principalIds)).error,
     );
   }
+  // The summary row references the probe rapport: it must go first.
+  notera(
+    "register_sammanfattning",
+    (
+      await secretClient
+        .from("register_sammanfattning")
+        .delete()
+        .in("orgnr", [PROBE_ORGNR, PROBE_ORGNR_PUBLISHABLE, PROBE_ORGNR_FK])
+    ).error,
+  );
+  notera(
+    "forening_slug",
+    (
+      await secretClient
+        .from("forening_slug")
+        .delete()
+        .in("orgnr", [PROBE_ORGNR, PROBE_ORGNR_PUBLISHABLE, PROBE_ORGNR_FK])
+    ).error,
+  );
   if (rapportIds.length > 0) {
     notera("rapport", (await secretClient.from("rapport").delete().in("id", rapportIds)).error);
   }
@@ -739,7 +847,7 @@ async function stada(secretClient: Klient): Promise<void> {
       await secretClient
         .from("forening_adress")
         .delete()
-        .in("orgnr", [PROBE_ORGNR, PROBE_ORGNR_PUBLISHABLE])
+        .in("orgnr", [PROBE_ORGNR, PROBE_ORGNR_PUBLISHABLE, PROBE_ORGNR_FK])
     ).error,
   );
   notera(
@@ -748,7 +856,7 @@ async function stada(secretClient: Klient): Promise<void> {
       await secretClient
         .from("forening")
         .delete()
-        .in("orgnr", [PROBE_ORGNR, PROBE_ORGNR_PUBLISHABLE])
+        .in("orgnr", [PROBE_ORGNR, PROBE_ORGNR_PUBLISHABLE, PROBE_ORGNR_FK])
     ).error,
   );
   notera(

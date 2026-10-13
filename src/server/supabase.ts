@@ -33,6 +33,10 @@ import type {
   NyForeningAdress,
   OmradeKalla,
   Proveniens,
+  RegisterForeningRad,
+  RegisterLasning,
+  RegisterOmradeRad,
+  RegisterRapportRad,
   NyRapportFilRad,
   NyRapportRad,
   RapportDelta,
@@ -777,6 +781,198 @@ function skapaFilarkiv(sb: SupabaseClient): Filarkiv {
       return (data ?? []).some((objekt) => objekt.name === namn);
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// The public register's read side (docs/PLAN-v3.md §2.5). Reads
+// `register_sammanfattning` and `forening` for lists, and ONLY the parse-only
+// columns of `rapport` for one BRF — never `analys`/`property_input`.
+// ---------------------------------------------------------------------------
+
+/** PostgREST returns at most 1000 rows per request by default. */
+const REGISTER_SIDA = 1000;
+
+/** Keeps a search string inert inside a PostgREST `or(...)` filter: letters,
+ *  digits, space, hyphen, ampersand and apostrophe only (no `,` `(` `)` `.`
+ *  `*` `%` `_` `:` `"` or backslash). */
+export function saneraRegisterSok(sok: string): string {
+  return sok
+    .replace(/[^\p{L}\p{N} &'-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+/** An all-digits query as an orgnr fragment: "7164200599" -> "716420-0599". */
+export function orgnrFragment(sok: string): string | null {
+  if (!/^[\d\s-]+$/.test(sok)) return null;
+  const siffror = sok.replace(/\D/g, "");
+  if (siffror.length < 4) return null;
+  return siffror.length > 6 ? `${siffror.slice(0, 6)}-${siffror.slice(6)}` : siffror;
+}
+
+interface SammanfattningRow {
+  orgnr: string;
+  slug: string | null;
+  namn: string | null;
+  registeromrade: string | null;
+  rakenskapsar: number;
+  betyg: "A" | "B" | "C" | "D" | "E" | null;
+  skuldsattning_per_m2_brf_yta: number | string | null;
+  arsavgift_per_m2_brf_yta: number | string | null;
+  sparande_per_m2_totalyta: number | string | null;
+  analysdatum: string;
+}
+
+/** `numeric` columns arrive as numbers or strings depending on the driver. */
+function tal(v: number | string | null): number | null {
+  if (v === null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function skapaRegisterLasningFranKlient(sb: SupabaseClient): RegisterLasning {
+  return {
+    async listaOmradeRader(omraden): Promise<RegisterOmradeRad[]> {
+      const ut: RegisterOmradeRad[] = [];
+      for (let fran = 0; ; fran += REGISTER_SIDA) {
+        const { data, error } = await sb
+          .from("register_sammanfattning")
+          .select("slug, registeromrade, analysdatum")
+          .in("registeromrade", [...omraden])
+          .order("orgnr", { ascending: true })
+          .range(fran, fran + REGISTER_SIDA - 1);
+        if (error) throw new Error(`listaOmradeRader misslyckades: ${error.message}`);
+        const rader = data as Array<{
+          slug: string | null;
+          registeromrade: string | null;
+          analysdatum: string;
+        }>;
+        for (const r of rader) {
+          if (r.registeromrade !== null) {
+            ut.push({ slug: r.slug, registeromrade: r.registeromrade, analysdatum: r.analysdatum });
+          }
+        }
+        if (rader.length < REGISTER_SIDA) return ut;
+      }
+    },
+
+    async listaSammanfattningar(p) {
+      let q = sb
+        .from("register_sammanfattning")
+        .select(
+          "orgnr, slug, namn, registeromrade, rakenskapsar, betyg, skuldsattning_per_m2_brf_yta, " +
+            "arsavgift_per_m2_brf_yta, sparande_per_m2_totalyta, analysdatum",
+          { count: "exact" },
+        )
+        .in("registeromrade", [...p.omraden])
+        .not("slug", "is", null)
+        .not("namn", "is", null);
+      const sok = saneraRegisterSok(p.sok);
+      if (sok !== "") {
+        const orgnr = orgnrFragment(sok);
+        q = q.or(
+          orgnr !== null ? `namn.ilike.%${sok}%,orgnr.ilike.%${orgnr}%` : `namn.ilike.%${sok}%`,
+        );
+      }
+      const { data, error, count } = await q
+        .order(p.sortering, { ascending: p.stigande, nullsFirst: false })
+        .order("orgnr", { ascending: true })
+        .range(p.fran, p.fran + p.antal - 1);
+      if (error) throw new Error(`listaSammanfattningar misslyckades: ${error.message}`);
+      const rader = (data as unknown as SammanfattningRow[]).flatMap((r) =>
+        r.slug !== null && r.namn !== null && r.registeromrade !== null
+          ? [
+              {
+                orgnr: r.orgnr,
+                slug: r.slug,
+                namn: r.namn,
+                registeromrade: r.registeromrade,
+                rakenskapsar: r.rakenskapsar,
+                betyg: r.betyg,
+                skuldsattningPerM2BrfYta: tal(r.skuldsattning_per_m2_brf_yta),
+                arsavgiftPerM2BrfYta: tal(r.arsavgift_per_m2_brf_yta),
+                sparandePerM2Totalyta: tal(r.sparande_per_m2_totalyta),
+                analysdatum: r.analysdatum,
+              },
+            ]
+          : [],
+      );
+      return { rader, totalt: count ?? rader.length };
+    },
+
+    async hamtaForeningViaSlug(slug): Promise<RegisterForeningRad | null> {
+      const { data, error } = await sb
+        .from("forening")
+        .select("orgnr, namn, slug, registeromrade")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaForeningViaSlug misslyckades: ${error.message}`);
+      return (data as RegisterForeningRad | null) ?? null;
+    },
+
+    async hamtaOrgnrViaGammalSlug(slug): Promise<string | null> {
+      const { data, error } = await sb
+        .from("forening_slug")
+        .select("orgnr")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaOrgnrViaGammalSlug misslyckades: ${error.message}`);
+      return (data as { orgnr: string } | null)?.orgnr ?? null;
+    },
+
+    async hamtaForeningViaOrgnr(orgnr): Promise<RegisterForeningRad | null> {
+      const { data, error } = await sb
+        .from("forening")
+        .select("orgnr, namn, slug, registeromrade")
+        .eq("orgnr", orgnr)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaForeningViaOrgnr misslyckades: ${error.message}`);
+      return (data as RegisterForeningRad | null) ?? null;
+    },
+
+    async listaKlaraRapporter(orgnr): Promise<RegisterRapportRad[]> {
+      const { data, error } = await sb
+        .from("rapport")
+        .select(
+          "id, rakenskapsar, pipeline_version, extraction, judgement, finished_at, created_at",
+        )
+        .eq("orgnr", orgnr)
+        .eq("status", "done")
+        .not("extraction", "is", null)
+        .not("judgement", "is", null)
+        .order("rakenskapsar", { ascending: false })
+        .order("finished_at", { ascending: false, nullsFirst: false });
+      if (error) throw new Error(`listaKlaraRapporter misslyckades: ${error.message}`);
+      return (
+        data as Array<{
+          id: string;
+          rakenskapsar: number;
+          pipeline_version: string;
+          extraction: unknown;
+          judgement: unknown;
+          finished_at: string | null;
+          created_at: string;
+        }>
+      ).map((r) => ({
+        id: r.id,
+        rakenskapsar: r.rakenskapsar,
+        pipelineVersion: r.pipeline_version,
+        extraction: r.extraction,
+        judgement: r.judgement,
+        analysdatum: r.finished_at ?? r.created_at,
+      }));
+    },
+  };
+}
+
+export function skapaRegisterLasning(env: {
+  supabaseUrl: string;
+  supabaseSecretKey: string;
+}): RegisterLasning {
+  return skapaRegisterLasningFranKlient(
+    createClient(env.supabaseUrl, env.supabaseSecretKey, { auth: { persistSession: false } }),
+  );
 }
 
 export function skapaLager(env: { supabaseUrl: string; supabaseSecretKey: string }): Lager {

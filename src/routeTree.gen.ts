@@ -14,8 +14,11 @@ import { Route as AnalyseraRouteImport } from './routes/analysera'
 import { Route as BolanekalkylRouteImport } from './routes/bolanekalkyl'
 import { Route as ExempelRouteImport } from './routes/exempel'
 import { Route as GuideRouteImport } from './routes/guide'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VarderingRouteImport } from './routes/vardering'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
+import { Route as BrfIndexRouteImport } from './routes/brf.index'
+import { Route as BrfSlugRouteImport } from './routes/brf.$slug'
 import { Route as ForhandsvisningAnalysisIdRouteImport } from './routes/forhandsvisning_.$analysisId'
 import { Route as KontoIndexRouteImport } from './routes/konto.index'
 import { Route as KontoBekraftaRouteImport } from './routes/konto.bekrafta'
@@ -23,6 +26,7 @@ import { Route as KontoGlomtLosenordRouteImport } from './routes/konto.glomt-los
 import { Route as KontoLoggaInRouteImport } from './routes/konto.logga-in'
 import { Route as KontoNyttLosenordRouteImport } from './routes/konto.nytt-losenord'
 import { Route as KontoSkapaRouteImport } from './routes/konto.skapa'
+import { Route as BrfOmradeOmradeRouteImport } from './routes/brf.omrade.$omrade'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -49,6 +53,11 @@ const GuideRoute = GuideRouteImport.update({
   path: '/guide',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VarderingRoute = VarderingRouteImport.update({
   id: '/vardering',
   path: '/vardering',
@@ -57,6 +66,16 @@ const VarderingRoute = VarderingRouteImport.update({
 const AnalysAnalysisIdRoute = AnalysAnalysisIdRouteImport.update({
   id: '/analys_/$analysisId',
   path: '/analys/$analysisId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrfIndexRoute = BrfIndexRouteImport.update({
+  id: '/brf/',
+  path: '/brf/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrfSlugRoute = BrfSlugRouteImport.update({
+  id: '/brf/$slug',
+  path: '/brf/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForhandsvisningAnalysisIdRoute =
@@ -95,6 +114,11 @@ const KontoSkapaRoute = KontoSkapaRouteImport.update({
   path: '/konto/skapa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrfOmradeOmradeRoute = BrfOmradeOmradeRouteImport.update({
+  id: '/brf/omrade/$omrade',
+  path: '/brf/omrade/$omrade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,15 +126,19 @@ export interface FileRoutesByFullPath {
   '/bolanekalkyl': typeof BolanekalkylRoute
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
+  '/brf/$slug': typeof BrfSlugRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
   '/konto/bekrafta': typeof KontoBekraftaRoute
   '/konto/glomt-losenord': typeof KontoGlomtLosenordRoute
   '/konto/logga-in': typeof KontoLoggaInRoute
   '/konto/nytt-losenord': typeof KontoNyttLosenordRoute
   '/konto/skapa': typeof KontoSkapaRoute
+  '/brf/': typeof BrfIndexRoute
   '/konto/': typeof KontoIndexRoute
+  '/brf/omrade/$omrade': typeof BrfOmradeOmradeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,15 +146,19 @@ export interface FileRoutesByTo {
   '/bolanekalkyl': typeof BolanekalkylRoute
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
+  '/brf/$slug': typeof BrfSlugRoute
   '/forhandsvisning/$analysisId': typeof ForhandsvisningAnalysisIdRoute
   '/konto/bekrafta': typeof KontoBekraftaRoute
   '/konto/glomt-losenord': typeof KontoGlomtLosenordRoute
   '/konto/logga-in': typeof KontoLoggaInRoute
   '/konto/nytt-losenord': typeof KontoNyttLosenordRoute
   '/konto/skapa': typeof KontoSkapaRoute
+  '/brf': typeof BrfIndexRoute
   '/konto': typeof KontoIndexRoute
+  '/brf/omrade/$omrade': typeof BrfOmradeOmradeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -135,15 +167,19 @@ export interface FileRoutesById {
   '/bolanekalkyl': typeof BolanekalkylRoute
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
+  '/brf/$slug': typeof BrfSlugRoute
   '/forhandsvisning_/$analysisId': typeof ForhandsvisningAnalysisIdRoute
   '/konto/bekrafta': typeof KontoBekraftaRoute
   '/konto/glomt-losenord': typeof KontoGlomtLosenordRoute
   '/konto/logga-in': typeof KontoLoggaInRoute
   '/konto/nytt-losenord': typeof KontoNyttLosenordRoute
   '/konto/skapa': typeof KontoSkapaRoute
+  '/brf/': typeof BrfIndexRoute
   '/konto/': typeof KontoIndexRoute
+  '/brf/omrade/$omrade': typeof BrfOmradeOmradeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -153,15 +189,19 @@ export interface FileRouteTypes {
     | '/bolanekalkyl'
     | '/exempel'
     | '/guide'
+    | '/sitemap.xml'
     | '/vardering'
     | '/analys/$analysisId'
+    | '/brf/$slug'
     | '/forhandsvisning/$analysisId'
     | '/konto/bekrafta'
     | '/konto/glomt-losenord'
     | '/konto/logga-in'
     | '/konto/nytt-losenord'
     | '/konto/skapa'
+    | '/brf/'
     | '/konto/'
+    | '/brf/omrade/$omrade'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -169,15 +209,19 @@ export interface FileRouteTypes {
     | '/bolanekalkyl'
     | '/exempel'
     | '/guide'
+    | '/sitemap.xml'
     | '/vardering'
     | '/analys/$analysisId'
+    | '/brf/$slug'
     | '/forhandsvisning/$analysisId'
     | '/konto/bekrafta'
     | '/konto/glomt-losenord'
     | '/konto/logga-in'
     | '/konto/nytt-losenord'
     | '/konto/skapa'
+    | '/brf'
     | '/konto'
+    | '/brf/omrade/$omrade'
   id:
     | '__root__'
     | '/'
@@ -185,15 +229,19 @@ export interface FileRouteTypes {
     | '/bolanekalkyl'
     | '/exempel'
     | '/guide'
+    | '/sitemap.xml'
     | '/vardering'
     | '/analys_/$analysisId'
+    | '/brf/$slug'
     | '/forhandsvisning_/$analysisId'
     | '/konto/bekrafta'
     | '/konto/glomt-losenord'
     | '/konto/logga-in'
     | '/konto/nytt-losenord'
     | '/konto/skapa'
+    | '/brf/'
     | '/konto/'
+    | '/brf/omrade/$omrade'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,15 +250,19 @@ export interface RootRouteChildren {
   BolanekalkylRoute: typeof BolanekalkylRoute
   ExempelRoute: typeof ExempelRoute
   GuideRoute: typeof GuideRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VarderingRoute: typeof VarderingRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
+  BrfSlugRoute: typeof BrfSlugRoute
   ForhandsvisningAnalysisIdRoute: typeof ForhandsvisningAnalysisIdRoute
   KontoBekraftaRoute: typeof KontoBekraftaRoute
   KontoGlomtLosenordRoute: typeof KontoGlomtLosenordRoute
   KontoLoggaInRoute: typeof KontoLoggaInRoute
   KontoNyttLosenordRoute: typeof KontoNyttLosenordRoute
   KontoSkapaRoute: typeof KontoSkapaRoute
+  BrfIndexRoute: typeof BrfIndexRoute
   KontoIndexRoute: typeof KontoIndexRoute
+  BrfOmradeOmradeRoute: typeof BrfOmradeOmradeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -250,6 +302,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GuideRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vardering': {
       id: '/vardering'
       path: '/vardering'
@@ -262,6 +321,20 @@ declare module '@tanstack/react-router' {
       path: '/analys/$analysisId'
       fullPath: '/analys/$analysisId'
       preLoaderRoute: typeof AnalysAnalysisIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brf/': {
+      id: '/brf/'
+      path: '/brf'
+      fullPath: '/brf/'
+      preLoaderRoute: typeof BrfIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brf/$slug': {
+      id: '/brf/$slug'
+      path: '/brf/$slug'
+      fullPath: '/brf/$slug'
+      preLoaderRoute: typeof BrfSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forhandsvisning_/$analysisId': {
@@ -313,6 +386,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KontoSkapaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brf/omrade/$omrade': {
+      id: '/brf/omrade/$omrade'
+      path: '/brf/omrade/$omrade'
+      fullPath: '/brf/omrade/$omrade'
+      preLoaderRoute: typeof BrfOmradeOmradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -322,15 +402,19 @@ const rootRouteChildren: RootRouteChildren = {
   BolanekalkylRoute: BolanekalkylRoute,
   ExempelRoute: ExempelRoute,
   GuideRoute: GuideRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   VarderingRoute: VarderingRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,
+  BrfSlugRoute: BrfSlugRoute,
   ForhandsvisningAnalysisIdRoute: ForhandsvisningAnalysisIdRoute,
   KontoBekraftaRoute: KontoBekraftaRoute,
   KontoGlomtLosenordRoute: KontoGlomtLosenordRoute,
   KontoLoggaInRoute: KontoLoggaInRoute,
   KontoNyttLosenordRoute: KontoNyttLosenordRoute,
   KontoSkapaRoute: KontoSkapaRoute,
+  BrfIndexRoute: BrfIndexRoute,
   KontoIndexRoute: KontoIndexRoute,
+  BrfOmradeOmradeRoute: BrfOmradeOmradeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

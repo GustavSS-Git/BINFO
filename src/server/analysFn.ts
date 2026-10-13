@@ -53,9 +53,17 @@ import {
 import { skapaBehorighet } from "./behorighet";
 import { sakertFel, sakertSkapaFel } from "./fel";
 import { envFromProcess, type Env } from "./env";
-import type { Kontext } from "./kontext";
+import { hashaIp, losIp, tanstackKontextKallor, type Kontext } from "./kontext";
 import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
+import {
+  hamtaForening as hamtaRegisterForening,
+  hamtaSitemapPoster,
+  listaForeningar as listaRegisterForeningar,
+  listaOmraden as listaRegisterOmraden,
+  type RegisterBeroenden,
+} from "./registerPublik";
+import type { RegisterListaFraga } from "@/lib/registerVy";
 import {
   hamtaMinaUppgifter,
   hamtaSparadKalkyl,
@@ -68,7 +76,7 @@ import {
   taBortAnalysFranLista,
   type SparatBeroenden,
 } from "./sparat";
-import { skapaLager } from "./supabase";
+import { skapaLager, skapaRegisterLasning } from "./supabase";
 import { skapaKontoDatabas } from "./supabaseKonto";
 
 /** Who is asking — the first call in every handler. With
@@ -390,3 +398,65 @@ export const sparaKalkylFn = createServerFn({ method: "POST" })
       throw sakertFel("sparaKalkylFn", fel);
     }
   });
+
+// ---------------------------------------------------------------------------
+// Det publika BRF-registret (v3, docs/PLAN-v3.md §2): läsfunktioner utan
+// konto och utan cookie (en cachebar sida får aldrig sätta enhets-cookien),
+// begränsade till 300 läsningar per IP och timme. Svaren är enbart
+// BRF-nivå — se ./registerPublik.ts.
+// ---------------------------------------------------------------------------
+
+/** Reads for the public register: the read port plus the per-IP limit. Built
+ *  per call, never at module scope (see the note above `anropareFor`). */
+async function registerFor(env: Env): Promise<RegisterBeroenden> {
+  const ip = losIp(tanstackKontextKallor());
+  return {
+    lasning: skapaRegisterLasning(env),
+    kvot: {
+      konto: skapaKontoDatabas(env),
+      ipHash: ip === null ? null : await hashaIp(ip, env.supabaseSecretKey),
+    },
+  };
+}
+
+export const hamtaRegisterOmradenFn = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return await listaRegisterOmraden(await registerFor(envFromProcess()));
+  } catch (fel) {
+    throw sakertFel("hamtaRegisterOmradenFn", fel);
+  }
+});
+
+/** One area's table, or (without `omrade`) the cross-area search on /brf. */
+export const hamtaRegisterOmradeFn = createServerFn({ method: "GET" })
+  .inputValidator((data: RegisterListaFraga) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await listaRegisterForeningar(await registerFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("hamtaRegisterOmradeFn", fel);
+    }
+  });
+
+export const hamtaRegisterForeningFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { slug: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await hamtaRegisterForening(
+        await registerFor(envFromProcess()),
+        String(data.slug).slice(0, 200),
+      );
+    } catch (fel) {
+      throw sakertFel("hamtaRegisterForeningFn", fel);
+    }
+  });
+
+/** For /sitemap.xml: path + lastmod of every public register page. Not
+ *  rate-limited (a crawler fetches it rarely and the route is edge-cached). */
+export const hamtaSitemapDataFn = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return await hamtaSitemapPoster(skapaRegisterLasning(envFromProcess()));
+  } catch (fel) {
+    throw sakertFel("hamtaSitemapDataFn", fel);
+  }
+});

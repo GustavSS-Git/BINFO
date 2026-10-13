@@ -486,3 +486,82 @@ export interface Anropare {
   konto: KontoDatabas;
   behorighet: Behorighet;
 }
+
+// ---------------------------------------------------------------------------
+// RegisterLasning — the read side of the PUBLIC register (docs/PLAN-v3.md §2.5)
+// ---------------------------------------------------------------------------
+
+/** A column of `register_sammanfattning` the area table can sort on. */
+export type RegisterSorteringsKolumn =
+  | "skuldsattning_per_m2_brf_yta"
+  | "arsavgift_per_m2_brf_yta"
+  | "sparande_per_m2_totalyta"
+  | "betyg"
+  | "analysdatum";
+
+/** The light part of a summary row: enough for area counts and the sitemap. */
+export interface RegisterOmradeRad {
+  slug: string | null;
+  registeromrade: string;
+  analysdatum: string;
+}
+
+/** One `register_sammanfattning` row as the lists show it. */
+export interface RegisterSammanfattningVy {
+  orgnr: string;
+  slug: string;
+  namn: string;
+  registeromrade: string;
+  rakenskapsar: number;
+  betyg: "A" | "B" | "C" | "D" | "E" | null;
+  skuldsattningPerM2BrfYta: number | null;
+  arsavgiftPerM2BrfYta: number | null;
+  sparandePerM2Totalyta: number | null;
+  analysdatum: string;
+}
+
+export interface RegisterListaParametrar {
+  /** Area slugs to include (always set: only listed areas are ever public). */
+  omraden: readonly string[];
+  /** Free text: matches the name (ilike, trigram-indexed on `forening`) or the orgnr. */
+  sok: string;
+  sortering: RegisterSorteringsKolumn;
+  stigande: boolean;
+  /** 0-based offset and page size. */
+  fran: number;
+  antal: number;
+}
+
+/** What the public pages may read about one association: `forening` plus the
+ *  rapporter's parse-only columns (never `property_input`, never `analys`). */
+export interface RegisterForeningRad {
+  orgnr: string;
+  namn: string | null;
+  slug: string | null;
+  registeromrade: string | null;
+}
+
+export interface RegisterRapportRad {
+  id: string;
+  rakenskapsar: number;
+  pipelineVersion: string;
+  /** Raw jsonb: parse with `tolkaRapportInnehall` before use. */
+  extraction: unknown;
+  judgement: unknown;
+  analysdatum: string;
+}
+
+export interface RegisterLasning {
+  /** Every summary row in a listed area, light columns only (paged internally). */
+  listaOmradeRader(omraden: readonly string[]): Promise<RegisterOmradeRad[]>;
+  /** One page of summary rows plus the total match count. */
+  listaSammanfattningar(
+    p: RegisterListaParametrar,
+  ): Promise<{ rader: RegisterSammanfattningVy[]; totalt: number }>;
+  hamtaForeningViaSlug(slug: string): Promise<RegisterForeningRad | null>;
+  /** `forening_slug`: the orgnr an old slug belonged to. */
+  hamtaOrgnrViaGammalSlug(slug: string): Promise<string | null>;
+  hamtaForeningViaOrgnr(orgnr: string): Promise<RegisterForeningRad | null>;
+  /** Done rapporter of one BRF, newest räkenskapsår first. */
+  listaKlaraRapporter(orgnr: string): Promise<RegisterRapportRad[]>;
+}

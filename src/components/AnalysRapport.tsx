@@ -98,12 +98,7 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
         skapad={analys.skapad}
       />
 
-      <Card className="mb-6 flex flex-wrap items-center gap-6">
-        <div className="flex size-20 items-center justify-center rounded-full border-4 border-primary/20 bg-primary/5 font-display text-3xl text-primary">
-          {analys.betyg}
-        </div>
-        <p className="max-w-xl flex-1 text-sm text-foreground">{analys.betygMotivering}</p>
-      </Card>
+      <Betygskort betyg={analys.betyg} motivering={analys.betygMotivering} />
 
       <RodaFlaggor analys={analys} />
 
@@ -138,7 +133,25 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
   );
 }
 
-function RodaFlaggor({ analys }: { analys: AnalysisResult }) {
+/**
+ * Betygskortet, RodaFlaggor, Foreningsekonomi, OvrigInfo och Fragor nedan är
+ * exporterade så att den publika BRF-sidan (`/brf/$slug`) kan visa de
+ * BRF-nivåsektioner som inte kräver köparens uppgifter. De tar bara de fält de
+ * faktiskt läser (`Pick<…>`), så en sida utan `prisanalys`/`input` kan rendera
+ * dem. Själva renderingen är oförändrad.
+ */
+export function Betygskort({ betyg, motivering }: { betyg: string; motivering: string }) {
+  return (
+    <Card className="mb-6 flex flex-wrap items-center gap-6">
+      <div className="flex size-20 items-center justify-center rounded-full border-4 border-primary/20 bg-primary/5 font-display text-3xl text-primary">
+        {betyg}
+      </div>
+      <p className="max-w-xl flex-1 text-sm text-foreground">{motivering}</p>
+    </Card>
+  );
+}
+
+export function RodaFlaggor({ analys }: { analys: Pick<AnalysisResult, "rodaFlaggor"> }) {
   const flaggor = toppRodaFlaggor(analys.rodaFlaggor, 2);
 
   if (flaggor.length === 0) return null;
@@ -168,7 +181,7 @@ const severityLabel: Record<Severity, string> = {
   lag: "Låg risk",
 };
 
-function Foreningsekonomi({ analys }: { analys: AnalysisResult }) {
+export function Foreningsekonomi({ analys }: { analys: Pick<AnalysisResult, "forening"> }) {
   const keyFigures = analys.forening.keyFigures.filter(
     (kf) => visasIHuvudanalys(kf.id) && kf.status !== "okant",
   );
@@ -253,7 +266,14 @@ function avgiftStatusText(status: Tristate | undefined): string {
  * task 1.5. Hidden entirely when there is nothing at all to show — an empty
  * section would just be noise.
  */
-function OvrigInfo({ analys }: { analys: AnalysisResult }) {
+export function OvrigInfo({
+  analys,
+}: {
+  analys: {
+    forening: AnalysisResult["forening"];
+    datakvalitet: Pick<AnalysisResult["datakvalitet"], "extraktionKonfidens" | "kalla">;
+  };
+}) {
   const f = analys.forening;
 
   const antalPoster = [
@@ -665,7 +685,7 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
   );
 }
 
-function Fragor({ analys }: { analys: AnalysisResult }) {
+export function Fragor({ analys }: { analys: Pick<AnalysisResult, "fragor"> }) {
   const [checked, setChecked] = useState<string[]>([]);
   const toggle = (k: string) =>
     setChecked((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));

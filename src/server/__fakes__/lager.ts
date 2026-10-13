@@ -38,6 +38,8 @@ import type {
   RapportFilRad,
   RapportFilter,
   RapportRad,
+  RegisterLasning,
+  RegisterSammanfattningVy,
   Sidtext,
   SidtextKalla,
   SkapaRapportResultat,
@@ -155,6 +157,9 @@ export interface FakeDatabas extends Databas {
    *  principal merge or erasure acts on the same rows the job code reads —
    *  one `analys` table, like the real database. */
   _analysTabell(): Map<string, AnalysRad>;
+  /** The public register's read port over this fake's tables (for
+   *  registerPublik tests). */
+  _registerLasning(): RegisterLasning;
 }
 
 function skapaFakeDatabas(): FakeDatabas {
@@ -726,6 +731,139 @@ function skapaFakeDatabas(): FakeDatabas {
     _slugHistorik: () => [...slugHistorik],
     _registerSammanfattning: () => [...sammanfattningar.values()],
     _analysTabell: () => analysRader,
+    _registerLasning: () =>
+      skapaFakeRegisterLasning(
+        sammanfattningar,
+        foreningar,
+        foreningOmrade,
+        slugHistorik,
+        rapporter,
+      ),
+  };
+}
+
+/** Fake of the register's read port, mirroring src/server/supabase.ts's
+ *  `skapaRegisterLasningFranKlient` (name/orgnr search, sort, nulls last). */
+function skapaFakeRegisterLasning(
+  sammanfattningar: Map<string, RegisterSammanfattningRad>,
+  foreningar: Map<string, ForeningRad>,
+  foreningOmrade: Map<
+    string,
+    { slug: string | null; registeromrade: string | null; omradeKalla: OmradeKalla | null }
+  >,
+  slugHistorik: Array<{ slug: string; orgnr: string }>,
+  rapporter: Map<string, RapportRad>,
+): RegisterLasning {
+  const foreningRad = (orgnr: string) => {
+    const f = foreningar.get(orgnr);
+    if (!f) return null;
+    const o = foreningOmrade.get(orgnr);
+    return {
+      orgnr,
+      namn: f.namn,
+      slug: o?.slug ?? null,
+      registeromrade: o?.registeromrade ?? null,
+    };
+  };
+  return {
+    async listaOmradeRader(omraden) {
+      return [...sammanfattningar.values()]
+        .filter((r) => r.registeromrade !== null && omraden.includes(r.registeromrade))
+        .map((r) => ({
+          slug: r.slug,
+          registeromrade: r.registeromrade!,
+          analysdatum: r.analysdatum,
+        }));
+    },
+    async listaSammanfattningar(p) {
+      const sok = p.sok.trim().toLowerCase();
+      const siffror = sok.replace(/\D/g, "");
+      const kandidater: RegisterSammanfattningVy[] = [];
+      for (const r of sammanfattningar.values()) {
+        if (r.slug === null || r.namn === null || r.registeromrade === null) continue;
+        if (!p.omraden.includes(r.registeromrade)) continue;
+        if (sok !== "") {
+          const namnTraff = r.namn.toLowerCase().includes(sok);
+          const orgnrTraff =
+            /^[\d\s-]+$/.test(sok) &&
+            siffror.length >= 4 &&
+            r.orgnr.replace("-", "").includes(siffror);
+          if (!namnTraff && !orgnrTraff) continue;
+        }
+        const nt = r.nyckeltal;
+        kandidater.push({
+          orgnr: r.orgnr,
+          slug: r.slug,
+          namn: r.namn,
+          registeromrade: r.registeromrade,
+          rakenskapsar: r.rakenskapsar,
+          betyg: (r.betyg as RegisterSammanfattningVy["betyg"]) ?? null,
+          skuldsattningPerM2BrfYta: nt["skuldsattning_per_m2_brf_yta"] ?? null,
+          arsavgiftPerM2BrfYta: nt["arsavgift_per_m2_brf_yta"] ?? null,
+          sparandePerM2Totalyta: nt["sparande_per_m2_totalyta"] ?? null,
+          analysdatum: r.analysdatum,
+        });
+      }
+      const varde = (r: RegisterSammanfattningVy): string | number | null => {
+        switch (p.sortering) {
+          case "skuldsattning_per_m2_brf_yta":
+            return r.skuldsattningPerM2BrfYta;
+          case "arsavgift_per_m2_brf_yta":
+            return r.arsavgiftPerM2BrfYta;
+          case "sparande_per_m2_totalyta":
+            return r.sparandePerM2Totalyta;
+          case "betyg":
+            return r.betyg;
+          case "analysdatum":
+            return r.analysdatum;
+        }
+      };
+      kandidater.sort((a, b) => {
+        const x = varde(a);
+        const y = varde(b);
+        if (x === null && y !== null) return 1; // nulls last in both directions
+        if (y === null && x !== null) return -1;
+        if (x !== null && y !== null && x !== y) {
+          const c = x < y ? -1 : 1;
+          return p.stigande ? c : -c;
+        }
+        return a.orgnr.localeCompare(b.orgnr);
+      });
+      return { rader: kandidater.slice(p.fran, p.fran + p.antal), totalt: kandidater.length };
+    },
+    async hamtaForeningViaSlug(slug) {
+      for (const [orgnr, o] of foreningOmrade) if (o.slug === slug) return foreningRad(orgnr);
+      return null;
+    },
+    async hamtaOrgnrViaGammalSlug(slug) {
+      return slugHistorik.find((h) => h.slug === slug)?.orgnr ?? null;
+    },
+    async hamtaForeningViaOrgnr(orgnr) {
+      return foreningRad(orgnr);
+    },
+    async listaKlaraRapporter(orgnr) {
+      return [...rapporter.values()]
+        .filter(
+          (r) =>
+            r.orgnr === orgnr &&
+            r.status === "done" &&
+            r.extraction !== null &&
+            r.judgement !== null,
+        )
+        .sort(
+          (a, b) =>
+            b.rakenskapsar! - a.rakenskapsar! ||
+            (b.finishedAt ?? "").localeCompare(a.finishedAt ?? ""),
+        )
+        .map((r) => ({
+          id: r.id,
+          rakenskapsar: r.rakenskapsar!,
+          pipelineVersion: r.pipelineVersion,
+          extraction: r.extraction,
+          judgement: r.judgement,
+          analysdatum: r.finishedAt ?? r.createdAt,
+        }));
+    },
   };
 }
 

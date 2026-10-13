@@ -20,6 +20,7 @@ export const Route = createFileRoute("/analys_/$analysisId")({
   head: () => ({
     meta: [
       { title: "Din analys — Binfo" },
+      { name: "robots", content: "noindex" },
       {
         name: "description",
         content: "Den fullständiga analysen: nyckeltal, prisbedömning, räntestresstest och frågor.",

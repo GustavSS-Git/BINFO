@@ -12,3 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# Private pages (/analys, /forhandsvisning, /konto) are kept out of search results
+# with a noindex meta tag, not a Disallow rule here: a crawler must be allowed to
+# fetch a page to see its noindex.
+Sitemap: https://binfo.slanesens.com/sitemap.xml
