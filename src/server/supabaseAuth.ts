@@ -166,7 +166,11 @@ export function skapaAuthPortFranFabrik(fabrik: KlientFabrik): AuthPort {
     async valideraAccessToken(accessToken): Promise<TokenKontroll> {
       const { data, error } = await fabrik.admin().auth.getUser(accessToken);
       if (error) {
-        return mappaAuthFel(error) === "tillfalligt" ? { status: "fel" } : { status: "ogiltig" };
+        // A 429 is not a verdict on the token either: treat it like an outage.
+        const orsak = mappaAuthFel(error);
+        return orsak === "tillfalligt" || orsak === "kvot"
+          ? { status: "fel" }
+          : { status: "ogiltig" };
       }
       if (!data.user) return { status: "ogiltig" };
       return { status: "ok", anvandare: tillAnvandare(data.user) };
@@ -210,6 +214,17 @@ export function skapaAuthPortFranFabrik(fabrik: KlientFabrik): AuthPort {
       } catch (fel) {
         console.warn(
           "[auth] signOut misslyckades: " + (fel instanceof Error ? fel.message : String(fel)),
+        );
+      }
+    },
+
+    async loggaUtAndraSessioner(accessToken): Promise<void> {
+      try {
+        await fabrik.admin().auth.admin.signOut(accessToken, "others");
+      } catch (fel) {
+        console.warn(
+          "[auth] signOut (others) misslyckades: " +
+            (fel instanceof Error ? fel.message : String(fel)),
         );
       }
     },

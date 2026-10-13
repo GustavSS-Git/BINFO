@@ -911,7 +911,14 @@ export async function uppdateraRegisterForOrgnr(
     const forening = await db.hamtaForening(orgnr);
     const rapporter = await db.listaRapporter({ orgnr });
     let extraction: ExtractionResult | null = null;
-    for (const r of rapporter) {
+    // Explicit order, not whatever `listaRapporter` returns: latest fiscal year
+    // first, then the most recently finished.
+    const nyastForst = [...rapporter].sort(
+      (a, b) =>
+        (b.rakenskapsar ?? -1) - (a.rakenskapsar ?? -1) ||
+        (b.finishedAt ?? "").localeCompare(a.finishedAt ?? ""),
+    );
+    for (const r of nyastForst) {
       if (r.status !== "done") continue;
       const innehall = tolkaRapportInnehall(r);
       if (innehall) {

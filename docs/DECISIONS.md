@@ -50,3 +50,5 @@ One line each: date — decision — rationale. Owner decisions are marked (owne
 - 2026-10-13 — KALP children 0–3 use Konsumentverket's dearer "0 år" column; adults counted as 25–50; households above 7 persons → KALP not computed (no extrapolation).
 - 2026-10-13 — Calculator no longer reads boarea/antalPersoner from the shared uppgifter store (it can't tell a typed value from the legacy 58 m² default); boarea is a field on the page.
 - 2026-10-13 — Ränteavdrag in the calculator is floored to whole kronor (IL 67 kap 1 §); the amortisation badge uses the exact LTV (70.04 % → 2 %).
+- 2026-10-13 — M3 kept by design: the page-reference verifier corrects a page only when the exact excerpt (≥ 12 canonical chars) is absent from the cited page and present on exactly one other page; measured 457/457 ok, 0 corrections on the 13 answer-key reports.
+- 2026-10-13 — L3 documented as a known limitation: if a session expires without a logout, a later anonymous upload on that device is attributed to the account it was merged into (the device id is only rotated on logout and on email-link login).

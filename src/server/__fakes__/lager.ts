@@ -768,7 +768,13 @@ function skapaFakeRegisterLasning(
   return {
     async listaOmradeRader(omraden) {
       return [...sammanfattningar.values()]
-        .filter((r) => r.registeromrade !== null && omraden.includes(r.registeromrade))
+        .filter(
+          (r) =>
+            r.registeromrade !== null &&
+            r.slug !== null &&
+            r.namn !== null &&
+            omraden.includes(r.registeromrade),
+        )
         .map((r) => ({
           slug: r.slug,
           registeromrade: r.registeromrade!,

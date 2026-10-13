@@ -200,6 +200,69 @@ describe("bekraftaEpost", () => {
     expect(igen).toMatchObject({ ok: false, felKod: "ogiltig_lank" });
   });
 
+  it("länk slår INTE ihop enhetens anonyma principal och roterar enhets-id", async () => {
+    const t = await bygg();
+    const enhetP = await t.db.sakerstallPrincipal(ENHET);
+    t.db.laggTillAnalys({
+      id: "a1",
+      principalId: enhetP,
+      propertyInput: {} as never,
+      rapportId: null,
+    });
+    await registreraKonto(await t.beroenden(), { epost: "ny@example.se", losenord: LOSEN });
+    const m = t.auth.mejl[0]!;
+    const r = await bekraftaEpost(await t.beroenden(), { tokenHash: m.tokenHash, typ: "signup" });
+    expect(r).toMatchObject({ ok: true });
+    expect(t.db.analyser.get("a1")?.principalId).toBe(enhetP);
+    expect(t.db.principaler.get(enhetP)?.sammanslagenTill).toBeNull();
+    const nyttId = t.kallor.cookies.get(ENHET_COOKIE);
+    expect(nyttId).toBeTruthy();
+    expect(nyttId).not.toBe(ENHET);
+    // Following (session) requests use the new device id: still no merge.
+    await t.lasKontext();
+    expect(t.db.analyser.get("a1")?.principalId).toBe(enhetP);
+  });
+
+  it("login-CSRF: aktiv session för ANNAT konto nekas, inga cookies ändras", async () => {
+    const t = await bygg();
+    const offer = t.auth.skapaBekraftadAnvandare("offer@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "offer@example.se", losenord: LOSEN });
+    const forAccess = t.kallor.cookies.get(ACCESS_COOKIE);
+    const forRefresh = t.kallor.cookies.get(REFRESH_COOKIE);
+    const forEnhet = t.kallor.cookies.get(ENHET_COOKIE);
+
+    // The attacker's own link.
+    const angripare = t.auth.skapaBekraftadAnvandare("angripare@example.se", LOSEN);
+    await begarAterstallning(await t.beroenden(), { epost: "angripare@example.se" });
+    const m = t.auth.mejl.find((x) => x.till === "angripare@example.se")!;
+    t.kallor.satta.length = 0;
+    const r = await bekraftaEpost(await t.beroenden(), { tokenHash: m.tokenHash, typ: "recovery" });
+    expect(r).toMatchObject({
+      ok: false,
+      felKod: "annan_session_aktiv",
+      meddelande:
+        "Du är redan inloggad med ett annat konto. Logga ut och be om en ny länk (via Glömt lösenord eller genom att registrera dig igen).",
+    });
+    expect(t.kallor.satta).toEqual([]);
+    expect(t.kallor.cookies.get(ACCESS_COOKIE)).toBe(forAccess);
+    expect(t.kallor.cookies.get(REFRESH_COOKIE)).toBe(forRefresh);
+    expect(t.kallor.cookies.get(ENHET_COOKIE)).toBe(forEnhet);
+    expect(t.kallor.cookies.has(ATERST_COOKIE)).toBe(false);
+    expect((await t.lasKontext()).konto?.authUserId).toBe(offer.id);
+    // The session the consumed token opened is ended again.
+    expect([...t.auth.accessTokens.values()].some((x) => x.userId === angripare.id)).toBe(false);
+  });
+
+  it("samma konto med aktiv session: länken fungerar", async () => {
+    const t = await bygg();
+    t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    await begarAterstallning(await t.beroenden(), { epost: "anna@example.se" });
+    const m = t.auth.mejl[0]!;
+    const r = await bekraftaEpost(await t.beroenden(), { tokenHash: m.tokenHash, typ: "recovery" });
+    expect(r).toMatchObject({ ok: true, typ: "recovery" });
+  });
+
   it("fel typ, skräp och saknad data ger ogiltig_lank", async () => {
     const t = await bygg();
     await registreraKonto(await t.beroenden(), { epost: "ny@example.se", losenord: LOSEN });
@@ -212,6 +275,28 @@ describe("bekraftaEpost", () => {
     ]) {
       expect(await bekraftaEpost(await t.beroenden(), d)).toMatchObject({ felKod: "ogiltig_lank" });
     }
+  });
+});
+
+describe("sattNyttLosenord: andra sessioner", () => {
+  it("övriga sessioners refresh- och access-tokens slutar fungera; den egna lever", async () => {
+    const t = await bygg();
+    const u = t.auth.skapaBekraftadAnvandare("anna@example.se", LOSEN);
+    const annan = t.auth.utfardaSession(u.id); // e.g. a stolen session
+    await loggaIn(await t.beroenden(), { epost: "anna@example.se", losenord: LOSEN });
+    const egen = t.kallor.cookies.get(REFRESH_COOKIE)!;
+
+    const r = await sattNyttLosenord(await t.beroenden(), {
+      losenord: "helt-nytt-losenord",
+      nuvarandeLosenord: LOSEN,
+    });
+    expect(r).toEqual({ ok: true });
+
+    expect(await t.auth.fornyaSession(annan.refreshToken)).toMatchObject({ ok: false });
+    expect(await t.auth.valideraAccessToken(annan.accessToken)).toEqual({ status: "ogiltig" });
+    expect((await t.lasKontext()).konto).toBeDefined();
+    expect(t.kallor.cookies.get(REFRESH_COOKIE)).toBeTruthy();
+    expect(egen).toBeTruthy();
   });
 });
 

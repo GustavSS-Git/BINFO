@@ -213,6 +213,11 @@ $$;
 alter table forening_slug          enable row level security;
 alter table register_sammanfattning enable row level security;
 
+-- Defence in depth (matching sparad_*): RLS with no policy already blocks
+-- these for the API roles; the table privileges are removed as well.
+revoke all on table register_sammanfattning from anon, authenticated;
+revoke all on table forening_slug           from anon, authenticated;
+
 revoke execute on function register_nyckeltal(jsonb, text)                          from public, anon, authenticated;
 revoke execute on function uppdatera_register_sammanfattning(text, text)            from public, anon, authenticated;
 revoke execute on function satt_forening_omrade(text, text, text, text)             from public, anon, authenticated;

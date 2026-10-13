@@ -168,3 +168,52 @@ describe("loggaStegfel", () => {
     logg.mockRestore();
   });
 });
+
+describe("uppdateraRegisterForOrgnr: adresser från senaste räkenskapsåret", () => {
+  const adr = (gata: string, pn: string) => [
+    { gatuadress: gata, postnummer: pn, ort: "Stockholm", ref: { page: 1, excerpt: gata } },
+  ];
+
+  async function skapa(
+    lager: ReturnType<typeof skapaFakeLager>,
+    ar: number,
+    gata: string,
+    klar: string,
+    pdfHash: string,
+  ) {
+    const r = await lager.db.skapaRapport({
+      orgnr: ORGNR,
+      rakenskapsar: ar,
+      pipelineVersion: PIPELINE_VERSION,
+      model: "claude-sonnet-5-5",
+      textlager: "ok",
+      status: "done",
+      stage: "klar",
+      pdfHash,
+      extraction: {
+        ...extraktion,
+        forening: { ...extraktion.forening, adresser: adr(gata, "11242") },
+      },
+      judgement: { betyg: "C", betygMotivering: "M.", rodaFlaggor: [], fragor: [] },
+      finishedAt: klar,
+    });
+    expect(r.ok).toBe(true);
+  }
+
+  it("väljer högsta räkenskapsår oavsett när det blev klart eller i vilken ordning de skapades", async () => {
+    const lager = skapaFakeLager();
+    await lager.db.registreraForening(ORGNR, "Brf Granen 10-11");
+    // The older year finished LAST and was created first/last in both orders below.
+    await skapa(lager, 2025, "Nya gatan 1", "2026-10-01T10:00:00.000Z", "h25");
+    await skapa(lager, 2024, "Gamla gatan 9", "2026-10-12T10:00:00.000Z", "h24");
+    await uppdateraRegisterForOrgnr(lager.db, ORGNR);
+    expect(lager.db._allaAdresser().map((a) => a.adress)).toEqual(["Nya gatan 1"]);
+
+    const omvand = skapaFakeLager();
+    await omvand.db.registreraForening(ORGNR, "Brf Granen 10-11");
+    await skapa(omvand, 2024, "Gamla gatan 9", "2026-10-12T10:00:00.000Z", "h24");
+    await skapa(omvand, 2025, "Nya gatan 1", "2026-10-01T10:00:00.000Z", "h25");
+    await uppdateraRegisterForOrgnr(omvand.db, ORGNR);
+    expect(omvand.db._allaAdresser().map((a) => a.adress)).toEqual(["Nya gatan 1"]);
+  });
+});

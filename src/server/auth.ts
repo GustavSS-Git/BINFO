@@ -244,8 +244,23 @@ export async function bekraftaEpost(b: KontoBeroenden, data: unknown): Promise<B
     }
   }
 
-  const { principalId } = await sakerstallKontoPrincipal(b.db, r.anvandare.id, b.kontext.enhetId);
+  // Login CSRF: a valid link from the ATTACKER's own account, pressed by a
+  // victim, must not replace the victim's session silently. (The token is
+  // already consumed here, so the session it just opened is ended again.)
+  const aktiv = b.kontext.konto;
+  if (aktiv !== undefined && aktiv.authUserId !== r.anvandare.id) {
+    await b.auth.loggaUt(r.session.accessToken);
+    return kontoFel("annan_session_aktiv");
+  }
+
+  // No device merge: a link is not proof that THIS browser's anonymous
+  // analyses belong to the account (only a password login, `loggaIn`, is).
+  const { principalId } = await sakerstallKontoPrincipal(b.db, r.anvandare.id, null);
   sattSessionCookies(b.kallor, r.session);
+  // A fresh device id, so neither this request's later uploads nor the next
+  // request's `losSession` can attribute the old device (and its anonymous
+  // history) to the account the link logged in.
+  b.kallor.sattCookie(ENHET_COOKIE, skapaEnhetId(), { ...ENHET_COOKIE_ALTERNATIV });
   if (parsed.data.typ === "recovery") {
     await sattAterstallningsmarke(b.kallor, b.hemlighet, r.anvandare.id);
   }
@@ -324,6 +339,9 @@ export async function sattNyttLosenord(
   }
   if (r.session !== null) sattSessionCookies(b.kallor, r.session);
   rensaAterstallningsmarke(b.kallor);
+  // A changed password must end every OTHER session (a stolen one included).
+  const aktuellToken = r.session?.accessToken ?? accessToken;
+  if (aktuellToken !== undefined) await b.auth.loggaUtAndraSessioner(aktuellToken);
   return { ok: true };
 }
 

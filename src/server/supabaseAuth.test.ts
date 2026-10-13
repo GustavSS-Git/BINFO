@@ -139,6 +139,26 @@ describe("supabaseAuth (AuthPort mot en mockad klient)", () => {
     ).toBe("fel");
   });
 
+  it("valideraAccessToken: 429 är 'fel' (inget utslag om token), inte 'ogiltig'", async () => {
+    const r = await port({
+      getUser: { data: { user: null }, error: authFel("over_request_rate_limit", 429) },
+    }).p.valideraAccessToken("t");
+    expect(r.status).toBe("fel");
+  });
+
+  it("loggaUtAndraSessioner: admin.signOut med scope others; kastar aldrig", async () => {
+    const { p, anrop } = port({});
+    await p.loggaUtAndraSessioner("a.b.c");
+    expect(anrop[0]).toEqual({ namn: "admin.signOut", args: ["a.b.c", "others"] });
+    const trasig = skapaAuthPortFranFabrik({
+      publik: () => klient({}, []),
+      admin: () => {
+        throw new Error("nere");
+      },
+    });
+    await expect(trasig.loggaUtAndraSessioner("a.b.c")).resolves.toBeUndefined();
+  });
+
   it("fornyaSession: ogiltigt refresh → ogiltig_token; nere → tillfalligt", async () => {
     expect(
       await port({

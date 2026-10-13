@@ -44,11 +44,13 @@ export interface FakeAuth extends AuthPort {
   /** Every mail GoTrue would have sent, in order. */
   readonly mejl: FakeMejl[];
   /** Access tokens currently valid (until they expire). */
-  readonly accessTokens: Map<string, { userId: string; utgar: number }>;
+  readonly accessTokens: Map<string, { userId: string; utgar: number; sessionId: string }>;
   /** Refresh tokens: used ones are kept (and refused). */
-  readonly refreshTokens: Map<string, { userId: string; anvand: boolean }>;
+  readonly refreshTokens: Map<string, { userId: string; anvand: boolean; sessionId: string }>;
   /** Calls to `valideraAccessToken` / `fornyaSession` fail like an outage. */
   simuleraAuthNere: boolean;
+  /** `fornyaSession` answers `kvot` (Auth's 429). */
+  simuleraFornyaKvot: boolean;
   /** Creates a confirmed user directly. */
   skapaBekraftadAnvandare(epost: string, losenord: string): FakeAuthAnvandare;
   /** Issues a session for a user without a login (a test shortcut). */
@@ -62,8 +64,8 @@ export const FAKE_ACCESS_LEVNAD_SEK = 3600;
 export function skapaFakeAuth(nu: () => number = () => Date.now()): FakeAuth {
   const anvandare = new Map<string, FakeAuthAnvandare>();
   const mejl: FakeMejl[] = [];
-  const accessTokens = new Map<string, { userId: string; utgar: number }>();
-  const refreshTokens = new Map<string, { userId: string; anvand: boolean }>();
+  const accessTokens = new Map<string, { userId: string; utgar: number; sessionId: string }>();
+  const refreshTokens = new Map<string, { userId: string; anvand: boolean; sessionId: string }>();
   const engangstokens = new Map<string, { userId: string; typ: AuthOtpTyp; anvand: boolean }>();
   const anrop: string[] = [];
   let nasta = 1;
@@ -73,12 +75,18 @@ export function skapaFakeAuth(nu: () => number = () => Date.now()): FakeAuth {
     [...anvandare.values()].find((u) => u.epost === normalisera(epost));
   const tillAnvandare = (u: FakeAuthAnvandare): AuthAnvandare => ({ id: u.id, epost: u.epost });
 
-  function utfarda(userId: string): AuthSession {
+  // A refresh keeps the session id (as in GoTrue); a login makes a new one.
+  function utfarda(userId: string, sessionId?: string): AuthSession {
     const n = nasta++;
+    const sid = sessionId ?? `session-${n}`;
     const accessToken = `fakeh${n}.fakep${n}-${userId}.fakesig${n}`;
     const refreshToken = `fakerefresh${n}x`;
-    accessTokens.set(accessToken, { userId, utgar: nu() + FAKE_ACCESS_LEVNAD_SEK * 1000 });
-    refreshTokens.set(refreshToken, { userId, anvand: false });
+    accessTokens.set(accessToken, {
+      userId,
+      utgar: nu() + FAKE_ACCESS_LEVNAD_SEK * 1000,
+      sessionId: sid,
+    });
+    refreshTokens.set(refreshToken, { userId, anvand: false, sessionId: sid });
     return { accessToken, refreshToken, expiresIn: FAKE_ACCESS_LEVNAD_SEK };
   }
 
@@ -105,6 +113,7 @@ export function skapaFakeAuth(nu: () => number = () => Date.now()): FakeAuth {
     accessTokens,
     refreshTokens,
     simuleraAuthNere: false,
+    simuleraFornyaKvot: false,
     anrop,
 
     skapaBekraftadAnvandare: (epost, losenord) => skapa(epost, losenord, true),
@@ -162,12 +171,13 @@ export function skapaFakeAuth(nu: () => number = () => Date.now()): FakeAuth {
     async fornyaSession(refreshToken) {
       anrop.push("fornyaSession");
       if (fake.simuleraAuthNere) return { ok: false, orsak: "tillfalligt" };
+      if (fake.simuleraFornyaKvot) return { ok: false, orsak: "kvot" };
       const r = refreshTokens.get(refreshToken);
       if (r === undefined || r.anvand) return { ok: false, orsak: "ogiltig_token" };
       const u = anvandare.get(r.userId);
       if (u === undefined) return { ok: false, orsak: "ogiltig_token" };
       r.anvand = true;
-      return { ok: true, session: utfarda(u.id), anvandare: tillAnvandare(u) };
+      return { ok: true, session: utfarda(u.id, r.sessionId), anvandare: tillAnvandare(u) };
     },
 
     async uppdateraLosenord(tokens, nyttLosenord) {
@@ -178,7 +188,7 @@ export function skapaFakeAuth(nu: () => number = () => Date.now()): FakeAuth {
         const r = refreshTokens.get(tokens.refreshToken);
         if (r === undefined || r.anvand) return { ok: false, orsak: "ogiltig_token" };
         r.anvand = true;
-        rotera = utfarda(r.userId);
+        rotera = utfarda(r.userId, r.sessionId);
         t = accessTokens.get(rotera.accessToken);
       }
       if (t === undefined) return { ok: false, orsak: "ogiltig_token" };
@@ -194,6 +204,18 @@ export function skapaFakeAuth(nu: () => number = () => Date.now()): FakeAuth {
     async loggaUt(accessToken): Promise<void> {
       anrop.push("loggaUt");
       accessTokens.delete(accessToken);
+    },
+
+    async loggaUtAndraSessioner(accessToken): Promise<void> {
+      anrop.push("loggaUtAndraSessioner");
+      const t = accessTokens.get(accessToken);
+      if (t === undefined) return;
+      for (const [k, v] of accessTokens) {
+        if (v.userId === t.userId && v.sessionId !== t.sessionId) accessTokens.delete(k);
+      }
+      for (const [k, v] of refreshTokens) {
+        if (v.userId === t.userId && v.sessionId !== t.sessionId) refreshTokens.delete(k);
+      }
     },
 
     async raderaAnvandare(userId): Promise<void> {

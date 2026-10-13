@@ -330,6 +330,8 @@ export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
     "E-postadressen är inte bekräftad ännu. Klicka på länken i bekräftelsemejlet först.",
   ogiltig_lank:
     "Länken är ogiltig eller har gått ut. Länkar i mejl fungerar bara en gång och en begränsad tid.",
+  annan_session_aktiv:
+    "Du är redan inloggad med ett annat konto. Logga ut och be om en ny länk (via Glömt lösenord eller genom att registrera dig igen).",
   kvot: "För många försök, vänta en stund.",
   ej_inloggad: "Du behöver logga in för att göra det här.",
   hittades_inte: "Vi hittade inte det du sökte.",

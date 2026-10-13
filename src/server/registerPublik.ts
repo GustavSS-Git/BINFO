@@ -130,7 +130,8 @@ export async function listaOmraden(
 ): Promise<RegisterOmradenSvar | RegisterKvotSvar> {
   const nekad = await nekadAvKvot(b);
   if (nekad) return nekad;
-  const rader = await b.lasning.listaOmradeRader(LISTADE_OMRADEN);
+  // Same rule as the lists: a row without a slug is not public, so it is not counted.
+  const rader = (await b.lasning.listaOmradeRader(LISTADE_OMRADEN)).filter((r) => r.slug);
   return { omraden: raknaOmraden(rader) };
 }
 
@@ -296,7 +297,7 @@ export async function hamtaForening(
 
 /** /brf, every area with at least one BRF, and every listed BRF, with lastmod. */
 export async function hamtaSitemapPoster(lasning: RegisterLasning): Promise<RegisterSitemapPost[]> {
-  const rader = await lasning.listaOmradeRader(LISTADE_OMRADEN);
+  const rader = (await lasning.listaOmradeRader(LISTADE_OMRADEN)).filter((r) => r.slug);
   const poster: RegisterSitemapPost[] = [];
   const nyast = rader.reduce<string | null>(
     (m, r) => (m === null || r.analysdatum > m ? r.analysdatum : m),

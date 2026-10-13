@@ -1172,18 +1172,50 @@ async function forsokIdentitetFranExtraktion(
  * modellen sidbilden, inte den trasiga texten, så en kontroll mot texten skulle
  * markera allt som osäkert. Hämtas FÖRE modellanropet: ett fel här kostar inget.
  */
+/** Skip the page check above these (see hamtaSidtexterForKontroll). */
+const MAX_PDF_BYTES_FOR_SIDKONTROLL = 15_000_000;
+const MAX_SIDOR_FOR_SIDKONTROLL = 60;
+
 async function hamtaSidtexterForKontroll(
   lager: Lager,
   r: RapportRad,
 ): Promise<Map<number, string> | undefined> {
   if (r.textlager === "trasigt") return undefined;
-  if (r.textlager === "saknas") {
-    const sidor = await lager.db.hamtaSidtext(r.id, TRANSKRIBERING_KALLA);
-    return sidor.length > 0 ? new Map(sidor.map((s) => [s.sida, s.text])) : undefined;
+  try {
+    if (r.textlager === "saknas") {
+      const sidor = await lager.db.hamtaSidtext(r.id, TRANSKRIBERING_KALLA);
+      return sidor.length > 0 ? new Map(sidor.map((s) => [s.sida, s.text])) : undefined;
+    }
+    const pdf = await lasRapportPdf(lager, r);
+    // pdf.js over the whole PDF costs Edge CPU (2 s free-plan limit) and memory
+    // in proportion to the file; uploads are accepted up to 25 MB. Above this
+    // size the model call is worth more than the page check, so the check is
+    // skipped ("not checked", never "failed").
+    if (pdf.byteLength > MAX_PDF_BYTES_FOR_SIDKONTROLL) {
+      console.info(
+        `[sidreferenser] Rapport ${r.id}: sidkontrollen hoppas över ` +
+          `(PDF ${Math.round(pdf.byteLength / 1_000_000)} MB > ` +
+          `${MAX_PDF_BYTES_FOR_SIDKONTROLL / 1_000_000} MB).`,
+      );
+      return undefined;
+    }
+    // pdf.js detaches the buffer it is given — hand it a copy.
+    const { pages } = await extractPdfText(pdf.slice());
+    if (pages.length > MAX_SIDOR_FOR_SIDKONTROLL) {
+      console.info(
+        `[sidreferenser] Rapport ${r.id}: sidkontrollen hoppas över ` +
+          `(${pages.length} sidor > ${MAX_SIDOR_FOR_SIDKONTROLL}).`,
+      );
+      return undefined;
+    }
+    return new Map(pages.map((text, i) => [i + 1, text]));
+  } catch (fel) {
+    // The page check is an extra: a parser crash/timeout here must not fail the
+    // rapport before the model call. Extraction proceeds with no page texts,
+    // which the verifier reads as "not checked".
+    loggaStegfel(`Rapport ${r.id} sidtexter för kontroll`, "sidkontroll_hoppad", fel);
+    return undefined;
   }
-  // pdf.js detaches the buffer it is given — hand it a copy.
-  const { pages } = await extractPdfText((await lasRapportPdf(lager, r)).slice());
-  return new Map(pages.map((text, i) => [i + 1, text]));
 }
 
 /** Steg 2 — strukturerad extraktion. Resultatet sparas på rapportraden i
@@ -1336,9 +1368,18 @@ async function korRapportBedomning(
       finishedAt: new Date().toISOString(),
     });
     if (klar) {
-      // The identity may have been set from the extraction after `r` was claimed.
-      const farsk = await lager.db.hamtaRapport(r.id);
-      if (farsk?.orgnr) await uppdateraRegisterForOrgnr(lager.db, farsk.orgnr);
+      // Best effort: the rapport is already done and booked; a read blip here
+      // must not send it to rapportFel (double spend reconciliation).
+      try {
+        // The identity may have been set from the extraction after `r` was claimed.
+        const farsk = await lager.db.hamtaRapport(r.id);
+        if (farsk?.orgnr) await uppdateraRegisterForOrgnr(lager.db, farsk.orgnr);
+      } catch (fel) {
+        console.warn(
+          `[register] Rapport ${r.id}: registeruppdateringen efter klar misslyckades: ` +
+            (fel instanceof Error ? fel.message : String(fel)),
+        );
+      }
     }
   } catch (error) {
     await rapportFel(lager, rad, res, error, spend, bokford);

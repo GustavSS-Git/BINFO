@@ -448,3 +448,28 @@ describe("beskrivning", () => {
     expect(foreningBeskrivning(vy).length).toBeLessThanOrEqual(160);
   });
 });
+
+describe("rader utan slug är inte publika (områdesräkning och sitemap, som listorna)", () => {
+  const lasning = {
+    listaOmradeRader: async () => [
+      { slug: "brf-a-1", registeromrade: "kungsholmen", analysdatum: "2026-01-01" },
+      { slug: null, registeromrade: "kungsholmen", analysdatum: "2026-02-02" },
+    ],
+  } as unknown as ReturnType<FakeLager["db"]["_registerLasning"]>;
+
+  it("listaOmraden räknar bara rader med slug", async () => {
+    const svar = await listaOmraden({ lasning });
+    if (!("omraden" in svar)) throw new Error("kvot");
+    const kh = svar.omraden.find((o) => o.slug === "kungsholmen");
+    expect(kh).toMatchObject({ antal: 1, senastUppdaterad: "2026-01-01" });
+  });
+
+  it("sitemap tar inte med den slug-lösa raden, varken som sida eller i lastmod", async () => {
+    const poster = await hamtaSitemapPoster(lasning);
+    expect(poster).toEqual([
+      { path: "/brf", lastmod: "2026-01-01" },
+      { path: "/brf/omrade/kungsholmen", lastmod: "2026-01-01" },
+      { path: "/brf/brf-a-1", lastmod: "2026-01-01" },
+    ]);
+  });
+});

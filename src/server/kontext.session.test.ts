@@ -131,6 +131,28 @@ describe("losKontext med session", () => {
   });
 });
 
+describe("Auth-kvot (429) vid förnyelse", () => {
+  it("loggar inte ut: requesten är anonym men båda cookies finns kvar", async () => {
+    const u = uppsattning();
+    const s = u.auth.utfardaSession(u.anvandare.id);
+    const k = fakeKallor(
+      {},
+      {
+        [ENHET_COOKIE]: ENHET,
+        [ACCESS_COOKIE]: "gammal.token.x",
+        [REFRESH_COOKIE]: s.refreshToken,
+      },
+    );
+    u.auth.simuleraFornyaKvot = true;
+    expect((await u.kontext(k)).konto).toBeUndefined();
+    expect(k.cookies.get(REFRESH_COOKIE)).toBe(s.refreshToken);
+    expect(k.cookies.get(ACCESS_COOKIE)).toBe("gammal.token.x");
+    // Next request, Auth answers again: the same refresh token still works.
+    u.auth.simuleraFornyaKvot = false;
+    expect((await u.kontext(k)).konto).toBeDefined();
+  });
+});
+
 describe("enhetens anonyma principal slås ihop med kontot — en gång", () => {
   it("första requesten från enheten flyttar enhetens analyser till kontot", async () => {
     const u = uppsattning();

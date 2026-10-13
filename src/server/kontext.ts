@@ -257,7 +257,7 @@ export interface AktivSession {
  * - Rejected/expired access token + refresh cookie → `fornyaSession`; on
  *   success BOTH cookies are rotated to the new tokens.
  * - A token the Auth server definitively rejects → cookies cleared, null.
- * - Auth unreachable (5xx/network) → null for this request but the cookies are
+ * - Auth unreachable (5xx/network) or rate-limiting (429) → null for this request but the cookies are
  *   left alone, so a blip doesn't sign anybody out.
  * - A DB failure while mapping to the principal propagates (the request fails
  *   rather than silently running as the wrong identity).
@@ -291,7 +291,9 @@ export async function losSession(
     if (ny.ok) {
       sattSessionCookies(kallor, ny.session);
       anvandare = ny.anvandare;
-    } else if (ny.orsak === "tillfalligt") {
+    } else if (ny.orsak === "tillfalligt" || ny.orsak === "kvot") {
+      // Auth down or rate-limiting us (429): the refresh token may well be
+      // fine, so this request runs anonymously and the cookies stay.
       return null;
     } else {
       rensaSessionCookies(kallor);

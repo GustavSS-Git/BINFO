@@ -37,6 +37,8 @@ export type KontoFelKod =
   | "epost_ej_bekraftad"
   /** Email link expired, already used or malformed. */
   | "ogiltig_lank"
+  /** An email link was opened while a session for ANOTHER account is active. */
+  | "annan_session_aktiv"
   /** Rate limit ("För många försök, vänta en stund."). */
   | "kvot"
   /** The call needs a session and there is none. */

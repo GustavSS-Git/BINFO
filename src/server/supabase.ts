@@ -840,6 +840,9 @@ export function skapaRegisterLasningFranKlient(sb: SupabaseClient): RegisterLasn
           .from("register_sammanfattning")
           .select("slug, registeromrade, analysdatum")
           .in("registeromrade", [...omraden])
+          // Same listing rule as the pages: a row without slug/namn is not public.
+          .not("slug", "is", null)
+          .not("namn", "is", null)
           .order("orgnr", { ascending: true })
           .range(fran, fran + REGISTER_SIDA - 1);
         if (error) throw new Error(`listaOmradeRader misslyckades: ${error.message}`);
@@ -849,7 +852,7 @@ export function skapaRegisterLasningFranKlient(sb: SupabaseClient): RegisterLasn
           analysdatum: string;
         }>;
         for (const r of rader) {
-          if (r.registeromrade !== null) {
+          if (r.registeromrade !== null && r.slug !== null) {
             ut.push({ slug: r.slug, registeromrade: r.registeromrade, analysdatum: r.analysdatum });
           }
         }

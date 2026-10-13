@@ -324,6 +324,10 @@ export interface AuthPort {
   ): Promise<AuthResultat<{ session: AuthSession | null }>>;
   /** Ends the session of this access token (best effort; never throws). */
   loggaUt(accessToken: string): Promise<void>;
+  /** `auth.admin.signOut(jwt, 'others')`: ends every session of this token's
+   *  user EXCEPT the one the token belongs to (best effort; never throws).
+   *  Called after a password change. */
+  loggaUtAndraSessioner(accessToken: string): Promise<void>;
   /** `auth.admin.deleteUser`. Throws on failure. */
   raderaAnvandare(userId: string): Promise<void>;
 }
