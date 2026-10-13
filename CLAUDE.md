@@ -350,7 +350,10 @@ cd ml && .venv/bin/pytest                  # ML tests
     transcription uses the grounding effort).
   - `PROJECT_SECRET_KEY` also derives the IP-hash key (`binfo-ip-v1`).
 - **Edge Function:** the same, minus `ANTHROPIC_MODEL` (the model comes from the
-  job row), plus `AUTOMATIONS_KEY`.
+  job row), plus `AUTOMATIONS_KEY`. These live in **Supabase** secrets, separate
+  from Lovable's: rotating `ANTHROPIC_API_KEY` means updating `.env.local`,
+  Lovable Secrets AND Supabase Edge Function secrets (2026-10-13 incident:
+  only two were updated, so every new analysis failed at `grundning`).
 - **CLI/dev only:** `SUPABASE_ACCESS_TOKEN` (Supabase CLI only),
   `ANTHROPIC_PROMPT_CACHE` (`off`/`system`/`on`), `ANTHROPIC_EFFORT` (generic
   fallback), `ANTHROPIC_EFFORT_TRANSKRIBERING`, `PRISKALLA`
