@@ -804,3 +804,5 @@ at 1 req/s.
 | 2026-10-13 | Wave 2 launched: W2 accounts frontend, W5 register pages + SEO; W6 still running; W7 after W6 | in progress |
 | 2026-10-13 | W6 calculator merged (1b2de83): rules registry, one ränteavdrag, KALP, scenarios; sparaKalkylFn wired (38c3739) | done |
 | 2026-10-13 | W2 accounts frontend merged (eca98e9): local E2E 41 steps, 0 defects; mobile nav wraps (Lovable) | done |
+| 2026-10-13 | Production analysis verified after Edge key rotation (Pontonjären, ~90 s) | done |
+| 2026-10-13 | W5 register + SEO merged (fb1bbf0): verify-rls 97/97 local; no Set-Cookie on cached pages; 390 px overflow fixed | done |
