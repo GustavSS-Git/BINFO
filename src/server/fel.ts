@@ -338,7 +338,8 @@ export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
   ogiltig_indata: "Uppgifterna är ogiltiga. Kontrollera dem och försök igen.",
   for_manga_sparade: "Du har nått gränsen för antal sparade objekt. Ta bort något och försök igen.",
   konto_ej_konfigurerat: "Konton är inte aktiverade just nu. Försök igen senare.",
-  unknown: GENERISKT_FEL_MEDDELANDE,
+  // Not the analysis copy: account pages must not say "Analysen kunde inte…".
+  unknown: "Något gick fel hos oss. Försök igen om en stund, och kontakta oss om felet kvarstår.",
 };
 
 export function kontoFel(felKod: KontoFelKod): KontoFel {

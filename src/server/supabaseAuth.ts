@@ -57,7 +57,10 @@ const OGILTIG_TOKEN_KODER = new Set([
 /** GoTrue error → what the caller acts on. The raw message is dropped. */
 export function mappaAuthFel(fel: unknown): AuthFelOrsak {
   const f = (fel ?? {}) as AuthFelLik;
-  if (arTillfalligt(f)) return "tillfalligt";
+  if (arTillfalligt(f)) {
+    loggaOvantatAuthFel("tillfalligt", f);
+    return "tillfalligt";
+  }
   switch (f.code) {
     case "invalid_credentials":
       return "ogiltig_inloggning";
@@ -78,7 +81,18 @@ export function mappaAuthFel(fel: unknown): AuthFelOrsak {
   if (f.status === 429) return "kvot";
   // A 401/403 with no (known) code: an invalid or expired credential.
   if (f.status === 401 || f.status === 403) return "ogiltig_token";
+  loggaOvantatAuthFel("annat", f);
   return "annat";
+}
+
+/** Server log for Auth errors the app can't explain to the buyer (e.g. a
+ *  failing SMTP send at sign-up is a GoTrue 500). Name, status and code only:
+ *  GoTrue messages can echo the email address. */
+function loggaOvantatAuthFel(orsak: AuthFelOrsak, f: AuthFelLik): void {
+  console.warn(
+    `[auth] Oväntat Auth-fel (${orsak}): name=${f.name ?? "?"} status=${f.status ?? "?"} ` +
+      `code=${f.code ?? "?"}`,
+  );
 }
 
 function tillSession(s: Session): AuthSession {
