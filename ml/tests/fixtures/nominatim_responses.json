@@ -1,0 +1,324 @@
+{
+ "_meta": {
+  "license": "Data (c) OpenStreetMap contributors, ODbL 1.0. https://www.openstreetmap.org/copyright",
+  "retrieved": "2026-10-13",
+  "source": "https://nominatim.openstreetmap.org/search (structured query, countrycodes=se, format=jsonv2)",
+  "what": "Recorded Nominatim /search responses used to test ml/mapping/geokoda_adress.py offline."
+ },
+ "responses": {
+  "baltzar von platens gata 6|11242|stockholm": [
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-AB",
+     "city": "Stockholm",
+     "city_district": "Kungsholmens stadsdelsområde",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Stockholms län",
+     "house_number": "6",
+     "municipality": "Stockholms kommun",
+     "postcode": "112 35",
+     "road": "Baltzar von Platens Gata",
+     "suburb": "Kungsholmen"
+    },
+    "addresstype": "place",
+    "boundingbox": [
+     "59.3288537",
+     "59.3289537",
+     "18.0317267",
+     "18.0318267"
+    ],
+    "category": "place",
+    "display_name": "6, Baltzar von Platens Gata, Kungsholmen, Kungsholmens stadsdelsområde, Stockholm, Stockholms kommun, Stockholms län, 112 35, Sverige",
+    "importance": 8.40184634164495e-05,
+    "lat": "59.3289037",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "18.0317767",
+    "name": "",
+    "osm_id": 683900471,
+    "osm_type": "node",
+    "place_id": 165475411,
+    "place_rank": 30,
+    "type": "house"
+   }
+  ],
+  "baltzar von platens gata 6||stockholm": [
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-AB",
+     "city": "Stockholm",
+     "city_district": "Kungsholmens stadsdelsområde",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Stockholms län",
+     "house_number": "6",
+     "municipality": "Stockholms kommun",
+     "postcode": "112 35",
+     "road": "Baltzar von Platens Gata",
+     "suburb": "Kungsholmen"
+    },
+    "addresstype": "place",
+    "boundingbox": [
+     "59.3288537",
+     "59.3289537",
+     "18.0317267",
+     "18.0318267"
+    ],
+    "category": "place",
+    "display_name": "6, Baltzar von Platens Gata, Kungsholmen, Kungsholmens stadsdelsområde, Stockholm, Stockholms kommun, Stockholms län, 112 35, Sverige",
+    "importance": 8.40184634164495e-05,
+    "lat": "59.3289037",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "18.0317767",
+    "name": "",
+    "osm_id": 683900471,
+    "osm_type": "node",
+    "place_id": 166639061,
+    "place_rank": 30,
+    "type": "house"
+   }
+  ],
+  "lyktvägen 79||umeå": [
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-AC",
+     "city": "Umeå",
+     "city_district": "Tomtebo",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Västerbottens län",
+     "house_number": "79",
+     "municipality": "Umeå kommun",
+     "postcode": "907 53",
+     "residential": "Tomtebo",
+     "road": "Lyktvägen",
+     "suburb": "Tomtebo"
+    },
+    "addresstype": "building",
+    "boundingbox": [
+     "63.8046619",
+     "63.8051355",
+     "20.3574246",
+     "20.3586915"
+    ],
+    "category": "building",
+    "display_name": "79, Lyktvägen, Tomtebo, Umeå, Umeå kommun, Västerbottens län, 907 53, Sverige",
+    "importance": 6.640802624547215e-05,
+    "lat": "63.8049492",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "20.3575348",
+    "name": "",
+    "osm_id": 702281559,
+    "osm_type": "way",
+    "place_id": 164898916,
+    "place_rank": 30,
+    "type": "apartments"
+   }
+  ],
+  "sockengatan 14||helsingborg": [
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-M",
+     "city": "Helsingborg",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Skåne län",
+     "house_number": "14B",
+     "municipality": "Helsingborgs kommun",
+     "postcode": "252 77",
+     "road": "Sockengatan",
+     "suburb": "Rosengården"
+    },
+    "addresstype": "building",
+    "boundingbox": [
+     "56.0509448",
+     "56.0512640",
+     "12.7330732",
+     "12.7333222"
+    ],
+    "category": "building",
+    "display_name": "14B, Sockengatan, Rosengården, Helsingborg, Helsingborgs kommun, Skåne län, 252 77, Sverige",
+    "importance": 6.677119096661354e-05,
+    "lat": "56.0511766",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "12.7332077",
+    "name": "",
+    "osm_id": 114876639,
+    "osm_type": "way",
+    "place_id": 165248250,
+    "place_rank": 30,
+    "type": "yes"
+   },
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-M",
+     "city": "Helsingborg",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Skåne län",
+     "house_number": "14A",
+     "municipality": "Helsingborgs kommun",
+     "postcode": "252 77",
+     "road": "Sockengatan",
+     "suburb": "Rosengården"
+    },
+    "addresstype": "building",
+    "boundingbox": [
+     "56.0509208",
+     "56.0512386",
+     "12.7335599",
+     "12.7338073"
+    ],
+    "category": "building",
+    "display_name": "14A, Sockengatan, Rosengården, Helsingborg, Helsingborgs kommun, Skåne län, 252 77, Sverige",
+    "importance": 6.677119096661354e-05,
+    "lat": "56.0510155",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "12.7336745",
+    "name": "",
+    "osm_id": 114876654,
+    "osm_type": "way",
+    "place_id": 165056300,
+    "place_rank": 30,
+    "type": "yes"
+   },
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-M",
+     "city": "Helsingborg",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Skåne län",
+     "municipality": "Helsingborgs kommun",
+     "postcode": "252 77",
+     "road": "Sockengatan",
+     "suburb": "Sofieberg"
+    },
+    "addresstype": "road",
+    "boundingbox": [
+     "56.0473870",
+     "56.0512014",
+     "12.7344622",
+     "12.7348573"
+    ],
+    "category": "highway",
+    "display_name": "Sockengatan, Sofieberg, Helsingborg, Helsingborgs kommun, Skåne län, 252 77, Sverige",
+    "importance": 0.053400104524299954,
+    "lat": "56.0492783",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "12.7347822",
+    "name": "Sockengatan",
+    "osm_id": 142308091,
+    "osm_type": "way",
+    "place_id": 165147693,
+    "place_rank": 26,
+    "type": "tertiary"
+   }
+  ],
+  "storgatan 999999|11242|stockholm": [
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-AB",
+     "city": "Stockholm",
+     "city_district": "Norra innerstadens stadsdelsområde",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Stockholms län",
+     "municipality": "Stockholms kommun",
+     "postcode": "114 42",
+     "road": "Storgatan",
+     "suburb": "Östermalm"
+    },
+    "addresstype": "road",
+    "boundingbox": [
+     "59.3355839",
+     "59.3357979",
+     "18.0797523",
+     "18.0809056"
+    ],
+    "category": "highway",
+    "display_name": "Storgatan, Östermalm, Norra innerstadens stadsdelsområde, Stockholm, Stockholms kommun, Stockholms län, 114 42, Sverige",
+    "importance": 0.306026056337308,
+    "lat": "59.3356806",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "18.0803278",
+    "name": "Storgatan",
+    "osm_id": 4080276,
+    "osm_type": "way",
+    "place_id": 166157249,
+    "place_rank": 26,
+    "type": "pedestrian"
+   },
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-AB",
+     "city": "Stockholm",
+     "city_district": "Norra innerstadens stadsdelsområde",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Stockholms län",
+     "municipality": "Stockholms kommun",
+     "postcode": "114 45",
+     "road": "Storgatan",
+     "suburb": "Östermalm"
+    },
+    "addresstype": "road",
+    "boundingbox": [
+     "59.3355325",
+     "59.3355839",
+     "18.0809056",
+     "18.0810946"
+    ],
+    "category": "highway",
+    "display_name": "Storgatan, Östermalm, Norra innerstadens stadsdelsområde, Stockholm, Stockholms kommun, Stockholms län, 114 45, Sverige",
+    "importance": 0.306026056337308,
+    "lat": "59.3355523",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "18.0809984",
+    "name": "Storgatan",
+    "osm_id": 1279911326,
+    "osm_type": "way",
+    "place_id": 166233755,
+    "place_rank": 26,
+    "type": "residential"
+   }
+  ],
+  "tomtebogatan 31||stockholm": [
+   {
+    "address": {
+     "ISO3166-2-lvl4": "SE-AB",
+     "city": "Stockholm",
+     "city_district": "Norra innerstadens stadsdelsområde",
+     "country": "Sverige",
+     "country_code": "se",
+     "county": "Stockholms län",
+     "house_number": "31",
+     "municipality": "Stockholms kommun",
+     "neighbourhood": "Birkastaden",
+     "postcode": "113 42",
+     "road": "Tomtebogatan",
+     "suburb": "Vasastaden"
+    },
+    "addresstype": "place",
+    "boundingbox": [
+     "59.3414702",
+     "59.3415702",
+     "18.0299918",
+     "18.0300918"
+    ],
+    "category": "place",
+    "display_name": "31, Tomtebogatan, Birkastaden, Vasastaden, Norra innerstadens stadsdelsområde, Stockholm, Stockholms kommun, Stockholms län, 113 42, Sverige",
+    "importance": 8.40184634164495e-05,
+    "lat": "59.3415202",
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "lon": "18.0300418",
+    "name": "",
+    "osm_id": 746334158,
+    "osm_type": "node",
+    "place_id": 172344364,
+    "place_rank": 30,
+    "type": "house"
+   }
+  ]
+ }
+}

@@ -348,3 +348,134 @@ osm_majority_svag 64; geonames_koordinat 260 = approximate); 243 unmapped, mostl
 "Stockholm" centroid prefixes 109xx (100) and 110xx (71). 7 straddling postnummer are flagged `grans`.
 Kommun names of Sigtuna, Sollentuna, Upplands Väsby, Upplands-Bro (absent from GeoNames' filled
 rows) come from the Mäklarstatistik xlsx, matched to the OSM relation by exact name.
+
+## Register areas for the public BRF register (added 2026-10-13, PLAN-v3 2.2)
+
+A **separate display layer**. It does not touch the valuation model, its 13 areas
+(`stadsdel_omrade_crosswalk.csv`, `postnummer_omrade.csv`) or `src/lib/vardering`. Nothing
+above in this README changed; every existing output is byte-identical.
+
+### Files
+
+| File | What |
+|---|---|
+| `registeromraden.csv` | The 19 register areas: slug (ascii, lowercase, hyphens), namn, grupp, ordning, motivering. |
+| `stadsdel_registeromrade.csv` | All 117 SBK stadsdel polygons (names exactly as in `stadsdelar_fullsize.geo.json`, upper case) -> one area, with `motivering` and `kalla` per row and a `flagga` column for the two special rows. |
+| `sources/basomradeslistan_2026_stadsdelar.csv` | Small tracked excerpt of the cited source: for each of the 117 polygons its Nyko-5 code, stadsdelsområde (SDO), SDN-del and PDF page in Stockholms stad's Basområdeslistan 2026. |
+| `build_registeromrade.py` | Writes the two CSVs above from the PLAN-v3 2.2 allocation. **Fails** on an unmapped or double-assigned polygon, on an area that contradicts the polygon's SDO/SDN-del in the source, and on a group that contradicts its Nyko-2 stadsområde. |
+| `tools/parse_basomradeslistan.py` | Regenerates the excerpt from the PDF text (the 48 MB PDF is not stored; how to extract the text is in the script docstring). |
+| `build_postnummer_stadsdel.py` | Writes `data/derived/postnummer_stadsdel.csv` and `data/derived/postnummer_stockholm_ovriga.csv`. Reuses the functions of `build_postnummer_omrade.py` unchanged (same OSM points, prefix gate, Stockholm-only prefixes, tier-3 rule), one level finer. Exits non-zero if its postnummer set or methods differ from `postnummer_omrade.csv`. About 55 s. |
+| `geokoda_adress.py` | Offline address -> stadsdel -> area geocoder (Nominatim + point-in-polygon). |
+| `../../scripts/buildRegisterData.ts` | Generates `src/lib/register/data/postnummerStadsdel.data.ts` (6.4 KB raw, 2.3 KB gzip) from the CSVs. |
+
+### Source and resolution of the taxonomy
+
+Source for every row: Stockholms stad, **Basområdeslistan 2026** (Årsrapport, published 2026-06-02, by
+Sweco for Stadsledningskontoret), https://start.stockholm/globalassets/start/om-stockholms-stad/utredningar-statistik-och-fakta/statistik/befolkning/basomradeslistan-2026.pdf,
+retrieved 2026-10-13. Tabell 1 (PDF p.8) gives the stadsområden, Tabell 2 (PDF p.9-29) the stadsdelsområden
+(SDO), SDN-delar, Nyko-5 stadsdelar and basområden. 103 of the 117 polygons match a Nyko-5 stadsdel by
+exact name; the other 14 (inner-city polygons cut differently from Nyko-5, plus Hansta; Riddarholmen is not in
+the source at all) are written by hand in `tools/parse_basomradeslistan.py`, each citing its Tabell 2 line.
+
+The 19-area allocation is the PLAN-v3 2.2 table. The rows the plan marked uncertain, resolved from the source:
+
+| Polygon | Resolved to | Basis |
+|---|---|---|
+| Beckomberga | Bromma (**not** Hässelby-Vällingby) | Nyko 22102, SDO 6 Bromma, SDN-del 06.1 Centrala Bromma (p.12) |
+| Åkeshov, Bällsta, Norra/Södra Ängby | Bromma | Nyko 22113, 22105, 22108, 22111, SDN-del 06.1 (p.12) |
+| Mariehäll, Ulvsunda Industriomr, Ulvsunda | Bromma | Nyko 22107, 22112, 22209, SDN-del 06.2 Alvik-Mariehäll (p.13) |
+| Höglandet, Olovslund, Smedslätten, Nockebyhov | Bromma | Nyko 22202, 22205, 22206, 22204, SDN-del 06.3 Södra Västerled (p.13) |
+| Hansta | Kista & Järva | not a Nyko-5 stadsdel: basområde 2260160 "Norra Akalla (inkl Hansta)" under 22601 Akalla, SDO Järva (p.9) |
+| Liseberg, Långsjö | Älvsjö | Nyko 21203, 21205, SDN-del 21.1 Älvsjö (p.26) |
+| Norra Djurgården | Djurgården & Gärdet | Tabell 2 footnote 1 to 12302 Djurgården: "här ingår de boende på Norra Djurgården" (p.18) |
+| Långholmen, Reimersholme | Södermalm | basområden 1420410/1420420 under 14204 Reimersholme-Långholmen, SDO Södermalm (p.19) |
+| Skeppsholmen | Gamla stan | basområde 1010360 under 10103 Jakob; Nyko prefix 101 = stadsområde 10 "Gamla stan - City-området" (p.15, p.8) |
+| Riddarholmen | Gamla stan | **Not listed anywhere in the Basområdeslistan.** sv.wikipedia.org/wiki/Riddarholmen (retrieved 2026-10-13): "ingår tillsammans med Gamla stan i Södermalms stadsdelsområde". The polygon touches four other polygons, so geometry cannot decide it. Flagged `ej_i_kalla`. |
+| Hammarbyhöjden | Skarpnäck | **Boundary case, flagged `grans`.** Footnotes 3-4 (p.22-23): the basområde Blåsut (1 746 of about 10 700 inhabitants, 2025-12-31) lies in the polygon but is counted in Enskede-Årsta-Vantör; the rest (8 955) is Skarpnäck. |
+
+Other facts worth knowing: Essingeöarna is a product split of SDO Kungsholmen (Tabell 1 lists distrikt 133
+"Essinge" separately); Hammarby sjöstad = polygon Södra Hammarbyhamnen (Nyko 14403, SDN-del 13.2 Sofia),
+a product decision from the plan; Norrmalm = SDN-del 09.1 Södra Norrmalm.
+
+**Grouping (`grupp`).** Stockholms stad's own Nyko-2 stadsområden (Tabell 1): 10-14 = "Inre staden" (we
+write **Innerstaden**), 21 = **Söderort**, 22 = **Västerort**. There is no official "Norr" group in the source,
+so none is defined: Norrmalm/Vasastan are Innerstaden and Kista/Järva/Hässelby are Västerort. Hammarby
+sjöstad and Essingeöarna are Innerstaden because their Nyko codes are 14xxx and 133xx.
+
+### Postnummer -> stadsdel (`data/derived/postnummer_stadsdel.csv`)
+
+Columns: `postnummer, stadsdel, share, n_points, method, registeromrade, registeromrade_share, flagga`.
+`method` is the same tier as in `postnummer_omrade.csv` (`osm_address_majority`, `geonames_point_in_polygon`,
+`prefix_granne`); `share`/`n_points` are empty for `prefix_granne` (a neighbour's stadsdel, a weak call).
+`registeromrade` is decided on the area level directly (the crosswalk is many to one), so a postnummer
+straddling two stadsdelar of one area is not a boundary case; use it rather than re-deriving from `stadsdel`.
+
+Coverage of Stockholms kommun (`postnummer_kommun.csv`, kommun_kod 0180: **1 576 postnummer**; run of 2026-10-13
+with the 2026-09-24 OSM/GeoNames snapshots):
+
+| | n |
+|---|---:|
+| postnummer with a stadsdel (= exactly the 1 440 rows of `postnummer_omrade.csv`) | 1 440 |
+| of which `osm_address_majority` | 738 |
+| of which `geonames_point_in_polygon` | 44 |
+| of which `prefix_granne` | 658 |
+| of the 1 440: kommun 0180 per `postnummer_kommun.csv` | 1 394 |
+| of the 1 440: absent from `postnummer_kommun.csv` (all tier 3) | 42 |
+| of the 1 440: placed in another kommun by `postnummer_kommun.csv` (12352, 12404, 12755, 12784, all Huddinge) | 4 |
+| kommun-0180 postnummer **without** a stadsdel -> `postnummer_stockholm_ovriga.csv` | 182 |
+| of those, no kommun flag (shipped as "Övriga Stockholm") | 152 |
+| of those, flagged (23 approximate GeoNames coordinate, 7 weak OSM evidence; not shipped) | 30 |
+
+Most of the 182 are in the 105xx, 106xx, 164xx, 173xx and 123xx prefixes (155 of them), which are not
+"Stockholm-only" or never appeared in the OSM sample; they keep their kommun-level answer only.
+
+Flags (`flagga`, `;`-joined): `granne_konflikt` 87 (tier 3, neighbours disagree on **area**), `grans` 9 (tier 1,
+winning area < 80 % of the points), `kommun_avviker_0126` 4. In tier 1, 46 of 738 postnummer have a winning
+**stadsdel** below 80 % (only 9 on the area level). `src/lib/register` does not ship the 4
+`kommun_avviker` postnummer (they resolve to "unknown") and marks the 96 `grans`/`granne_konflikt` ones as
+`osakert`. Postnummer per area (all 1 440): Östermalm 154, Norrmalm 149, Södermalm 122, Bromma 114,
+Liljeholmen & Hägersten 112, Kungsholmen 94, Djurgården & Gärdet 92, Hässelby-Vällingby 81, Vasastan 78,
+Kista & Järva 74, Enskede 71, Skarpnäck 59, Hammarby sjöstad 53, Älvsjö 50, Farsta 47, Skärholmen 40,
+Årsta & Johanneshov 36, Essingeöarna 8, Gamla stan 6.
+
+Known weakness: `prefix_granne` (658 of 1 440, 46 %) takes a neighbour's stadsdel and area; it is not
+evidence about the postnummer itself. 11145/11146 still disagree with the workbook's Östermalm list (see the
+Östermalm cross-check above); here 11145 resolves to Norrmalm.
+
+### Address geocoding (`geokoda_adress.py`, offline only)
+
+`street (+ postnummer, + ort)` -> Nominatim structured search -> lat/lon -> point-in-polygon against the 117
+polygons -> stadsdel -> register area. Never call it from the Worker or a request path. Behaviour:
+
+- User-Agent `Binfo/1.0 (gustav.slanesens@outlook.com)` (the owner's contact), `countrycodes=se`, at most one
+  request per 1.1 s, single-threaded, every response (hit or miss) cached on disk in
+  `sources/raw/nominatim_cache.json` (gitignored) and never re-requested.
+- Order: street+postnummer(+ort), then street+ort (flag `fallback_utan_postnummer`). A hit outside every
+  polygon is `utanfor_stockholms_kommun`, never forced into an area. A hit that is not an address-level object
+  (e.g. only the street was found) is flagged `osm_traff_ar_inte_adress`; a geocoded area that differs from the
+  postnummer table's is flagged `avviker_fran_postnummer` (the geocode wins, review manually).
+- Tested live 2026-10-13 (6 requests; recorded as `ml/tests/fixtures/nominatim_responses.json`, replayed in
+  `ml/tests/test_registeromrade.py`, no network in the tests):
+  Baltzar von Platens gata 6 (Brf Pontonjären 3, per the owner's listing, 112 42) -> KUNGSHOLMEN -> Kungsholmen;
+  Tomtebogatan 31 (Bf Volontären 12 u.p.a, stated in its årsredovisning 2023) -> VASASTADEN -> Vasastan;
+  Sockengatan 14 Helsingborg and Lyktvägen 79 Umeå (addresses from other test reports) -> outside Stockholms kommun.
+  OSM gives Baltzar von Platens gata 6 the postcode 112 35, the owner's listing says 112 42 (same area either way).
+- Nominatim policy (https://operations.osmfoundation.org/policies/nominatim/, read 2026-10-13): absolute max
+  1 request/s, identifying User-Agent, attribution, results must be cached; "bulk geocoding of larger amounts
+  of data is not encouraged"; scripts running longer than a day or at regular intervals are limited to 4
+  requests/minute. A one-off importer run over a few hundred BRFs at <= 1 req/s fits; thousands of addresses or
+  a recurring job need another geocoder (self-hosted Nominatim or a commercial service). **Decide before
+  scaling up.**
+
+### Licensing of the register layer (working interpretation, flagged for the owner)
+
+- Stadsdel polygons: CC0 (Stockholms stad via github.com/krasch/stockholm-stadsdelar).
+- OSM address points (postnummer tables) and Nominatim results: ODbL 1.0, (c) OpenStreetMap contributors. The
+  working interpretation is that Binfo **publishes only one area name per BRF** (a produced work), not the derived
+  datasets: `postnummer_stadsdel.csv` and the geocoder cache stay internal; the 6 KB generated
+  `postnummerStadsdel.data.ts` ships area indexes per postnummer, no coordinates or addresses. **This is
+  not legal advice and not signed off**; it is the same open question as for `postnummer_omrade.csv` above.
+  Attribution "(c) OpenStreetMap contributors" belongs in the footer of the register pages (PLAN-v3 2.2).
+- GeoNames (tier 2): CC BY 4.0, attribution "GeoNames".
+- Basområdeslistan 2026: published by Stockholms stad; its licence was not checked. Only the factual excerpt
+  (names, codes, SDO) is stored (`sources/basomradeslistan_2026_stadsdelar.csv`); the PDF is not committed.

@@ -20,6 +20,7 @@
     "konto": "tsx src/server/cli/kontoCli.ts",
     "build:edge": "tsx src/server/edge/build.ts",
     "build:vardering-data": "tsx scripts/buildVarderingData.ts",
+    "build:register-data": "tsx scripts/buildRegisterData.ts",
     "deploy:edge": "npm run build:edge && npx supabase@2.117.0 functions deploy analys-steg"
   },
   "overrides": {

@@ -1,0 +1,20 @@
+slug,namn,grupp,ordning,antal_stadsdelar,motivering
+gamla-stan,Gamla stan,Innerstaden,1,3,"Gamla Stan, Riddarholmen, Skeppsholmen. Basområdeslistan Tabell 1: stadsområde 10 'Gamla stan - City-området'. PLAN-v3 2.2 (owner-approved taxonomy)."
+norrmalm,Norrmalm,Innerstaden,2,1,"SDN-del 09.1 Södra Norrmalm (Klara, Jakob, Södra Johannes, Södra Adolf Fredrik). PLAN-v3 2.2 (owner-approved taxonomy)."
+vasastan,Vasastan,Innerstaden,3,1,SBK stadsdel Vasastaden = SDN-del 09.2 Vasastan-Roslagstull + 09.3 Matteus; stadsområde 11. PLAN-v3 2.2 (owner-approved taxonomy).
+ostermalm,Östermalm,Innerstaden,4,1,SDN-del 10.1 Centrala Östermalm; stadsområde 12. PLAN-v3 2.2 (owner-approved taxonomy).
+djurgarden-gardet,Djurgården & Gärdet,Innerstaden,5,4,"SDN-del 10.2 Djurgårdslandet (Djurgården incl. Norra Djurgården, Gärdet, Hjorthagen-Värtahamnen). PLAN-v3 2.2 (owner-approved taxonomy)."
+kungsholmen,Kungsholmen,Innerstaden,6,5,SDO Kungsholmen excl. the Essinge islands (stadsområde 13). PLAN-v3 2.2 (owner-approved taxonomy).
+essingeoarna,Essingeöarna,Innerstaden,7,2,Lilla and Stora Essingen; Tabell 1 lists distrikt 133 'Essinge' separately inside stadsområde 13; part of SDO Kungsholmen. PLAN-v3 2.2 (owner-approved taxonomy).
+sodermalm,Södermalm,Innerstaden,8,3,"SDO Södermalm excl. Södra Hammarbyhamnen (stadsområde 14), incl. Långholmen and Reimersholme (stadsdel 14204). PLAN-v3 2.2 (owner-approved taxonomy)."
+hammarby-sjostad,Hammarby sjöstad,Innerstaden,9,1,"Stadsdel 14403 Södra Hammarbyhamnen (SDN-del 13.2 Sofia, stadsområde 14). Product decision to give it its own area. PLAN-v3 2.2 (owner-approved taxonomy)."
+liljeholmen-hagersten,Liljeholmen & Hägersten,Söderort,10,10,"SDO Hägersten-Älvsjö, SDN-delarna 22.1 Liljeholmen, 23.1 Norra Hägersten and 23.2 Södra Hägersten. PLAN-v3 2.2 (owner-approved taxonomy)."
+alvsjo,Älvsjö,Söderort,11,7,"SDO Hägersten-Älvsjö, SDN-del 21.1 Älvsjö. PLAN-v3 2.2 (owner-approved taxonomy)."
+arsta-johanneshov,Årsta & Johanneshov,Söderort,12,3,"SDO Enskede-Årsta-Vantör, SDN-del 14.1 Norra Enskede-Årsta (Årsta, Johanneshov, Östberga). PLAN-v3 2.2 (owner-approved taxonomy)."
+enskede,Enskede,Söderort,13,9,"SDO Enskede-Årsta-Vantör, SDN-del 14.2 Södra Enskede-Årsta + 20.1 Norra Vantör + 20.2 Södra Vantör. PLAN-v3 2.2 (owner-approved taxonomy)."
+skarpnack,Skarpnäck,Söderort,14,9,SDO Skarpnäck (SDN-del 15.1 + 15.2). PLAN-v3 2.2 (owner-approved taxonomy).
+farsta,Farsta,Söderort,15,10,SDO Farsta (SDN-del 18.1 + 18.2). PLAN-v3 2.2 (owner-approved taxonomy).
+skarholmen,Skärholmen,Söderort,16,4,SDO Skärholmen (SDN-del 24.1). PLAN-v3 2.2 (owner-approved taxonomy).
+bromma,Bromma,Västerort,17,24,"SDO Bromma (SDN-del 06.1, 06.2, 06.3). PLAN-v3 2.2 (owner-approved taxonomy)."
+hasselby-vallingby,Hässelby-Vällingby,Västerort,18,9,SDO Hässelby-Vällingby (SDN-del 04.1 + 04.2). PLAN-v3 2.2 (owner-approved taxonomy).
+kista-jarva,Kista & Järva,Västerort,19,11,"SDO Järva (SDN-del 01.1 Kista, 02.1 Rinkeby, 03.1 Gamla Spånga, 03.2 Tensta). PLAN-v3 2.2 (owner-approved taxonomy)."
