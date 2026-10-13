@@ -343,6 +343,24 @@ export const ForeningSchema = z
     vasentligaHandelser: z
       .array(z.object({ text: z.string(), ref: PageRefSchema.optional() }).strict())
       .optional(),
+    adresser: z
+      .array(
+        z
+          .object({
+            gatuadress: z.string().min(1),
+            postnummer: z
+              .string()
+              .regex(/^\d{3} ?\d{2}$/)
+              .optional(),
+            ort: z.string().min(1).optional(),
+            ref: CitatPageRefSchema,
+          })
+          .strict(),
+      )
+      .optional(),
+    fastighetsbeteckningar: z
+      .array(z.object({ beteckning: z.string().min(1), ref: CitatPageRefSchema }).strict())
+      .optional(),
   })
   .strict()
   .superRefine((forening, ctx) => {

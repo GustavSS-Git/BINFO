@@ -218,6 +218,16 @@ export interface Forening {
    *  event the model can't precisely cite still ships, flagged by the
    *  missing ref, rather than being silently dropped. */
   vasentligaHandelser?: Array<{ text: string; ref?: PageRef }>;
+
+  /** The association's own street addresses as the report states them
+   *  (förvaltningsberättelse, "Fastigheten …"). BRF-level data: it places the
+   *  association in the public register's area, never the buyer's flat.
+   *  Every item is cited with an excerpt — no citation, no item. Optional so
+   *  results stored before PROMPT_VERSION 7 still parse. */
+  adresser?: Array<{ gatuadress: string; postnummer?: string; ort?: string; ref: PageRef }>;
+  /** Fastighetsbeteckningar the association owns or holds in tomträtt, as
+   *  stated in the report (e.g. "Pontonjären 3"). Cited like `adresser`. */
+  fastighetsbeteckningar?: Array<{ beteckning: string; ref: PageRef }>;
 }
 
 // ---------------------------------------------------------------------------
