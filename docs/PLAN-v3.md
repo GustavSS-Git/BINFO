@@ -795,3 +795,6 @@ at 1 req/s.
 | 2026-10-13 | W0 done (branch v3, lint fix, settings, contract + KalkylUnderlag); Wave 1 launched (W1, W3, W4, W6, W9) | in progress |
 | 2026-10-13 | W9 Bolagsverket spike: no free BRF source (docs/bolagsverket.md) | done |
 | 2026-10-13 | Owner: bulk pre-population cut → W8/pilot dropped, W3 trimmed | decided |
+| 2026-10-13 | W4 register areas merged (434c474): 19 areas, 117/117 stadsdelar, 1 440 postnummer | done |
+| 2026-10-13 | W1 accounts backend merged (8fd48cb): fakes + mocks only, not yet on a real Supabase; 1739 tests green | done (live check pending) |
+| 2026-10-13 | Hardening: password change needs reset marker or current password; account deletion needs password | in progress |
