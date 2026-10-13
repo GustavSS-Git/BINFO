@@ -1,0 +1,1752 @@
+[
+  {
+    "fall": {
+      "namn": "bas-2-lantagare-okanda-avgiftsposter",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "okant",
+        "vatten": "okant",
+        "el": "okant",
+        "bredband": "okant",
+        "tv": "okant"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 18450,
+      "nettoHog": 20745,
+      "bruttoLag": 22014,
+      "bruttoHog": 24309,
+      "harSpann": true,
+      "betalarPerManad": 24309,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 37.79866798815074,
+      "kvarAttLevaPa": 40002.790054666664,
+      "hushallRanteavdragPerAr": 42768,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "alla-poster-nej",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 20745,
+      "nettoHog": 20745,
+      "bruttoLag": 24309,
+      "bruttoHog": 24309,
+      "harSpann": false,
+      "betalarPerManad": 24309,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 37.79866798815074,
+      "kvarAttLevaPa": 40002.790054666664,
+      "hushallRanteavdragPerAr": 42768,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "varme-och-el-ingar",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "ja",
+        "vatten": "nej",
+        "el": "ja",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 883,
+      "nettoLag": 19039,
+      "nettoHog": 19039,
+      "bruttoLag": 22603,
+      "bruttoHog": 22603,
+      "harSpann": false,
+      "betalarPerManad": 22603,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 35.14596620741993,
+      "kvarAttLevaPa": 41708.790054666664,
+      "hushallRanteavdragPerAr": 42768,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "alla-ja",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "ja",
+        "vatten": "ja",
+        "el": "ja",
+        "bredband": "ja",
+        "tv": "ja"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 294,
+      "nettoLag": 18450,
+      "nettoHog": 18450,
+      "bruttoLag": 22014,
+      "bruttoHog": 22014,
+      "harSpann": false,
+      "betalarPerManad": 22014,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 34.230115475385674,
+      "kvarAttLevaPa": 42297.790054666664,
+      "hushallRanteavdragPerAr": 42768,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "1-lantagare-hog-inkomst",
+      "lanebelopp": "4455000",
+      "kontantinsats": "495000",
+      "ranta": "3",
+      "manadsavgift": "3240",
+      "inkomst": "900000",
+      "inkomst2": "420000",
+      "lantagare": "1",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11138,
+      "amortering": 7425,
+      "avdragPerManad": 3089,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 21303,
+      "nettoHog": 21303,
+      "bruttoLag": 24392,
+      "bruttoHog": 24392,
+      "harSpann": false,
+      "betalarPerManad": 24392,
+      "nettoinkomstPerManad": 52631.20093333333,
+      "andelAvNetto": 46.345132863102926,
+      "kvarAttLevaPa": 28239.200933333334,
+      "hushallRanteavdragPerAr": 37067,
+      "hushallForlorat": 0,
+      "belaningsgrad": 90,
+      "skuldkvot": 4.95,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 37067
+    }
+  },
+  {
+    "fall": {
+      "namn": "exakt-70-procent",
+      "lanebelopp": "7000000",
+      "kontantinsats": "3000000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "1500000",
+      "inkomst2": "1500000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 21000,
+      "amortering": 5833,
+      "avdragPerManad": 5910,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 26752,
+      "nettoHog": 26752,
+      "bruttoLag": 32662,
+      "bruttoHog": 32662,
+      "harSpann": false,
+      "betalarPerManad": 32662,
+      "nettoinkomstPerManad": 154642.40186666665,
+      "andelAvNetto": 21.120985968752166,
+      "kvarAttLevaPa": 121980.40186666665,
+      "hushallRanteavdragPerAr": 70920,
+      "hushallForlorat": 0,
+      "belaningsgrad": 70,
+      "skuldkvot": 2.333,
+      "takt": 1,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 70920
+    }
+  },
+  {
+    "fall": {
+      "namn": "exakt-50-procent",
+      "lanebelopp": "2500000",
+      "kontantinsats": "2500000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 7500,
+      "amortering": 0,
+      "avdragPerManad": 2250,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 11079,
+      "nettoHog": 11079,
+      "bruttoLag": 13329,
+      "bruttoHog": 13329,
+      "harSpann": false,
+      "betalarPerManad": 13329,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 20.725593221196313,
+      "kvarAttLevaPa": 50982.790054666664,
+      "hushallRanteavdragPerAr": 27000,
+      "hushallForlorat": 0,
+      "belaningsgrad": 50,
+      "skuldkvot": 2.604,
+      "takt": 0,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 27000
+    }
+  },
+  {
+    "fall": {
+      "namn": "ovan-70-procent",
+      "lanebelopp": "4500000",
+      "kontantinsats": "500000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "400000",
+      "inkomst2": "400000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 13500,
+      "amortering": 7500,
+      "avdragPerManad": 4050,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 22779,
+      "nettoHog": 22779,
+      "bruttoLag": 26829,
+      "bruttoHog": 26829,
+      "harSpann": false,
+      "betalarPerManad": 26829,
+      "nettoinkomstPerManad": 54434.409909333335,
+      "andelAvNetto": 49.28683905031162,
+      "kvarAttLevaPa": 27605.409909333335,
+      "hushallRanteavdragPerAr": 48600,
+      "hushallForlorat": 0,
+      "belaningsgrad": 90,
+      "skuldkvot": 5.625,
+      "takt": 2,
+      "overTak": true,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 48600
+    }
+  },
+  {
+    "fall": {
+      "namn": "hog-skuldkvot",
+      "lanebelopp": "4500000",
+      "kontantinsats": "500000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "400000",
+      "inkomst2": "420000",
+      "lantagare": "1",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 13500,
+      "amortering": 7500,
+      "avdragPerManad": 3585,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 23244,
+      "nettoHog": 23244,
+      "bruttoLag": 26829,
+      "bruttoHog": 26829,
+      "harSpann": false,
+      "betalarPerManad": 26829,
+      "nettoinkomstPerManad": 27217.204954666668,
+      "andelAvNetto": 98.57367810062324,
+      "kvarAttLevaPa": 388.2049546666676,
+      "hushallRanteavdragPerAr": 43020,
+      "hushallForlorat": 0,
+      "belaningsgrad": 90,
+      "skuldkvot": 11.25,
+      "takt": 2,
+      "overTak": true,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 43020
+    }
+  },
+  {
+    "fall": {
+      "namn": "rantestress-delta-2-5-med-rantekanslighet",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 2.5,
+      "egna": {},
+      "rantekanslighet": 8.4
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 20130,
+      "amortering": 6600,
+      "avdragPerManad": 5727,
+      "manadsavgiftPost": 3920,
+      "stressadAvgift": 3920,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 27512,
+      "nettoHog": 27512,
+      "bruttoLag": 33239,
+      "bruttoHog": 33239,
+      "harSpann": false,
+      "betalarPerManad": 33239,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 51.684146828670144,
+      "kvarAttLevaPa": 31072.790054666664,
+      "hushallRanteavdragPerAr": 68728,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 68728
+    }
+  },
+  {
+    "fall": {
+      "namn": "rantestress-delta-3-utan-rantekanslighet",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 3,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 21780,
+      "amortering": 6600,
+      "avdragPerManad": 6074,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 28135,
+      "nettoHog": 28135,
+      "bruttoLag": 34209,
+      "bruttoHog": 34209,
+      "harSpann": false,
+      "betalarPerManad": 34209,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 53.19242392556867,
+      "kvarAttLevaPa": 30102.790054666664,
+      "hushallRanteavdragPerAr": 72886,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 72886
+    }
+  },
+  {
+    "fall": {
+      "namn": "egna-varden-blandade-status",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "okant",
+        "vatten": "ja",
+        "el": "nej",
+        "bredband": "okant",
+        "tv": "okant"
+      },
+      "delta": 0,
+      "egna": {
+        "hushallsel": 900,
+        "varme": 100,
+        "vatten": 50,
+        "bredband": 0,
+        "hemforsakring": 500
+      }
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": true
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 1500,
+      "nettoLag": 19556,
+      "nettoHog": 19656,
+      "bruttoLag": 23120,
+      "bruttoHog": 23220,
+      "harSpann": true,
+      "betalarPerManad": 23220,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 36.10535483503477,
+      "kvarAttLevaPa": 41091.790054666664,
+      "hushallRanteavdragPerAr": 42768,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "tom-inkomst",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "",
+      "inkomst2": "",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": false,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 20745,
+      "nettoHog": 20745,
+      "bruttoLag": 24309,
+      "bruttoHog": 24309,
+      "harSpann": false,
+      "betalarPerManad": 24309,
+      "nettoinkomstPerManad": 0,
+      "andelAvNetto": 0,
+      "kvarAttLevaPa": -24309,
+      "hushallRanteavdragPerAr": 0,
+      "hushallForlorat": 42768,
+      "belaningsgrad": 80,
+      "skuldkvot": 0,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "tomma-falt",
+      "lanebelopp": "",
+      "kontantinsats": "",
+      "ranta": "",
+      "manadsavgift": "",
+      "inkomst": "",
+      "inkomst2": "",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "okant",
+        "vatten": "okant",
+        "el": "okant",
+        "bredband": "okant",
+        "tv": "okant"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": false,
+        "harRanteunderlag": false,
+        "harLan": false,
+        "harInkomst": false,
+        "harAvgift": false,
+        "harTotal": false
+      },
+      "rantekostnad": 0,
+      "amortering": 0,
+      "avdragPerManad": 0,
+      "manadsavgiftPost": 0,
+      "stressadAvgift": 0,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 294,
+      "nettoHog": 2589,
+      "bruttoLag": 294,
+      "bruttoHog": 2589,
+      "harSpann": true,
+      "betalarPerManad": 2589,
+      "nettoinkomstPerManad": 0,
+      "andelAvNetto": 0,
+      "kvarAttLevaPa": -2589,
+      "hushallRanteavdragPerAr": 0,
+      "hushallForlorat": 0,
+      "belaningsgrad": 0,
+      "skuldkvot": 0,
+      "takt": 0,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 0
+    }
+  },
+  {
+    "fall": {
+      "namn": "komma-och-mellanslag",
+      "lanebelopp": "3 960 000",
+      "kontantinsats": "990 000",
+      "ranta": "3,65",
+      "manadsavgift": "3 240,5",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 12045,
+      "amortering": 6600,
+      "avdragPerManad": 3614,
+      "manadsavgiftPost": 3241,
+      "stressadAvgift": 3240.5,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 20861,
+      "nettoHog": 20861,
+      "bruttoLag": 24475,
+      "bruttoHog": 24475,
+      "harSpann": false,
+      "betalarPerManad": 24475,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 38.05678551194987,
+      "kvarAttLevaPa": 39836.790054666664,
+      "hushallRanteavdragPerAr": 43362,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 43362
+    }
+  },
+  {
+    "fall": {
+      "namn": "kontantinsats-for-liten",
+      "lanebelopp": "4600000",
+      "kontantinsats": "400000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 13800,
+      "amortering": 7667,
+      "avdragPerManad": 4140,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 23156,
+      "nettoHog": 23156,
+      "bruttoLag": 27296,
+      "bruttoHog": 27296,
+      "harSpann": false,
+      "betalarPerManad": 27296,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 42.4432284916929,
+      "kvarAttLevaPa": 37015.790054666664,
+      "hushallRanteavdragPerAr": 49680,
+      "hushallForlorat": 0,
+      "belaningsgrad": 92,
+      "skuldkvot": 4.792,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": true,
+      "totalRanteavdragPerAr": 49680
+    }
+  },
+  {
+    "fall": {
+      "namn": "lag-inkomst-1-lantagare",
+      "lanebelopp": "4455000",
+      "kontantinsats": "495000",
+      "ranta": "3",
+      "manadsavgift": "3240",
+      "inkomst": "150000",
+      "inkomst2": "420000",
+      "lantagare": "1",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11138,
+      "amortering": 7425,
+      "avdragPerManad": 3089,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 21303,
+      "nettoHog": 21303,
+      "bruttoLag": 24392,
+      "bruttoHog": 24392,
+      "harSpann": false,
+      "betalarPerManad": 24392,
+      "nettoinkomstPerManad": 10947.4593408,
+      "andelAvNetto": 222.80968798937346,
+      "kvarAttLevaPa": -13444.5406592,
+      "hushallRanteavdragPerAr": 6990.487910399999,
+      "hushallForlorat": 30076.5120896,
+      "belaningsgrad": 90,
+      "skuldkvot": 29.7,
+      "takt": 2,
+      "overTak": true,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 37067
+    }
+  },
+  {
+    "fall": {
+      "namn": "lag-inkomst-2-lantagare-olika",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "900000",
+      "inkomst2": "150000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 20745,
+      "nettoHog": 20745,
+      "bruttoLag": 24309,
+      "bruttoHog": 24309,
+      "harSpann": false,
+      "betalarPerManad": 24309,
+      "nettoinkomstPerManad": 63578.66027413333,
+      "andelAvNetto": 38.23452695477762,
+      "kvarAttLevaPa": 39269.66027413333,
+      "hushallRanteavdragPerAr": 28374.4879104,
+      "hushallForlorat": 14393.5120896,
+      "belaningsgrad": 80,
+      "skuldkvot": 3.771,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "lag-inkomst-2-lantagare-bada-lag",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "200000",
+      "inkomst2": "180000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 20745,
+      "nettoHog": 20745,
+      "bruttoLag": 24309,
+      "bruttoHog": 24309,
+      "harSpann": false,
+      "betalarPerManad": 24309,
+      "nettoinkomstPerManad": 27309.982712133333,
+      "andelAvNetto": 89.01140749971968,
+      "kvarAttLevaPa": 3000.982712133333,
+      "hushallRanteavdragPerAr": 23109.207454400006,
+      "hushallForlorat": 19658.792545599994,
+      "belaningsgrad": 80,
+      "skuldkvot": 10.421,
+      "takt": 2,
+      "overTak": true,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  },
+  {
+    "fall": {
+      "namn": "stort-lan-over-100k-ranta-per-person",
+      "lanebelopp": "9000000",
+      "kontantinsats": "1000000",
+      "ranta": "4",
+      "manadsavgift": "3240",
+      "inkomst": "1200000",
+      "inkomst2": "800000",
+      "lantagare": "2",
+      "boarea": 58,
+      "antalPersoner": 2,
+      "ingar": {
+        "varme": "nej",
+        "vatten": "nej",
+        "el": "nej",
+        "bredband": "nej",
+        "tv": "nej"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 30000,
+      "amortering": 15000,
+      "avdragPerManad": 7800,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 714,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 992,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 240,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 294,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 2589,
+      "nettoLag": 43029,
+      "nettoHog": 43029,
+      "bruttoLag": 50829,
+      "bruttoHog": 50829,
+      "harSpann": false,
+      "betalarPerManad": 50829,
+      "nettoinkomstPerManad": 113492.40186666667,
+      "andelAvNetto": 44.786258078946126,
+      "kvarAttLevaPa": 62663.40186666667,
+      "hushallRanteavdragPerAr": 93600,
+      "hushallForlorat": 0,
+      "belaningsgrad": 90,
+      "skuldkvot": 4.5,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 93600
+    }
+  },
+  {
+    "fall": {
+      "namn": "boarea-120-5-personer",
+      "lanebelopp": "3960000",
+      "kontantinsats": "990000",
+      "ranta": "3,6",
+      "manadsavgift": "3240",
+      "inkomst": "540000",
+      "inkomst2": "420000",
+      "lantagare": "2",
+      "boarea": 120,
+      "antalPersoner": 5,
+      "ingar": {
+        "varme": "okant",
+        "vatten": "okant",
+        "el": "okant",
+        "bredband": "okant",
+        "tv": "okant"
+      },
+      "delta": 0,
+      "egna": {}
+    },
+    "ut": {
+      "flaggor": {
+        "harRanta": true,
+        "harRanteunderlag": true,
+        "harLan": true,
+        "harInkomst": true,
+        "harAvgift": true,
+        "harTotal": true
+      },
+      "rantekostnad": 11880,
+      "amortering": 6600,
+      "avdragPerManad": 3564,
+      "manadsavgiftPost": 3240,
+      "stressadAvgift": 3240,
+      "driftPoster": [
+        {
+          "id": "hushallsel",
+          "value": 1210,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "varme",
+          "value": 1860,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "vatten",
+          "value": 600,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "bredband",
+          "value": 349,
+          "ingarIAvgift": false
+        },
+        {
+          "id": "hemforsakring",
+          "value": 480,
+          "ingarIAvgift": false
+        }
+      ],
+      "drift": 4499,
+      "nettoLag": 18636,
+      "nettoHog": 22655,
+      "bruttoLag": 22200,
+      "bruttoHog": 26219,
+      "harSpann": true,
+      "betalarPerManad": 26219,
+      "nettoinkomstPerManad": 64311.790054666664,
+      "andelAvNetto": 40.76857443668288,
+      "kvarAttLevaPa": 38092.790054666664,
+      "hushallRanteavdragPerAr": 42768,
+      "hushallForlorat": 0,
+      "belaningsgrad": 80,
+      "skuldkvot": 4.125,
+      "takt": 2,
+      "overTak": false,
+      "kontantFel": false,
+      "totalRanteavdragPerAr": 42768
+    }
+  }
+]

@@ -1,3 +1,4 @@
+import { tal } from "@/lib/kalkyl/regler";
 import { amorteringstakt } from "./amortering";
 import { ranteavdrag } from "./ranteavdrag";
 import { schabloner } from "./schabloner";
@@ -25,28 +26,39 @@ export interface LaneUnderlag {
   antalLantagare: 1 | 2;
 }
 
-// TODO: unverified placeholder — reused from src/data/mockData.ts's existing
-// bankernasInternaTak assumption (skuldkvot där bankerna brukar dra
-// gränsen). Informational only, per Amorteringsunderlag's contract comment
-// — never drives tillampadAmorteringstakt.
-const BANKERNAS_TYPISKA_TAK = 5.0;
+// Skuldkvot där bankerna brukar dra gränsen: ett antagande i regelregistret
+// (skuldkvot_bankstak, märkt TODO: unverified placeholder). Informational
+// only, per Amorteringsunderlag's contract comment — never drives
+// tillampadAmorteringstakt.
 
 function heltal(varde: number): number {
   return Math.round(varde);
 }
 
-export function beraknaManadskostnad(input: PropertyInput, lan: LaneUnderlag): Manadskostnad {
+/**
+ * `ranteavdragPerArOverride`: det årliga ränteavdraget, redan beräknat per
+ * person och begränsat av skatten (beraknaHushallSkatt i src/lib/skatt2026.ts).
+ * Kalkylen skickar alltid med det, så att månadssumman och "Tillbaka i
+ * deklarationen" är samma tal. Utan det används lagens fulla sats utan
+ * skattebegränsning (ranteavdrag.ts), dvs. förutsatt att skatten räcker.
+ */
+export function beraknaManadskostnad(
+  input: PropertyInput,
+  lan: LaneUnderlag,
+  ranteavdragPerArOverride?: number,
+): Manadskostnad {
   const bostadsvarde = lan.lanebelopp + lan.kontantinsats;
   const belaningsgradProcent = bostadsvarde > 0 ? (lan.lanebelopp / bostadsvarde) * 100 : 0;
   const skuldkvot = lan.bruttoinkomst > 0 ? lan.lanebelopp / lan.bruttoinkomst : 0;
 
   const tillampadAmorteringstakt = amorteringstakt(belaningsgradProcent);
-  const overBankernasTypiskaTak = skuldkvot > BANKERNAS_TYPISKA_TAK;
+  const overBankernasTypiskaTak = skuldkvot > tal("skuldkvot_bankstak");
 
   const rantekostnadPerManad = (lan.lanebelopp * (lan.ranta / 100)) / 12;
   const amorteringPerManad = (lan.lanebelopp * (tillampadAmorteringstakt / 100)) / 12;
 
-  const ranteavdragPerAr = ranteavdrag(rantekostnadPerManad * 12, lan.antalLantagare);
+  const ranteavdragPerAr =
+    ranteavdragPerArOverride ?? ranteavdrag(rantekostnadPerManad * 12, lan.antalLantagare);
 
   const s = schabloner(input.boarea, input.antalPersoner);
 

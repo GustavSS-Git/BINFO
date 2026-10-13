@@ -6,6 +6,8 @@
  * this file is not that pipeline's mock.
  */
 
+import { MIN_KONTANTINSATS_ANDEL, tal } from "@/lib/kalkyl/regler";
+
 export type Status = "green" | "amber" | "red";
 export type PropertyType = "brf" | "hus";
 
@@ -39,14 +41,15 @@ export const kalkylDefaults = {
 };
 
 /**
- * Gällande svenska regler från 1 april 2026.
- * Amorteringskravet baseras ENBART på belåningsgrad.
- * Det skärpta kravet (skuldkvot > 4,5×) är slopat.
+ * Gällande svenska regler från 1 april 2026. Värdena kommer från regelregistret
+ * (src/lib/kalkyl/regler.ts), som har källa och datum för varje post.
+ * Amorteringskravet baseras ENBART på belåningsgrad; det skärpta kravet
+ * (skuldkvot > 4,5×) är slopat.
  */
 export const amorteringsregler = {
-  bolanetak: 0.9, // minsta kontantinsats 10 %
-  minKontantinsatsAndel: 0.1,
-  bankernasInternaTak: 5.0, // skuldkvot där bankerna brukar dra gränsen
+  bolanetak: tal("bolanetak") / 100, // minsta kontantinsats 10 %
+  minKontantinsatsAndel: MIN_KONTANTINSATS_ANDEL,
+  bankernasInternaTak: tal("skuldkvot_bankstak"), // antagande, se registret
 };
 
 /**

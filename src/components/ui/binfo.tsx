@@ -217,6 +217,8 @@ export function Field({
   optional,
   hint,
   error,
+  id,
+  inputMode,
 }: {
   label: string;
   suffix?: string;
@@ -227,7 +229,11 @@ export function Field({
   optional?: boolean;
   hint?: string;
   error?: string | null;
+  /** Gives the input an id; hint/error text is then linked via aria-describedby. */
+  id?: string;
+  inputMode?: "text" | "decimal" | "numeric";
 }) {
+  const beskrivningsId = id !== undefined && (error || hint) ? `${id}-beskrivning` : undefined;
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-foreground">
@@ -247,14 +253,22 @@ export function Field({
           value={value}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
+          {...(id !== undefined ? { id } : {})}
+          {...(inputMode !== undefined ? { inputMode } : {})}
+          {...(error ? { "aria-invalid": true } : {})}
+          {...(beskrivningsId !== undefined ? { "aria-describedby": beskrivningsId } : {})}
           className="w-full rounded-lg bg-transparent px-4 py-2.5 text-sm text-foreground outline-none"
         />
         {suffix ? <span className="pr-4 text-sm text-muted-foreground">{suffix}</span> : null}
       </div>
       {error ? (
-        <span className="mt-1.5 block text-xs text-danger">{error}</span>
+        <span id={beskrivningsId} className="mt-1.5 block text-xs text-danger">
+          {error}
+        </span>
       ) : hint ? (
-        <span className="mt-1.5 block text-xs text-muted-foreground">{hint}</span>
+        <span id={beskrivningsId} className="mt-1.5 block text-xs text-muted-foreground">
+          {hint}
+        </span>
       ) : null}
     </label>
   );

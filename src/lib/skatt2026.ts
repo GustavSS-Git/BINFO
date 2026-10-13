@@ -12,26 +12,32 @@
  * Alla belopp i kronor per år om inget annat anges.
  */
 
+import { ranteavdrag } from "@/lib/analysis/calc/ranteavdrag";
+import { andel, tal } from "@/lib/kalkyl/regler";
+
 // ---------------------------------------------------------------------------
 // Konstanter 2026
 // ---------------------------------------------------------------------------
+// Alla värden och källor finns i regelregistret (src/lib/kalkyl/regler.ts),
+// som även PDF- och Excel-exporten läser. Verifierade mot Skatteverket, SCB
+// och lagtext 2026-10-13; se respektive post för källa och paragraf.
 
-export const PBB_2026 = 59_200;
-export const IBB_2026 = 83_400;
+export const PBB_2026 = tal("skatt_pbb");
+export const IBB_2026 = tal("skatt_ibb");
 /** Kommunal skatt (kommun + region), Stockholm. */
-export const KOMMUNAL_SKATTESATS = 0.3055;
-export const BEGRAVNINGSAVGIFT_SATS = 0.0007;
-export const STATLIG_SKATTESATS = 0.2;
-export const SKIKTGRANS = 643_000;
-export const PUBLIC_SERVICE_SATS = 0.01;
-export const PUBLIC_SERVICE_MAX = 1_184;
-export const PENSIONSAVGIFT_SATS = 0.07;
+export const KOMMUNAL_SKATTESATS = andel("skatt_kommunal");
+export const BEGRAVNINGSAVGIFT_SATS = andel("skatt_begravning");
+export const STATLIG_SKATTESATS = andel("skatt_statlig");
+export const SKIKTGRANS = tal("skatt_skiktgrans");
+export const PUBLIC_SERVICE_SATS = andel("skatt_publicservice_sats");
+export const PUBLIC_SERVICE_MAX = tal("skatt_publicservice_tak");
+export const PENSIONSAVGIFT_SATS = andel("skatt_pension_sats");
 /** 8,07 × IBB. */
-export const PENSIONSAVGIFT_TAK_INKOMST = 673_038;
-export const PENSIONSAVGIFT_GRANS = 25_042;
-export const RANTEAVDRAG_BRYTPUNKT = 100_000;
-export const RANTEAVDRAG_LAG_SATS = 0.3;
-export const RANTEAVDRAG_HOG_SATS = 0.21;
+export const PENSIONSAVGIFT_TAK_INKOMST = tal("skatt_pension_tak_inkomst");
+export const PENSIONSAVGIFT_GRANS = tal("skatt_pension_nedre_grans");
+export const RANTEAVDRAG_BRYTPUNKT = tal("ranteavdrag_tak");
+export const RANTEAVDRAG_LAG_SATS = andel("ranteavdrag_sats_lag");
+export const RANTEAVDRAG_HOG_SATS = andel("ranteavdrag_sats_hog");
 
 // ---------------------------------------------------------------------------
 // Hjälpfunktioner
@@ -47,45 +53,54 @@ export function faststalldForvarvsinkomst(bruttoinkomst: number): number {
   return nedHundratal(Math.max(0, bruttoinkomst));
 }
 
-/** Grundavdrag, avrundat uppåt till helt hundratal, aldrig över FFI. */
+/** Grundavdrag (63 kap. 3 § IL), avrundat uppåt till helt hundratal, aldrig över FFI. */
 export function grundavdrag(ffi: number): number {
   const p = PBB_2026;
+  const g1 = tal("ga_grans_1");
+  const g2 = tal("ga_grans_2");
+  const g3 = tal("ga_grans_3");
+  const g4 = tal("ga_grans_4");
+  const bas = tal("ga_bas");
+  const topp = tal("ga_topp");
   let ga: number;
-  if (ffi <= 0.99 * p) ga = 0.423 * p;
-  else if (ffi <= 2.72 * p) ga = 0.423 * p + 0.2 * (ffi - 0.99 * p);
-  else if (ffi <= 3.11 * p) ga = 0.77 * p;
-  else if (ffi <= 7.88 * p) ga = 0.77 * p - 0.1 * (ffi - 3.11 * p);
-  else ga = 0.293 * p;
+  if (ffi <= g1 * p) ga = bas * p;
+  else if (ffi <= g2 * p) ga = bas * p + andel("ga_okning") * (ffi - g1 * p);
+  else if (ffi <= g3 * p) ga = topp * p;
+  else if (ffi <= g4 * p) ga = topp * p - andel("ga_minskning") * (ffi - g3 * p);
+  else ga = tal("ga_lagsta") * p;
   return Math.min(uppHundratal(ga), ffi);
 }
 
-/** Jobbskatteavdrag före begränsning mot kvarvarande kommunal skatt. */
+/** Jobbskatteavdrag (67 kap. 7 § IL) före begränsning mot kvarvarande kommunal skatt. */
 export function jobbskatteavdragBerakning(ai: number, ga: number): number {
   const p = PBB_2026;
+  const g1 = tal("jsa_grans_1");
+  const g2 = tal("jsa_grans_2");
+  const g3 = tal("jsa_grans_3");
   let underlag: number;
-  if (ai <= 0.91 * p) underlag = ai - ga;
-  else if (ai <= 3.24 * p) underlag = 0.91 * p + 0.3874 * (ai - 0.91 * p) - ga;
-  else if (ai <= 8.08 * p) underlag = 1.813 * p + 0.251 * (ai - 3.24 * p) - ga;
-  else underlag = 3.027 * p - ga;
+  if (ai <= g1 * p) underlag = ai - ga;
+  else if (ai <= g2 * p) underlag = g1 * p + andel("jsa_sats_2") * (ai - g1 * p) - ga;
+  else if (ai <= g3 * p) underlag = tal("jsa_bas_3") * p + andel("jsa_sats_3") * (ai - g2 * p) - ga;
+  else underlag = tal("jsa_tak") * p - ga;
   return Math.max(0, underlag * KOMMUNAL_SKATTESATS);
 }
 
-/** Skattereduktion för förvärvsinkomst. */
+/** Skattereduktion för förvärvsinkomster (67 kap. 46–47 §§ IL). */
 export function skattereduktionForvarvsinkomst(bfi: number): number {
-  if (bfi <= 40_000) return 0;
-  if (bfi <= 240_000) return 0.0075 * (bfi - 40_000);
-  return 1_500;
+  const nedre = tal("sf_nedre");
+  const ovre = tal("sf_ovre");
+  if (bfi <= nedre) return 0;
+  if (bfi <= ovre) return andel("sf_sats") * (bfi - nedre);
+  return tal("sf_max");
 }
 
 /**
  * Beräknat ränteavdrag för en person: 30 % upp till 100 000 kr ränta per år,
- * 21 % på överskjutande del. Taket gäller per person, inte per hushåll.
+ * 21 % på överskjutande del. Taket gäller per person, inte per hushåll. Den
+ * enda formeln för ränteavdrag i koden: calc/ranteavdrag.ts.
  */
 export function beraknatRanteavdrag(rantaPerAr: number): number {
-  const ranta = Math.max(0, rantaPerAr);
-  const inom = Math.min(ranta, RANTEAVDRAG_BRYTPUNKT);
-  const over = Math.max(0, ranta - RANTEAVDRAG_BRYTPUNKT);
-  return inom * RANTEAVDRAG_LAG_SATS + over * RANTEAVDRAG_HOG_SATS;
+  return ranteavdrag(Math.max(0, rantaPerAr), 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +164,8 @@ export function beraknaPersonSkatt(bruttoinkomst: number, bolanerantaPerAr = 0):
 
   // 4. Ränteavdrag — begränsas av kvarvarande kommunal + statlig skatt.
   const beraknat = Math.round(beraknatRanteavdrag(bolanerantaPerAr));
-  const utrymme = kvarKommunal + kvarStatlig;
+  // Skattereduktion anges i hela krontal, öretal faller bort (67 kap. 1 § IL).
+  const utrymme = Math.floor(kvarKommunal + kvarStatlig);
   const faktiskt = Math.min(beraknat, utrymme);
   const forlorat = beraknat - faktiskt;
 
