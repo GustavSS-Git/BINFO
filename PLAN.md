@@ -1,3 +1,13 @@
+# Binfo — current plan
+
+**Current plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)** (accounts, public BRF register,
+bulk analysis via the Batch API, bolånekalkyl PDF/Excel export). Decisions: `docs/DECISIONS.md`.
+
+Earlier plans (done, kept for history): the UI copy + new `/exempel` plan below
+(2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
 # Binfo — plan: UI copy changes + new example analysis
 
 Status: **DONE 2026-10-12** (approved by owner 2026-10-12; branch `ui-copy-exempel`, merged into `main`). Base: `main` @ 42e8d7c.
