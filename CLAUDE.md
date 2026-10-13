@@ -96,7 +96,11 @@ per-apartment cost in kronor, and what to do before bidding.
   `boarea`, `prisUppskattning` (read once at mount), plus `sparad`/`spara` for
   saved kalkyler. Inputs are sent to the server only on an explicit "Spara" by
   a logged-in user (owner decision 2026-10-12). PDF/Excel export buttons
-  (`KalkylExport`, lazy, behind an SSR guard).
+  (`KalkylExport`, lazy, behind an SSR guard). Layout (owner 2026-10-14): the
+  main view stays simple (pre-v3 layout + Boarea); rate scenarios, KALP (with
+  its household/kalkylränta inputs) and the rules list live in one collapsed
+  "Fördjupning" section (`data-slot="kalkyl-fordjupning"`), opened
+  automatically when KALP inputs are non-default (`kalpArAndrad`).
   - One ränteavdrag computation (per person, limited by tax) for the total and
     "Tillbaka i deklarationen"; one home for the 50/70 % thresholds
     (`calc/amortering.ts`).
