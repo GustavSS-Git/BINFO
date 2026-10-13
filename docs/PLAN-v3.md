@@ -434,6 +434,10 @@ worker after extraction and by the importer.
 
 ## 3. Feature C — Offline bulk analysis
 
+> **CUT 2026-10-13 (owner):** no bulk pre-population for now; the register fills
+> from user uploads only. §3.1 is kept as the cost record for a later decision;
+> §3.2–3.6 are not built in v3 (W8, W9 and the pilot are dropped).
+
 ### 3.1 Cost comparison (deliverable `docs/bulk-kostnad.md`; summary here)
 
 | Route | Cost per text report | Per scan (≈25 p) | Throughput | Verdict |
@@ -787,4 +791,7 @@ at 1 req/s.
 | Date | Item | Status |
 |---|---|---|
 | 2026-10-12 | Phase 0 (6 agents), CLAUDE.md updated, Phase 1 answered (all defaults) | done |
-| 2026-10-12 | This plan | awaiting approval |
+| 2026-10-12 | This plan | approved by owner 2026-10-13 |
+| 2026-10-13 | W0 done (branch v3, lint fix, settings, contract + KalkylUnderlag); Wave 1 launched (W1, W3, W4, W6, W9) | in progress |
+| 2026-10-13 | W9 Bolagsverket spike: no free BRF source (docs/bolagsverket.md) | done |
+| 2026-10-13 | Owner: bulk pre-population cut → W8/pilot dropped, W3 trimmed | decided |
