@@ -797,4 +797,8 @@ at 1 req/s.
 | 2026-10-13 | Owner: bulk pre-population cut → W8/pilot dropped, W3 trimmed | decided |
 | 2026-10-13 | W4 register areas merged (434c474): 19 areas, 117/117 stadsdelar, 1 440 postnummer | done |
 | 2026-10-13 | W1 accounts backend merged (8fd48cb): fakes + mocks only, not yet on a real Supabase; 1739 tests green | done (live check pending) |
-| 2026-10-13 | Hardening: password change needs reset marker or current password; account deletion needs password | in progress |
+| 2026-10-13 | Hardening: password change needs reset marker or current password; account deletion needs password (f060f91) | done |
+| 2026-10-13 | Account server functions wired in analysFn.ts; logout rotates device id (000e5f2); dev server clean | done |
+| 2026-10-13 | W3 pipeline v7 merged (dfc7dab): addresses, page-ref verifier (457/457), register summary, Edge error logging; Albohem 6/6 clean | done |
+| 2026-10-13 | Local stack: all 8 migrations apply; verify-rls 80/80 OK incl. saved-item tables | done |
+| 2026-10-13 | Wave 2 launched: W2 accounts frontend, W5 register pages + SEO; W6 still running; W7 after W6 | in progress |
