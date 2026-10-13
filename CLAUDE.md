@@ -477,11 +477,7 @@ cd ml && .venv/bin/pytest                  # ML tests
   repo's prettier (printWidth 100), so `npm run lint` shows prettier errors
   after a Lovable edit. Fix with `npx eslint --fix <files>` in a separate
   commit, and only when Lovable isn't editing those files.
-- **Permission gaps in `.claude/settings.json`:** `npm run deploy:edge` and the
-  pinned `npx supabase@2.117.0 …` forms are not matched by the "ask" rules
-  (`deploy *`, `npx supabase db push *`), and `npm *` auto-allows the paid/live
-  CLIs (`extract`, `analys`, `register`, `konto`). The owner-OK rule for those
-  is enforced by discipline, not by the harness.
+- **Permissions (`.claude/settings.json`):** deploys (`deploy:edge`, `npx supabase@… db push|functions deploy|link`) and the live CLIs (`analys`, `register`, `konto`) are in the "ask" list (tightened 2026-10-13). The paid but local `extract`/`verify-extraction` stay allowed (budget-governed).
 - **Local UI without a backend.** There is no mock mode. Every server function
   needs the server env (`PROJECT_URL` etc.); without it `/forhandsvisning/<id>`
   falls back to "hittades inte". `.env.local` points at **production**, so
