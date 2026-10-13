@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { SparadKalkylExport } from "@/components/konto/SparadKalkylExport";
 import { formatSkapadDatum } from "@/lib/analysisView";
 import type { AnalysPost, SparadKalkylPost, SparadVarderingPost } from "@/lib/kontoTyper";
 
@@ -293,7 +294,6 @@ export function KalkylLista({
                 key={k.id}
                 datum={formatSkapadDatum(k.uppdaterad)}
                 rubrik={k.etikett ?? "Bolånekalkyl"}
-                badges={s === null ? KAN_INTE_OPPNAS : null}
                 detaljer={
                   s === null
                     ? []
@@ -309,15 +309,16 @@ export function KalkylLista({
                 }
                 atgarder={
                   <>
-                    {s !== null ? (
-                      // Vanlig länk: kalkylsidans sökparametrar ägs av kalkylflödet.
-                      <a
-                        href={`/bolanekalkyl?sparad=${encodeURIComponent(k.id)}`}
-                        className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-                      >
-                        Öppna
-                      </a>
-                    ) : null}
+                    {/* Vanlig länk: kalkylsidans sökparametrar ägs av kalkylflödet. Öppnas
+                        även när sammanfattningen saknas: kalkylsidan avgör om underlaget går
+                        att läsa och säger till om det inte gör det. */}
+                    <a
+                      href={`/bolanekalkyl?sparad=${encodeURIComponent(k.id)}`}
+                      className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                    >
+                      Öppna
+                    </a>
+                    <SparadKalkylExport id={k.id} etikett={k.etikett} />
                     <BekraftaDialog
                       knapp="Radera"
                       rubrik="Radera kalkylen?"

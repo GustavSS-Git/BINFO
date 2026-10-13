@@ -117,8 +117,11 @@ describe("profilens listor", () => {
         <KalkylLista kalkyler={[trasigKalkyl]} onRadera={noop} />
       </>,
     );
-    expect(html.match(/Kan inte öppnas/g)).toHaveLength(2);
-    expect(html).not.toContain(">Öppna<");
+    // Värderingen utan läsbar input kan inte öppnas. Kalkylen med saknad sammanfattning
+    // kan fortfarande öppnas (kalkylsidan avgör om underlaget går att läsa).
+    expect(html.match(/Kan inte öppnas/g)).toHaveLength(1);
+    expect(html.match(/>Öppna</g)).toHaveLength(1);
+    expect(html).toContain("/bolanekalkyl?sparad=k-1");
     // Man kan fortfarande radera dem.
     expect(html.match(/Radera/g)?.length).toBeGreaterThanOrEqual(2);
   });

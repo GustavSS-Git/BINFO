@@ -1,15 +1,43 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Card, Field, PageHeader, Badge, Toggle, Tag, TristateChoice } from "@/components/ui/binfo";
+import {
+  Callout,
+  Card,
+  Field,
+  PageHeader,
+  Badge,
+  Toggle,
+  Tag,
+  TristateChoice,
+} from "@/components/ui/binfo";
 import { avgiftPoster, kr, kalkylDefaults } from "@/data/mockData";
 import { KalkylExport } from "@/components/kalkyl/KalkylExport";
+import { FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { SparaKnapp } from "@/components/konto/SparaKnapp";
+import {
+  sparaKalkylAnrop,
+  useAterstallKalkylUtkast,
+  useSparaKalkyl,
+  useSparadKalkyl,
+} from "@/components/konto/useSparaKalkyl";
+import { formatSkapadDatum } from "@/lib/analysisView";
+import { MAX_ETIKETT_TECKEN, type SparadKalkyl } from "@/lib/kontoTyper";
+import { SPARAT_KEY } from "@/lib/session";
+import { inloggningsSok } from "@/lib/till";
 import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
 import { parseBolanekalkylSearch, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import { beraknaKalkyl } from "@/lib/kalkyl/berakna";
 import { tolkaTal } from "@/lib/kalkyl/indata";
 import { REGLER, STATUS_ETIKETT, tal, type Regel } from "@/lib/kalkyl/regler";
-import { BARN_ALDRAR, sidaFranSokning, underlagFranSida, type KalkylSida } from "@/lib/kalkyl/sida";
-import type { EgenKostnadId } from "@/lib/kalkyl/underlag";
+import {
+  BARN_ALDRAR,
+  sidaFranSokning,
+  sidaFranUnderlag,
+  underlagFranSida,
+  type KalkylSida,
+} from "@/lib/kalkyl/sida";
+import type { EgenKostnadId, KalkylUnderlag } from "@/lib/kalkyl/underlag";
 
 export const Route = createFileRoute("/bolanekalkyl")({
   head: () => ({
@@ -56,16 +84,87 @@ const BARN_ETIKETT: Record<(typeof BARN_ALDRAR)[number], string> = {
 
 const RUBRIK = "text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 
+/** Vad `?sparad=<id>` gav: en läsbar kalkyl, eller en förklaring till varför inte. */
+type Oppnad =
+  | { typ: "ok"; kalkyl: SparadKalkyl; underlag: KalkylUnderlag }
+  | { typ: "okantFormat"; kalkyl: SparadKalkyl }
+  | { typ: "fel"; meddelande: string };
+
+const AVGIFT_IDS = avgiftPoster.map((p) => p.id);
+
 function Bolanekalkyl() {
   const search: BolanekalkylSearch = Route.useSearch();
+  const sparad = useSparadKalkyl(search.sparad);
+  const navigateTillLogin = useNavigate();
+
+  // Utloggad: logga in och kom tillbaka till samma sparade kalkyl.
+  useEffect(() => {
+    if (search.sparad !== undefined && sparad.ejInloggad) {
+      void navigateTillLogin({
+        to: "/konto/logga-in",
+        search: inloggningsSok(
+          `/bolanekalkyl?sparad=${encodeURIComponent(search.sparad)}`,
+          undefined,
+        ),
+      });
+    }
+  }, [search.sparad, sparad.ejInloggad, navigateTillLogin]);
+
+  if (search.sparad !== undefined && (sparad.laddar || sparad.ejInloggad)) {
+    return (
+      <div className="mx-auto max-w-5xl px-5 py-14">
+        <PageHeader
+          eyebrow="Bolånekalkyl"
+          title="Vad kostar bostaden per månad?"
+          lead="Räkna ut din totala månadskostnad direkt i webbläsaren"
+        />
+        <p className="text-sm text-muted-foreground">Hämtar den sparade kalkylen…</p>
+      </div>
+    );
+  }
+
+  let oppnad: Oppnad | undefined;
+  if (search.sparad !== undefined) {
+    if (sparad.kalkyl !== null && sparad.underlag !== null) {
+      oppnad = { typ: "ok", kalkyl: sparad.kalkyl, underlag: sparad.underlag };
+    } else if (sparad.kalkyl !== null) {
+      oppnad = { typ: "okantFormat", kalkyl: sparad.kalkyl };
+    } else {
+      oppnad = {
+        typ: "fel",
+        meddelande: sparad.hittadesInte
+          ? "Kalkylen hittades inte. Den kan ha raderats."
+          : (sparad.fel ?? "Kalkylen kunde inte hämtas."),
+      };
+    }
+  }
+  return <Kalkyl key={search.sparad ?? "ny"} search={search} oppnad={oppnad} />;
+}
+
+function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad | undefined }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const uppgifter = useUppgifter();
+  // Spara-knappen beror på inloggningsläget, som servern inte känner till vid första
+  // renderingen: visa den först efter mount så att hydreringen stämmer.
+  const [monterad, setMonterad] = useState(false);
+  useEffect(() => setMonterad(true), []);
 
   // Sidans fält som text. Förifylld vid länk från en färdig analys
   // (?pris=…&manadsavgift=…&boarea=…): kalkylen har inget eget pris-fält, så
   // priset delas upp i minsta kontantinsats (bolånetaket) och lån på resten.
   // Läses bara vid mount. Avgiftsposterna (vad som ingår) delas med övriga
   // sidor via uppgifter-butiken och läggs på vid varje beräkning.
-  const [sida, setSida] = useState<KalkylSida>(() => sidaFranSokning(search));
+  const [sida, setSida] = useState<KalkylSida>(() =>
+    oppnad?.typ === "ok" ? sidaFranUnderlag(oppnad.underlag) : sidaFranSokning(search),
+  );
+  // Namn på kalkylen och id på den sparade raden som Spara uppdaterar (om någon).
+  const [etikett, setEtikett] = useState(
+    oppnad?.typ === "ok" || oppnad?.typ === "okantFormat" ? (oppnad.kalkyl.etikett ?? "") : "",
+  );
+  const [sparadId, setSparadId] = useState<string | undefined>(
+    oppnad?.typ === "ok" ? oppnad.kalkyl.id : undefined,
+  );
   const [manadsavgiftFranAnalys] = useState(search.manadsavgift !== undefined);
   const [prisFranAnalys] = useState(search.pris !== undefined);
   const [prisUppskattningFranAnalys] = useState(search.prisUppskattning === true);
@@ -81,8 +180,18 @@ function Bolanekalkyl() {
     if (search.boarea !== undefined) {
       setUppgifter({ boarea: search.boarea });
     }
+    // En öppnad sparad kalkyl bär sina "vad ingår i avgiften"-svar med sig.
+    if (oppnad?.typ === "ok") {
+      for (const id of AVGIFT_IDS) setIngar(id, oppnad.underlag.avgiftInkluderar[id]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Fyller i hela sidan från ett underlag (öppnad kalkyl eller återställt utkast). */
+  const sattAllaFalt = (u: KalkylUnderlag) => {
+    setSida(sidaFranUnderlag(u));
+    for (const id of AVGIFT_IDS) setIngar(id, u.avgiftInkluderar[id]);
+  };
 
   const { underlag, fel } = useMemo(
     () => underlagFranSida({ ...sida, avgiftInkluderar: { ...uppgifter.ingar } }),
@@ -100,6 +209,45 @@ function Bolanekalkyl() {
 
   const boendeSchablonPoster = r.drift.filter((p) => !p.ingarIAvgift);
 
+  /** Sparar via servern och minns raden, så att nästa Spara uppdaterar den i stället för att
+   *  skapa en dubblett. */
+  const sparaAnrop: typeof sparaKalkylAnrop = async (indata) => {
+    const svar = await sparaKalkylAnrop(indata);
+    if (svar.ok) {
+      setSparadId(svar.kalkyl.id);
+      void qc.invalidateQueries({ queryKey: SPARAT_KEY });
+      void qc.invalidateQueries({ queryKey: ["sparad-kalkyl"] });
+    }
+    return svar;
+  };
+  const etikettText = etikett.trim();
+  const sparaStatus = useAterstallKalkylUtkast({
+    spara: search.spara,
+    aterstall: (u, e) => {
+      sattAllaFalt(u);
+      setEtikett(e);
+      return sparaAnrop({ underlag: u, ...(e.trim() !== "" ? { etikett: e.trim() } : {}) });
+    },
+    rensaParam: () =>
+      void navigate({
+        to: "/bolanekalkyl",
+        search: { ...search, spara: undefined },
+        replace: true,
+      }),
+  });
+  const sparaBas = {
+    underlag,
+    ...(etikettText !== "" ? { etikett: etikettText } : {}),
+    anrop: sparaAnrop,
+  };
+  const sparaUppdatera = useSparaKalkyl({
+    ...sparaBas,
+    ...(sparadId !== undefined ? { id: sparadId } : {}),
+  });
+  const sparaNy = useSparaKalkyl(sparaBas);
+  // Återställ knapparnas "Sparad"-läge när något ändras.
+  const sparaNyckel = JSON.stringify([underlag, etikettText]);
+
   return (
     <div className="mx-auto max-w-5xl px-5 py-14">
       <PageHeader
@@ -107,6 +255,93 @@ function Bolanekalkyl() {
         title="Vad kostar bostaden per månad?"
         lead="Räkna ut din totala månadskostnad direkt i webbläsaren"
       />
+
+      {oppnad?.typ === "ok" ? (
+        <div className="mb-6">
+          <Callout variant="tip" title="Öppnad från ditt konto">
+            <p>
+              Öppnad från ditt konto:{" "}
+              {oppnad.kalkyl.etikett ?? formatSkapadDatum(oppnad.kalkyl.uppdaterad)}. Spara
+              uppdaterar den här kalkylen; du kan också spara den som en ny.
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {oppnad?.typ === "okantFormat" ? (
+        <div className="mb-6">
+          <Callout variant="flag" title="Kalkylen kan inte öppnas">
+            <p>
+              Den sparade kalkylen har ett format som inte längre stöds, så uppgifterna kan inte
+              fyllas i. Du kan fortfarande räkna på en ny kalkyl här.{" "}
+              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+                Till Mitt konto
+              </Link>
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {oppnad?.typ === "fel" ? (
+        <div className="mb-6">
+          <Callout variant="flag" title="Kalkylen kan inte öppnas">
+            <p>
+              {oppnad.meddelande} Du kan fortfarande räkna på en ny kalkyl här.{" "}
+              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+                Till Mitt konto
+              </Link>
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "kraver_inloggning" ? (
+        <div className="mb-6">
+          <Callout variant="tip" title="Logga in för att spara">
+            <p>
+              Du behöver vara inloggad för att slutföra sparandet.{" "}
+              <Link
+                to="/konto/logga-in"
+                search={inloggningsSok("/bolanekalkyl", "kalkyl")}
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Logga in
+              </Link>
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "saknas" ? (
+        <div className="mb-6">
+          <Callout variant="tip" title="Utkastet finns inte kvar">
+            <p>
+              Uppgifterna du fyllde i före inloggningen hittades inte (de sparas högst ett dygn, och
+              bara i den här webbläsaren). Fyll i dem igen och tryck på Spara.
+            </p>
+          </Callout>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "sparar" ? (
+        <div className="mb-6">
+          <InfoRuta>
+            <p>Sparar din kalkyl…</p>
+          </InfoRuta>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "sparad" ? (
+        <div className="mb-6">
+          <InfoRuta>
+            <p className="font-medium">Din kalkyl är sparad i ditt konto.</p>
+            <p>
+              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+                Se den i Mitt konto
+              </Link>
+            </p>
+          </InfoRuta>
+        </div>
+      ) : null}
+      {sparaStatus.typ === "fel" ? (
+        <div className="mb-6">
+          <FelRuta>Kalkylen kunde inte sparas: {sparaStatus.meddelande}</FelRuta>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Card>
@@ -728,7 +963,41 @@ function Bolanekalkyl() {
           </Card>
 
           <div data-slot="kalkyl-atgarder">
-            <KalkylExport underlag={underlag} />
+            <KalkylExport
+              underlag={underlag}
+              {...(etikettText !== "" ? { etikett: etikettText } : {})}
+            />
+            <div className="mt-6 space-y-4">
+              <div className="max-w-sm">
+                <Field
+                  id="kalkyl-namn"
+                  label="Namn på kalkylen"
+                  optional
+                  type="text"
+                  placeholder="Till exempel adressen"
+                  value={etikett}
+                  onChange={(v) => setEtikett(v.slice(0, MAX_ETIKETT_TECKEN))}
+                />
+              </div>
+              <div className="flex flex-wrap items-start gap-3">
+                {monterad ? (
+                  <SparaKnapp
+                    key={`uppdatera-${sparaNyckel}`}
+                    {...sparaUppdatera}
+                    etikettKnapp={sparadId !== undefined ? "Spara ändringarna" : "Spara kalkylen"}
+                    till="/bolanekalkyl"
+                  />
+                ) : null}
+                {monterad && sparadId !== undefined ? (
+                  <SparaKnapp
+                    key={`ny-${sparaNyckel}`}
+                    {...sparaNy}
+                    etikettKnapp="Spara som ny kalkyl"
+                    till="/bolanekalkyl"
+                  />
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
       </div>
