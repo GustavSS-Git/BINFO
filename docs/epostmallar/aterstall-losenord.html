@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <title>Återställ ditt lösenord hos Binfo</title>
+  </head>
+  <body style="font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #1a1a1a">
+    <h2 style="margin: 0 0 16px">Återställ ditt lösenord</h2>
+    <p>Hej! Någon har bett om att få återställa lösenordet till ditt konto hos Binfo.</p>
+    <p>Klicka på länken för att välja ett nytt lösenord:</p>
+    <p>
+      <a href="{{ .SiteURL }}/konto/bekrafta?token_hash={{ .TokenHash }}&amp;type=recovery"
+        >Välj nytt lösenord</a
+      >
+    </p>
+    <p>
+      Fungerar inte länken? Kopiera den här adressen till webbläsaren:<br />
+      {{ .SiteURL }}/konto/bekrafta?token_hash={{ .TokenHash }}&amp;type=recovery
+    </p>
+    <p>
+      Länken fungerar bara en gång och en begränsad tid. Har du inte bett om det här kan du
+      bortse från mejlet. Ditt lösenord ändras inte förrän du väljer ett nytt.
+    </p>
+    <p style="color: #666; font-size: 13px">
+      Binfo, oberoende stöd för dig som köper bostadsrätt. Det här är ett automatiskt mejl, svara
+      inte på det.
+    </p>
+  </body>
+</html>

@@ -21,7 +21,14 @@ describe("supabaseKonto (adapter)", () => {
       sakerstall_principal: { data: "p-1", error: null },
       ta_kvot: { data: true, error: null },
       radera_principal: {
-        data: { principaler: 1, analyser: 2, behorigheter: 0, kvotrader: 3 },
+        data: {
+          principaler: 1,
+          analyser: 2,
+          behorigheter: 0,
+          kvotrader: 3,
+          sparade_varderingar: 4,
+          sparade_kalkyler: 5,
+        },
         error: null,
       },
     });
@@ -36,6 +43,8 @@ describe("supabaseKonto (adapter)", () => {
       analyser: 2,
       behorigheter: 0,
       kvotrader: 3,
+      sparadeVarderingar: 4,
+      sparadeKalkyler: 5,
     });
 
     expect(anrop).toEqual([

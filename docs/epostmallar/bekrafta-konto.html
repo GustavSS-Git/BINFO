@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bekräfta din e-postadress hos Binfo</title>
+  </head>
+  <body style="font-family: Arial, Helvetica, sans-serif; line-height: 1.5; color: #1a1a1a">
+    <h2 style="margin: 0 0 16px">Bekräfta din e-postadress</h2>
+    <p>Hej! Du (eller någon som skrivit in din adress) har skapat ett konto hos Binfo.</p>
+    <p>Klicka på länken för att bekräfta din e-postadress och logga in:</p>
+    <p>
+      <a href="{{ .SiteURL }}/konto/bekrafta?token_hash={{ .TokenHash }}&amp;type=signup"
+        >Bekräfta e-postadressen</a
+      >
+    </p>
+    <p>
+      Fungerar inte länken? Kopiera den här adressen till webbläsaren:<br />
+      {{ .SiteURL }}/konto/bekrafta?token_hash={{ .TokenHash }}&amp;type=signup
+    </p>
+    <p>
+      Länken fungerar bara en gång och en begränsad tid. Har du inte skapat något konto kan du
+      bortse från det här mejlet. Då skapas inget konto.
+    </p>
+    <p style="color: #666; font-size: 13px">
+      Binfo, oberoende stöd för dig som köper bostadsrätt. Det här är ett automatiskt mejl, svara
+      inte på det.
+    </p>
+  </body>
+</html>

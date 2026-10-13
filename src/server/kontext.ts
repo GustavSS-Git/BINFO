@@ -8,14 +8,22 @@
  * the session and sets `principalId` from the account's principal. Handlers
  * and implementations stay unchanged — they only ever see a `Kontext`.
  *
- * Today:
+ * Identity:
+ * - Session (v3): when `deps.session` is given and the httpOnly cookies
+ *   `binfo_sa`/`binfo_sr` (./sessionCookies.ts) hold a valid Supabase Auth
+ *   session, `principalId` is the account's `typ = 'konto'` principal and
+ *   `konto` carries the Auth user. An expired access token is refreshed with
+ *   the refresh cookie (both cookies rotated); a token that is rejected
+ *   clears the cookies and the request is anonymous. On the first request
+ *   from a device the device's anonymous principal is merged into the account
+ *   (once). Without `deps.session` nothing of this runs.
  * - `enhetId` — the anonymous device id from the first-party httpOnly cookie
  *   `binfo_enhet` (128 random bits, base64url). Created here when absent or
  *   malformed. It identifies a browser, not a person, and holds nothing else.
- * - `principalId` — always null from here. The `principal` row is created
- *   lazily on the first expensive action (see `./principal.ts`,
- *   `medPrincipal`), so merely visiting the site never writes to the
- *   database.
+ * - `principalId` — null for an anonymous visitor: the device `principal`
+ *   row is created lazily on the first expensive action (see
+ *   `./principal.ts`, `medPrincipal`), so merely visiting the site never
+ *   writes to the database. Set for a logged-in account.
  * - `ipHash` — hex HMAC-SHA256 of the client IP, keyed by a key derived from
  *   PROJECT_SECRET_KEY. The raw IP is never returned, stored or logged. Used
  *   only as a rate-limit key (`./kvot.ts`). Null when there is no
@@ -30,11 +38,22 @@
  */
 
 import { getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
+import type { AuthAnvandare, AuthPort, KontoDatabas } from "./kontoPortar";
+import { lasSessionCookies, rensaSessionCookies, sattSessionCookies } from "./sessionCookies";
+
+/** The logged-in account behind a request. Absent for anonymous visitors. */
+export interface KontoIdentitet {
+  authUserId: string;
+  epost: string;
+}
 
 export interface Kontext {
   enhetId: string;
   principalId: string | null;
   ipHash: string | null;
+  /** Set exactly when the request carries a valid session; then
+   *  `principalId` is the account's principal. */
+  konto?: KontoIdentitet;
 }
 
 export const ENHET_COOKIE = "binfo_enhet";
@@ -65,8 +84,17 @@ export interface KontextKallor {
   lasHeader(namn: string): string | undefined;
 }
 
+/** What reading a session needs: the Auth port and the principal store. */
+export interface SessionBeroenden {
+  auth: AuthPort;
+  db: KontoDatabas;
+}
+
 export interface KontextDeps {
   kallor: KontextKallor;
+  /** Omit for anonymous-only behaviour (tests, and deployments without
+   *  `PROJECT_PUBLISHABLE_KEY`). */
+  session?: SessionBeroenden;
   /** PROJECT_SECRET_KEY (`Env.supabaseSecretKey`) — the root of the IP-hash
    *  key. Never used directly as the HMAC key; see `hashaIp`. */
   hemlighet: string;
@@ -75,11 +103,21 @@ export interface KontextDeps {
 }
 
 /** Production binding to TanStack Start's request-scoped helpers. Only
- *  callable inside a server function / request handler. */
+ *  callable inside a server function / request handler.
+ *
+ *  Write-through: `getCookie` reads the REQUEST's Cookie header, so a cookie
+ *  set earlier in the same request would read back stale. A session refresh in
+ *  `losKontext` rotates the tokens, and a later step of the same request (e.g.
+ *  `sattNyttLosenord`) must see the new ones, so values written through this
+ *  object are remembered and returned by `lasCookie`. One object per request. */
 export function tanstackKontextKallor(): KontextKallor {
+  const satta = new Map<string, string>();
   return {
-    lasCookie: (namn) => getCookie(namn),
-    sattCookie: (namn, varde, alternativ) => setCookie(namn, varde, alternativ),
+    lasCookie: (namn) => (satta.has(namn) ? satta.get(namn) : getCookie(namn)),
+    sattCookie: (namn, varde, alternativ) => {
+      satta.set(namn, varde);
+      setCookie(namn, varde, alternativ);
+    },
     lasHeader: (namn) => getRequestHeader(namn),
   };
 }
@@ -166,12 +204,98 @@ export async function hashaIp(ip: string, hemlighet: string): Promise<string> {
   return hex(signatur);
 }
 
+/** Version label of the derived email key. */
+export const EPOST_NYCKEL_ETIKETT = "binfo-epost-v1";
+
+/**
+ * hex(HMAC) of an email address, for rate-limit keys only — the address
+ * itself is never put in a key, log or table by us. Same construction as
+ * `hashaIp` with its own domain label; trimmed and lowercased so the spelling
+ * of one address can't dodge its limit.
+ */
+export async function hashaEpost(epost: string, hemlighet: string): Promise<string> {
+  const rot = await hmacNyckel(kodare.encode(hemlighet));
+  const harledd = await crypto.subtle.sign("HMAC", rot, kodare.encode(EPOST_NYCKEL_ETIKETT));
+  const nyckel = await hmacNyckel(harledd);
+  const signatur = await crypto.subtle.sign(
+    "HMAC",
+    nyckel,
+    kodare.encode(epost.trim().toLowerCase()),
+  );
+  return hex(signatur);
+}
+
+export interface AktivSession {
+  anvandare: AuthAnvandare;
+  principalId: string;
+}
+
+/**
+ * Resolves the session cookies to an account, or null (anonymous).
+ *
+ * - No cookies → null, nothing touched.
+ * - Valid access token → that user.
+ * - Rejected/expired access token + refresh cookie → `fornyaSession`; on
+ *   success BOTH cookies are rotated to the new tokens.
+ * - A token the Auth server definitively rejects → cookies cleared, null.
+ * - Auth unreachable (5xx/network) → null for this request but the cookies are
+ *   left alone, so a blip doesn't sign anybody out.
+ * - A DB failure while mapping to the principal propagates (the request fails
+ *   rather than silently running as the wrong identity).
+ *
+ * The principal is created on the first call for a user; on the first call
+ * from a device that has an unmerged anonymous principal, it is merged into
+ * the account in the same transaction (`sakerstall_konto_principal`).
+ */
+export async function losSession(
+  session: SessionBeroenden,
+  kallor: KontextKallor,
+  enhetId: string,
+): Promise<AktivSession | null> {
+  const { accessToken, refreshToken } = lasSessionCookies(kallor);
+  if (accessToken === undefined && refreshToken === undefined) return null;
+
+  let anvandare: AuthAnvandare | null = null;
+
+  if (accessToken !== undefined) {
+    const kontroll = await session.auth.valideraAccessToken(accessToken);
+    if (kontroll.status === "ok") anvandare = kontroll.anvandare;
+    else if (kontroll.status === "fel") return null;
+  }
+
+  if (anvandare === null) {
+    if (refreshToken === undefined) {
+      rensaSessionCookies(kallor);
+      return null;
+    }
+    const ny = await session.auth.fornyaSession(refreshToken);
+    if (ny.ok) {
+      sattSessionCookies(kallor, ny.session);
+      anvandare = ny.anvandare;
+    } else if (ny.orsak === "tillfalligt") {
+      return null;
+    } else {
+      rensaSessionCookies(kallor);
+      return null;
+    }
+  }
+
+  const { principalId } = await session.db.sakerstallKontoPrincipal(anvandare.id, enhetId);
+  return { anvandare, principalId };
+}
+
 export async function losKontext(deps: KontextDeps): Promise<Kontext> {
   const enhetId = losEnhetId(deps.kallor, deps.slumpa);
   const ip = losIp(deps.kallor);
   const ipHash = ip === null ? null : await hashaIp(ip, deps.hemlighet);
-  // Accounts later: read the Supabase Auth session here and set
-  // principalId to the account's principal (merging this device's
-  // principal into it on first sign-in via `slaSammanPrincipal`).
-  return { enhetId, principalId: null, ipHash };
+  const bas: Kontext = { enhetId, principalId: null, ipHash };
+  if (!deps.session) return bas;
+
+  const aktiv = await losSession(deps.session, deps.kallor, enhetId);
+  if (aktiv === null) return bas;
+  return {
+    ...bas,
+    principalId: aktiv.principalId,
+    konto: { authUserId: aktiv.anvandare.id, epost: aktiv.anvandare.epost },
+  };
 }

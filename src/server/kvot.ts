@@ -39,9 +39,31 @@ export const PRISUPPSKATTNINGAR_PER_IP_OCH_TIMME = 60;
 export const UPPLADDNINGAR_LOSA_PER_ENHET_OCH_DAG = 30;
 export const UPPLADDNINGAR_LOSA_PER_IP_OCH_DAG = 100;
 
-export type KvotHandling = "uppladdning" | "uppladdning_los" | "prisuppskattning";
+/**
+ * Account limits (v3, docs/PLAN-v3.md §1.2). Product limits, not facts.
+ * Fixed UTC-aligned windows: 15 minutes (login) and one hour. Email keys hold
+ * an HMAC of the address (`hashaEpost` in ./kontext.ts), never the address.
+ */
+export const KVARTAR_SEK = 15 * 60;
+export const INLOGGNINGAR_PER_IP_OCH_KVART = 10;
+export const INLOGGNINGAR_PER_EPOST_OCH_KVART = 5;
+export const REGISTRERINGAR_PER_IP_OCH_TIMME = 5;
+export const ATERSTALLNINGAR_PER_EPOST_OCH_TIMME = 3;
+export const ATERSTALLNINGAR_PER_IP_OCH_TIMME = 10;
 
-export function kvotNyckel(handling: KvotHandling, typ: "enhet" | "ip", id: string): string {
+export type KvotHandling =
+  | "uppladdning"
+  | "uppladdning_los"
+  | "prisuppskattning"
+  | "inloggning"
+  | "registrering"
+  | "aterstallning";
+
+export function kvotNyckel(
+  handling: KvotHandling,
+  typ: "enhet" | "ip" | "epost",
+  id: string,
+): string {
   return `${handling}:${typ}:${id}`;
 }
 
@@ -56,6 +78,9 @@ export const KVOT_MEDDELANDE = {
     "Många uppladdningar har gjorts från ditt nätverk idag, även av rapporter som redan var analyserade. Försök igen i morgon.",
   prisuppskattning:
     "Du har gjort många prisuppskattningar på kort tid. Vänta en stund och försök igen.",
+  /** Login, sign-up and password reset. One text for every limit so it never
+   *  says which key (address, network) ran out. */
+  konto: "För många försök, vänta en stund.",
 } as const;
 
 /** One use of `nyckel` in the current window; true iff still within `max`.
@@ -172,4 +197,112 @@ export async function kontrolleraPrisuppskattningskvot(
     return nekad(KVOT_MEDDELANDE.prisuppskattning);
   }
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Accounts: login, sign-up, password reset
+// ---------------------------------------------------------------------------
+
+interface KontoKvotSteg {
+  nyckel: string;
+  max: number;
+}
+
+/** The per-network key: the IP hash, or the device id when there is no IP
+ *  header (local dev/CLI; on Cloudflare `cf-connecting-ip` is always set). */
+function natverksNyckel(handling: KvotHandling, kontext: Kontext): string {
+  return kontext.ipHash !== null
+    ? kvotNyckel(handling, "ip", kontext.ipHash)
+    : kvotNyckel(handling, "enhet", kontext.enhetId);
+}
+
+/** Takes every step in order; the first refusal gives back the ones already
+ *  taken, so a refused request costs nothing on the other keys. */
+async function taAlla(
+  db: KontoDatabas,
+  steg: readonly KontoKvotSteg[],
+  fonsterSek: number,
+): Promise<KvotUtfall> {
+  const tagna: string[] = [];
+  for (const s of steg) {
+    if (await taKvot(db, s.nyckel, fonsterSek, s.max)) {
+      tagna.push(s.nyckel);
+      continue;
+    }
+    for (const t of tagna) await db.aterlamnaKvot(t, fonsterSek);
+    return nekad(KVOT_MEDDELANDE.konto);
+  }
+  return { ok: true };
+}
+
+function loginSteg(kontext: Kontext, epostHash: string): KontoKvotSteg[] {
+  return [
+    {
+      nyckel: natverksNyckel("inloggning", kontext),
+      max: INLOGGNINGAR_PER_IP_OCH_KVART,
+    },
+    {
+      nyckel: kvotNyckel("inloggning", "epost", epostHash),
+      max: INLOGGNINGAR_PER_EPOST_OCH_KVART,
+    },
+  ];
+}
+
+/** Login attempts: 10 per network and 5 per address per 15 minutes. Counts
+ *  the attempt (a refusal consumes nothing). */
+export async function kontrolleraInloggningskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+  epostHash: string,
+): Promise<KvotUtfall> {
+  return taAlla(db, loginSteg(kontext, epostHash), KVARTAR_SEK);
+}
+
+/** A successful login gives its own attempt back, so signing in and out a few
+ *  times never locks a real user out — while every FAILED attempt keeps
+ *  counting, which is what stops guessing. Best effort. */
+export async function aterlamnaInloggningskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+  epostHash: string,
+): Promise<void> {
+  try {
+    for (const s of loginSteg(kontext, epostHash)) await db.aterlamnaKvot(s.nyckel, KVARTAR_SEK);
+  } catch (fel) {
+    console.warn(
+      "[kvot] Kunde inte återlämna inloggningskvot: " +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
+}
+
+/** Sign-up: 5 per network and hour. */
+export async function kontrolleraRegistreringskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+): Promise<KvotUtfall> {
+  return taAlla(
+    db,
+    [{ nyckel: natverksNyckel("registrering", kontext), max: REGISTRERINGAR_PER_IP_OCH_TIMME }],
+    TIMME_SEK,
+  );
+}
+
+/** Password reset: 3 per address and 10 per network and hour. */
+export async function kontrolleraAterstallningskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+  epostHash: string,
+): Promise<KvotUtfall> {
+  return taAlla(
+    db,
+    [
+      {
+        nyckel: kvotNyckel("aterstallning", "epost", epostHash),
+        max: ATERSTALLNINGAR_PER_EPOST_OCH_TIMME,
+      },
+      { nyckel: natverksNyckel("aterstallning", kontext), max: ATERSTALLNINGAR_PER_IP_OCH_TIMME },
+    ],
+    TIMME_SEK,
+  );
 }

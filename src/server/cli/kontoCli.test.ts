@@ -106,6 +106,55 @@ describe("npm run konto", () => {
     ]);
   });
 
+  it("exportera och radera täcker sparade värderingar och kalkyler, och Auth-användaren", async () => {
+    const { skapaFakeAuth } = await import("../__fakes__/auth");
+    const auth = skapaFakeAuth();
+    const anv = auth.skapaBekraftadAnvandare("a@b.se", "ett-langt-losenord");
+    const db = skapaFakeKontoDatabas();
+    const { principalId } = await db.sakerstallKontoPrincipal(anv.id, null);
+    await db.skapaSparadKalkyl({
+      principalId,
+      etikett: "k",
+      input: {},
+      sammanfattning: {},
+      regelversion: "r",
+    });
+    await db.skapaSparadVardering({
+      principalId,
+      etikett: "v",
+      input: {} as never,
+      resultat: {} as never,
+      modellVersion: "m",
+    });
+
+    const e = utskrift();
+    expect(
+      await korKontoKommando(db, ["exportera", principalId], e.skriv, { kravUuid: false }),
+    ).toBe(0);
+    const data = JSON.parse(e.ut.join("\n")) as {
+      sparadeVarderingar: unknown[];
+      sparadeKalkyler: unknown[];
+    };
+    expect([data.sparadeVarderingar.length, data.sparadeKalkyler.length]).toEqual([1, 1]);
+
+    // Without Auth access the Auth user would survive: warn and exit 1.
+    const utanAuth = utskrift();
+    const db2 = skapaFakeKontoDatabas();
+    const p2 = (await db2.sakerstallKontoPrincipal(anv.id, null)).principalId;
+    expect(await korKontoKommando(db2, ["radera", p2], utanAuth.skriv, { kravUuid: false })).toBe(
+      1,
+    );
+    expect(utanAuth.fel.join("\n")).toMatch(/INTE/);
+
+    const r = utskrift();
+    expect(
+      await korKontoKommando(db, ["radera", principalId], r.skriv, { kravUuid: false, auth }),
+    ).toBe(0);
+    expect(r.fel.join("\n")).toMatch(/1 sparad\(e\) värdering\(ar\), 1 sparad\(e\) kalkyl\(er\)/);
+    expect(db.sparadeKalkyler.size + db.sparadeVarderingar.size).toBe(0);
+    expect(auth.anvandare.size).toBe(0);
+  });
+
   it("okänd principal: exit 1, inget raderas", async () => {
     const { db } = await seed();
     const u = utskrift();

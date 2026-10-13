@@ -23,10 +23,27 @@ export async function sakerstallPrincipal(db: KontoDatabas, enhetId: string): Pr
 }
 
 /**
+ * The `typ = 'konto'` principal of a Supabase Auth user, created on first use.
+ * With `enhetId`, that device's anonymous principal is merged into the
+ * account if it has not been merged anywhere yet — once per device
+ * (`sakerstall_konto_principal`; `sla_samman_principal` inside). Used by
+ * `losSession` (./kontext.ts) on every authenticated request and by the
+ * login/verify functions (./auth.ts).
+ */
+export async function sakerstallKontoPrincipal(
+  db: KontoDatabas,
+  authUserId: string,
+  enhetId: string | null,
+): Promise<{ principalId: string; sammanslagen: boolean }> {
+  if (authUserId.length === 0) throw new Error("sakerstallKontoPrincipal: authUserId saknas");
+  return db.sakerstallKontoPrincipal(authUserId, enhetId);
+}
+
+/**
  * Returns `kontext` with `principalId` filled in. A context that already has
- * a principal (an account, later) is returned unchanged; otherwise the
- * device principal is ensured. Call this right before the expensive action,
- * not at the top of every handler.
+ * a principal (a logged-in account, see `losKontext`) is returned unchanged;
+ * otherwise the device principal is ensured. Call this right before the
+ * expensive action, not at the top of every handler.
  */
 export async function medPrincipal(db: KontoDatabas, kontext: Kontext): Promise<Kontext> {
   if (kontext.principalId !== null) return kontext;

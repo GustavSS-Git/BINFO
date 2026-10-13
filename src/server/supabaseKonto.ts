@@ -1,20 +1,31 @@
 /**
  * Real `@supabase/supabase-js`-backed implementation of the `KontoDatabas`
  * port (see `./kontoPortar.ts`). Translation only — the semantics live in the
- * SQL functions of `supabase/migrations/20261009120100_konto.sql`, mirrored
- * for tests by `./__fakes__/konto.ts`.
+ * SQL of `supabase/migrations/20261009120100_konto.sql` and
+ * `supabase/migrations/20261013120000_konto_v3.sql`, mirrored for tests by
+ * `./__fakes__/konto.ts`.
  *
  * Web-standard only (plus `@supabase/supabase-js`), like `./supabase.ts`.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AnalysListrad,
+  ExporteradKalkyl,
+  ExporteradVardering,
   ExporteradAnalys,
   KontoDatabas,
+  KontoPrincipalUtfall,
+  NySparadKalkyl,
+  NySparadVardering,
   PrincipalExport,
   PrincipalRad,
   PrincipalTyp,
   RaderingsResultat,
+  SparadKalkylDelta,
+  SparadKalkylRad,
+  SparadVarderingListrad,
+  SparadVarderingRad,
 } from "./kontoPortar";
 
 interface PrincipalRow {
@@ -34,6 +45,51 @@ interface ExportAnalysRow {
   rapport_id: string | null;
 }
 
+interface VarderingRow {
+  id: string;
+  principal_id: string;
+  etikett: string | null;
+  input: unknown;
+  resultat: unknown;
+  modell_version: string;
+  skapad: string;
+}
+
+interface VarderingListRow {
+  id: string;
+  principal_id: string;
+  etikett: string | null;
+  input: unknown;
+  extern_vardering: unknown;
+  modell_version: string;
+  skapad: string;
+}
+
+interface KalkylRow {
+  id: string;
+  principal_id: string;
+  etikett: string | null;
+  input: unknown;
+  sammanfattning: unknown;
+  regelversion: string;
+  skapad: string;
+  uppdaterad: string;
+}
+
+interface AnalysListRow {
+  analys_id: string;
+  skapad: string;
+  status: string;
+  stage: string;
+  error_code: string | null;
+  orgnr: string | null;
+  namn: string | null;
+  rakenskapsar: number | null;
+  betyg: string | null;
+  adress: string | null;
+  utgangspris: number | string | null;
+}
+
 function principalFranRad(row: PrincipalRow): PrincipalRad {
   return {
     id: row.id,
@@ -45,6 +101,35 @@ function principalFranRad(row: PrincipalRow): PrincipalRad {
     sammanslagenTill: row.sammanslagen_till,
   };
 }
+
+function varderingFranRad(r: VarderingRow): SparadVarderingRad {
+  return {
+    id: r.id,
+    principalId: r.principal_id,
+    etikett: r.etikett,
+    input: r.input,
+    resultat: r.resultat,
+    modellVersion: r.modell_version,
+    skapad: r.skapad,
+  };
+}
+
+function kalkylFranRad(r: KalkylRow): SparadKalkylRad {
+  return {
+    id: r.id,
+    principalId: r.principal_id,
+    etikett: r.etikett,
+    input: r.input,
+    sammanfattning: r.sammanfattning,
+    regelversion: r.regelversion,
+    skapad: r.skapad,
+    uppdaterad: r.uppdaterad,
+  };
+}
+
+const VARDERING_KOLUMNER = "id, principal_id, etikett, input, resultat, modell_version, skapad";
+const KALKYL_KOLUMNER =
+  "id, principal_id, etikett, input, sammanfattning, regelversion, skapad, uppdaterad";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -102,6 +187,8 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
         analyser: tal(rad["analyser"]),
         behorigheter: tal(rad["behorigheter"]),
         kvotrader: tal(rad["kvotrader"]),
+        sparadeVarderingar: tal(rad["sparade_varderingar"]),
+        sparadeKalkyler: tal(rad["sparade_kalkyler"]),
       };
     },
 
@@ -127,6 +214,20 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
         .order("created_at", { ascending: true });
       if (aError) throw new Error(`exporteraPrincipal misslyckades: ${aError.message}`);
 
+      const { data: vData, error: vError } = await sb
+        .from("sparad_vardering")
+        .select(VARDERING_KOLUMNER)
+        .in("principal_id", ids)
+        .order("skapad", { ascending: true });
+      if (vError) throw new Error(`exporteraPrincipal misslyckades: ${vError.message}`);
+
+      const { data: kData, error: kError } = await sb
+        .from("sparad_kalkyl")
+        .select(KALKYL_KOLUMNER)
+        .in("principal_id", ids)
+        .order("skapad", { ascending: true });
+      if (kError) throw new Error(`exporteraPrincipal misslyckades: ${kError.message}`);
+
       return {
         principaler: rader.map((p) => ({
           id: p.id,
@@ -140,7 +241,225 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
           propertyInput: a.property_input,
           rapportId: a.rapport_id,
         })),
+        sparadeVarderingar: ((vData ?? []) as VarderingRow[]).map((v): ExporteradVardering => ({
+          id: v.id,
+          etikett: v.etikett,
+          skapad: v.skapad,
+          modellVersion: v.modell_version,
+          input: v.input,
+          resultat: v.resultat,
+        })),
+        sparadeKalkyler: ((kData ?? []) as KalkylRow[]).map((k): ExporteradKalkyl => ({
+          id: k.id,
+          etikett: k.etikett,
+          skapad: k.skapad,
+          uppdaterad: k.uppdaterad,
+          regelversion: k.regelversion,
+          input: k.input,
+          sammanfattning: k.sammanfattning,
+        })),
       };
+    },
+
+    // -----------------------------------------------------------------------
+    // v3
+    // -----------------------------------------------------------------------
+
+    async sakerstallKontoPrincipal(
+      authUserId: string,
+      enhetId: string | null,
+    ): Promise<KontoPrincipalUtfall> {
+      const { data, error } = await sb.rpc("sakerstall_konto_principal", {
+        p_auth_user_id: authUserId,
+        p_enhet_id: enhetId,
+      });
+      if (error) throw new Error(`sakerstallKontoPrincipal misslyckades: ${error.message}`);
+      const rad = (data ?? {}) as { principal_id?: unknown; sammanslagen?: unknown };
+      if (typeof rad.principal_id !== "string" || rad.principal_id.length === 0) {
+        throw new Error("sakerstallKontoPrincipal misslyckades: inget principal-id returnerades");
+      }
+      return { principalId: rad.principal_id, sammanslagen: rad.sammanslagen === true };
+    },
+
+    async skapaSparadVardering(rad: NySparadVardering): Promise<SparadVarderingRad> {
+      const { data, error } = await sb
+        .from("sparad_vardering")
+        .insert({
+          principal_id: rad.principalId,
+          etikett: rad.etikett,
+          input: rad.input,
+          resultat: rad.resultat,
+          modell_version: rad.modellVersion,
+        })
+        .select(VARDERING_KOLUMNER)
+        .single();
+      if (error) throw new Error(`skapaSparadVardering misslyckades: ${error.message}`);
+      return varderingFranRad(data as VarderingRow);
+    },
+
+    async listaSparadeVarderingar(principalId: string): Promise<SparadVarderingListrad[]> {
+      const { data, error } = await sb
+        .from("sparad_vardering")
+        .select(
+          "id, principal_id, etikett, input, modell_version, skapad, " +
+            "extern_vardering:resultat->prisanalys->externVardering",
+        )
+        .eq("principal_id", principalId)
+        .order("skapad", { ascending: false });
+      if (error) throw new Error(`listaSparadeVarderingar misslyckades: ${error.message}`);
+      return ((data ?? []) as unknown as VarderingListRow[]).map((r) => ({
+        id: r.id,
+        principalId: r.principal_id,
+        etikett: r.etikett,
+        input: r.input,
+        externVardering: r.extern_vardering ?? null,
+        modellVersion: r.modell_version,
+        skapad: r.skapad,
+      }));
+    },
+
+    async hamtaSparadVardering(
+      id: string,
+      principalId: string,
+    ): Promise<SparadVarderingRad | null> {
+      const { data, error } = await sb
+        .from("sparad_vardering")
+        .select(VARDERING_KOLUMNER)
+        .eq("id", id)
+        .eq("principal_id", principalId)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaSparadVardering misslyckades: ${error.message}`);
+      return data ? varderingFranRad(data as VarderingRow) : null;
+    },
+
+    async raderaSparadVardering(id: string, principalId: string): Promise<boolean> {
+      const { data, error } = await sb
+        .from("sparad_vardering")
+        .delete()
+        .eq("id", id)
+        .eq("principal_id", principalId)
+        .select("id");
+      if (error) throw new Error(`raderaSparadVardering misslyckades: ${error.message}`);
+      return (data ?? []).length > 0;
+    },
+
+    async raknaSparadeVarderingar(principalId: string): Promise<number> {
+      const { count, error } = await sb
+        .from("sparad_vardering")
+        .select("id", { count: "exact", head: true })
+        .eq("principal_id", principalId);
+      if (error) throw new Error(`raknaSparadeVarderingar misslyckades: ${error.message}`);
+      return count ?? 0;
+    },
+
+    async skapaSparadKalkyl(rad: NySparadKalkyl): Promise<SparadKalkylRad> {
+      const { data, error } = await sb
+        .from("sparad_kalkyl")
+        .insert({
+          principal_id: rad.principalId,
+          etikett: rad.etikett,
+          input: rad.input,
+          sammanfattning: rad.sammanfattning,
+          regelversion: rad.regelversion,
+        })
+        .select(KALKYL_KOLUMNER)
+        .single();
+      if (error) throw new Error(`skapaSparadKalkyl misslyckades: ${error.message}`);
+      return kalkylFranRad(data as KalkylRow);
+    },
+
+    async uppdateraSparadKalkyl(
+      id: string,
+      principalId: string,
+      delta: SparadKalkylDelta,
+    ): Promise<SparadKalkylRad | null> {
+      const { data, error } = await sb
+        .from("sparad_kalkyl")
+        .update({
+          etikett: delta.etikett,
+          input: delta.input,
+          sammanfattning: delta.sammanfattning,
+          regelversion: delta.regelversion,
+          uppdaterad: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("principal_id", principalId)
+        .select(KALKYL_KOLUMNER)
+        .maybeSingle();
+      if (error) throw new Error(`uppdateraSparadKalkyl misslyckades: ${error.message}`);
+      return data ? kalkylFranRad(data as KalkylRow) : null;
+    },
+
+    async listaSparadeKalkyler(principalId: string): Promise<SparadKalkylRad[]> {
+      const { data, error } = await sb
+        .from("sparad_kalkyl")
+        .select(KALKYL_KOLUMNER)
+        .eq("principal_id", principalId)
+        .order("skapad", { ascending: false });
+      if (error) throw new Error(`listaSparadeKalkyler misslyckades: ${error.message}`);
+      return ((data ?? []) as KalkylRow[]).map(kalkylFranRad);
+    },
+
+    async hamtaSparadKalkyl(id: string, principalId: string): Promise<SparadKalkylRad | null> {
+      const { data, error } = await sb
+        .from("sparad_kalkyl")
+        .select(KALKYL_KOLUMNER)
+        .eq("id", id)
+        .eq("principal_id", principalId)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaSparadKalkyl misslyckades: ${error.message}`);
+      return data ? kalkylFranRad(data as KalkylRow) : null;
+    },
+
+    async raderaSparadKalkyl(id: string, principalId: string): Promise<boolean> {
+      const { data, error } = await sb
+        .from("sparad_kalkyl")
+        .delete()
+        .eq("id", id)
+        .eq("principal_id", principalId)
+        .select("id");
+      if (error) throw new Error(`raderaSparadKalkyl misslyckades: ${error.message}`);
+      return (data ?? []).length > 0;
+    },
+
+    async raknaSparadeKalkyler(principalId: string): Promise<number> {
+      const { count, error } = await sb
+        .from("sparad_kalkyl")
+        .select("id", { count: "exact", head: true })
+        .eq("principal_id", principalId);
+      if (error) throw new Error(`raknaSparadeKalkyler misslyckades: ${error.message}`);
+      return count ?? 0;
+    },
+
+    async listaAnalyser(principalId: string): Promise<AnalysListrad[]> {
+      const { data, error } = await sb.rpc("lista_mina_analyser", { p_principal: principalId });
+      if (error) throw new Error(`listaAnalyser misslyckades: ${error.message}`);
+      return ((data ?? []) as AnalysListRow[]).map((r) => ({
+        analysId: r.analys_id,
+        skapad: r.skapad,
+        status: r.status,
+        stage: r.stage,
+        errorCode: r.error_code,
+        orgnr: r.orgnr,
+        foreningNamn: r.namn,
+        rakenskapsar: r.rakenskapsar,
+        betyg: r.betyg,
+        adress: r.adress,
+        utgangspris: r.utgangspris === null ? null : tal(r.utgangspris),
+      }));
+    },
+
+    async raderaAnalysFranLista(
+      principalId: string,
+      analysId: string,
+    ): Promise<{ borttagen: boolean; pdfBlevForlorad: boolean }> {
+      const { data, error } = await sb.rpc("radera_min_analys", {
+        p_principal: principalId,
+        p_analys: analysId,
+      });
+      if (error) throw new Error(`raderaAnalysFranLista misslyckades: ${error.message}`);
+      const rad = (data ?? {}) as { borttagen?: unknown; pdf_blev_forlorad?: unknown };
+      return { borttagen: rad.borttagen === true, pdfBlevForlorad: rad.pdf_blev_forlorad === true };
     },
   };
 }

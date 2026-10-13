@@ -25,6 +25,7 @@ import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
 import { SAKNAR_BEHORIGHET_MEDDELANDE, SaknarBehorighetError } from "./behorighet";
 import type { KvotUtfall } from "./kvot";
 import { SidtextOfullstandigError } from "./register";
+import type { KontoFel, KontoFelKod } from "@/lib/kontoTyper";
 
 export interface FelResultat {
   errorCode: AnalysErrorCode;
@@ -282,6 +283,7 @@ const KANDA_KLIENTFEL = new Set([
   "AnalysHittadesInteError",
   "AnalysInteKlarError",
   "SaknarBehorighetError",
+  "KontoEjKonfigureratError",
 ]);
 
 /**
@@ -305,4 +307,47 @@ export function sakertSkapaFel(handler: string, error: unknown) {
     errorCode: "unknown" as const,
     errorMessage: GENERISKT_FEL_MEDDELANDE,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Accounts and saved items (v3, src/server/auth.ts + sparat.ts).
+//
+// These functions return their failures as data (`KontoFel`, see
+// src/lib/kontoTyper.ts) so a form can branch on `felKod`; the texts below are
+// the only place their Swedish copy lives. Nothing from a caught error ever
+// goes into `meddelande` (same invariant as `tolkaFel`): Auth/Supabase
+// messages can name internals or leak whether an address is registered.
+// ---------------------------------------------------------------------------
+
+export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
+  ogiltig_epost: "Ange en giltig e-postadress.",
+  svagt_losenord:
+    "Lösenordet måste vara minst 10 tecken (och högst 72 byte). Det får inte heller vara ett " +
+    "lösenord som förekommit i ett dataintrång eller det du redan har.",
+  ogiltig_inloggning: "Fel e-postadress eller lösenord.",
+  epost_ej_bekraftad:
+    "E-postadressen är inte bekräftad ännu. Klicka på länken i bekräftelsemejlet först.",
+  ogiltig_lank:
+    "Länken är ogiltig eller har gått ut. Länkar i mejl fungerar bara en gång och en begränsad tid.",
+  kvot: "För många försök, vänta en stund.",
+  ej_inloggad: "Du behöver logga in för att göra det här.",
+  hittades_inte: "Vi hittade inte det du sökte.",
+  ogiltig_indata: "Uppgifterna är ogiltiga. Kontrollera dem och försök igen.",
+  for_manga_sparade: "Du har nått gränsen för antal sparade objekt. Ta bort något och försök igen.",
+  konto_ej_konfigurerat: "Konton är inte aktiverade just nu. Försök igen senare.",
+  unknown: GENERISKT_FEL_MEDDELANDE,
+};
+
+export function kontoFel(felKod: KontoFelKod): KontoFel {
+  return { ok: false, felKod, meddelande: KONTO_FEL_MEDDELANDE[felKod] };
+}
+
+/** `PROJECT_PUBLISHABLE_KEY` is optional in `Env`; the Auth flows need it.
+ *  Thrown when an account function is called without it. Passes through
+ *  `sakertFel` (known client error) with its Swedish message. */
+export class KontoEjKonfigureratError extends Error {
+  constructor() {
+    super(KONTO_FEL_MEDDELANDE.konto_ej_konfigurerat);
+    this.name = "KontoEjKonfigureratError";
+  }
 }

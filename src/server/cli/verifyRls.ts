@@ -10,7 +10,9 @@
  *  1. `spend_day` (day/cost_sek/runs) som oskyldig probe-tabell, med ett
  *     datum långt bak i tiden (1999) som aldrig kan krocka med riktig data.
  *  2. v2-tabellerna (register: forening, rapport, rapport_fil, sidtext,
- *     forening_adress; konto: principal, behorighet, kvot). Secret-nyckeln
+ *     forening_adress; konto: principal, behorighet, kvot; v3: sparad_vardering,
+ *     sparad_kalkyl, plus RPC:erna sakerstall_konto_principal,
+ *     lista_mina_analyser, radera_min_analys). Secret-nyckeln
  *     skriver en probe-rad i varje (så att "publishable ser 0 rader" betyder
  *     något), publishable ska varken se, skriva, ändra eller radera dem.
  *     Probe-raderna är märkta `verify-rls` och kan aldrig plockas av
@@ -45,6 +47,9 @@ const PROBE_ENHET = "verify-rls-probe";
 const PROBE_ENHET_PUBLISHABLE = "verify-rls-probe-publishable";
 const PROBE_KVOT = "verify-rls:probe";
 const PROBE_KVOT_PUBLISHABLE = "verify-rls:probe-publishable";
+// v3 saved items: both tables are probed through their `etikett`.
+const PROBE_ETIKETT = "verify-rls-probe";
+const PROBE_ETIKETT_PUBLISHABLE = "verify-rls-probe-publishable";
 
 interface Utfall {
   namn: string;
@@ -278,6 +283,28 @@ async function skrivProbeRader(
             .from("kvot")
             .insert({ nyckel: PROBE_KVOT, fonster_start: "1999-01-01T00:00:00Z", antal: 0 }),
       ],
+      [
+        "sparad_vardering",
+        () =>
+          secretClient.from("sparad_vardering").insert({
+            principal_id: pid,
+            etikett: PROBE_ETIKETT,
+            input: {},
+            resultat: {},
+            modell_version: "verify-rls",
+          }),
+      ],
+      [
+        "sparad_kalkyl",
+        () =>
+          secretClient.from("sparad_kalkyl").insert({
+            principal_id: pid,
+            etikett: PROBE_ETIKETT,
+            input: {},
+            sammanfattning: {},
+            regelversion: "verify-rls",
+          }),
+      ],
     );
     for (const [tabell, gor] of steg) {
       const { error } = await gor();
@@ -386,6 +413,32 @@ async function provaV2Tabeller(secretClient: Klient, publishableClient: Klient, 
       publishableNyckel: ["nyckel", PROBE_KVOT_PUBLISHABLE],
       uppdatering: { antal: 999 },
     },
+    {
+      tabell: "sparad_vardering",
+      nyckel: ["etikett", PROBE_ETIKETT],
+      publishableRad: {
+        principal_id: ids.principalId,
+        etikett: PROBE_ETIKETT_PUBLISHABLE,
+        input: {},
+        resultat: {},
+        modell_version: "verify-rls",
+      },
+      publishableNyckel: ["etikett", PROBE_ETIKETT_PUBLISHABLE],
+      uppdatering: { modell_version: "verify-rls hijack" },
+    },
+    {
+      tabell: "sparad_kalkyl",
+      nyckel: ["etikett", PROBE_ETIKETT],
+      publishableRad: {
+        principal_id: ids.principalId,
+        etikett: PROBE_ETIKETT_PUBLISHABLE,
+        input: {},
+        sammanfattning: {},
+        regelversion: "verify-rls",
+      },
+      publishableNyckel: ["etikett", PROBE_ETIKETT_PUBLISHABLE],
+      uppdatering: { regelversion: "verify-rls hijack" },
+    },
   ];
 
   for (const p of probes) {
@@ -450,6 +503,9 @@ interface RpcProbe {
   /** Checked with the secret key after the publishable call: true = a side
    *  effect landed (a failure even if the call itself errored). */
   sidoeffekt?: () => Promise<boolean>;
+  /** An error matching this is the function's OWN validation, which means the
+   *  call was allowed to run: not a denial. */
+  egetFel?: RegExp;
 }
 
 async function finnsRad(
@@ -483,6 +539,16 @@ async function provaV2Rpcer(secretClient: Klient, publishableClient: Klient, utf
     },
     { namn: "sla_samman_principal", args: { p_fran: slumpId, p_till: crypto.randomUUID() } },
     { namn: "radera_principal", args: { p_id: slumpId } },
+    // v3. A null auth user id makes the function raise its OWN "is required"
+    // error if it is allowed to run, so a denial is told apart from that (a
+    // random uuid would fail on the auth.users foreign key either way).
+    {
+      namn: "sakerstall_konto_principal",
+      args: { p_auth_user_id: null, p_enhet_id: null },
+      egetFel: /is required/,
+    },
+    { namn: "lista_mina_analyser", args: { p_principal: slumpId } },
+    { namn: "radera_min_analys", args: { p_principal: slumpId, p_analys: crypto.randomUUID() } },
     {
       namn: "registrera_forening",
       args: { p_orgnr: PROBE_ORGNR_PUBLISHABLE, p_namn: "verify-rls publishable" },
@@ -506,9 +572,11 @@ async function provaV2Rpcer(secretClient: Klient, publishableClient: Klient, utf
     console.error(`Anropar ${p.namn} med publishable-nyckeln (ska nekas)...`);
     const svar = await publishableClient.rpc(p.namn, p.args);
     const landade = p.sidoeffekt ? await p.sidoeffekt() : false;
+    const kordes =
+      svar.error !== null && p.egetFel !== undefined && p.egetFel.test(svar.error.message);
     utfall.push({
       namn: `publishable-nyckeln nekas rpc ${p.namn}`,
-      godkant: svar.error !== null && !landade,
+      godkant: svar.error !== null && !landade && !kordes,
       detalj: svar.error
         ? `nekad: ${svar.error.code ?? ""} ${svar.error.message}` +
           (landade ? " — MEN en sidoeffekt landade" : "")
@@ -565,6 +633,24 @@ async function provaV2Rpcer(secretClient: Klient, publishableClient: Klient, utf
       args: { p_id: crypto.randomUUID() },
       ok: (d) =>
         typeof d === "object" && d !== null && (d as { principaler?: number }).principaler === 0,
+    },
+    // v3: the function's own validation answering proves it ran.
+    {
+      namn: "sakerstall_konto_principal",
+      args: { p_auth_user_id: null, p_enhet_id: null },
+      ok: () => false,
+      forvantatFel: /is required/,
+    },
+    {
+      namn: "lista_mina_analyser",
+      args: { p_principal: crypto.randomUUID() },
+      ok: (d) => Array.isArray(d) && d.length === 0,
+    },
+    {
+      namn: "radera_min_analys",
+      args: { p_principal: crypto.randomUUID(), p_analys: crypto.randomUUID() },
+      ok: (d) =>
+        typeof d === "object" && d !== null && (d as { borttagen?: boolean }).borttagen === false,
     },
   ];
 
@@ -627,6 +713,14 @@ async function stada(secretClient: Klient): Promise<void> {
     );
   }
   if (principalIds.length > 0) {
+    notera(
+      "sparad_vardering",
+      (await secretClient.from("sparad_vardering").delete().in("principal_id", principalIds)).error,
+    );
+    notera(
+      "sparad_kalkyl",
+      (await secretClient.from("sparad_kalkyl").delete().in("principal_id", principalIds)).error,
+    );
     notera(
       "behorighet",
       (await secretClient.from("behorighet").delete().in("principal_id", principalIds)).error,
