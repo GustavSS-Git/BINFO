@@ -46,3 +46,7 @@ One line each: date — decision — rationale. Owner decisions are marked (owne
 - 2026-10-13 — W3's per-stage build/parse split kept although batching was cut: finished, golden-tested byte-identical, and it makes the pipeline easier to test.
 - 2026-10-13 — PROMPT_VERSION 7 accepted: the Albohem grounding flake seen with earlier wordings did not recur on the shipped wording (6/6 clean runs, 24/24 fields each). Unverifiable addresses are dropped (they drive public area placement), never shown.
 - 2026-10-13 — Logout rotates the device cookie so anonymous uploads on a shared device after logout don't land in the account.
+- 2026-10-13 — KALP avoids double counting: Konsumentverket's household costs already include hushållsel, vatten, internet/mobil and hemförsäkring, so only värme is taken from Binfo's drift schablons; el/vatten are removed from the Konsumentverket total when the fee covers them; unknown counts (cautious). Verdict = sign + amount only.
+- 2026-10-13 — KALP children 0–3 use Konsumentverket's dearer "0 år" column; adults counted as 25–50; households above 7 persons → KALP not computed (no extrapolation).
+- 2026-10-13 — Calculator no longer reads boarea/antalPersoner from the shared uppgifter store (it can't tell a typed value from the legacy 58 m² default); boarea is a field on the page.
+- 2026-10-13 — Ränteavdrag in the calculator is floored to whole kronor (IL 67 kap 1 §); the amortisation badge uses the exact LTV (70.04 % → 2 %).
