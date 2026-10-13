@@ -802,3 +802,5 @@ at 1 req/s.
 | 2026-10-13 | W3 pipeline v7 merged (dfc7dab): addresses, page-ref verifier (457/457), register summary, Edge error logging; Albohem 6/6 clean | done |
 | 2026-10-13 | Local stack: all 8 migrations apply; verify-rls 80/80 OK incl. saved-item tables | done |
 | 2026-10-13 | Wave 2 launched: W2 accounts frontend, W5 register pages + SEO; W6 still running; W7 after W6 | in progress |
+| 2026-10-13 | W6 calculator merged (1b2de83): rules registry, one ränteavdrag, KALP, scenarios; sparaKalkylFn wired (38c3739) | done |
+| 2026-10-13 | W2 accounts frontend merged (eca98e9): local E2E 41 steps, 0 defects; mobile nav wraps (Lovable) | done |
