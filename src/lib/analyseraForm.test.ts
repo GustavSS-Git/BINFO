@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filfelVidSkick,
+  parseForeningSlug,
   buildPropertyInput,
   formateraFilstorlek,
   harValideringsfel,
@@ -392,5 +393,31 @@ describe("formateraFilstorlek", () => {
 
   it("formaterar en hel megabyte", () => {
     expect(formateraFilstorlek(1024 * 1024)).toBe("1,0 MB");
+  });
+});
+
+describe("parseForeningSlug", () => {
+  it("accepterar en registerslug", () => {
+    expect(parseForeningSlug("brf-pontonjaren-3-716420-0599")).toBe(
+      "brf-pontonjaren-3-716420-0599",
+    );
+  });
+
+  it("kastar aldrig: skräp blir undefined", () => {
+    for (const v of [
+      undefined,
+      null,
+      42,
+      {},
+      [],
+      "",
+      "  ",
+      "Brf Åhlén",
+      "a/b",
+      "../x",
+      "x".repeat(300),
+    ]) {
+      expect(parseForeningSlug(v)).toBeUndefined();
+    }
   });
 });

@@ -184,6 +184,49 @@ export async function aterlamnaUppladdningskvot(
   }
 }
 
+/**
+ * Upload limits for an analysis that costs nothing (a new analysis on a report
+ * already in the register, `skapaAnalysFranRegister`): ONLY the loose 30 per
+ * device and 100 per IP per day. The strict 5/10 quota exists to cap API spend
+ * and is left untouched. A refusal gives back whatever this call already took.
+ */
+export async function kontrolleraLosUppladdningskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+): Promise<KvotUtfall> {
+  const enhetNyckel = kvotNyckel("uppladdning_los", "enhet", kontext.enhetId);
+  if (!(await taKvot(db, enhetNyckel, DAG_SEK, UPPLADDNINGAR_LOSA_PER_ENHET_OCH_DAG))) {
+    return nekad(KVOT_MEDDELANDE.uppladdningEnhetTotalt);
+  }
+  if (kontext.ipHash !== null) {
+    const ipNyckel = kvotNyckel("uppladdning_los", "ip", kontext.ipHash);
+    if (!(await taKvot(db, ipNyckel, DAG_SEK, UPPLADDNINGAR_LOSA_PER_IP_OCH_DAG))) {
+      await db.aterlamnaKvot(enhetNyckel, DAG_SEK);
+      return nekad(KVOT_MEDDELANDE.uppladdningIpTotalt);
+    }
+  }
+  return { ok: true };
+}
+
+/** Gives back what `kontrolleraLosUppladdningskvot` took (unexpected failure
+ *  that created nothing). Best effort, never throws. */
+export async function aterlamnaLosUppladdningskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+): Promise<void> {
+  try {
+    await db.aterlamnaKvot(kvotNyckel("uppladdning_los", "enhet", kontext.enhetId), DAG_SEK);
+    if (kontext.ipHash !== null) {
+      await db.aterlamnaKvot(kvotNyckel("uppladdning_los", "ip", kontext.ipHash), DAG_SEK);
+    }
+  } catch (fel) {
+    console.warn(
+      "[kvot] Kunde inte återlämna den lösa uppladdningskvoten: " +
+        (fel instanceof Error ? fel.message : String(fel)),
+    );
+  }
+}
+
 /** Price-estimate limit: 60 per IP per hour (device key when no IP). */
 export async function kontrolleraPrisuppskattningskvot(
   db: KontoDatabas,

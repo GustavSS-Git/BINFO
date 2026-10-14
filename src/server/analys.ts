@@ -60,6 +60,7 @@ import type {
   AnalysStatus,
   Lager,
   RapportRad,
+  RegisterLasning,
   RapportStage,
   Textlager,
 } from "./portar";
@@ -73,7 +74,12 @@ import {
   tolkaSpendSkal,
 } from "./fel";
 import { SaknarBehorighetError, type Formaga } from "./behorighet";
-import { aterlamnaUppladdningskvot, kontrolleraUppladdningskvot } from "./kvot";
+import {
+  aterlamnaLosUppladdningskvot,
+  aterlamnaUppladdningskvot,
+  kontrolleraLosUppladdningskvot,
+  kontrolleraUppladdningskvot,
+} from "./kvot";
 import { medPrincipal } from "./principal";
 import { kontrolleraDagligtTak } from "./spend";
 import {
@@ -94,7 +100,10 @@ import {
   valjLasbarRapport,
   type IdentitetsBeroenden,
   type LasbarRapport,
+  PIPELINE_VERSION,
+  tolkaRapportInnehall,
 } from "./register";
+import { LISTADE_OMRADEN } from "./registerPublik";
 
 // ---------------------------------------------------------------------------
 // skapaAnalys
@@ -366,6 +375,154 @@ export async function skapaAnalys(
     if (anropare && kvotTagen) {
       await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext, { aven_losa: true });
     }
+    throw fel;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// skapaAnalysFranRegister
+// ---------------------------------------------------------------------------
+
+export interface SkapaAnalysFranRegisterArgs {
+  /** The public register slug of the BRF (`/brf/<slug>`). */
+  slug: string;
+  propertyInput: unknown;
+}
+
+export interface SkapaAnalysFranRegisterBeroenden {
+  anropare?: Anropare;
+  /** Read port of the public register (production: `skapaRegisterLasning`). */
+  lasning: RegisterLasning;
+}
+
+const FORENING_SAKNAS_MEDDELANDE =
+  "Föreningen finns inte i registret, eller så har den ingen färdig analys ännu. " +
+  "Ladda upp årsredovisningen i stället.";
+
+/**
+ * A buyer's analysis of one apartment in a BRF that is already in the public
+ * register: the apartment details only, no PDF. Creates the same per-user
+ * `analys` row an upload that hits a finished report creates (linked to the
+ * rapport, status derived from it), so status, preview and the full report
+ * work unchanged. Costs no API money: no model call, no spend reservation.
+ *
+ * Order: entitlement → BRF resolution (listed + a servable done rapport; the
+ * same rules as the public register) → validation → kill switch → LOOSE
+ * upload quota only (the strict quota caps API spend and this spends none) →
+ * principal → analys row → buyer postnummer registered. Every refusal before
+ * the quota leaves no side effects.
+ */
+export async function skapaAnalysFranRegister(
+  lager: Lager,
+  env: Env,
+  args: SkapaAnalysFranRegisterArgs,
+  beroenden: SkapaAnalysFranRegisterBeroenden,
+): Promise<SkapaAnalysResultat> {
+  const { anropare, lasning } = beroenden;
+  if (anropare) {
+    const behorighet = await provaBehorighet(anropare, "ladda_upp_analys");
+    if (!behorighet.ok) return behorighet;
+  }
+
+  const saknas = {
+    ok: false as const,
+    errorCode: "validation" as const,
+    errorMessage: FORENING_SAKNAS_MEDDELANDE,
+  };
+
+  // Resolve the BRF by the public register's rules: listed (slug + a listed
+  // area) and the newest servable done rapport (current pipeline version first).
+  const slug = typeof args.slug === "string" ? args.slug.slice(0, 200) : "";
+  const forening = slug ? await lasning.hamtaForeningViaSlug(slug) : null;
+  if (
+    !forening ||
+    forening.slug === null ||
+    forening.registeromrade === null ||
+    !LISTADE_OMRADEN.includes(forening.registeromrade)
+  ) {
+    return saknas;
+  }
+  const klara = await lasning.listaKlaraRapporter(forening.orgnr);
+  // Same pick as the BRF page (`enPerAr`): newest fiscal year, and within a
+  // year the current pipeline version first (sort is stable).
+  const ordnade = [...klara].sort(
+    (a, b) =>
+      b.rakenskapsar - a.rakenskapsar ||
+      Number(b.pipelineVersion === PIPELINE_VERSION) -
+        Number(a.pipelineVersion === PIPELINE_VERSION),
+  );
+  let lasbar: LasbarRapport | null = null;
+  for (const kandidat of ordnade) {
+    if (!tolkaRapportInnehall(kandidat)) continue;
+    const rad = await foljErsattAv(lager.db, await lager.db.hamtaRapport(kandidat.id));
+    const valt = rad ? await valjLasbarRapport(lager.db, rad) : null;
+    if (valt && valt.rapport.pdfHash !== null) {
+      lasbar = valt;
+      break;
+    }
+  }
+  if (!lasbar || lasbar.rapport.pdfHash === null) return saknas;
+  const pdfHash = lasbar.rapport.pdfHash;
+
+  const parsedInput = PropertyInputSchema.safeParse(args.propertyInput);
+  if (!parsedInput.success) {
+    return {
+      ok: false,
+      errorCode: "validation",
+      errorMessage:
+        "Uppgifterna om bostaden kunde inte tolkas. Kontrollera formuläret och försök igen.",
+    };
+  }
+  // The BRF is the register's, whatever the client sent as orgnr.
+  const propertyInput = { ...parsedInput.data, orgnr: forening.orgnr } as PropertyInput;
+
+  if (env.killSwitchPa) {
+    const { errorCode, message } = tolkaSpendSkal("kill_switch");
+    return { ok: false, errorCode, errorMessage: message };
+  }
+
+  let kvotTagen = false;
+  if (anropare) {
+    const kvot = await kontrolleraLosUppladdningskvot(anropare.konto, anropare.kontext);
+    if (!kvot.ok) {
+      const { errorCode, message } = tolkaKvot(kvot);
+      return { ok: false, errorCode, errorMessage: message };
+    }
+    kvotTagen = true;
+  }
+
+  try {
+    const principalId = anropare
+      ? (await medPrincipal(anropare.konto, anropare.kontext)).principalId
+      : null;
+    const fil = await lager.db.hamtaRapportFil(pdfHash);
+
+    const { id } = await lager.db.skapaAnalys({
+      pdfHash,
+      pdfPath: fil?.pdfPath ?? `${pdfHash}.pdf`,
+      propertyInput,
+      model: env.anthropicModel,
+      promptVersion: PROMPT_VERSION,
+      status: "queued",
+      stage: "uploaded",
+      rapportId: lasbar.rapport.id,
+      principalId,
+    });
+
+    if (propertyInput.postnummer !== "") {
+      try {
+        await registreraAnvandarAdress(lager.db, forening.orgnr, propertyInput.postnummer);
+      } catch (fel) {
+        console.warn(
+          `[register] Kunde inte registrera område för analys ${id}: ` +
+            (fel instanceof Error ? fel.message : String(fel)),
+        );
+      }
+    }
+
+    return { ok: true, analysisId: id, ateranvand: true };
+  } catch (fel) {
+    if (anropare && kvotTagen) await aterlamnaLosUppladdningskvot(anropare.konto, anropare.kontext);
     throw fel;
   }
 }

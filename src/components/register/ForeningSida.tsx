@@ -163,11 +163,11 @@ export function ForeningSida({ vy }: { vy: RegisterForeningVy }) {
           Köper du i den här föreningen?
         </h2>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Med årsredovisningen och uppgifterna om lägenheten får du också en priskontroll, en
-          månadskostnad och en räntestress för just din bostad.
+          Fyll i uppgifterna om lägenheten så får du en priskontroll, månadskostnad och räntestress
+          för just din bostad. Årsredovisningen har vi redan.
         </p>
         <div className="mt-5">
-          <LinkButton to="/analysera" size="lg">
+          <LinkButton to={`/analysera?forening=${encodeURIComponent(vy.slug)}`} size="lg">
             Analysera en lägenhet i föreningen
           </LinkButton>
         </div>

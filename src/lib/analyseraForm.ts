@@ -50,6 +50,19 @@ export function formateraFilstorlek(bytes: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Sökparametern `forening` (länk från BRF-registret)
+// ---------------------------------------------------------------------------
+
+/** Registerslugen (`<namn>-<orgnr>`, se slugForForening på servern) ur
+ *  söksträngen. Kastar aldrig: allt som inte ser ut som en slug blir
+ *  `undefined`, och formuläret visar då den vanliga uppladdningen. */
+export function parseForeningSlug(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const slug = v.trim();
+  return /^[a-z0-9][a-z0-9-]{0,199}$/.test(slug) ? slug : undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Talparsning — användare skriver "4 950 000" eller "2,1", inte JSON-tal.
 // ---------------------------------------------------------------------------
 

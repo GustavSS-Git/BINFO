@@ -1,18 +1,25 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Card, Button, Field, TristateChoice, PageHeader } from "@/components/ui/binfo";
+import { Card, Button, Callout, Field, TristateChoice, PageHeader } from "@/components/ui/binfo";
 import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
 import {
   buildPropertyInput,
   formateraFilstorlek,
   harValideringsfel,
   filfelVidSkick,
+  parseForeningSlug,
   kontrolleraPdfFil,
   validateraAnalyseraForm,
   type AnalyseraFormFields,
 } from "@/lib/analyseraForm";
-import { parseAnalyseraPrefill } from "@/lib/varderingForm";
-import { skapaAnalysFn } from "@/server/analysFn";
+import { parseAnalyseraPrefill, type AnalyseraPrefill } from "@/lib/varderingForm";
+import {
+  hamtaRegisterForeningFn,
+  skapaAnalysFn,
+  skapaAnalysFranRegisterFn,
+} from "@/server/analysFn";
+import { formatSkapadDatum } from "@/lib/analysisView";
+import type { RegisterForeningVy } from "@/lib/registerVy";
 import { FELKOD_INNEHALL, type AnalysErrorCode } from "@/lib/analysStatusCopy";
 import {
   sparaAnalys,
@@ -20,6 +27,8 @@ import {
   glomAnalys,
   type SenasteAnalys,
 } from "@/lib/senasteAnalyser";
+
+type AnalyseraSearch = AnalyseraPrefill & { forening?: string | undefined };
 
 export const Route = createFileRoute("/analysera")({
   head: () => ({
@@ -37,8 +46,12 @@ export const Route = createFileRoute("/analysera")({
       },
     ],
   }),
-  // Valfri förifyllning från /vardering ("Bara priskoll") — bara textfälten.
-  validateSearch: parseAnalyseraPrefill,
+  // Valfri förifyllning från /vardering ("Bara priskoll") — bara textfälten —
+  // samt `forening=<slug>` från BRF-registret (årsredovisningen finns redan).
+  validateSearch: (search: Record<string, unknown>): AnalyseraSearch => ({
+    ...parseAnalyseraPrefill(search),
+    forening: parseForeningSlug(search["forening"]),
+  }),
   component: Analysera,
 });
 
@@ -62,6 +75,58 @@ const TOM_FORM: AnalyseraFormFields = {
 type SkickaFel =
   { typ: "kand"; errorCode: AnalysErrorCode; errorMessage: string } | { typ: "okand" };
 
+/** Föreningen bakom `?forening=`: laddar, hittad (årsredovisningen finns i
+ *  registret), eller inte hittad/ej hämtningsbar (vanlig uppladdning). */
+type ForeningLage =
+  | { typ: "ingen" }
+  | { typ: "laddar" }
+  | { typ: "hittad"; vy: RegisterForeningVy }
+  | { typ: "saknas"; orsak: "saknas" | "fel" };
+
+function useRegisterForening(slug: string | undefined): ForeningLage {
+  const [lage, setLage] = useState<ForeningLage>(slug ? { typ: "laddar" } : { typ: "ingen" });
+  useEffect(() => {
+    if (!slug) {
+      setLage({ typ: "ingen" });
+      return;
+    }
+    let avbruten = false;
+    setLage({ typ: "laddar" });
+    (async () => {
+      try {
+        let svar = await hamtaRegisterForeningFn({ data: { slug } });
+        // Ett gammalt slug (föreningen bytte namn): följ till det nya, en gång.
+        if (svar.status === "omdirigera") {
+          svar = await hamtaRegisterForeningFn({ data: { slug: svar.slug } });
+        }
+        if (avbruten) return;
+        if (svar.status === "ok") setLage({ typ: "hittad", vy: svar.forening });
+        else setLage({ typ: "saknas", orsak: svar.status === "saknas" ? "saknas" : "fel" });
+      } catch (fel) {
+        console.error("[analysera] hamtaRegisterForeningFn kastade:", fel);
+        if (!avbruten) setLage({ typ: "saknas", orsak: "fel" });
+      }
+    })();
+    return () => {
+      avbruten = true;
+    };
+  }, [slug]);
+  return lage;
+}
+
+/** Samma förifyllning men utan `forening`: länken "Ladda upp en annan". */
+function utanForening(s: AnalyseraSearch): AnalyseraPrefill {
+  return {
+    utgangspris: s.utgangspris,
+    boarea: s.boarea,
+    antalRum: s.antalRum,
+    manadsavgift: s.manadsavgift,
+    postnummer: s.postnummer,
+    vaning: s.vaning,
+    byggar: s.byggar,
+  };
+}
+
 function Analysera() {
   const navigate = useNavigate();
   const prefill = Route.useSearch();
@@ -76,6 +141,10 @@ function Analysera() {
   const [skickar, setSkickar] = useState(false);
   const [skickaFel, setSkickaFel] = useState<SkickaFel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const foreningLage = useRegisterForening(prefill.forening);
+  // Läget "årsredovisningen finns redan": ingen PDF, bara objektets uppgifter.
+  const franRegister = foreningLage.typ === "hittad" ? foreningLage.vy : null;
 
   const [form, setForm] = useState<AnalyseraFormFields>(() => ({
     ...TOM_FORM,
@@ -121,7 +190,7 @@ function Analysera() {
   const analysera = async () => {
     if (skickar) return; // förhindra dubbelskick
 
-    const filfelNu = filfelVidSkick(fil, filFel);
+    const filfelNu = franRegister ? null : filfelVidSkick(fil, filFel);
     setFilFel(filfelNu);
 
     if (harFel || filfelNu) {
@@ -137,14 +206,20 @@ function Analysera() {
       antalPersoner: uppgifter.antalPersoner,
     });
 
-    const formData = new FormData();
-    formData.set("pdf", fil as File);
-    formData.set("propertyInput", JSON.stringify(propertyInput));
-
     setSkickar(true);
     setSkickaFel(null);
     try {
-      const resultat = await skapaAnalysFn({ data: formData });
+      let resultat;
+      if (franRegister) {
+        resultat = await skapaAnalysFranRegisterFn({
+          data: { slug: franRegister.slug, propertyInput },
+        });
+      } else {
+        const formData = new FormData();
+        formData.set("pdf", fil as File);
+        formData.set("propertyInput", JSON.stringify(propertyInput));
+        resultat = await skapaAnalysFn({ data: formData });
+      }
       if (resultat.ok) {
         // Föreningens namn är inte känt än här (svaret ger bara ett id) —
         // förhandsvisnings-/rapportsidan fyller i det när den läser
@@ -167,7 +242,7 @@ function Analysera() {
       // Köparen får en generisk text, men orsaken ska aldrig försvinna tyst —
       // ett nätverksfel eller en 500:a här är exakt det man vill kunna se i
       // konsolen när någon rapporterar "det gick inte att skicka in".
-      console.error("[analysera] skapaAnalysFn kastade:", fel);
+      console.error("[analysera] skapa analys kastade:", fel);
       setSkickaFel({ typ: "okand" });
     } finally {
       setSkickar(false);
@@ -179,7 +254,11 @@ function Analysera() {
       <PageHeader
         eyebrow="Steg 1 av 3"
         title="Analysera en bostad"
-        lead="Ladda upp föreningens senaste årsredovisning och fyll i objektets uppgifter."
+        lead={
+          franRegister
+            ? "Fyll i objektets uppgifter. Föreningens årsredovisning har vi redan."
+            : "Ladda upp föreningens senaste årsredovisning och fyll i objektets uppgifter."
+        }
       />
       <p className="-mt-4 mb-8 text-sm text-muted-foreground">
         Bara priskoll?{" "}
@@ -190,63 +269,109 @@ function Analysera() {
 
       <SenasteAnalyserSektion />
 
-      <Card className="mb-6">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          className="hidden"
-          onChange={(e) => valjFil(e.target.files?.[0])}
-        />
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => fileInputRef.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              fileInputRef.current?.click();
-            }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            valjFil(e.dataTransfer.files?.[0]);
-          }}
-          className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
-            dragging ? "border-primary bg-primary/5" : "border-border bg-secondary/40"
-          }`}
-        >
-          <p className="font-medium text-foreground">
-            Dra och släpp årsredovisningen här, eller klicka för att välja fil
+      {foreningLage.typ === "laddar" ? (
+        <Card className="mb-6" aria-busy="true">
+          <p className="text-sm text-muted-foreground">Hämtar föreningen från registret…</p>
+        </Card>
+      ) : franRegister ? (
+        <Card className="mb-6">
+          <h2 className="font-display text-2xl text-foreground">
+            Föreningens årsredovisning finns redan hos Binfo
+          </h2>
+          <p className="mt-2 text-sm text-foreground">
+            <span className="font-medium">{franRegister.namn}</span> · räkenskapsår{" "}
+            {franRegister.senaste.rakenskapsar} · analyserad{" "}
+            {formatSkapadDatum(franRegister.senaste.analysdatum)}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">PDF, max 25 MB</p>
-          {fil ? (
-            <p className="mt-4 inline-flex items-center gap-3 rounded-full bg-card px-4 py-2 text-sm text-foreground">
-              <span className="size-2 rounded-full bg-success" />
-              {fil.name} ({formateraFilstorlek(fil.size)})
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  taBortFil();
-                }}
-                className="text-muted-foreground underline hover:text-foreground"
+          <p className="mt-2 text-sm text-muted-foreground">
+            Du behöver bara fylla i uppgifterna om lägenheten nedan.
+          </p>
+          <p className="mt-3 text-sm">
+            <Link
+              to="/analysera"
+              search={utanForening(prefill)}
+              replace
+              className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Ladda upp en annan årsredovisning i stället
+            </Link>
+          </p>
+        </Card>
+      ) : (
+        <>
+          {foreningLage.typ === "saknas" ? (
+            <div className="mb-6">
+              <Callout
+                variant="flag"
+                title={
+                  foreningLage.orsak === "saknas"
+                    ? "Vi hittade inte föreningen i registret"
+                    : "Vi kunde inte hämta föreningen just nu"
+                }
               >
-                Ta bort
-              </button>
-            </p>
+                Ladda upp föreningens årsredovisning nedan i stället.
+              </Callout>
+            </div>
           ) : null}
-        </div>
-        {(visaFel || visaFilFel) && filFel ? (
-          <p className="mt-3 text-sm text-danger">{filFel}</p>
-        ) : null}
-      </Card>
+          <Card className="mb-6">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => valjFil(e.target.files?.[0])}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                valjFil(e.dataTransfer.files?.[0]);
+              }}
+              className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+                dragging ? "border-primary bg-primary/5" : "border-border bg-secondary/40"
+              }`}
+            >
+              <p className="font-medium text-foreground">
+                Dra och släpp årsredovisningen här, eller klicka för att välja fil
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">PDF, max 25 MB</p>
+              {fil ? (
+                <p className="mt-4 inline-flex items-center gap-3 rounded-full bg-card px-4 py-2 text-sm text-foreground">
+                  <span className="size-2 rounded-full bg-success" />
+                  {fil.name} ({formateraFilstorlek(fil.size)})
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      taBortFil();
+                    }}
+                    className="text-muted-foreground underline hover:text-foreground"
+                  >
+                    Ta bort
+                  </button>
+                </p>
+              ) : null}
+            </div>
+            {(visaFel || visaFilFel) && filFel ? (
+              <p className="mt-3 text-sm text-danger">{filFel}</p>
+            ) : null}
+          </Card>
+        </>
+      )}
 
       <Card>
         <h2 className="font-display text-2xl text-foreground">Objektets uppgifter</h2>
@@ -377,15 +502,19 @@ function Analysera() {
         ) : null}
 
         <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Button size="lg" onClick={analysera} disabled={skickar}>
+          <Button size="lg" onClick={analysera} disabled={skickar || foreningLage.typ === "laddar"}>
             {skickar ? "Skickar in…" : "Analysera"}
           </Button>
           <span className="text-sm text-muted-foreground">
             {visaFel && (harFel || filFel)
               ? "Fyll i de obligatoriska fälten."
               : skickar
-                ? "Laddar upp och startar analysen…"
-                : "Analysen tar några minuter — du följer den på nästa sida."}
+                ? franRegister
+                  ? "Skapar din analys…"
+                  : "Laddar upp och startar analysen…"
+                : franRegister
+                  ? "Föreningens analys finns redan — du får din rapport direkt."
+                  : "Analysen tar några minuter — du följer den på nästa sida."}
           </span>
         </div>
       </Card>

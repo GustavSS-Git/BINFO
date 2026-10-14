@@ -82,24 +82,6 @@ function BrfIndex() {
         lead="Nyckeltal och betyg för föreningar vars årsredovisning har analyserats av Binfo."
       />
 
-      <Card className="mb-10">
-        <div className="max-w-3xl space-y-3 text-sm text-foreground">
-          <p>
-            Registret växer när köpare analyserar en förening. Alla siffror kommer från föreningens
-            egen årsredovisning och visas med sidhänvisning, så att du kan kontrollera dem själv.
-          </p>
-          <p>
-            Betyget (A–E) är Binfos samlade bedömning av föreningens ekonomi utifrån de sju
-            nyckeltalen. Det säger något om föreningen, inte om en enskild lägenhet eller dess pris.
-            Så här ser en fullständig analys ut:{" "}
-            <Link to="/exempel" className="font-medium text-primary underline underline-offset-2">
-              exempelanalysen
-            </Link>
-            .
-          </p>
-        </div>
-      </Card>
-
       <section className="mb-12">
         <SokFalt
           startvarde={search.sok ?? ""}

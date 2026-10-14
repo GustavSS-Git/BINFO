@@ -33,6 +33,7 @@ import { REGELVERSION } from "@/lib/kalkyl/regler";
 import type { PrisInput } from "@/types/analysis";
 import {
   skapaAnalys as skapaAnalysImpl,
+  skapaAnalysFranRegister as skapaAnalysFranRegisterImpl,
   hamtaStatus as hamtaStatusImpl,
   hamtaResultat as hamtaResultatImpl,
   hamtaForhandsvisning as hamtaForhandsvisningImpl,
@@ -156,6 +157,29 @@ export const skapaAnalysFn = createServerFn({ method: "POST" })
     } catch (fel) {
       // Inget internt (Supabase, lagring, nätverk) når köparen — se sakertFel.
       return sakertSkapaFel("skapaAnalysFn", fel);
+    }
+  });
+
+/**
+ * En analys av en lägenhet i en förening som redan finns i det publika
+ * registret: bara objektets uppgifter, ingen PDF. Kostar inga API-pengar;
+ * bara den lösa uppladdningskvoten tas (se `skapaAnalysFranRegister`).
+ * Indata valideras i implementationen, inte här.
+ */
+export const skapaAnalysFranRegisterFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { slug: string; propertyInput: unknown }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const env = envFromProcess();
+      const anropare = await anropareFor(env);
+      return await skapaAnalysFranRegisterImpl(
+        skapaLager(env),
+        env,
+        { slug: data.slug, propertyInput: data.propertyInput },
+        { anropare, lasning: skapaRegisterLasning(env) },
+      );
+    } catch (fel) {
+      return sakertSkapaFel("skapaAnalysFranRegisterFn", fel);
     }
   });
 
