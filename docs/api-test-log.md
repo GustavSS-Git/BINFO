@@ -109,6 +109,7 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 101 | 2026-10-13 | v3 supervisor | Albohem x3 regression check on the shipped v7 wording (`verify-extraction`, 3 parallel runs): 24/24 fields in all 3 (2.71 + 2.72 + 2.60 kr) | claude-sonnet-5-5 | — | — | 0 | 0 | 8.03 | 266.27 |
 | 102 | 2026-10-13 | v3 supervisor | PRODUCTION test upload (owner-approved) after the owner rotated ANTHROPIC_API_KEY in Supabase Edge secrets: Pontonjären 3 done in ~90 s, grade C (earlier uploads failed at grundning with the expired key, 0 kr). Cost not read from the DB; estimate from identical runs | claude-sonnet-5-5 | — | — | 0 | 0 | ≈3.5 (est.) | ≈269.8 |
 | 103 | 2026-10-13 | v3 supervisor | LOCAL Supabase E2E of pipeline v7 through the Deno Edge worker: Beckasinen 14 (20 p, text) → done in 135 s, p7.i1.s1, register area kungsholmen (buyer postnummer; report has no street address), summary row written. CPU: "soft limit reached" once (isolate recycled), no stage killed; pdf.js page parse measured 200–430 ms CPU on the test PDFs | claude-sonnet-5-5 | — | — | 0 | 0 | 2.88 | ≈272.7 |
+| 104 | 2026-10-14 | v3 deploy | PRODUCTION re-run of the two pre-v3 register reports after the v3 deploy (`register -- rerun --to-current`): Startfältet (scan) + Pontonjären 3, both done and listed on /brf within ~150 s. Cost not read from the DB; estimate from earlier identical runs (scan ≈5 kr, text ≈3.5 kr) | claude-sonnet-5-5 | — | — | 0 | 0 | ≈8.5 (est.) | ≈281.2 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
@@ -116,4 +117,4 @@ Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs
 
 Per-call raw records for entry 96 (W3 full run): `docs/api-runs/2026-10-13-w3-v7-verify-calls.jsonl`. Entries 97-100 are single `npm run extract` runs (extraction only); only the CLI cost line was kept.
 
-**Running total: ≈272.7 SEK** (row 102 estimated)
+**Running total: ≈281.2 SEK** (rows 102, 104 estimated)
