@@ -52,7 +52,7 @@ supabase/functions/*/_bundle/
 *.extraction.json
 
 # Claude Code supervisor working plan (local only)
-.claude/working-plan.md
+.claude/working-plan*.md
 
 # Offline ML environment
 ml/.venv/
