@@ -5,7 +5,7 @@
  */
 
 /** Personuppgiftsansvarig (GDPR controller). */
-export const PERSONUPPGIFTSANSVARIG = "Gustav Slåne Sens";
+export const PERSONUPPGIFTSANSVARIG = "Binfo (binfo.slanesens.com)";
 
 /** Contact address for privacy requests and corrections. `null` until the
  *  owner supplies one; the pages then show a text without a link. */

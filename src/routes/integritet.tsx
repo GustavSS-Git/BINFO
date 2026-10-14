@@ -60,8 +60,8 @@ function Integritet() {
       <div className="space-y-6">
         <Avsnitt rubrik="Vem ansvarar">
           <p>
-            Personuppgiftsansvarig för Binfo är {PERSONUPPGIFTSANSVARIG}. Frågor om dina uppgifter,
-            eller om du vill använda dina rättigheter nedan: <Kontakt />.
+            Personuppgiftsansvarig: {PERSONUPPGIFTSANSVARIG}. Frågor om dina uppgifter, eller om du
+            vill använda dina rättigheter nedan: <Kontakt />.
           </p>
         </Avsnitt>
 
