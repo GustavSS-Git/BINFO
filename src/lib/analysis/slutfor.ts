@@ -1,4 +1,4 @@
-import type { ExtractionResult, PageRef } from "@/types/analysis";
+import type { ExtractionResult, Grade, PageRef } from "@/types/analysis";
 import type { AnalysJudgement } from "./analyze";
 import { berikaNyckeltal, implausibelNegativAnmarkning } from "./benchmarks";
 import type { Utfall } from "./extract";
@@ -29,8 +29,15 @@ import {
  *      kontrolleraRimlighet (sanity checks, `osaker`) -> confidence cap for a
  *      scan -> verifieraSidreferenser (page-reference check, `osaker`).
  *
- * Judging (`slutforBedomning`): Zod with the allowed-pages check — a page that
- * does not occur in the (verified) extraction is invented by definition.
+ * Judging (`slutforBedomning`), in order:
+ *   1. Zod with the allowed-pages check — a page that does not occur in the
+ *      (verified) extraction is invented by definition;
+ *   2. the deterministic grade check — the benchmark status counts of the
+ *      extraction's key figures (svag / kritisk) decide which letters A-E are
+ *      allowed (`tillatnaBetyg`); a model letter outside the set is clamped to
+ *      the nearest allowed letter and logged (`klampaBetyg`). A clamp is not a
+ *      validation failure and never triggers a retry. `betygMotivering` is left
+ *      as the model wrote it.
  *
  * `slutforAnalys` composes both for a caller that holds both raw answers (the
  * bulk `validera` command, which re-runs every stored result for free).
@@ -269,21 +276,96 @@ export function tillatnaSidor(extraction: ExtractionResult): Set<number> {
   return sidor;
 }
 
+const BETYGSORDNING: readonly Grade[] = ["A", "B", "C", "D", "E"];
+
+export interface StatusAntal {
+  svag: number;
+  kritisk: number;
+}
+
+/** Number of key figures graded svag / kritisk (benchmarks.ts sets `status`). */
+export function raknaStatusar(extraction: ExtractionResult): StatusAntal {
+  let svag = 0;
+  let kritisk = 0;
+  for (const kf of extraction.forening.keyFigures) {
+    if (kf.status === "svag") svag++;
+    else if (kf.status === "kritisk") kritisk++;
+  }
+  return { svag, kritisk };
+}
+
+/**
+ * Which letters the risk grade may take, from the benchmark status counts.
+ * The rules are written out as in the spec; the owner's "C only for a large
+ * unfinanced project or thin data" is NOT deterministic and not enforced here.
+ * Each rule removes letters from the full set, so a future tightening is a
+ * one-line change.
+ */
+export function tillatnaBetyg({ svag, kritisk }: StatusAntal): readonly Grade[] {
+  let tillatna: readonly Grade[] = BETYGSORDNING;
+  // No kritisk figure -> D and E are not allowed.
+  if (kritisk === 0) tillatna = tillatna.filter((g) => g !== "D" && g !== "E");
+  // Any kritisk figure -> A and B are not allowed.
+  if (kritisk >= 1) tillatna = tillatna.filter((g) => g !== "A" && g !== "B");
+  // No svag and no kritisk -> only A-C (already implied by the first rule).
+  if (svag === 0 && kritisk === 0) tillatna = tillatna.filter((g) => g <= "C");
+  return tillatna;
+}
+
+/**
+ * The allowed letter nearest to `betyg` in the order A<B<C<D<E. The allowed
+ * sets are contiguous, so there is never a tie. A letter already allowed is
+ * returned as is.
+ */
+export function klampaBetyg(betyg: Grade, tillatna: readonly Grade[]): Grade {
+  if (tillatna.includes(betyg)) return betyg;
+  const index = (g: Grade) => BETYGSORDNING.indexOf(g);
+  let narmast: Grade | undefined;
+  for (const g of tillatna) {
+    if (
+      narmast === undefined ||
+      Math.abs(index(g) - index(betyg)) < Math.abs(index(narmast) - index(betyg))
+    ) {
+      narmast = g;
+    }
+  }
+  return narmast ?? betyg;
+}
+
+export type BetygLogg = (...args: unknown[]) => void;
+
 /**
  * The judging answer, validated against the extraction it was written for: an
  * invented KeyFigureId, a page number that is not in the extraction or a
  * 'saknad_uppgift' question fails. `extraction` must be the finished (verified)
  * extraction the judging prompt was built from.
+ *
+ * Then the grade is checked deterministically (`tillatnaBetyg`): a letter
+ * outside the allowed set is clamped and reported through `logga` (default
+ * console.warn). A clamp is NOT a failure — the result stays ok, so
+ * extractWithRetry never re-rolls because of it.
  */
 export function slutforBedomning(
   extraction: ExtractionResult,
   raw: unknown,
+  logga: BetygLogg = console.warn,
 ): Utfall<AnalysJudgement> {
   const parsed = buildAnalysJudgementSchema(tillatnaSidor(extraction)).safeParse(raw);
   // Same reconciliation of Zod's optional types as valideraExtraktion.
-  return parsed.success
-    ? { ok: true, value: parsed.data as AnalysJudgement }
-    : { ok: false, zodError: parsed.error, raw };
+  if (!parsed.success) return { ok: false, zodError: parsed.error, raw };
+  const bedomning = parsed.data as AnalysJudgement;
+
+  const antal = raknaStatusar(extraction);
+  const nyttBetyg = klampaBetyg(bedomning.betyg, tillatnaBetyg(antal));
+  if (nyttBetyg === bedomning.betyg) return { ok: true, value: bedomning };
+  logga("[slutfor] Betyg utanför tillåtet intervall, justerat", {
+    modellensBetyg: bedomning.betyg,
+    nyttBetyg,
+    ...antal,
+    forening: extraction.forening.namn,
+    orgnr: extraction.forening.orgnr,
+  });
+  return { ok: true, value: { ...bedomning, betyg: nyttBetyg } };
 }
 
 export interface SlutfordAnalys {

@@ -113,7 +113,7 @@ function fakeClient() {
 
 function minimalJudgement(): AnalysJudgement {
   return {
-    betyg: "B",
+    betyg: "C",
     betygMotivering: "Rimligt stabil förening med enstaka svagheter.",
     rodaFlaggor: [],
     fragor: [],
@@ -737,7 +737,7 @@ describe("korNastaSteg — registrets kö", () => {
     });
     const fullt = await hamtaResultat(lager, rad.id);
     expect(AnalysisResultSchema.safeParse(fullt).success).toBe(true);
-    expect(fullt.betyg).toBe("B");
+    expect(fullt.betyg).toBe("C");
   });
 
   it("identifiering med träff i registret: rapporten ersätts, analys-rader och filer pekas om", async () => {
