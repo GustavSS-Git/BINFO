@@ -244,8 +244,12 @@ describe("buildPdfViewModel — edge cases", () => {
     const analys: AnalysisResult = {
       ...sampleAnalysis,
       prisanalys: {
-        utgangspris: sampleAnalysis.prisanalys.utgangspris,
-        prisPerM2: sampleAnalysis.prisanalys.prisPerM2,
+        ...(sampleAnalysis.prisanalys.utgangspris
+          ? { utgangspris: sampleAnalysis.prisanalys.utgangspris }
+          : {}),
+        ...(sampleAnalysis.prisanalys.prisPerM2
+          ? { prisPerM2: sampleAnalysis.prisanalys.prisPerM2 }
+          : {}),
         slutsats: "Ingen extern värdering tillgänglig.",
         konfidens: { niva: "medel" },
       },
@@ -526,5 +530,36 @@ describe("buildPdfViewModel — skannad årsredovisning (v2)", () => {
       datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "textlager" },
     };
     expect(buildPdfViewModel(analys).ovrigInfo?.skannadNotis).toBeUndefined();
+  });
+});
+
+describe("buildPdfViewModel — utan utgångspris", () => {
+  const { utgangspris: _u, ...inputUtanPris } = sampleAnalysis.input;
+  const {
+    utgangspris: _pu,
+    prisPerM2: _pp,
+    avvikelseMotVardering: _a,
+    ...prisanalysUtanPris
+  } = sampleAnalysis.prisanalys;
+  const analys: AnalysisResult = {
+    ...sampleAnalysis,
+    input: inputUtanPris,
+    prisanalys: prisanalysUtanPris,
+  };
+
+  it("utelämnar Utgångspris i sammanfattningen och prisraderna, med rubriken 'Binfos värdering'", () => {
+    const vm = buildPdfViewModel(analys);
+    expect(vm.summary.some((r) => r.label === "Utgångspris")).toBe(false);
+    expect(vm.prisanalys.titel).toBe("Binfos värdering");
+    expect(vm.prisanalys.utgangspris).toBeUndefined();
+    expect(vm.prisanalys.prisPerM2).toBeUndefined();
+    expect(vm.prisanalys.avvikelseText).toBeUndefined();
+    expect(vm.prisanalys.externVardering).toBeDefined();
+  });
+
+  it("behåller Utgångspris och rubriken 'Är priset rimligt?' med pris", () => {
+    const vm = buildPdfViewModel(sampleAnalysis);
+    expect(vm.summary.some((r) => r.label === "Utgångspris")).toBe(true);
+    expect(vm.prisanalys.titel).toBe("Är priset rimligt?");
   });
 });

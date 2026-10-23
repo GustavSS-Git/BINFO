@@ -20,6 +20,7 @@ import {
   varderingsTackningText,
   formatFigureVarde,
   formatVarde,
+  bolanekalkylPris,
   SKANNAD_NOTIS,
   toppRodaFlaggor,
   type AndelAvSkuldRad,
@@ -77,11 +78,10 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
   // uppskattning ('schablon') får aldrig se ut som ett fastställt pris —
   // det flaggas separat så kalkylsidan kan säga "uppskattning" istället för
   // att tyst presentera talet som ett känt pris (se CLAUDE.md).
-  const prisFigure = analys.prisanalys.externVardering ?? analys.prisanalys.utgangspris;
   const bolanekalkylSearch: BolanekalkylSearch = {
     manadsavgift: analys.rantestress.nuvarandeManadsavgift.value ?? undefined,
     rantekanslighet: veljRantekanslighetForSok(analys.rantestress.rantekanslighetProcent),
-    pris: prisFigure.value ?? undefined,
+    pris: bolanekalkylPris(analys.prisanalys),
     boarea: analys.input.boarea,
     prisUppskattning:
       analys.prisanalys.externVardering !== undefined &&

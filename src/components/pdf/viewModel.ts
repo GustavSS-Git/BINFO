@@ -114,8 +114,11 @@ export interface PdfAndelAvSkuld {
 }
 
 export interface PdfPrisanalys {
-  utgangspris: string;
-  prisPerM2: string;
+  /** Samma rubrik som webben: "Är priset rimligt?" med pris, annars "Binfos värdering". */
+  titel: string;
+  /** Båda undefined när köparen inte angett något utgångspris (raderna utelämnas). */
+  utgangspris: string | undefined;
+  prisPerM2: string | undefined;
   externVardering:
     | {
         value: string;
@@ -244,7 +247,9 @@ function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
       ? `${input.adress}, ${input.ort}`
       : `Adressen raderad efter 12 månader · ${input.ort}`;
   return [
-    { label: "Utgångspris", value: formatVarde(input.utgangspris, "kr") },
+    ...(input.utgangspris !== undefined
+      ? [{ label: "Utgångspris", value: formatVarde(input.utgangspris, "kr") }]
+      : []),
     { label: "Boarea", value: formatVarde(input.boarea, "m2") },
     { label: "Månadsavgift", value: `${formatVarde(input.manadsavgift, "kr")}/mån` },
     { label: "Antal rum", value: String(input.antalRum) },
@@ -322,8 +327,9 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
       : undefined;
 
   return {
-    utgangspris: formatFigureVarde(p.utgangspris),
-    prisPerM2: formatFigureVarde(p.prisPerM2),
+    titel: p.utgangspris ? "Är priset rimligt?" : "Binfos värdering",
+    utgangspris: p.utgangspris ? formatFigureVarde(p.utgangspris) : undefined,
+    prisPerM2: p.prisPerM2 ? formatFigureVarde(p.prisPerM2) : undefined,
     andelAvSkuld: skuld
       ? { text: skuld.text, pageRef: formatPageRef(skuld.ref), osaker: skuld.osaker }
       : undefined,

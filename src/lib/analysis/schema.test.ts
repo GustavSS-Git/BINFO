@@ -731,6 +731,19 @@ describe("AnalysisResultSchema", () => {
     expect(r.success).toBe(true);
   });
 
+  it("accepterar ett resultat utan utgångspris (input och prisanalys)", () => {
+    const utan = structuredClone(validAnalysisResult) as unknown as {
+      input: Record<string, unknown>;
+      prisanalys: Record<string, unknown>;
+    };
+    delete utan.input["utgangspris"];
+    delete utan.prisanalys["utgangspris"];
+    delete utan.prisanalys["prisPerM2"];
+    expect(AnalysisResultSchema.safeParse(utan).success).toBe(true);
+    // Med utgångspris parsar det som förut.
+    expect(AnalysisResultSchema.safeParse(validAnalysisResult).success).toBe(true);
+  });
+
   it("avvisar när ett obligatoriskt fält saknas (malformad modell-JSON)", () => {
     const trasig = structuredClone(validAnalysisResult) as unknown as Record<string, unknown>;
     delete trasig["betyg"];

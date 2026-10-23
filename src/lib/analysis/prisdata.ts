@@ -430,12 +430,15 @@ export class ModellPrisdatakalla implements Prisdatakalla {
  * Skälet visas ordagrant för användaren, så det måste stå på svenska och säga
  * rent ut att avstämningen inte har gjorts.
  */
-export function konfidensUtanPrisdata(): Konfidens {
+export function konfidensUtanPrisdata(harUtgangspris = true): Konfidens {
   return {
     niva: "lag",
     skal: [
-      "Ingen oberoende priskälla är ansluten. Utgångspriset har inte stämts av mot " +
-        "någon värdering, mot försäljningar i föreningen eller mot områdets medianpris.",
+      harUtgangspris
+        ? "Ingen oberoende priskälla är ansluten. Utgångspriset har inte stämts av mot " +
+          "någon värdering, mot försäljningar i föreningen eller mot områdets medianpris."
+        : "Ingen oberoende priskälla är ansluten, så ingen värdering, inga försäljningar i " +
+          "föreningen och inget medianpris för området har kunnat hämtas.",
     ],
   };
 }

@@ -144,7 +144,6 @@ export interface MinimalPropertyInputFields {
 export function buildMinimalPropertyInput(fields: MinimalPropertyInputFields): PropertyInput {
   return {
     kind: "bostadsratt",
-    utgangspris: 0,
     boarea: fields.boarea,
     antalRum: 0,
     manadsavgift: fields.manadsavgift,

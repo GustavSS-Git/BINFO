@@ -603,7 +603,7 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
   const varderingslabel = p.externVardering?.isSchablon ? "Binfos värdering" : "Extern värdering";
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Är priset rimligt?</Text>
+      <Text style={styles.sectionTitle}>{p.titel}</Text>
       {u?.disclaimerText ? (
         <View style={[styles.conclusionBox, { marginTop: 0, marginBottom: 8 }]}>
           <Text style={styles.priceLabel}>{u.tackningTitel}</Text>
@@ -611,14 +611,18 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
         </View>
       ) : null}
       <View style={styles.card} wrap={false}>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Utgångspris</Text>
-          <Text style={styles.priceValue}>{p.utgangspris}</Text>
-        </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Pris per kvadratmeter</Text>
-          <Text style={styles.priceValue}>{p.prisPerM2}</Text>
-        </View>
+        {p.utgangspris !== undefined ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Utgångspris</Text>
+            <Text style={styles.priceValue}>{p.utgangspris}</Text>
+          </View>
+        ) : null}
+        {p.prisPerM2 !== undefined ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Pris per kvadratmeter</Text>
+            <Text style={styles.priceValue}>{p.prisPerM2}</Text>
+          </View>
+        ) : null}
         {p.externVardering ? (
           <View style={[styles.priceRow, u ? undefined : { borderBottomWidth: 0 }]}>
             <View style={{ flex: 1 }}>

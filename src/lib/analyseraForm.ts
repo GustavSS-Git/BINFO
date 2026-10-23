@@ -119,8 +119,8 @@ export interface AnalyseraFormFields {
   byggar: string;
 }
 
-/** Ett fel per obligatoriskt fält. `byggar` är valfritt och ingår därför inte
- *  här. `vaning` är obligatoriskt i formuläret (köparen ska alltid kunna säga
+/** Ett fel per fält. `utgangspris` är valfritt (tomt = inget fel, ogiltig
+ *  text = fel). `byggar` är valfritt och ingår därför inte här. `vaning` är obligatoriskt i formuläret (köparen ska alltid kunna säga
  *  var i huset lägenheten ligger) även om PropertyInput-kontraktet har fältet
  *  valfritt. */
 export interface AnalyseraFormFel {
@@ -144,9 +144,18 @@ export function valideraPostnummer(rått: string): string | null {
     : "Ange ett postnummer med fem siffror, t.ex. 116 25.";
 }
 
+/** Felet för det valfria utgångspriset (`null` = giltigt eller tomt). Tomt är OK,
+ *  men text som inte går att tolka får inte tyst släppas igenom som "inget
+ *  utgångspris". Delas av /analysera och /vardering. */
+export function valideraValfrittUtgangspris(rått: string): string | null {
+  return rått.trim() === "" || parsePositivtTal(rått) !== null
+    ? null
+    : "Ange ett giltigt utgångspris eller lämna fältet tomt.";
+}
+
 export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFel {
   return {
-    utgangspris: parsePositivtTal(f.utgangspris) === null ? "Ange ett giltigt utgångspris." : null,
+    utgangspris: valideraValfrittUtgangspris(f.utgangspris),
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
     vaning: parseVaning(f.vaning) === null ? "Ange våning." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
@@ -197,10 +206,10 @@ export function buildPropertyInput(
 ): PropertyInput {
   const vaning = parseVaning(form.vaning) ?? undefined;
   const byggar = parseValfrittHeltal(form.byggar);
+  const utgangspris = parsePositivtTal(form.utgangspris);
 
   return {
     kind: mapPropertyKind(typ),
-    utgangspris: Math.round(parsePositivtTal(form.utgangspris) ?? 0),
     boarea: parsePositivtTal(form.boarea) ?? 0,
     antalRum: parsePositivtTal(form.antalRum) ?? 0,
     manadsavgift: Math.round(parsePositivtTal(form.manadsavgift) ?? 0),
@@ -211,6 +220,7 @@ export function buildPropertyInput(
     adress: form.adress.trim(),
     postnummer: form.postnummer.trim(),
     ort: form.ort.trim(),
+    ...(utgangspris !== null ? { utgangspris: Math.round(utgangspris) } : {}),
     ...(vaning !== undefined ? { vaning } : {}),
     ...(byggar !== undefined ? { byggar } : {}),
     hiss: uppgifter.hiss,

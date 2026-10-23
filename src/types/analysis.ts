@@ -90,8 +90,11 @@ export interface FeeInclusion {
 export interface PropertyInput {
   kind: PropertyKind;
 
+  /** Optional (owner decision): without it the report shows Binfo's valuation
+   *  but no price comparison. Omitted entirely when not given. */
+  utgangspris?: number;
+
   // Required
-  utgangspris: number;
   boarea: number;
   antalRum: number;
   manadsavgift: number;
@@ -250,8 +253,9 @@ export interface RedFlag {
 /** Layer 2 — price context. Reconciles asking price against independent
  *  reference points. Never produces its own valuation model. */
 export interface Prisanalys {
-  utgangspris: Figure;
-  prisPerM2: Figure;
+  /** Absent when the buyer gave no asking price. */
+  utgangspris?: Figure;
+  prisPerM2?: Figure;
   /** Third-party valuation (e.g. Booli). Always attributed, never re-derived. */
   externVardering?: Figure & { leverantor: string };
   /** Sales within the same cooperative — a much tighter comparison than
@@ -298,13 +302,7 @@ export type PrisInput = Pick<
 
 /** Prisanalys as the standalone price check produces it — the same fields the
  *  full analysis shows, minus the ones that need an asking price or BRF data. */
-export type PrisanalysUtanForening = Omit<
-  Prisanalys,
-  "utgangspris" | "prisPerM2" | "andelAvForeningensSkuld"
-> & {
-  utgangspris?: Figure;
-  prisPerM2?: Figure;
-};
+export type PrisanalysUtanForening = Omit<Prisanalys, "andelAvForeningensSkuld">;
 
 /** Result of the standalone price check (`price_estimate` service). Stateless —
  *  never stored server-side. The full analysis embeds the same valuation in

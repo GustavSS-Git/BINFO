@@ -19,7 +19,8 @@ export function PropertySummary({
   skapad: string;
 }) {
   const rows = [
-    ["Utgångspris", kr(input.utgangspris)],
+    // Utgångspriset är valfritt: raden utelämnas helt när det saknas.
+    ...(input.utgangspris !== undefined ? [["Utgångspris", kr(input.utgangspris)]] : []),
     ["Boarea", `${input.boarea.toFixed(1).replace(".", ",")} m²`],
     ["Månadsavgift", `${kr(input.manadsavgift)}/mån`],
     // Kontraktet har ingen "våning X av N" — bara en enskild våning, om känd.
@@ -41,7 +42,9 @@ export function PropertySummary({
         </div>
         <Badge tone="teal">Analyserad {formatSkapadDatum(skapad)}</Badge>
       </div>
-      <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-6 md:grid-cols-5">
+      <dl
+        className={`mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-6 ${rows.length === 4 ? "md:grid-cols-4" : "md:grid-cols-5"}`}
+      >
         {rows.map(([label, value]) => (
           <div key={label}>
             <dt className="text-xs text-muted-foreground">{label}</dt>

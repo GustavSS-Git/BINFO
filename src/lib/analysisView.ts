@@ -20,6 +20,16 @@ import type {
   Varderingsunderlag,
 } from "@/types/analysis";
 
+/**
+ * Priset som förifyller bolånekalkylen: hellre Binfos/extern värdering än
+ * utgångspriset, och inget alls (undefined) om varken värdering eller
+ * utgångspris finns — då länkas kalkylen utan `pris`.
+ */
+export function bolanekalkylPris(prisanalys: AnalysisResult["prisanalys"]): number | undefined {
+  const figur = prisanalys.externVardering ?? prisanalys.utgangspris;
+  return figur?.value ?? undefined;
+}
+
 const SEVERITY_RANK: Record<Severity, number> = { hog: 0, medel: 1, lag: 2 };
 
 /**

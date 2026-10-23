@@ -381,7 +381,17 @@ function byggSlutsats(underlag: {
   // skiljer på de två.
   avvikelseMotVardering: number | undefined;
   avvikelseMotForeningen: number | undefined;
+  /** false när köparen inte angett något utgångspris. */
+  harUtgangspris: boolean;
 }): string {
+  if (!underlag.harUtgangspris) {
+    // Inget pris att stämma av (och utan pris finns inget kvadratmeterpris att
+    // jämföra med föreningens försäljningar). Ingen mening får tala om
+    // "utgångspriset".
+    return underlag.harOberoendeData
+      ? "Inget utgångspris har angetts, så ingen prisjämförelse görs."
+      : "Inget utgångspris har angetts, och ingen oberoende prisuppgift kunde hämtas.";
+  }
   if (!underlag.harOberoendeData) {
     // Schablonen ger ett tal att visa, men den känner varken objektet, läget
     // eller skicket. Slutsatsen måste säga att jämförelsen görs mot en
@@ -568,7 +578,7 @@ export function tillPrisInput(input: PropertyInput): PrisInput {
     ...(input.byggar !== undefined ? { byggar: input.byggar } : {}),
     hiss: input.hiss,
     balkong: input.balkong,
-    utgangspris: input.utgangspris,
+    ...(input.utgangspris !== undefined ? { utgangspris: input.utgangspris } : {}),
   };
 }
 
@@ -757,11 +767,14 @@ export async function byggPrisanalysUtanForening(
         ? {
             niva: "lag",
             skal: [
-              "Utgångspriset är endast jämfört med en schablon — ett platt kvadratmeterpris som " +
+              (input.utgangspris !== undefined
+                ? "Utgångspriset är endast jämfört med en schablon — "
+                : "Värderingen är endast en schablon — ") +
+                "ett platt kvadratmeterpris som " +
                 "inte tar hänsyn till läge, skick eller våning. Ingen oberoende priskälla är ansluten.",
             ],
           }
-        : konfidensUtanPrisdata()
+        : konfidensUtanPrisdata(input.utgangspris !== undefined)
       : antalOberoendeKallor >= 2
         ? { niva: "hog" }
         : { niva: "medel", skal: ["Endast en oberoende prisreferens kunde hämtas."] };
@@ -771,6 +784,7 @@ export async function byggPrisanalysUtanForening(
       varderingArSchablon,
       avvikelseMotVardering,
       avvikelseMotForeningen,
+      harUtgangspris: input.utgangspris !== undefined,
     });
   }
 
@@ -807,11 +821,12 @@ export async function byggPrisanalys(
     ort: input.ort,
     adress: input.adress,
   });
-  // Kärnan sätter alltid utgangspris/prisPerM2 när ett utgångspris skickas
-  // in (det gör tillPrisInput alltid); samma rena funktion här ger
-  // Prisanalys-typen de obligatoriska fälten utan en typkastning, och
-  // värdena är identiska med kärnans.
-  return { ...utgangsprisFigurer(input.utgangspris, input.boarea), ...karna };
+  // Kärnan sätter utgangspris/prisPerM2 när ett utgångspris skickas in;
+  // utan pris utelämnas båda (samma ren funktion, identiska värden).
+  return {
+    ...(input.utgangspris !== undefined ? utgangsprisFigurer(input.utgangspris, input.boarea) : {}),
+    ...karna,
+  };
 }
 
 /**

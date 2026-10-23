@@ -210,7 +210,7 @@ export const IndividuellMatningSchema = z
 export const PropertyInputSchema = z
   .object({
     kind: PropertyKindSchema,
-    utgangspris: z.number(),
+    utgangspris: z.number().optional(),
     boarea: z.number(),
     antalRum: z.number(),
     manadsavgift: z.number(),
@@ -461,8 +461,8 @@ export const BudpremieSchema = z
 
 export const PrisanalysSchema = z
   .object({
-    utgangspris: FigureSchema,
-    prisPerM2: FigureSchema,
+    utgangspris: FigureSchema.optional(),
+    prisPerM2: FigureSchema.optional(),
     externVardering: FigureMedLeverantorSchema.optional(),
     senasteForsaljningarIForeningen: z
       .array(
@@ -502,12 +502,8 @@ export const PrisInputSchema = z
   .strict();
 
 export const PrisanalysUtanForeningSchema = PrisanalysSchema.omit({
-  utgangspris: true,
-  prisPerM2: true,
   andelAvForeningensSkuld: true,
-})
-  .extend({ utgangspris: FigureSchema.optional(), prisPerM2: FigureSchema.optional() })
-  .strict();
+}).strict();
 
 export const PrisuppskattningResultatSchema = z
   .object({

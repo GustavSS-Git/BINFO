@@ -111,13 +111,16 @@ class OgiltigInputfilError extends Error {
  * alias for "modell" — PRISKALLA=schablon used to select the old flat
  * 80 000 kr/m² placeholder, now removed; it selects the real model instead.
  */
-function valjPrisdatakalla(input: { utgangspris: number; boarea: number }): Prisdatakalla {
+function valjPrisdatakalla(input: {
+  utgangspris?: number | undefined;
+  boarea: number;
+}): Prisdatakalla {
   const val = (process.env["PRISKALLA"] ?? "modell").toLowerCase();
   if (val === "tom") {
     return new TomPrisdatakalla();
   }
   if (val === "demo") {
-    return new DemoPrisdatakalla(input);
+    return new DemoPrisdatakalla({ utgangspris: input.utgangspris ?? 0, boarea: input.boarea });
   }
   return new ModellPrisdatakalla();
 }

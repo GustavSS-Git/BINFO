@@ -148,7 +148,6 @@ describe("validateraAnalyseraForm", () => {
   it("flaggar alla obligatoriska fält som fel på ett tomt formulär", () => {
     const fel = validateraAnalyseraForm(tomtFormulär());
     expect(harValideringsfel(fel)).toBe(true);
-    expect(fel.utgangspris).not.toBeNull();
     expect(fel.boarea).not.toBeNull();
     expect(fel.vaning).not.toBeNull();
     expect(fel.manadsavgift).not.toBeNull();
@@ -158,9 +157,21 @@ describe("validateraAnalyseraForm", () => {
     expect(fel.ort).not.toBeNull();
   });
 
-  it("kräver att utgångspris är ett positivt tal, inte bara icke-tomt", () => {
-    const fel = validateraAnalyseraForm(tomtFormulär({ utgangspris: "0" }));
-    expect(fel.utgangspris).not.toBeNull();
+  it("utgångspris är valfritt: tomt eller blanksteg är giltigt", () => {
+    for (const tomt of ["", "   "]) {
+      expect(validateraAnalyseraForm(tomtFormulär({ utgangspris: tomt })).utgangspris).toBeNull();
+    }
+  });
+
+  it("ett angivet utgångspris måste vara ett positivt tal", () => {
+    for (const fel of ["0", "abc", "-5"]) {
+      expect(validateraAnalyseraForm(tomtFormulär({ utgangspris: fel })).utgangspris).toBe(
+        "Ange ett giltigt utgångspris eller lämna fältet tomt.",
+      );
+    }
+    expect(
+      validateraAnalyseraForm(tomtFormulär({ utgangspris: "4 950 000" })).utgangspris,
+    ).toBeNull();
   });
 
   it("kräver ett svenskt postnummer (fem siffror, valfritt mellanslag)", () => {
@@ -274,6 +285,25 @@ describe("buildPropertyInput", () => {
       avgiftInkluderar: inclusion({ varme: "ja" }),
       antalPersoner: 2,
     });
+  });
+
+  it("utelämnar utgangspris helt när fältet är tomt, och avrundar annars", () => {
+    const bas = {
+      boarea: "58",
+      manadsavgift: "3240",
+      antalRum: "3",
+      adress: "Kapellgränd 12",
+      postnummer: "116 25",
+      ort: "Stockholm",
+    };
+    const utan = buildPropertyInput("brf", tomtFormulär({ ...bas, utgangspris: "  " }), uppgifter);
+    expect("utgangspris" in utan).toBe(false);
+    const med = buildPropertyInput(
+      "brf",
+      tomtFormulär({ ...bas, utgangspris: "4 950 000,4" }),
+      uppgifter,
+    );
+    expect(med.utgangspris).toBe(4_950_000);
   });
 
   it("mappar hus till PropertyKind hus", () => {

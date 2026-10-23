@@ -187,7 +187,7 @@ describe("buildMinimalPropertyInput", () => {
     expect(input.ort).toBe("");
     expect(input.hiss).toBe("okant");
     expect(input.balkong).toBe("okant");
-    expect(input.utgangspris).toBe(0);
+    expect(input.utgangspris).toBeUndefined();
     expect(input.antalRum).toBe(0);
     expect(input.andelstal).toBe(0);
   });

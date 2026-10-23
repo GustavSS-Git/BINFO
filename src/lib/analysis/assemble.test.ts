@@ -345,7 +345,7 @@ describe("assembleraAnalys", () => {
     const prisanalys = await byggPrisanalys(
       inputKomplett,
       new DemoPrisdatakalla({
-        utgangspris: inputKomplett.utgangspris,
+        utgangspris: inputKomplett.utgangspris ?? 0,
         boarea: inputKomplett.boarea,
       }),
     );
@@ -372,7 +372,7 @@ describe("assembleraAnalys", () => {
       extraction: extraktion,
       input: inputKomplett,
       prisdatakalla: new DemoPrisdatakalla({
-        utgangspris: inputKomplett.utgangspris,
+        utgangspris: inputKomplett.utgangspris ?? 0,
         boarea: inputKomplett.boarea,
       }),
       analys: analysJudgement,
@@ -390,9 +390,9 @@ describe("assembleraAnalys", () => {
     });
 
     // 4 950 000 / 62 = 79 838,709... -> 79 839
-    expect(resultat.prisanalys.prisPerM2.value).toBe(79839);
-    expect(resultat.prisanalys.prisPerM2.source).toBe("berakning");
-    expect(Number.isInteger(resultat.prisanalys.prisPerM2.value)).toBe(true);
+    expect(resultat.prisanalys.prisPerM2?.value).toBe(79839);
+    expect(resultat.prisanalys.prisPerM2?.source).toBe("berakning");
+    expect(Number.isInteger(resultat.prisanalys.prisPerM2?.value)).toBe(true);
   });
 
   it("degraderar i stället för att kasta när räntekänslighet saknas i årsredovisningen — resten av analysen slutförs", async () => {
@@ -930,6 +930,39 @@ describe("avgiftskontrollen (D6) — månadsavgiften mot föreningens årsavgift
       1,
     );
     expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+});
+
+describe("utan utgångspris (valfritt)", () => {
+  const { utgangspris: _u, ...inputUtanPris } = inputKomplett;
+
+  it("assembleraAnalys utelämnar prisfälten och avvikelserna men behåller värderingen och skuldandelen", async () => {
+    const resultat = await assembleraAnalys({
+      extraction: extraktion,
+      input: inputUtanPris,
+      prisdatakalla: new ModellPrisdatakalla(),
+      analys: analysJudgement,
+    });
+    const p = resultat.prisanalys;
+    expect("utgangspris" in p).toBe(false);
+    expect("prisPerM2" in p).toBe(false);
+    expect("avvikelseMotVardering" in p).toBe(false);
+    expect("avvikelseMotForeningen" in p).toBe(false);
+    expect(p.slutsats).toContain("Inget utgångspris");
+    expect(p.externVardering).toBeDefined();
+    expect(p.andelAvForeningensSkuld?.value).toBe(694_400);
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+
+  it("byggPrisanalys utan pris och utan oberoende data (fall C) nämner aldrig utgångspriset som om det fanns", async () => {
+    const p = await byggPrisanalys(inputUtanPris, new TomPrisdatakalla());
+    expect(p.slutsats).toContain("Inget utgångspris har angetts");
+    expect(p.slutsats).not.toContain("det angivna utgångspriset");
+    expect(JSON.stringify(p.konfidens)).not.toContain("Utgångspriset har inte");
+  });
+
+  it("tillPrisInput utelämnar utgangspris-nyckeln", () => {
+    expect("utgangspris" in tillPrisInput(inputUtanPris)).toBe(false);
   });
 });
 

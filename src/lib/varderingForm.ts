@@ -4,6 +4,7 @@ import {
   parseValfrittHeltal,
   parseVaning,
   valideraPostnummer,
+  valideraValfrittUtgangspris,
 } from "@/lib/analyseraForm";
 
 /**
@@ -47,13 +48,8 @@ export interface VarderingFormFel {
 
 export function validateraVarderingForm(f: VarderingFormFields): VarderingFormFel {
   return {
-    // Valfritt: tomt är OK, men text som inte går att tolka får inte tyst
-    // släppas igenom som "inget utgångspris" — då skulle köparen tro att
-    // jämförelsen gjorts mot det hen skrev.
-    utgangspris:
-      f.utgangspris.trim() === "" || parsePositivtTal(f.utgangspris) !== null
-        ? null
-        : "Ange ett giltigt utgångspris eller lämna fältet tomt.",
+    // Valfritt: se valideraValfrittUtgangspris.
+    utgangspris: valideraValfrittUtgangspris(f.utgangspris),
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,

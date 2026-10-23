@@ -390,6 +390,7 @@ function Analysera() {
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field
             label="Utgångspris"
+            optional
             type="text"
             suffix="kr"
             placeholder="4 950 000"
