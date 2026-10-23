@@ -4,7 +4,6 @@ import { useSession } from "@/lib/session";
 const links = [
   { to: "/", label: "Hem" },
   { to: "/analysera", label: "Analysera" },
-  { to: "/vardering", label: "Priskoll" },
   { to: "/brf", label: "BRF-register" },
   { to: "/bolanekalkyl", label: "Bolånekalkyl" },
   { to: "/kopguide", label: "Köpguide" },

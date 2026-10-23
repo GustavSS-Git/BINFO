@@ -53,15 +53,15 @@ const NU = 1_800_000_000_000;
 describe("utkast", () => {
   it("skriver till båda lagren och läser tillbaka", () => {
     const lager: UtkastLager = { session: minneslager(), lokal: minneslager() };
-    expect(skrivUtkast("vardering", utkast, "/vardering", lager, NU)).toBe(true);
+    expect(skrivUtkast("vardering", utkast, "/analysera", lager, NU)).toBe(true);
     const u = lasUtkast("vardering", VarderingUtkastSchema, lager, NU + 1000);
     expect(u?.data).toEqual(utkast);
-    expect(u?.till).toBe("/vardering");
+    expect(u?.till).toBe("/analysera");
   });
 
   it("hittar utkastet i localStorage-spegeln när sessionStorage är tom (ny flik)", () => {
     const lokal = minneslager();
-    skrivUtkast("vardering", utkast, "/vardering", { session: null, lokal }, NU);
+    skrivUtkast("vardering", utkast, "/analysera", { session: null, lokal }, NU);
     const nyFlik: UtkastLager = { session: minneslager(), lokal };
     expect(lasUtkast("vardering", VarderingUtkastSchema, nyFlik, NU)?.data.etikett).toBe(
       "Hornsgatan",
@@ -70,14 +70,14 @@ describe("utkast", () => {
 
   it("ignorerar ett utgånget utkast (äldre än 24 timmar)", () => {
     const lager: UtkastLager = { session: minneslager(), lokal: minneslager() };
-    skrivUtkast("vardering", utkast, "/vardering", lager, NU);
+    skrivUtkast("vardering", utkast, "/analysera", lager, NU);
     expect(lasUtkast("vardering", VarderingUtkastSchema, lager, NU + UTKAST_TTL_MS)).not.toBeNull();
     expect(lasUtkast("vardering", VarderingUtkastSchema, lager, NU + UTKAST_TTL_MS + 1)).toBeNull();
   });
 
   it("ignorerar ett utkast av fel form (schema matchar inte)", () => {
     const lager: UtkastLager = { session: minneslager(), lokal: minneslager() };
-    skrivUtkast("vardering", { annat: true }, "/vardering", lager, NU);
+    skrivUtkast("vardering", { annat: true }, "/analysera", lager, NU);
     expect(lasUtkast("vardering", VarderingUtkastSchema, lager, NU)).toBeNull();
   });
 
@@ -94,14 +94,14 @@ describe("utkast", () => {
 
   it("kastar aldrig när lagringen är spärrad", () => {
     const lager: UtkastLager = { session: trasigt, lokal: trasigt };
-    expect(skrivUtkast("vardering", utkast, "/vardering", lager, NU)).toBe(false);
+    expect(skrivUtkast("vardering", utkast, "/analysera", lager, NU)).toBe(false);
     expect(lasUtkast("vardering", VarderingUtkastSchema, lager, NU)).toBeNull();
     expect(() => rensaUtkast("vardering", lager)).not.toThrow();
   });
 
   it("lyckas om bara ett lager fungerar", () => {
     const lokal = minneslager();
-    expect(skrivUtkast("vardering", utkast, "/vardering", { session: trasigt, lokal }, NU)).toBe(
+    expect(skrivUtkast("vardering", utkast, "/analysera", { session: trasigt, lokal }, NU)).toBe(
       true,
     );
     expect(
@@ -111,7 +111,7 @@ describe("utkast", () => {
 
   it("rensa tar bort från båda lagren (så att en omladdning inte sparar två gånger)", () => {
     const lager: UtkastLager = { session: minneslager(), lokal: minneslager() };
-    skrivUtkast("vardering", utkast, "/vardering", lager, NU);
+    skrivUtkast("vardering", utkast, "/analysera", lager, NU);
     rensaUtkast("vardering", lager);
     expect(lasUtkast("vardering", VarderingUtkastSchema, lager, NU)).toBeNull();
   });

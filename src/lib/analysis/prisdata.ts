@@ -46,7 +46,7 @@ export type OmradeMedian = NonNullable<Prisanalys["omradeMedianPrisPerM2"]>;
  */
 export interface Prisdataforfragan {
   /** XXXXXX-XXXX. Utan orgnr går föreningens egna försäljningar inte att slå upp.
-   *  Saknas i den fristående priskollen (prisuppskattning, /vardering), som
+   *  Saknas i den fristående priskollen (prisuppskattning, steg 1 på /analysera), som
    *  inte känner föreningen — en källa ska då svara tom lista, aldrig gissa. */
   orgnr?: string;
   boarea: number;

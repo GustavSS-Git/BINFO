@@ -13,6 +13,22 @@ export function parseSparaTyp(varde: unknown): SparaTyp | undefined {
   return varde === "vardering" || varde === "kalkyl" ? varde : undefined;
 }
 
+export interface SparaSok {
+  sparad?: string;
+  spara?: SparaTyp;
+}
+
+/** `validateSearch` för sidan som visar sparade värderingar (`?sparad=<id>`) och
+ *  slutför ett väntande Spara (`?spara=`). Delas av /analysera och omdirigeringen
+ *  från den gamla /vardering. Nycklarna utelämnas när de saknas. */
+export function parseSparaSok(s: Record<string, unknown>): SparaSok {
+  const spara = parseSparaTyp(s["spara"]);
+  return {
+    ...(typeof s["sparad"] === "string" && s["sparad"] !== "" ? { sparad: s["sparad"] } : {}),
+    ...(spara !== undefined ? { spara } : {}),
+  };
+}
+
 const MAX_TILL_TECKEN = 300;
 const BAS = "http://binfo.invalid";
 

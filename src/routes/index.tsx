@@ -78,7 +78,7 @@ function Index() {
             <p className="mt-6 text-sm text-muted-foreground">
               Bara priskoll?{" "}
               <Link
-                to="/vardering"
+                to="/analysera"
                 className="font-medium text-primary underline underline-offset-2"
               >
                 Klicka här
@@ -231,7 +231,7 @@ function Index() {
               liknande bostäder i området har sålts för och visar vilket slutpris som är rimligt.
             </p>
             <Link
-              to="/vardering"
+              to="/analysera"
               className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
             >
               Kolla priset

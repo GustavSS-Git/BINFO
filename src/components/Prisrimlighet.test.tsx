@@ -9,7 +9,7 @@ import type { PrisanalysUtanForening } from "@/types/analysis";
 /** sv-SE tusentalsavgränsare är ett hårt mellanslag; jämför med vanliga. */
 const plattaUt = (html: string) => html.replace(/\s/g, " ");
 
-describe("Prisrimlighet — delad av rapporten och /vardering", () => {
+describe("Prisrimlighet — delad av rapporten och priskollen på /analysera", () => {
   it("visar prisjämförelsen när utgångspris finns", () => {
     const html = plattaUt(
       renderToStaticMarkup(<Prisrimlighet prisanalys={sampleAnalysis.prisanalys} />),

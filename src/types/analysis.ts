@@ -291,7 +291,7 @@ export interface Prisanalys {
 }
 
 /** The valuation-relevant subset of PropertyInput — all the standalone price
- *  check (`/vardering`) asks for. No PDF, no BRF data. */
+ *  check (step 1 on `/analysera`) asks for. No PDF, no BRF data. */
 export type PrisInput = Pick<
   PropertyInput,
   "boarea" | "antalRum" | "manadsavgift" | "postnummer" | "vaning" | "byggar" | "hiss" | "balkong"

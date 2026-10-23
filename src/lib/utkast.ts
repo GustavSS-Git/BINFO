@@ -156,7 +156,7 @@ export function rensaUtkast(typ: SparaTyp, lager: UtkastLager = webblasarLager()
 
 const TristateUtkast = z.enum(["ja", "nej", "okant"]);
 
-/** /vardering: formulärets råtext (så att användaren får tillbaka exakt det hen skrev). */
+/** Priskollen (steg 1 på /analysera): formulärets råtext (så att användaren får tillbaka exakt det hen skrev). */
 export const VarderingUtkastSchema = z
   .object({
     form: z.object({

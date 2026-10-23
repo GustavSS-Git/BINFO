@@ -432,7 +432,7 @@ function OsakerMarkering({ figure }: { figure: Pick<Figure, "osaker"> }) {
 
 /**
  * Värderingssektionen — delas av den fullständiga rapporten ("Är priset
- * rimligt?") och den fristående priskollen (`/vardering`). Tar
+ * rimligt?") och priskollen (steg 1 på `/analysera`). Tar
  * `PrisanalysUtanForening`: utan utgångspris utelämnas prisraderna och
  * rubriken ändras, i övrigt är renderingen identisk. `skuldrad` finns bara i
  * den fullständiga analysen (se andelAvSkuldRad i analysisView.ts).

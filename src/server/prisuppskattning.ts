@@ -82,7 +82,7 @@ export type HamtaPrisuppskattningSvar =
   | { ok: true; resultat: PrisuppskattningResultat }
   | { ok: false; errorCode: "validation" | "kvot" | "behorighet"; errorMessage: string };
 
-/** Köparsäkra felmeddelanden — visas ordagrant i /vardering. */
+/** Köparsäkra felmeddelanden — visas ordagrant i priskollen (steg 1 på /analysera). */
 const FELMEDDELANDE_OGILTIGT_POSTNUMMER = "Postnumret måste bestå av fem siffror, t.ex. 118 57.";
 const FELMEDDELANDE_OGILTIGA_UPPGIFTER =
   "Några av uppgifterna saknas eller är ogiltiga. Kontrollera boarea, antal rum, månadsavgift " +

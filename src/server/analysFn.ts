@@ -207,7 +207,7 @@ export const hamtaResultatFn = createServerFn({ method: "GET" })
   });
 
 /**
- * Den fristående priskollen (/vardering): Binfos värdering ur formulärets
+ * Priskollen (steg 1 på /analysera): Binfos värdering ur formulärets
  * uppgifter, utan PDF. Indata valideras i handlern (PrisInputSchema, se
  * `hamtaPrisuppskattning` i ./prisuppskattning.ts) — `inputValidator` släpper
  * bara igenom okänd data så att ett valideringsfel blir ett köparsäkert

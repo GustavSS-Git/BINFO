@@ -135,7 +135,7 @@ export interface AnalyseraFormFel {
 }
 
 /** Felet för ett obligatoriskt postnummer (`null` = giltigt). Delas av
- *  /analysera och /vardering (src/lib/varderingForm.ts). */
+ *  priskollen (steg 1) och analysen (src/lib/varderingForm.ts). */
 export function valideraPostnummer(rått: string): string | null {
   const postnummer = rått.trim();
   if (postnummer === "") return "Ange postnummer.";
@@ -146,7 +146,7 @@ export function valideraPostnummer(rått: string): string | null {
 
 /** Felet för det valfria utgångspriset (`null` = giltigt eller tomt). Tomt är OK,
  *  men text som inte går att tolka får inte tyst släppas igenom som "inget
- *  utgångspris". Delas av /analysera och /vardering. */
+ *  utgångspris". Delas av priskollen (steg 1) och analysen. */
 export function valideraValfrittUtgangspris(rått: string): string | null {
   return rått.trim() === "" || parsePositivtTal(rått) !== null
     ? null

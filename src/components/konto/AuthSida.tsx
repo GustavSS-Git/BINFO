@@ -25,7 +25,7 @@ export function AuthSida({
   );
 }
 
-/** Felruta i samma stil som på /vardering. Serverns text visas ordagrant. */
+/** Felruta i samma stil som på /analysera. Serverns text visas ordagrant. */
 export function FelRuta({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-lg border border-danger/30 bg-danger/5 p-4" role="alert">

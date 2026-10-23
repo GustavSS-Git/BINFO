@@ -4,10 +4,11 @@ import {
   buildPrisInput,
   harVarderingsfel,
   parseAnalyseraPrefill,
-  tillAnalyseraPrefill,
+  tillVarderingForm,
   validateraVarderingForm,
   type VarderingFormFields,
 } from "./varderingForm";
+import type { AnalyseraFormFields } from "./analyseraForm";
 
 function form(overrides: Partial<VarderingFormFields> = {}): VarderingFormFields {
   return {
@@ -105,18 +106,46 @@ describe("buildPrisInput", () => {
   });
 });
 
-describe("förifyllning av /analysera", () => {
-  it("tillAnalyseraPrefill tar bara med ifyllda fält", () => {
-    expect(tillAnalyseraPrefill(form({ utgangspris: " 4 950 000 " }))).toEqual({
+describe("tillVarderingForm (steg 1 ur det gemensamma analysformuläret)", () => {
+  const analysForm: AnalyseraFormFields = {
+    utgangspris: "4 950 000",
+    boarea: "58",
+    vaning: "4",
+    manadsavgift: "3 240",
+    andelstal: "",
+    organisationsnummer: "",
+    adress: "Kapellgränd 12",
+    postnummer: "116 25",
+    ort: "Stockholm",
+    antalRum: "3",
+    byggar: "1931",
+  };
+
+  it("plockar ut exakt priskollens fält och släpper adress/ort", () => {
+    expect(tillVarderingForm(analysForm)).toEqual({
       utgangspris: "4 950 000",
       boarea: "58",
       antalRum: "3",
       manadsavgift: "3 240",
       postnummer: "116 25",
       vaning: "4",
+      byggar: "1931",
     });
   });
 
+  it("ger samma PrisInput som ett /vardering-formulär med samma text", () => {
+    expect(buildPrisInput(tillVarderingForm(analysForm), uppgifter)).toEqual(
+      buildPrisInput(form({ utgangspris: "4 950 000", byggar: "1931" }), uppgifter),
+    );
+  });
+
+  it("steg 1 kräver inte adress eller ort", () => {
+    const tomma = { ...analysForm, adress: "", ort: "" };
+    expect(harVarderingsfel(validateraVarderingForm(tillVarderingForm(tomma)))).toBe(false);
+  });
+});
+
+describe("förifyllning av /analysera", () => {
   it("parseAnalyseraPrefill klarar både text och JSON-tolkade tal, och ignorerar skräp", () => {
     expect(
       parseAnalyseraPrefill({

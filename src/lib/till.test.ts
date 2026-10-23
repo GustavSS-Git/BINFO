@@ -3,6 +3,7 @@ import {
   inloggningsSok,
   medSparaParam,
   parseKontoSok,
+  parseSparaSok,
   parseSparaTyp,
   saneraTill,
   sessionLage,
@@ -78,6 +79,22 @@ describe("sökparametrar", () => {
   it("inloggningsSok utelämnar tomma nycklar", () => {
     expect(inloggningsSok(undefined, undefined)).toEqual({});
     expect(inloggningsSok("/a", "kalkyl")).toEqual({ till: "/a", spara: "kalkyl" });
+  });
+});
+
+describe("parseSparaSok (/analysera och omdirigeringen från /vardering)", () => {
+  it("bär över sparad och spara, och utelämnar saknade nycklar", () => {
+    expect(parseSparaSok({})).toEqual({});
+    expect(parseSparaSok({ sparad: "abc-123" })).toEqual({ sparad: "abc-123" });
+    expect(parseSparaSok({ spara: "vardering" })).toEqual({ spara: "vardering" });
+    expect(parseSparaSok({ sparad: "abc-123", spara: "kalkyl" })).toEqual({
+      sparad: "abc-123",
+      spara: "kalkyl",
+    });
+  });
+  it("ignorerar tomma, okända och icke-text-värden", () => {
+    expect(parseSparaSok({ sparad: "", spara: "annat" })).toEqual({});
+    expect(parseSparaSok({ sparad: 12, spara: 1 })).toEqual({});
   });
 });
 

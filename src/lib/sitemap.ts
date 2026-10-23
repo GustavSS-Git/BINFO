@@ -12,7 +12,6 @@ import { SITE_URL, type RegisterSitemapPost } from "@/lib/registerVy";
 export const STATISKA_SIDOR: readonly string[] = [
   "/",
   "/analysera",
-  "/vardering",
   "/bolanekalkyl",
   "/kopguide",
   "/exempel",

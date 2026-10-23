@@ -5,15 +5,19 @@ import {
   parseVaning,
   valideraPostnummer,
   valideraValfrittUtgangspris,
+  type AnalyseraFormFields,
 } from "@/lib/analyseraForm";
 
 /**
- * Ren logik för /vardering ("Bara priskoll"): formulär → PrisInput. Återanvänder
- * talparsning och postnummerkontroll från analyseraForm.ts så att de två
- * formulären aldrig tolkar samma inmatning olika. Ingen React-import.
+ * Ren logik för priskollen (steg 1 på /analysera): formulär → PrisInput.
+ * Återanvänder talparsning och postnummerkontroll från analyseraForm.ts så att
+ * priskollen och analysen aldrig tolkar samma inmatning olika. Ingen
+ * React-import.
  *
- * Skillnader mot /analysera: ingen PDF, ingen adress/ort, och utgångspriset är
- * VALFRITT (utan det visas värderingen utan prisjämförelse).
+ * Priskollen är en delmängd av analysformuläret: ingen PDF, ingen adress/ort,
+ * och utgångspriset är VALFRITT (utan det visas värderingen utan
+ * prisjämförelse). `tillVarderingForm` plockar ut den delmängden ur det
+ * gemensamma formulärtillståndet.
  */
 
 export interface VarderingFormFields {
@@ -35,6 +39,19 @@ export const TOM_VARDERING_FORM: VarderingFormFields = {
   vaning: "",
   byggar: "",
 };
+
+/** Priskollens fält ur det gemensamma analysformuläret (steg 1 av /analysera). */
+export function tillVarderingForm(form: AnalyseraFormFields): VarderingFormFields {
+  return {
+    utgangspris: form.utgangspris,
+    boarea: form.boarea,
+    antalRum: form.antalRum,
+    manadsavgift: form.manadsavgift,
+    postnummer: form.postnummer,
+    vaning: form.vaning,
+    byggar: form.byggar,
+  };
+}
 
 /** Ett fel per fält som kan vara fel. `byggar` är valfritt och ingår inte. */
 export interface VarderingFormFel {
@@ -89,9 +106,10 @@ export function buildPrisInput(
 }
 
 /**
- * De fält /analysera kan förifyllas med via sökparametrar när köparen går
- * vidare från priskollen. Allt är text — samma sak som användaren hade
- * skrivit i formuläret — så ingen omräkning sker på vägen.
+ * De fält /analysera kan förifyllas med via sökparametrar (äldre länkar från
+ * den tidigare separata priskollsidan, och bolånekalkylen). Allt är text —
+ * samma sak som användaren hade skrivit i formuläret — så ingen omräkning
+ * sker på vägen.
  */
 export interface AnalyseraPrefill {
   utgangspris?: string | undefined;
@@ -101,16 +119,6 @@ export interface AnalyseraPrefill {
   postnummer?: string | undefined;
   vaning?: string | undefined;
   byggar?: string | undefined;
-}
-
-/** Bara ifyllda fält tas med; tomma utelämnas så URL:en blir ren. */
-export function tillAnalyseraPrefill(form: VarderingFormFields): AnalyseraPrefill {
-  const ut: AnalyseraPrefill = {};
-  for (const nyckel of Object.keys(TOM_VARDERING_FORM) as Array<keyof VarderingFormFields>) {
-    const varde = form[nyckel].trim();
-    if (varde !== "") ut[nyckel] = varde;
-  }
-  return ut;
 }
 
 /** Läser prefill ur router-sökparametrar (JSON-tolkade: "58" blir talet 58).

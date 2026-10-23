@@ -35,7 +35,7 @@ export function SparaKnapp(props: SparaKnappProps) {
 
   const tillInloggning = () => {
     const till =
-      props.till ?? (typeof window !== "undefined" ? window.location.pathname : "/vardering");
+      props.till ?? (typeof window !== "undefined" ? window.location.pathname : "/analysera");
     if (!props.skrivUtkast()) {
       setFel(
         "Webbläsaren tillåter inte att vi tillfälligt sparar dina uppgifter. Logga in först och fyll sedan i uppgifterna igen.",

@@ -86,7 +86,7 @@ export function tomSida(): KalkylSida {
   };
 }
 
-/** Förifyllning från sökparametrarna (länk från en analys eller från /vardering). */
+/** Förifyllning från sökparametrarna (länk från en analys eller från priskollen på /analysera). */
 export function sidaFranSokning(
   search: BolanekalkylSearch,
   avgiftInkluderar?: FeeInclusion,

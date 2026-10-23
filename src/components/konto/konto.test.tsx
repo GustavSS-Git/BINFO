@@ -3,8 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 
 // Länkarna renderas utanför en router i testet.
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to }: { children: unknown; to: string }) => (
-    <a href={to}>{children as never}</a>
+  Link: ({
+    children,
+    to,
+    search,
+  }: {
+    children: unknown;
+    to: string;
+    search?: Record<string, string>;
+  }) => (
+    <a href={search === undefined ? to : `${to}?${new URLSearchParams(search).toString()}`}>
+      {children as never}
+    </a>
   ),
   useNavigate: () => vi.fn(),
   useRouter: () => ({ history: { push: vi.fn() } }),
@@ -86,8 +96,18 @@ describe("profilens listor", () => {
     expect(html).toContain("Du har inga sparade värderingar");
     expect(html).toContain("Du har inga sparade bolånekalkyler");
     expect(html).toContain('href="/analysera"');
-    expect(html).toContain('href="/vardering"');
+    expect(html).not.toContain('href="/vardering"');
     expect(html).toContain('href="/bolanekalkyl"');
+  });
+
+  it("länkar värderingarna till priskollen på /analysera (inte den gamla /vardering)", () => {
+    const tom = renderToStaticMarkup(<VarderingLista varderingar={[]} onRadera={noop} />);
+    expect(tom).toContain('href="/analysera"');
+    const fylld = renderToStaticMarkup(
+      <VarderingLista varderingar={[vardering]} onRadera={noop} />,
+    );
+    expect(fylld).toContain(`href="/analysera?sparad=${vardering.id}"`);
+    expect(fylld).not.toContain("/vardering");
   });
 
   it("visar datum, namn, nyckeltal och åtgärder för fyllda listor", () => {

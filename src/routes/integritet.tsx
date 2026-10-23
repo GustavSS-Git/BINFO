@@ -88,9 +88,9 @@ function Integritet() {
             </li>
           </ul>
           <p>
-            Priskollen (
-            <Link to="/vardering" className="underline">
-              /vardering
+            Priskollen (steg 1 på{" "}
+            <Link to="/analysera" className="underline">
+              Analysera
             </Link>
             ) och bolånekalkylen sparar ingenting på servern om du inte själv trycker på Spara när
             du är inloggad. Bolånekalkylen räknar i din webbläsare.

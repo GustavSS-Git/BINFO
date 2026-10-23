@@ -211,7 +211,7 @@ export function VarderingLista({
       <SectionTitle>Värderingar</SectionTitle>
       {varderingar.length === 0 ? (
         <Tom text="Du har inga sparade värderingar. Gör en priskoll och tryck på Spara.">
-          <LinkButton to="/vardering" variant="secondary">
+          <LinkButton to="/analysera" variant="secondary">
             Gör en priskoll
           </LinkButton>
         </Tom>
@@ -242,7 +242,7 @@ export function VarderingLista({
                   <>
                     {kanOppnas ? (
                       <Link
-                        to="/vardering"
+                        to="/analysera"
                         search={{ sparad: v.id }}
                         className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
                       >
