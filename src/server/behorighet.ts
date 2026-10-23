@@ -17,19 +17,29 @@
  * today) with kalla 'kop' and the `rapport_id`, plus one policy line here, e.g.
  *   ladda_upp_analys: ({ kontext }) => harBetaltForAnalys(kontext)
  *
+ * `se_registeranalys` gates the stored FULL BRF-level analysis of one year in
+ * the public register (`hamtaRegisterAnalysFn` → `hamtaRegisteranalys`,
+ * `/brf/$slug/analys/$ar`; the public summary on `/brf/$slug` is not gated).
+ * Putting it behind an account or a payment later is a change of its one
+ * policy line below, e.g. `se_registeranalys: ({ kontext }) => kontext.konto !== undefined`
+ * for logged-in users (the `behorighet.formaga` column is free text, no
+ * check constraint, so a row for it needs no migration either).
+ *
  * A rule that throws is NOT treated as a grant: the error propagates (fail
  * closed).
  */
 
 import type { Kontext } from "./kontext";
 
-export type Formaga = "prisuppskattning" | "ladda_upp_analys" | "full_rapport" | "pdf_export";
+export type Formaga =
+  "prisuppskattning" | "ladda_upp_analys" | "full_rapport" | "pdf_export" | "se_registeranalys";
 
 export const ALLA_FORMAGOR: readonly Formaga[] = [
   "prisuppskattning",
   "ladda_upp_analys",
   "full_rapport",
   "pdf_export",
+  "se_registeranalys",
 ];
 
 export interface BehorighetsFraga {
@@ -49,6 +59,9 @@ export const STANDARD_POLICY: Policy = {
   ladda_upp_analys: allaFar,
   full_rapport: allaFar,
   pdf_export: allaFar,
+  // The stored full register analysis: open to all today. An account or
+  // payment requirement is a change of this one line (see the file comment).
+  se_registeranalys: allaFar,
 };
 
 /** Buyer-safe Swedish copy for a refused capability. */

@@ -58,6 +58,7 @@ import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
 import {
   hamtaForening as hamtaRegisterForening,
+  hamtaRegisteranalys as hamtaRegisteranalysImpl,
   hamtaSitemapPoster,
   listaForeningar as listaRegisterForeningar,
   listaOmraden as listaRegisterOmraden,
@@ -459,6 +460,33 @@ export const hamtaRegisterForeningFn = createServerFn({ method: "GET" })
       );
     } catch (fel) {
       throw sakertFel("hamtaRegisterForeningFn", fel);
+    }
+  });
+
+/**
+ * The stored full BRF-level analysis of one fiscal year (`/brf/$slug/analys/$ar`).
+ * Unlike the cacheable register reads above, this one resolves the caller's
+ * kontext first (it may set the device cookie — the page is `no-store`), so
+ * the `se_registeranalys` entitlement can be checked before any read work
+ * (granted to all today; an account/payment gate is one policy line in
+ * ./behorighet.ts). The same per-IP register limit applies. `slug` is cut like
+ * `hamtaRegisterForeningFn`'s; a non-integer or out-of-range `ar` answers
+ * `saknas` (checked in `hamtaRegisteranalys`).
+ */
+export const hamtaRegisterAnalysFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { slug: string; ar: number }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const env = envFromProcess();
+      const anropare = await anropareFor(env);
+      return await hamtaRegisteranalysImpl(
+        await registerFor(env),
+        String(data.slug).slice(0, 200),
+        Number(data.ar),
+        anropare,
+      );
+    } catch (fel) {
+      throw sakertFel("hamtaRegisterAnalysFn", fel);
     }
   });
 

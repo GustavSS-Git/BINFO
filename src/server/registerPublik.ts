@@ -1,14 +1,23 @@
 /**
  * The PUBLIC BRF register, read side (docs/PLAN-v3.md §2.5): area list, area
- * tables, one association's page, and the sitemap data.
+ * tables, one association's page, one stored full analysis, and the sitemap
+ * data.
  *
  * Strictly BRF-level. The only tables read are `register_sammanfattning`,
  * `forening`, `forening_slug` and the parse-only columns of `rapport`
  * (`RegisterLasning` in ./portar.ts); `analys`, `property_input`, the
- * principal tables and the PDF bucket are out of reach by construction. The
- * views carry nyckeltal with page references, betyg, röda flaggor, frågor till
- * styrelsen and data quality — never `input` or `prisanalys` (a test snapshots
- * the payload keys).
+ * principal tables and the PDF bucket are out of reach by construction. Never
+ * `input` or `prisanalys` (a test snapshots the payload keys).
+ *
+ * Two levels (owner decision 2026-10-23, src/lib/registerVy.ts):
+ *   - `hamtaForening` (`/brf/$slug`, public, cacheable): identity + per year
+ *     the betyg and the statutory nyckeltal with their status ONLY — no
+ *     motivation, röda flaggor, frågor or sections;
+ *   - `hamtaRegisteranalys` (`/brf/$slug/analys/$ar`): the full stored
+ *     BRF-level analysis of one year, behind the `se_registeranalys`
+ *     entitlement (checked by the caller in analysFn.ts before any read).
+ * Both serve what is stored, exactly (grade included): an older pipeline
+ * version is flagged `aldreVersion`, never re-run by a read.
  *
  * Only associations with a `registeromrade` in the 19 areas or
  * `ovriga-stockholm` are listed; anything else answers "saknas" (404), as does
@@ -24,12 +33,15 @@ import {
   tolkaSida,
   tolkaSok,
   tolkaSortering,
+  type RegisterAnalysSvar,
+  type RegisterArsSammanfattning,
   type RegisterArsvy,
   type RegisterForeningSvar,
   type RegisterForeningVy,
   type RegisterKvotSvar,
   type RegisterListaFraga,
   type RegisterListrad,
+  type RegisterNyckeltal,
   type RegisterOmradeKort,
   type RegisterOmradenSvar,
   type RegisterOmradeSvar,
@@ -37,6 +49,7 @@ import {
   type RegisterSortering,
 } from "@/lib/registerVy";
 import type { KontoDatabas } from "./kontoPortar";
+import type { Anropare } from "./portar";
 import { TIMME_SEK, taKvot } from "./kvot";
 import type { RegisterLasning, RegisterRapportRad, RegisterSorteringsKolumn } from "./portar";
 import { PIPELINE_VERSION, tolkaRapportInnehall } from "./register";
@@ -46,6 +59,14 @@ export const REGISTER_LASNINGAR_PER_IP_OCH_TIMME = 300;
 
 export const REGISTER_KVOT_MEDDELANDE =
   "Du har läst många sidor i registret på kort tid. Vänta en stund och försök igen.";
+
+/** Buyer-safe copy when `se_registeranalys` is refused. */
+export const REGISTERANALYS_NEKAD_MEDDELANDE =
+  "Du har inte tillgång till den fullständiga analysen just nu.";
+
+/** Fiscal years a register analysis can be asked for; anything else is "saknas". */
+export const MIN_REGISTERAR = 1900;
+export const MAX_REGISTERAR = 2100;
 
 /** Area slugs that may be listed publicly: the 19 areas + "Övriga Stockholm". */
 export const LISTADE_OMRADEN: readonly string[] = [
@@ -235,7 +256,9 @@ export function byggArsvy(r: RegisterRapportRad): RegisterArsvy | null {
 }
 
 /** Latest servable report per fiscal year (current pipeline version first),
- *  newest year first. Input is newest-finished first within a year. */
+ *  newest year first. Input is newest-finished first within a year. The same
+ *  rule as SQL `uppdatera_register_sammanfattning`, so once a current-version
+ *  run of a year is done it replaces the older one here too. */
 export function enPerAr(rapporter: readonly RegisterRapportRad[]): RegisterArsvy[] {
   const perAr = new Map<number, RegisterArsvy>();
   const ordnade = [
@@ -250,14 +273,49 @@ export function enPerAr(rapporter: readonly RegisterRapportRad[]): RegisterArsvy
   return [...perAr.values()].sort((a, b) => b.rakenskapsar - a.rakenskapsar);
 }
 
-export async function hamtaForening(
-  b: RegisterBeroenden,
-  slug: string,
-): Promise<RegisterForeningSvar | RegisterKvotSvar> {
-  const nekad = await nekadAvKvot(b);
-  if (nekad) return nekad;
+/** The statutory nyckeltal of a stored year as the public summary shows them,
+ *  in the extraction's order. Only figures the report actually has (a value,
+ *  or a sign it prints such as "neg"); a missing one — old entries may lack
+ *  e.g. årsavgifternas andel — is left out, never re-run. */
+export function publikaNyckeltal(vy: RegisterArsvy): RegisterNyckeltal[] {
+  return vy.forening.keyFigures
+    .filter((k) => k.figure.value !== null || k.figure.tecken !== undefined)
+    .map((k) => ({ id: k.id, label: k.label, figure: k.figure, status: k.status }));
+}
 
-  const lasning = b.lasning;
+/** The public summary of one year: built field by field (an allow-list), so
+ *  nothing else from the analysis can leak onto the public page. */
+export function byggArsSammanfattning(vy: RegisterArsvy): RegisterArsSammanfattning {
+  return {
+    rakenskapsar: vy.rakenskapsar,
+    analysdatum: vy.analysdatum,
+    betyg: vy.betyg,
+    nyckeltal: publikaNyckeltal(vy),
+    skannad: vy.datakvalitet.kalla === "skannad" || vy.datakvalitet.pdfSaknarTextlager,
+    aldreVersion: vy.aldreVersion,
+  };
+}
+
+interface UpplostForening {
+  slug: string;
+  orgnr: string;
+  /** The register's name, else the newest report's. */
+  namn: string;
+  omrade: { slug: string; namn: string };
+  /** Newest year first; never empty. */
+  ar: RegisterArsvy[];
+}
+
+/** Slug → a listed association with at least one servable year; an old slug →
+ *  `omdirigera`; anything else → `saknas`. Shared by both association reads. */
+async function losForening(
+  lasning: RegisterLasning,
+  slug: string,
+): Promise<
+  | { status: "ok"; f: UpplostForening }
+  | { status: "omdirigera"; slug: string }
+  | { status: "saknas" }
+> {
   const f = await lasning.hamtaForeningViaSlug(slug);
   if (!f) {
     const orgnr = await lasning.hamtaOrgnrViaGammalSlug(slug);
@@ -272,23 +330,88 @@ export async function hamtaForening(
   if (!omrade || f.slug === null) return { status: "saknas" }; // not listed
 
   const ar = enPerAr(await lasning.listaKlaraRapporter(f.orgnr));
-  const senaste = ar[0];
+  const nyast = ar[0];
+  if (!nyast) return { status: "saknas" };
+  return {
+    status: "ok",
+    f: { slug: f.slug, orgnr: f.orgnr, namn: f.namn ?? nyast.forening.namn, omrade, ar },
+  };
+}
+
+export async function hamtaForening(
+  b: RegisterBeroenden,
+  slug: string,
+): Promise<RegisterForeningSvar | RegisterKvotSvar> {
+  const nekad = await nekadAvKvot(b);
+  if (nekad) return nekad;
+
+  const upplost = await losForening(b.lasning, slug);
+  if (upplost.status !== "ok") return upplost;
+  const { f } = upplost;
+  const [senaste, ...tidigare] = f.ar;
   if (!senaste) return { status: "saknas" };
 
   const vy: RegisterForeningVy = {
     slug: f.slug,
     orgnr: f.orgnr,
-    namn: f.namn ?? senaste.forening.namn,
-    omrade,
+    namn: f.namn,
+    omrade: f.omrade,
     adresser: (senaste.forening.adresser ?? []).map((a) => ({
       gatuadress: a.gatuadress,
       ...(a.postnummer !== undefined ? { postnummer: a.postnummer } : {}),
       ...(a.ort !== undefined ? { ort: a.ort } : {}),
     })),
-    senaste,
-    tidigare: ar.slice(1),
+    senaste: byggArsSammanfattning(senaste),
+    tidigare: tidigare.map(byggArsSammanfattning),
   };
   return { status: "ok", forening: vy };
+}
+
+/**
+ * The stored full BRF-level analysis of one fiscal year (`/brf/$slug/analys/$ar`):
+ * the same slug resolution and the same per-year pick (`enPerAr`) as the
+ * association page, served exactly as stored (`aldreVersion` flags an older
+ * pipeline version; never re-run). Unknown year → `saknas`.
+ *
+ * Order: the `se_registeranalys` entitlement (with `anropare`, always passed
+ * by analysFn.ts; omitted only by tests of the data logic) BEFORE any read
+ * work → the per-IP register quota → the year (an integer in
+ * [MIN_REGISTERAR, MAX_REGISTERAR], else `saknas`) → the read. A policy rule
+ * that throws propagates (fail closed).
+ */
+export async function hamtaRegisteranalys(
+  b: RegisterBeroenden,
+  slug: string,
+  ar: number,
+  anropare?: Pick<Anropare, "kontext" | "behorighet">,
+): Promise<RegisterAnalysSvar | RegisterKvotSvar> {
+  if (
+    anropare &&
+    !(await anropare.behorighet.harBehorighet(anropare.kontext, "se_registeranalys"))
+  ) {
+    return { status: "nekad", meddelande: REGISTERANALYS_NEKAD_MEDDELANDE };
+  }
+  const nekad = await nekadAvKvot(b);
+  if (nekad) return nekad;
+  if (!Number.isInteger(ar) || ar < MIN_REGISTERAR || ar > MAX_REGISTERAR) {
+    return { status: "saknas" };
+  }
+
+  const upplost = await losForening(b.lasning, slug);
+  if (upplost.status !== "ok") return upplost;
+  const { f } = upplost;
+  const analys = f.ar.find((a) => a.rakenskapsar === ar);
+  if (!analys) return { status: "saknas" };
+  return {
+    status: "ok",
+    vy: {
+      slug: f.slug,
+      orgnr: f.orgnr,
+      namn: f.namn,
+      omrade: f.omrade,
+      analys,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

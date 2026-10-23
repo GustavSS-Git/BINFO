@@ -3,11 +3,27 @@
  * (docs/PLAN-v3.md §2). The server side (`src/server/registerPublik.ts`)
  * builds these objects, the routes under `src/routes/brf*` render them.
  *
- * Everything here is BRF-level data: nyckeltal with page references, betyg,
- * röda flaggor, frågor till styrelsen, data quality. No type in this file can
- * carry buyer data (no `PropertyInput`, no `Prisanalys`, no räntestress).
+ * Everything here is BRF-level data. No type in this file can carry buyer
+ * data (no `PropertyInput`, no `Prisanalys`, no räntestress).
+ *
+ * Two levels (owner decision 2026-10-23):
+ *   - the PUBLIC summary (`RegisterForeningVy`, `/brf/$slug`): name, fiscal
+ *     year, betyg and the statutory nyckeltal with their status. Nothing else
+ *     from the analysis leaves the server on that endpoint.
+ *   - the stored FULL BRF-level analysis (`RegisterAnalysVy`,
+ *     `/brf/$slug/analys/$ar`): motivation, röda flaggor, frågor, all
+ *     sections. Behind the `se_registeranalys` entitlement (granted to all
+ *     today; src/server/behorighet.ts).
  */
-import type { Datakvalitet, Forening, Fraga, Grade, RedFlag } from "@/types/analysis";
+import type {
+  Datakvalitet,
+  Figure,
+  Forening,
+  Fraga,
+  Grade,
+  KeyFigure,
+  RedFlag,
+} from "@/types/analysis";
 
 export const SITE_URL = "https://binfo.slanesens.com";
 
@@ -80,7 +96,8 @@ export interface RegisterListaSvar {
 
 export type RegisterOmradeSvar = RegisterListaSvar | { status: "saknas" };
 
-/** One financial year of one association, BRF-level only. */
+/** One financial year of one association: the FULL stored BRF-level analysis
+ *  (served only by the entitlement-checked full-analysis endpoint). */
 export interface RegisterArsvy {
   rakenskapsar: number;
   /** ISO timestamp the analysis finished. */
@@ -99,23 +116,70 @@ export interface RegisterArsvy {
   aldreVersion: boolean;
 }
 
+/** One statutory nyckeltal on the public summary: the cited figure and its
+ *  benchmark status. Only figures the report actually has (a value, or a
+ *  sign the report prints) are included; a missing one is left out. */
+export interface RegisterNyckeltal {
+  id: KeyFigure["id"];
+  label: string;
+  figure: Figure;
+  status: KeyFigure["status"];
+}
+
+/** One financial year on the PUBLIC summary. Deliberately no motivation,
+ *  röda flaggor, frågor or sections. */
+export interface RegisterArsSammanfattning {
+  rakenskapsar: number;
+  /** ISO timestamp the analysis finished. */
+  analysdatum: string;
+  betyg: Grade;
+  nyckeltal: RegisterNyckeltal[];
+  /** The report was a scan (figures read from Binfo's transcription). */
+  skannad: boolean;
+  /** Analysed with an older pipeline version (shown with a note, never re-run on read). */
+  aldreVersion: boolean;
+}
+
+/** The public association page (`/brf/$slug`): identity + summaries only. */
 export interface RegisterForeningVy {
   slug: string;
   orgnr: string;
   namn: string;
   omrade: { slug: string; namn: string } | null;
-  /** The association's own addresses, cited in the report. */
+  /** The association's own addresses, cited in the report (identification). */
   adresser: Array<{ gatuadress: string; postnummer?: string; ort?: string }>;
   /** Newest financial year. */
-  senaste: RegisterArsvy;
+  senaste: RegisterArsSammanfattning;
   /** Earlier financial years, newest first. */
-  tidigare: RegisterArsvy[];
+  tidigare: RegisterArsSammanfattning[];
 }
 
 export type RegisterForeningSvar =
   | { status: "ok"; forening: RegisterForeningVy }
   | { status: "omdirigera"; slug: string }
   | { status: "saknas" };
+
+/** The stored full analysis of one fiscal year (`/brf/$slug/analys/$ar`). */
+export interface RegisterAnalysVy {
+  slug: string;
+  orgnr: string;
+  namn: string;
+  omrade: { slug: string; namn: string } | null;
+  analys: RegisterArsvy;
+}
+
+export type RegisterAnalysSvar =
+  | { status: "ok"; vy: RegisterAnalysVy }
+  | { status: "omdirigera"; slug: string }
+  | { status: "saknas" }
+  /** The entitlement `se_registeranalys` refused (account/payment later). */
+  | { status: "nekad"; meddelande: string };
+
+/** One line on how grades are set, the same for every association. */
+export const BETYG_FORKLARING =
+  "Betyget A–E är Binfos samlade bedömning av föreningens ekonomi. Det bygger på de sju " +
+  "nyckeltalen i årsredovisningen, hur många av dem som är svaga eller kritiska, och på vad " +
+  "rapporten säger om lån, underhåll och avgifter.";
 
 /** Returned instead of data when the per-IP limit is hit. */
 export interface RegisterKvotSvar {
@@ -210,8 +274,8 @@ function kronor(v: number): string {
   return Math.round(v).toLocaleString("sv-SE");
 }
 
-function varde(vy: RegisterArsvy, id: string): number | null {
-  return vy.forening.keyFigures.find((k) => k.id === id)?.figure.value ?? null;
+function varde(ar: RegisterArsSammanfattning, id: string): number | null {
+  return ar.nyckeltal.find((k) => k.id === id)?.figure.value ?? null;
 }
 
 export function canonicalUrl(path: string): string {
@@ -220,6 +284,11 @@ export function canonicalUrl(path: string): string {
 
 export function foreningPath(slug: string): string {
   return `/brf/${slug}`;
+}
+
+/** The stored full analysis of one fiscal year. */
+export function registeranalysPath(slug: string, ar: number): string {
+  return `/brf/${slug}/analys/${ar}`;
 }
 
 export function omradePath(slug: string): string {
@@ -242,8 +311,7 @@ export function foreningBeskrivning(vy: RegisterForeningVy): string {
   if (sparande !== null) delar.push(`sparande ${kronor(sparande)} kr/kvm`);
   const siffror = delar.length > 0 ? `${delar.join(", ")} ` : "";
   const text =
-    `${vy.namn}: ${siffror}enligt årsredovisningen ${s.rakenskapsar}. ` +
-    `Betyg ${s.betyg}, ${s.rodaFlaggor.length > 0 ? "röda flaggor och " : ""}frågor till styrelsen.`;
+    `${vy.namn}: ${siffror}enligt årsredovisningen ${s.rakenskapsar}. ` + `Riskbetyg ${s.betyg}.`;
   if (text.length <= MAX_BESKRIVNING) return text;
   const kort = text.slice(0, MAX_BESKRIVNING - 1);
   const sista = kort.lastIndexOf(" ");

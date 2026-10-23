@@ -8,9 +8,13 @@ import {
 } from "@/lib/registerVy";
 import { skapaFakeKontoDatabas } from "./__fakes__/konto";
 import { skapaFakeLager, type FakeLager } from "./__fakes__/lager";
+import { skapaBehorighet, STANDARD_POLICY } from "./behorighet";
+import type { Kontext } from "./kontext";
 import {
   REGISTER_LASNINGAR_PER_IP_OCH_TIMME,
+  REGISTERANALYS_NEKAD_MEDDELANDE,
   hamtaForening,
+  hamtaRegisteranalys,
   hamtaSitemapPoster,
   kontrolleraRegisterKvot,
   listaForeningar,
@@ -47,13 +51,17 @@ async function lagg(
     finished?: string;
     postnummer?: string;
     skuld?: number;
+    /** Replace the sparande figure (e.g. a printed sign without a value). */
+    sparande?: Record<string, unknown>;
   },
 ) {
   await lager.db.registreraForening(o.orgnr, o.namn);
   const keyFigures = extraktion.forening.keyFigures.map((k) =>
     k.id === "skuldsattning_per_m2_brf_yta" && o.skuld !== undefined
       ? { ...k, figure: { ...k.figure, value: o.skuld } }
-      : k,
+      : k.id === "sparande_per_m2_totalyta" && o.sparande !== undefined
+        ? { ...k, figure: o.sparande }
+        : k,
   );
   const r = await lager.db.skapaRapport({
     orgnr: o.orgnr,
@@ -244,32 +252,86 @@ describe("hamtaForening", () => {
     ]);
   });
 
-  it("visar frågor med ursprung analys (aldrig köparens luckor)", async () => {
+  it("sammanfattningen bär betyg och de nyckeltal rapporten har, i extraktionens ordning med status", async () => {
     const lager = skapaFakeLager();
-    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3" });
+    await lagg(lager, {
+      orgnr: "716420-0599",
+      namn: "Brf Pontonjären 3",
+      sparande: {
+        value: null,
+        unit: "kr/m2",
+        source: "arsredovisning",
+        tecken: "negativ",
+        tryckt: "neg",
+        ref: { page: 8, excerpt: "neg" },
+      },
+    });
     const svar = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
     if (!("forening" in svar)) throw new Error("förväntade ok");
-    const fragor = svar.forening.senaste.fragor;
-    expect(fragor.every((f) => f.ursprung === "analys")).toBe(true);
-    expect(fragor.map((f) => f.id)).toContain("f1");
+    const s = svar.forening.senaste;
+    expect(s.betyg).toBe("C");
+    expect(s.skannad).toBe(false);
+    expect(s.aldreVersion).toBe(false);
+    // arsavgift_andel has value null and no sign: left out. Sparande "neg": kept.
+    expect(s.nyckeltal.map((n) => n.id)).toEqual(
+      extraktion.forening.keyFigures
+        .map((k) => k.id)
+        .filter((id) => id !== "arsavgift_andel_av_rorelseintakter"),
+    );
+    const sparande = s.nyckeltal.find((n) => n.id === "sparande_per_m2_totalyta");
+    expect(sparande?.figure).toMatchObject({ value: null, tecken: "negativ" });
+    expect(sparande?.status).not.toBe("okant");
+    const skuld = s.nyckeltal.find((n) => n.id === "skuldsattning_per_m2_brf_yta");
+    expect(skuld).toMatchObject({ label: expect.any(String), status: "kritisk" });
+    expect(skuld?.figure.ref).toMatchObject({ page: 8 });
   });
 
-  it("föredrar nuvarande pipeline-version men visar äldre kompatibla med markering", async () => {
+  it("föredrar nuvarande pipeline-version men visar äldre kompatibla med markering; en ny körning 'skriver över' året", async () => {
     const lager = skapaFakeLager();
     await lagg(lager, {
       orgnr: "716420-0599",
       namn: "Brf Pontonjären 3",
       ar: 2025,
       pipeline: "p1.i1.s1",
+      betyg: "B",
       finished: "2026-10-16T10:00:00Z",
     });
     const svar = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
     if (!("forening" in svar)) throw new Error("förväntade ok");
     expect(svar.forening.senaste.aldreVersion).toBe(true);
-    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2025 });
+    expect(svar.forening.senaste.betyg).toBe("B");
+    // The current-version run of the same year finishes EARLIER than the old
+    // one did (finished_at alone would not pick it): the version decides.
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2025, betyg: "D" });
     const nytt = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
     if (!("forening" in nytt)) throw new Error("förväntade ok");
     expect(nytt.forening.senaste.aldreVersion).toBe(false);
+    expect(nytt.forening.senaste.betyg).toBe("D");
+    expect(nytt.forening.tidigare).toEqual([]);
+    const lista = await listaForeningar(beroenden(lager), { omrade: "kungsholmen" });
+    if (lista.status !== "ok") throw new Error("förväntade ok");
+    expect(lista.rader.map((r) => r.betyg)).toEqual(["D"]);
+    const full = await hamtaRegisteranalys(beroenden(lager), "brf-pontonjaren-3-716420-0599", 2025);
+    if (full.status !== "ok") throw new Error("förväntade ok");
+    expect(full.vy.analys).toMatchObject({ betyg: "D", aldreVersion: false });
+  });
+
+  it("ett lagrat betyg från en äldre version visas som lagrat, även bredvid ett kritiskt nyckeltal (ingen omklampning vid läsning)", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, {
+      orgnr: "716420-0599",
+      namn: "Brf Pontonjären 3",
+      pipeline: "p1.i1.s1",
+      betyg: "B",
+    });
+    const svar = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
+    if (!("forening" in svar)) throw new Error("förväntade ok");
+    expect(svar.forening.senaste.nyckeltal.some((n) => n.status === "kritisk")).toBe(true);
+    expect(svar.forening.senaste.betyg).toBe("B");
+    const full = await hamtaRegisteranalys(beroenden(lager), "brf-pontonjaren-3-716420-0599", 2025);
+    if (full.status !== "ok") throw new Error("förväntade ok");
+    expect(full.vy.analys).toMatchObject({ betyg: "B", aldreVersion: true });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
   });
 
   it("okänd slug -> saknas; ett omdöpt namn -> omdirigera till nya sluggen", async () => {
@@ -353,18 +415,16 @@ describe("ingen köpardata i payloaden", () => {
       "aldreVersion",
       "analysdatum",
       "betyg",
-      "betygMotivering",
-      "datakvalitet",
-      "forening",
-      "fragor",
+      "nyckeltal",
       "rakenskapsar",
-      "rodaFlaggor",
+      "skannad",
     ]);
-    expect(Object.keys(svar.forening.senaste.datakvalitet).sort()).toEqual(
-      ["extraktionKonfidens", "kalla", "pdfSaknarTextlager", "saknadeFalt"].filter(
-        (k) => k in svar.forening.senaste.datakvalitet,
-      ),
-    );
+    expect(Object.keys(svar.forening.senaste.nyckeltal[0]!).sort()).toEqual([
+      "figure",
+      "id",
+      "label",
+      "status",
+    ]);
     if (lista.status !== "ok") throw new Error("förväntade ok");
     expect(Object.keys(lista.rader[0]!).sort()).toEqual(
       [
@@ -381,6 +441,135 @@ describe("ingen köpardata i payloaden", () => {
         "sparandePerM2",
       ].sort(),
     );
+  });
+});
+
+describe("den publika sammanfattningen bär inget ur analysen utöver betyg och nyckeltal", () => {
+  it("varken motivering, röda flaggor, frågor, föreningsblocket eller datakvalitet — på någon nivå, för något år", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2025 });
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2024 });
+    const svar = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
+    if (!("forening" in svar)) throw new Error("förväntade ok");
+    expect(svar.forening.tidigare).toHaveLength(1);
+    const alla = [...nycklar(svar)];
+    for (const forbjuden of [
+      "betygMotivering",
+      "rodaFlaggor",
+      "fragor",
+      "forening",
+      "datakvalitet",
+      "sektioner",
+      "forklaring",
+      "benchmark",
+      "vasentligaHandelser",
+      "underhall",
+      "lan",
+    ]) {
+      // The first segment is the response envelope `forening` itself.
+      expect(alla.filter((k) => k.split(".").slice(1).includes(forbjuden))).toEqual([]);
+    }
+  });
+});
+
+describe("hamtaRegisteranalys (den lagrade fullständiga analysen av ett år)", () => {
+  const SLUG = "brf-pontonjaren-3-716420-0599";
+  const kontext: Kontext = { enhetId: "AAAAAAAAAAAAAAAAAAAAAA", principalId: null, ipHash: null };
+
+  it("ger hela BRF-nivåanalysen för året, med frågor med ursprung analys (aldrig köparens luckor)", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2025 });
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2024, betyg: "D" });
+    const svar = await hamtaRegisteranalys(beroenden(lager), SLUG, 2024, {
+      kontext,
+      behorighet: skapaBehorighet(),
+    });
+    if (svar.status !== "ok") throw new Error("förväntade ok");
+    expect(svar.vy).toMatchObject({
+      slug: SLUG,
+      orgnr: "716420-0599",
+      namn: "Brf Pontonjären 3",
+      omrade: { slug: "kungsholmen", namn: "Kungsholmen" },
+    });
+    expect(svar.vy.analys).toMatchObject({
+      rakenskapsar: 2024,
+      betyg: "D",
+      betygMotivering: "Motivering.",
+      aldreVersion: false,
+    });
+    expect(svar.vy.analys.fragor.every((f) => f.ursprung === "analys")).toBe(true);
+    expect(svar.vy.analys.fragor.map((f) => f.id)).toContain("f1");
+    const alla = [...nycklar(svar)];
+    for (const forbjuden of ["input", "prisanalys", "rantestress", "analysisId", "pdfHash"]) {
+      expect(alla.filter((k) => k.split(".").includes(forbjuden))).toEqual([]);
+    }
+  });
+
+  it("okänt år, skräpår, okänd slug → saknas; ett gammalt slug → omdirigera", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3" });
+    for (const ar of [2019, Number.NaN, 2025.5, -1, 99999]) {
+      expect(await hamtaRegisteranalys(beroenden(lager), SLUG, ar)).toEqual({ status: "saknas" });
+    }
+    expect(await hamtaRegisteranalys(beroenden(lager), "brf-finns-inte-111111-1111", 2025)).toEqual(
+      { status: "saknas" },
+    );
+    await lager.db.registreraForening("716420-0599", "Brf Pontonjären Tre");
+    await uppdateraRegisterForOrgnr(lager.db, "716420-0599");
+    expect(await hamtaRegisteranalys(beroenden(lager), SLUG, 2025)).toEqual({
+      status: "omdirigera",
+      slug: "brf-pontonjaren-tre-716420-0599",
+    });
+  });
+
+  it("nekad behörighet (se_registeranalys) → nekad, före allt läsarbete och utan kvot", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3" });
+    const lasning = lager.db._registerLasning();
+    const lasningar: string[] = [];
+    const spionLasning = new Proxy(lasning, {
+      get(target, prop, mottagare) {
+        lasningar.push(String(prop));
+        return Reflect.get(target, prop, mottagare);
+      },
+    });
+    const konto = skapaFakeKontoDatabas({});
+    const svar = await hamtaRegisteranalys(
+      { lasning: spionLasning, kvot: { konto, ipHash: "d".repeat(64) } },
+      SLUG,
+      2025,
+      {
+        kontext,
+        behorighet: skapaBehorighet({ ...STANDARD_POLICY, se_registeranalys: () => false }),
+      },
+    );
+    expect(svar).toEqual({ status: "nekad", meddelande: REGISTERANALYS_NEKAD_MEDDELANDE });
+    expect(lasningar).toEqual([]);
+    expect(konto.kvot.size).toBe(0);
+  });
+
+  it("en policyregel som kastar släpps igenom som fel (fail closed)", async () => {
+    const lager = skapaFakeLager();
+    await expect(
+      hamtaRegisteranalys(beroenden(lager), SLUG, 2025, {
+        kontext,
+        behorighet: skapaBehorighet({
+          ...STANDARD_POLICY,
+          se_registeranalys: () => {
+            throw new Error("policy nere");
+          },
+        }),
+      }),
+    ).rejects.toThrow("policy nere");
+  });
+
+  it("samma kvot per IP som de andra registerläsningarna", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3" });
+    const konto = skapaFakeKontoDatabas({});
+    const b = { lasning: lager.db._registerLasning(), kvot: { konto, ipHash: "e".repeat(64) } };
+    for (let i = 0; i < REGISTER_LASNINGAR_PER_IP_OCH_TIMME; i++) await listaOmraden(b);
+    expect(await hamtaRegisteranalys(b, SLUG, 2025)).toMatchObject({ status: "kvot" });
   });
 });
 
@@ -441,8 +630,7 @@ describe("beskrivning", () => {
       senaste: {
         rakenskapsar: 2025,
         betyg: "C",
-        rodaFlaggor: [{}],
-        forening: { keyFigures: [] },
+        nyckeltal: [],
       },
     } as unknown as RegisterForeningVy;
     expect(foreningBeskrivning(vy).length).toBeLessThanOrEqual(160);

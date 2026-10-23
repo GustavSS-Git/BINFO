@@ -29,6 +29,7 @@ import { Route as KontoLoggaInRouteImport } from './routes/konto.logga-in'
 import { Route as KontoNyttLosenordRouteImport } from './routes/konto.nytt-losenord'
 import { Route as KontoSkapaRouteImport } from './routes/konto.skapa'
 import { Route as BrfOmradeOmradeRouteImport } from './routes/brf.omrade.$omrade'
+import { Route as BrfSlugAnalysArRouteImport } from './routes/brf.$slug_.analys.$ar'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -131,6 +132,11 @@ const BrfOmradeOmradeRoute = BrfOmradeOmradeRouteImport.update({
   path: '/brf/omrade/$omrade',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrfSlugAnalysArRoute = BrfSlugAnalysArRouteImport.update({
+  id: '/brf/$slug_/analys/$ar',
+  path: '/brf/$slug/analys/$ar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/brf/': typeof BrfIndexRoute
   '/konto/': typeof KontoIndexRoute
   '/brf/omrade/$omrade': typeof BrfOmradeOmradeRoute
+  '/brf/$slug/analys/$ar': typeof BrfSlugAnalysArRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/brf': typeof BrfIndexRoute
   '/konto': typeof KontoIndexRoute
   '/brf/omrade/$omrade': typeof BrfOmradeOmradeRoute
+  '/brf/$slug/analys/$ar': typeof BrfSlugAnalysArRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/brf/': typeof BrfIndexRoute
   '/konto/': typeof KontoIndexRoute
   '/brf/omrade/$omrade': typeof BrfOmradeOmradeRoute
+  '/brf/$slug_/analys/$ar': typeof BrfSlugAnalysArRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/brf/'
     | '/konto/'
     | '/brf/omrade/$omrade'
+    | '/brf/$slug/analys/$ar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/brf'
     | '/konto'
     | '/brf/omrade/$omrade'
+    | '/brf/$slug/analys/$ar'
   id:
     | '__root__'
     | '/'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/brf/'
     | '/konto/'
     | '/brf/omrade/$omrade'
+    | '/brf/$slug_/analys/$ar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -289,6 +301,7 @@ export interface RootRouteChildren {
   BrfIndexRoute: typeof BrfIndexRoute
   KontoIndexRoute: typeof KontoIndexRoute
   BrfOmradeOmradeRoute: typeof BrfOmradeOmradeRoute
+  BrfSlugAnalysArRoute: typeof BrfSlugAnalysArRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -433,6 +446,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrfOmradeOmradeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brf/$slug_/analys/$ar': {
+      id: '/brf/$slug_/analys/$ar'
+      path: '/brf/$slug/analys/$ar'
+      fullPath: '/brf/$slug/analys/$ar'
+      preLoaderRoute: typeof BrfSlugAnalysArRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   BrfIndexRoute: BrfIndexRoute,
   KontoIndexRoute: KontoIndexRoute,
   BrfOmradeOmradeRoute: BrfOmradeOmradeRoute,
+  BrfSlugAnalysArRoute: BrfSlugAnalysArRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

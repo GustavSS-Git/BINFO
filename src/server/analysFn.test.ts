@@ -24,6 +24,8 @@ const tillstand = vi.hoisted(() => ({
   headers: new Map<string, string>(),
   lager: null as unknown,
   konto: null as unknown,
+  /** Overrides of the standard policy for one test (deny policy). */
+  policy: {} as Record<string, () => boolean>,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -60,7 +62,18 @@ vi.mock("./env", () => ({
   }),
 }));
 
-vi.mock("./supabase", () => ({ skapaLager: () => tillstand.lager }));
+vi.mock("./supabase", () => ({
+  skapaLager: () => tillstand.lager,
+  skapaRegisterLasning: () => (tillstand.lager as FakeLager).db._registerLasning(),
+}));
+vi.mock("./behorighet", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./behorighet")>();
+  return {
+    ...original,
+    skapaBehorighet: () =>
+      original.skapaBehorighet({ ...original.STANDARD_POLICY, ...tillstand.policy }),
+  };
+});
 vi.mock("./supabaseKonto", () => ({ skapaKontoDatabas: () => tillstand.konto }));
 
 const { skapaFakeLager } = await import("./__fakes__/lager");
@@ -68,8 +81,15 @@ const { skapaFakeKontoDatabas } = await import("./__fakes__/konto");
 const { hashaIp, ENHET_COOKIE } = await import("./kontext");
 const { kvotNyckel } = await import("./kvot");
 const { extraktion } = await import("@/lib/analysis/__fixtures__/extraktion");
-const { hamtaPrisuppskattningFn, hamtaResultatFn, hamtaStatusFn, skapaAnalysFn } =
-  await import("./analysFn");
+const { uppdateraRegisterForOrgnr } = await import("./register");
+const { REGISTERANALYS_NEKAD_MEDDELANDE } = await import("./registerPublik");
+const {
+  hamtaPrisuppskattningFn,
+  hamtaRegisterAnalysFn,
+  hamtaResultatFn,
+  hamtaStatusFn,
+  skapaAnalysFn,
+} = await import("./analysFn");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ENHET = "CCCCCCCCCCCCCCCCCCCCCC";
@@ -120,6 +140,7 @@ beforeEach(() => {
   tillstand.satta.length = 0;
   tillstand.headers.clear();
   tillstand.headers.set("cf-connecting-ip", IP);
+  tillstand.policy = {};
   const ny = skapaFakeLager();
   tillstand.lager = ny;
   tillstand.konto = skapaFakeKontoDatabas({ analyser: ny.db._analysTabell() });
@@ -243,5 +264,100 @@ describe("analysFn — inga interna feltexter når klienten", () => {
     })();
     const inteKlar = await hamtaResultatFn({ data: { analysisId: rad } }).catch((e: unknown) => e);
     expect((inteKlar as Error).name).toBe("AnalysInteKlarError");
+  });
+});
+
+describe("analysFn — hamtaRegisterAnalysFn", () => {
+  const ORGNR = "716420-0599";
+  const SLUG = "brf-pontonjaren-3-716420-0599";
+
+  /** A listed BRF (Kungsholmen via 112 42) with one done rapport for 2025. */
+  async function laggBrf() {
+    const db = lager().db;
+    await db.registreraForening(ORGNR, "Brf Pontonjären 3");
+    const r = await db.skapaRapport({
+      orgnr: ORGNR,
+      rakenskapsar: 2025,
+      pipelineVersion: "p1.i1.s1",
+      model: "m",
+      textlager: "ok",
+      status: "done",
+      stage: "klar",
+      pdfHash: "brf-hash",
+      extraction: {
+        ...extraktion,
+        forening: {
+          ...extraktion.forening,
+          namn: "Brf Pontonjären 3",
+          orgnr: ORGNR,
+          adresser: [
+            {
+              gatuadress: "Testgatan 1",
+              postnummer: "112 42",
+              ort: "Stockholm",
+              ref: { page: 2, excerpt: "Testgatan 1" },
+            },
+          ],
+        },
+      },
+      judgement: { betyg: "B", betygMotivering: "Motivering.", rodaFlaggor: [], fragor: [] },
+      finishedAt: "2026-10-13T10:00:00.000Z",
+    });
+    if (!r.ok) throw new Error("rapport");
+    await uppdateraRegisterForOrgnr(db, ORGNR);
+  }
+
+  it("löser kontexten först (enhets-cookien sätts), räknar registerkvoten på IP-hashen och skapar ingen principal", async () => {
+    await laggBrf();
+    const svar = await hamtaRegisterAnalysFn({ data: { slug: SLUG, ar: 2025 } });
+    if (svar.status !== "ok") throw new Error(`förväntade ok, fick ${svar.status}`);
+    // Served as stored: older version, its own grade, never re-run.
+    expect(svar.vy.analys).toMatchObject({ rakenskapsar: 2025, betyg: "B", aldreVersion: true });
+    expect(lager().db._allaRapporter()).toHaveLength(1);
+    expect(tillstand.satta.map((c) => c.namn)).toEqual([ENHET_COOKIE]);
+    expect(konto().principaler.size).toBe(0);
+    const ipHash = await hashaIp(IP, "test-hemlighet");
+    expect([...konto().kvot.values()]).toEqual([
+      expect.objectContaining({ nyckel: `register:ip:${ipHash}`, antal: 1 }),
+    ]);
+  });
+
+  it("ett år som inte är ett rimligt heltal ger saknas", async () => {
+    await laggBrf();
+    for (const ar of ["abc", 2025.5, 1066, null] as unknown as number[]) {
+      expect(await hamtaRegisterAnalysFn({ data: { slug: SLUG, ar } })).toEqual({
+        status: "saknas",
+      });
+    }
+    // A numeric string (a route param) is fine.
+    const svar = await hamtaRegisterAnalysFn({ data: { slug: SLUG, ar: "2025" as never } });
+    expect(svar.status).toBe("ok");
+  });
+
+  it("neka-policy (se_registeranalys) → nekad med köparsäker text, utan kvot", async () => {
+    await laggBrf();
+    tillstand.policy = { se_registeranalys: () => false };
+    const svar = await hamtaRegisterAnalysFn({ data: { slug: SLUG, ar: 2025 } });
+    expect(svar).toEqual({ status: "nekad", meddelande: REGISTERANALYS_NEKAD_MEDDELANDE });
+    expect(konto().kvot.size).toBe(0);
+  });
+
+  it("ett internt fel når aldrig klienten: bara det generiska meddelandet", async () => {
+    const logg = vi.spyOn(console, "error").mockImplementation(() => {});
+    lager().db._registerLasning = () => {
+      throw new Error("relation register_sammanfattning hemlig-intern-detalj");
+    };
+    const fel = await hamtaRegisterAnalysFn({ data: { slug: SLUG, ar: 2025 } }).catch(
+      (e: unknown) => e,
+    );
+    expect(fel).toBeInstanceOf(Error);
+    expect((fel as Error).message).toBe(
+      "Analysen kunde inte slutföras på grund av ett internt fel. Försök igen, och kontakta oss om felet kvarstår.",
+    );
+    expect(logg).toHaveBeenCalledWith(
+      expect.stringContaining("hamtaRegisterAnalysFn"),
+      expect.anything(),
+    );
+    logg.mockRestore();
   });
 });

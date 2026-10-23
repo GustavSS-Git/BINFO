@@ -10,20 +10,22 @@ import {
   omradeBrodsmulor,
   parseListaSearch,
   sidHead,
-  type RegisterArsvy,
+  type RegisterArsSammanfattning,
   type RegisterForeningVy,
 } from "@/lib/registerVy";
 import { STATISKA_SIDOR, byggSitemapXml, lastmodDatum } from "@/lib/sitemap";
 
-const arsvy: RegisterArsvy = {
+const senaste: RegisterArsSammanfattning = {
   rakenskapsar: 2025,
   analysdatum: "2026-10-13T10:00:00.000Z",
-  forening: sampleAnalysis.forening,
   betyg: sampleAnalysis.betyg,
-  betygMotivering: sampleAnalysis.betygMotivering,
-  rodaFlaggor: sampleAnalysis.rodaFlaggor,
-  fragor: [],
-  datakvalitet: sampleAnalysis.datakvalitet,
+  nyckeltal: sampleAnalysis.forening.keyFigures.map((k) => ({
+    id: k.id,
+    label: k.label,
+    figure: k.figure,
+    status: k.status,
+  })),
+  skannad: false,
   aldreVersion: false,
 };
 
@@ -33,7 +35,7 @@ const vy: RegisterForeningVy = {
   namn: "Brf Pontonjären 3",
   omrade: { slug: "kungsholmen", namn: "Kungsholmen" },
   adresser: [{ gatuadress: "Baltzar von Platens gata 6", postnummer: "112 42", ort: "Stockholm" }],
-  senaste: arsvy,
+  senaste,
   tidigare: [],
 };
 
@@ -51,6 +53,14 @@ describe("foreningTitel / foreningBeskrivning", () => {
     expect(text).toContain("2025");
     expect(text).toMatch(/skuld [\d\s]+ kr\/kvm/);
     expect(text).toMatch(/sparande [\d\s-]+ kr\/kvm/);
+    expect(text).toContain(`Riskbetyg ${sampleAnalysis.betyg}`);
+  });
+
+  it("påstår inget om röda flaggor eller frågor, och tål saknade nyckeltal", () => {
+    const text = foreningBeskrivning({ ...vy, senaste: { ...senaste, nyckeltal: [] } });
+    expect(text).not.toMatch(/flagg|fråg/i);
+    expect(text).toContain("2025");
+    expect(text).not.toMatch(/kr\/kvm/);
   });
 });
 
