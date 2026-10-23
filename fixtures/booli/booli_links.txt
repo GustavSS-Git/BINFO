@@ -1,0 +1,7 @@
+# Booli fixture URLs: one per line
+https://www.booli.se/bostad/719044
+https://www.booli.se/bostad/69268
+https://www.booli.se/bostad/720821
+https://www.booli.se/bostad/4036850
+https://www.booli.se/annons/6279984
+https://www.booli.se/annons/6323511

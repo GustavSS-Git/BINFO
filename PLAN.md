@@ -1,6 +1,6 @@
 # Binfo — current plan
 
-**Latest: "Spara analysen" (2026-10-24, working tree), below. Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: Booli prefill (2026-10-24), below. Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
@@ -8,9 +8,222 @@ Earlier plans (done, kept for history): the UI copy + new `/exempel` plan furthe
 
 ---
 
+# Plan: Booli link → prefill on /analysera (round 2026-10-24)
+
+Status: **approved by the owner 2026-10-24; in progress.** Findings: `docs/booli.md`.
+
+## Context
+
+Buyers retype listing data that is already on Booli. Goal: paste a Booli listing URL on
+`/analysera`, press "Hämta uppgifter", and the form fills itself from the page's embedded
+structured data. **Zero LLM tokens** on the normal path. The paste never starts anything; only the
+existing buttons do. The source URL is stored with the analysis.
+
+Owner answers (2026-10-24):
+- Fetch route: server fetch with a normal browser header set, behind a flag, graceful fallback.
+  Verify from the deployed Worker before announcing.
+- Earlier sales: **leave out this round**. Document the endpoints for round 3.
+- Description: Booli has none, so **store the broker link only** (don't fetch it).
+- Storage: optional `kalla` on `PropertyInput` (contract change), with a retention migration.
+
+## Step zero findings (probed read-only 2026-10-24)
+
+**Cloudflare bot check**
+- curl's default UA, or a Chrome UA without `br` in `Accept-Encoding`, gets `403` +
+  `cf-mitigated: challenge`.
+- A full Chrome-like header set from the owner's Mac gets `200` on 6/6 URLs.
+- Booli's internal `/graphql` is challenged even with the full header set.
+- Untested: requests from the Cloudflare Worker (CF egress IPs, `CF-Worker` header, workerd TLS).
+
+**Where the data sits (raw HTML, Next.js app router)**
+- The `Listing` object (`__typename:"Listing"`) is in the RSC stream: concatenate the
+  `self.__next_f.push([1,"…"])` strings, then JSON-parse from `"object":{"__typename":"Listing"`.
+- JSON-LD gives the postcode (`Place.address.postalCode`) and the förening (last item in
+  `BreadcrumbList`).
+
+| Field | Path | Fixtures |
+|---|---|---|
+| adress | `streetAddress` | 6/6 |
+| postnummer | JSON-LD `postalCode` / `areas[type=postcode].name` | 6/6 |
+| coords | `latitude`, `longitude` | 6/6 |
+| ort (kommun) / stadsdel | `areas[type=municipality].name` / `descriptiveAreaName` | 6/6 |
+| utgångspris | `listPrice.raw` | 4/6 |
+| månadsavgift | `rent.raw` (`0` → missing) | 5/6 |
+| boarea | `livingArea.raw` | 6/6 |
+| rum | `rooms.raw` (2.5 possible) | 6/6 |
+| våning | `floor.raw` | 6/6 |
+| byggår | `constructionYear` | 6/6 |
+| hiss / balkong | `amenities[].key` `elevator` / `balcony` (only listed when true) | 6/6 |
+| förening | JSON-LD breadcrumb "BRF …" | 5/6 |
+| broker link | `listingUrl` | 6/6 |
+| description | none on Booli | 0/6 |
+
+**Earlier sales**
+- Not in the HTML; only `salesOfResidence` IDs are there.
+- They are loaded by JS from `GET /graphql?operationName=salesOfProperty` (`residenceId`, `booliId`)
+  and `comparableSales` (`objectType`, `postcodeId`, `addressId`). These are Apollo persisted
+  queries.
+- Fields: soldPrice, soldDate, livingArea, rooms, soldPriceType. No floor or fee. Max 12 per
+  query, and "same address" means same street number, not same förening.
+- Counts: same address 12/12/11/12/12/9; same flat 0/0/1/0/0/0.
+- There is no historic area price index in the repo; one would need building for round 3.
+
+## Tasks (in order; one commit each; `git pull` first)
+
+### T0: fixtures + findings doc (supervisor)
+- Save the raw HTML of the 6 URLs with the header set above to `fixtures/booli/<typ>-<id>.html`.
+- Also save one challenge page to `fixtures/booli/cloudflare-challenge.html`.
+- Script `scripts/hamtaBooliFixtures.mjs`: re-fetch, then run the parser and print per-field status.
+  This shows when Booli's layout changes.
+- `docs/booli.md`: the findings above (field map, blocking, GraphQL endpoints, earlier-sales table,
+  round-3 notes).
+- `docs/DECISIONS.md`: entry for the owner answers.
+
+### T1: shared contract (supervisor, before the parallel work)
+- `src/types/analysis.ts`: `PropertyInput.kalla?: AnnonsKalla`, where
+  `AnnonsKalla = { typ: "booli"; url: string; maklarUrl?: string; forening?: string; hamtad: string; oandradeFalt: AnnonsFalt[] }`.
+- `src/lib/analysis/schema.ts`: strict Zod mirror, `.optional()`. Stored rows parse unchanged;
+  `lasPropertyInputFranRad` already strips.
+- New client-safe `src/lib/annons/typer.ts`:
+  - `AnnonsFalt` = adress, postnummer, ort, utgangspris, manadsavgift, boarea, antalRum, vaning,
+    byggar, hiss, balkong.
+  - `AnnonsUppgifter` holds the normalised values plus `stadsdel`, `forening`, `maklarUrl`,
+    `koordinater`.
+  - `AnnonsSvar` is either:
+    - `{ok:true, kalla:"booli", url, uppgifter, status: Record<AnnonsFalt,"hittad"|"saknas">, postnummerKalla?: "annons"|"geokodning", tolkning: "struktur"|"llm", hamtad}`, or
+    - `{ok:false, errorCode: "fel_doman"|"ogiltig_url"|"blockerad"|"hittades_inte"|"tolkning"|"natverk"|"kvot"|"avstangd", errorMessage}`.
+- Parser signature stub `tolkaBooli(html, url): BooliTolkning` in `src/server/annons/booli.ts`, so
+  T2a and T2b can run in parallel.
+- Schema tests: with/without `kalla`; an unknown nested key is rejected.
+
+### T2a: URL check + parser (agent `pdf-pipeline`; owns `src/lib/annons/url.ts`, `src/server/annons/booli.ts` + tests)
+- **`url.ts`** (pure, shared with the client):
+  - https only; host `booli.se` | `www.booli.se` exactly; no userinfo/port.
+  - Path `/bostad/<digits>` or `/annons/<digits>`.
+  - Canonicalises to `https://www.booli.se/<typ>/<id>` (the cache key).
+  - Separates "not Booli" from "Booli but not a listing".
+- **`booli.ts`**:
+  - Parse the RSC `Listing` object and JSON-LD; never the visible HTML.
+  - Normalise:
+    - integers for kr
+    - m² to one decimal
+    - våning integer
+    - rum may be .5
+    - avgift is already kr/mån
+    - `rent 0` / `listPrice null` → missing
+    - hiss/balkong `ja` when listed, else missing (never `nej`: unknown ≠ false)
+    - ort = kommun name
+  - Recognise the challenge page (→ `blockerad`) and a missing Listing object (→ `tolkning`, with
+    whatever JSON-LD gave).
+- **Tests:** every fixture × every field, the challenge fixture, truncated/garbled HTML, and URL
+  cases (`booli.se.evil.com`, `http:`, `user@`, ports, other paths).
+
+### T2b: service (agent `pdf-pipeline`, second instance)
+Owns `src/server/annons/{hamta,geokod,llmFallback}.ts` + tests, plus `kvot.ts`, `behorighet.ts`,
+`kontoPortar.ts`, `supabaseKonto.ts`, `__fakes__/konto.ts`, `env.ts`, the `analysFn.ts` handler
+and the migration.
+- **`hamtaAnnonsFn`** (POST server function in `analysFn.ts`, same pattern as
+  `hamtaPrisuppskattningFn`, no module-scope values). It runs, in order:
+  1. Kill switch `ANNONS_HAMTNING` (`off` → `avstangd`; default on).
+  2. URL check, then the 24 h cache (a hit is free).
+  3. Entitlement `hamta_annons` (granted to all).
+  4. Quota: new `KvotHandling "annonshamtning"`, 20/device and 60/IP per hour (product limits, via
+     `ta_kvot`; no migration).
+  5. One fetch: header set, 10 s `AbortController`, `redirect:"manual"` (a redirect is followed once
+     only if it passes the URL check), 3 MB body cap, no retry.
+  6. Parse, then the postcode fallback, then cache the success.
+- **Logging:** `console.warn("[annons] …", {url, orsak})` on blocked, parse failure, a missing core
+  field, and when the LLM fallback triggers.
+- **`geokod.ts`:** Nominatim, used only when the postcode is missing.
+  - Reverse geocode from coordinates; else search "street, kommun"; 5 s timeout.
+  - Identifying User-Agent per the Nominatim policy.
+  - Failure → postcode stays missing. Tests use recorded responses.
+- **`llmFallback.ts`:** off unless `ANNONS_LLM_FALLBACK=on`. Only when structured parsing fails on a
+  non-challenge page.
+  - Input: stripped page text (≤ 20k chars). Model: Haiku 4.5 (`identitetModell` default).
+  - Zod-validated; behind the daily spend cap.
+  - Result marked `tolkning:"llm"`; logged.
+  - Load the `claude-api` skill before writing it.
+- **Migration** `supabase/migrations/20261024120000_annons.sql`:
+  - Table `annons_cache (url text pk, svar jsonb, hamtad timestamptz)` with RLS on and no policies.
+  - Redefine `binfo-retention`: keep today's lines, also drop `property_input->'kalla'` after 12
+    months (the URL identifies the address), and purge `annons_cache` older than 2 days.
+  - Matching `supabase/rollback/` script.
+- **Tests:** fake fetch for timeout, a redirect to another host refused, the size cap, a cache hit
+  skipping fetch and quota, quota refusal, kill switch, geocode only when needed, LLM flag off/on,
+  and logs. Also `kvot.test.ts`, `behorighet.test.ts`, `analysFn.test.ts`.
+
+### T2c: frontend (agent `frontend-state`; owns `src/routes/analysera.tsx`, new `src/lib/annons/formular.ts` + tests, `analyseraForm.ts`, `analysera.test.tsx`)
+- **Above Steg 1:** `Field` "Klistra in länk från Booli" + `Button` "Hämta uppgifter", which shows
+  "Hämtar…" while loading.
+- **Client-side URL check first:**
+  - another domain → "Endast Booli-länkar stöds just nu"
+  - any failure → "Vi kunde inte hämta uppgifterna, fyll i manuellt"
+  - quota/kill-switch errors show the server's message
+- **Pure `formular.ts`:**
+  - `tillampaAnnons(form, uppgifter, svar)` → new form, Tristates and per-field provenance
+    (`booli` | `manuellt` | `saknas`).
+  - It overwrites only fields that were found and never touches the other fields.
+  - `markeraAndrad` flips `booli` → `manuellt` on edit.
+- **Labels and highlighting:**
+  - Field `hint` shows "Hämtat från Booli" or "Ändrat manuellt".
+  - Missing and empty fields get the hint "Fanns inte i annonsen, fyll i själv" plus a highlight.
+    This is a small optional `framhav` prop on `Field` using the existing `warning` token; the owner
+    asked for highlighting, and it goes on the Lovable polish list.
+  - Hiss/balkong get the same text beside their label.
+- **Step 2:** a one-line hint "Booli anger föreningen: …" to help pick the right årsredovisning.
+- `buildPropertyInput` adds `kalla` (with `oandradeFalt`) when a fetch happened.
+- **The paste never calls `hamtaPrisuppskattningFn`, `skapaAnalysFn` or `skapaAnalysFranRegisterFn`.**
+  A test asserts this.
+
+### T3: integrate + verify (supervisor; `reviewer` agent on the full diff)
+- Run `npm run typecheck`, `npm test`, `npm run lint` and `npm run build`, and report the real
+  output.
+- `npm run dev` on the **local stack** (`./scripts/v2-lokalt.sh`, migration applied, not
+  production):
+  - Playwright from the scratchpad: paste each of the 6 URLs live, then check the filled values,
+    labels, edit → "Ändrat manuellt", and the highlighted missing fields.
+  - Check the messages for a non-Booli URL and for the kill switch.
+  - Check that nothing starts until a button is pressed.
+  - Submit via the register path (0 kr) and check that `property_input.kalla` is in the local DB.
+- **Workerd check:** `npm run build` + `npx wrangler dev`, calling the function, to see whether
+  Booli accepts workerd's TLS. This is a data point only; the real test is after deploy.
+- One real LLM-fallback run on a stripped fixture (≈ 0.05 kr), logged in `docs/api-test-log.md`.
+  Expected spend this round < 1 kr (cap 30 kr).
+- Update CLAUDE.md (new modules, flags, migration, deploy note), PLAN.md (this plan + status) and
+  `docs/booli.md`.
+
+## Parallelism
+T0 → T1 (supervisor), then T2a ∥ T2b ∥ T2c on disjoint files, then T3. Agents don't commit; the
+supervisor reviews each diff and commits per task.
+
+## Deploy (owner, later)
+1. `db push` (new migration).
+2. Lovable publish. No Edge Function change: the worker only strips `kalla`, and there is no
+   `PROMPT_VERSION` bump.
+3. Right after publishing, paste one live Booli link in production. If it's blocked, set
+   `ANNONS_HAMTNING=off` in Lovable Secrets.
+
+## Risks
+- Production fetch is blocked by Cloudflare (likely). The flag and the "fyll i manuellt" fallback
+  limit the damage.
+- Booli changes its RSC/GraphQL layout. Mitigation: parse-failure logs and the re-fetch script.
+- Booli's terms and database rights are unchecked (owner).
+- `/integritet` doesn't mention Booli fetching or Nominatim. I'll propose text but won't publish
+  legal copy myself.
+- `oandradeFalt` in `kalla` and the förening hint are small scope additions; drop them if unwanted.
+
+## Decisions I'll make myself (noted in the final summary)
+- Server function instead of a raw `/api/listing/fetch` route (consistent CSRF/kontext handling).
+- The quota numbers, cache-only-successes, and overwriting only found fields.
+- ort = kommun.
+- The Priskoll doesn't auto-run after a fetch.
+
+---
+
 # Plan: "Spara analysen" for logged-out users (2026-10-24)
 
-Status: **done in the working tree, not committed, not deployed.** No migration, no API spend.
+Status: **done, committed (a73af11), not deployed.** No migration, no API spend.
 
 - Button on `/forhandsvisning/$id` and `/analys/$id` (under the grade, plus a card at the end) for
   a logged-out owner (analysis on this browser's device principal); logged-in owner sees "Sparad i

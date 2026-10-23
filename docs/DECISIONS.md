@@ -54,3 +54,10 @@ One line each: date — decision — rationale. Owner decisions are marked (owne
 - 2026-10-13 — L3 documented as a known limitation: if a session expires without a logout, a later anonymous upload on that device is attributed to the account it was merged into (the device id is only rotated on logout and on email-link login).
 - 2026-10-14 — Bolånekalkyl layout (owner): the main view returns to the simple pre-v3 layout for non-financial users; rate scenarios, KALP (with its household/kalkylränta inputs) and the rules list move into one collapsed, visually separated 'Fördjupning' section. Spara and exports stay visible.
 - 2026-10-14 — Privacy page (owner): accounts stay on; controller shown as "Binfo (binfo.slanesens.com)" without a personal name and without a contact email while Binfo is an innovation-course project. Owner informed that GDPR art. 13 expects the controller's identity and contact details; to be completed (company name + contact address) before public launch/marketing. "Binfo.com" not used: not the owner's domain.
+
+## Booli prefill (2026-10-24)
+
+- 2026-10-24 — Booli is behind Cloudflare bot management (curl/Node default → challenge; browser-like headers from curl and local workerd → real page). Build the server fetch anyway with a normal browser header set, one request, no challenge solving, behind the `ANNONS_HAMTNING` kill switch; verify from the deployed Worker before announcing (owner).
+- 2026-10-24 — Earlier sales at the same address are only in Booli's internal GraphQL (persisted queries, challenged for servers): left out this round, documented in `docs/booli.md` for round 3 (owner).
+- 2026-10-24 — Booli has no description text; store the broker link (`listingUrl`) only, never fetch it (owner).
+- 2026-10-24 — Source stored as optional `PropertyInput.kalla` (contract change) + a retention migration that drops it after 12 months like the address (owner).
