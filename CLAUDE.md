@@ -15,7 +15,8 @@ per-apartment cost in kronor, and what to do before bidding.
   `main` and **deployed to production on 2026-10-14** (both v3 migrations,
   `deploy:edge`, Lovable publish; the two pre-v3 register reports were re-run
   in production the same day, `docs/api-test-log.md` #104). Runbook:
-  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is now `p7.i1.s1`.
+  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p8.i1.s1`
+  (2026-10-23, question context) — not deployed yet, see `PLAN.md`.
 - After v3 (on `main`, 2026-10-14): `/integritet` privacy page (controller
   "Binfo (binfo.slanesens.com)", no contact e-mail yet: `src/lib/kontakt.ts`),
   and analysing a flat from a register BRF without uploading
@@ -52,7 +53,7 @@ per-apartment cost in kronor, and what to do before bidding.
 |---|---|
 | `src/routes/` | File routes. `routeTree.gen.ts` is generated; never edit it. (`src/routes/README.md` is Lovable's note.) |
 | `src/` top level | `router.tsx` (fresh `QueryClient` per `getRouter()`), `start.ts` (TanStack Start middleware: error page + CSRF filter on server functions), `server.ts` (SSR entry wrapping swallowed 500s into an HTML error page; set via `tanstackStart.server.entry` in `vite.config.ts`), `styles.css` (Tailwind 4 `@theme` oklch tokens; the `.dark` block is unused shadcn default), `hooks/use-mobile.tsx` |
-| `src/components/` | `AnalysRapport` (full report; exports `Prisrimlighet`, also used by `/vardering`), `AnalysStatus` (polling, waiting, `Misslyckad`, `HittadesInte`), `PropertySummary`, `SiteNav` (+ `SiteFooter`; flat link row, no mobile menu), `pdf/` (PDF export via `@react-pdf/renderer`, lazy-loaded client-only: `download.tsx` → `AnalysPdfDocument.tsx`; `viewModel.ts` is the pure data layer; `fonts.ts`, `theme.ts` (hex palette, disclaimer), `filename.ts` are reusable for other PDFs) |
+| `src/components/` | `AnalysRapport` (full report; exports `Prisrimlighet`, also used by the Priskoll on `/analysera`), `AnalysStatus` (polling, waiting, `Misslyckad`, `HittadesInte`), `PropertySummary`, `SiteNav` (+ `SiteFooter`; flat link row, no mobile menu), `pdf/` (PDF export via `@react-pdf/renderer`, lazy-loaded client-only: `download.tsx` → `AnalysPdfDocument.tsx`; `viewModel.ts` is the pure data layer; `fonts.ts`, `theme.ts` (hex palette, disclaimer), `filename.ts` are reusable for other PDFs) |
 | `src/components/ui/binfo.tsx` | Binfo UI kit (Card, Button, LinkButton, Field, Badge, Callout, TristateChoice, Tag, Toggle, PageHeader…). Other `ui/*.tsx` files are shadcn primitives. |
 | `src/lib/kalkyl/` | Bolånekalkyl (client-safe, pure): `underlag.ts` (`KalkylUnderlag`, versioned input shared by page, saved kalkyl and exports), `regler.ts` (every rule/constant with source + date, `REGELVERSION`, Konsumentverket 2026 tables), `berakna.ts` (`beraknaKalkyl`, `sammanfattaKalkyl`), `levnadskostnader.ts` (KALP), `indata.ts` (input parsing/limits), `sida.ts` (page state ↔ underlag), `xlsx.ts` (Excel export with live formulas; exceljs) |
 | `src/lib/register/` | Public register areas: `omraden.ts` (19 areas + `ovriga-stockholm`, `losRegisteromrade`), generated `data/postnummerStadsdel.data.ts` (`npm run build:register-data`; never hand-edit) |
@@ -74,25 +75,32 @@ per-apartment cost in kronor, and what to do before bidding.
 ## Routes
 
 - `/`: landing page.
-- `/analysera`: upload form (optional search-param prefill from `/vardering`;
-  `?forening=<slug>` from a `/brf/$slug` CTA replaces the dropzone with "finns
-  redan hos Binfo" and creates the analysis via `skapaAnalysFranRegisterFn`:
-  no PDF, no API call, loose quota only).
-  - Required fields: boarea, våning, avgift, rum, adress, postnummer, ort.
-  - Optional: utgångspris (since 2026-10-23; same rule as `/vardering`, shared
-    `valideraValfrittUtgangspris`: empty ok, invalid/0 = error; without it the
-    report shows the "Binfos värdering" variant with no price comparison and
-    the summary/PDF price rows are hidden), byggår, hiss, balkong.
+- `/analysera` (since 2026-10-23 also the Priskoll; one shared form state):
+  - **Steg 1: Priskoll** — the valuation without a PDF
+    (`hamtaPrisuppskattningFn`), free, rate-limited. Fields: boarea, rum,
+    avgift, postnummer, våning, byggår (opt.), utgångspris (opt.), hiss, balkong.
+    "Spara" (account) and re-open via `?sparad=<id>`
+    (`src/components/analysera/SparadVardering.tsx`: stored snapshot + "Räkna
+    om med dagens modell"); `?spara=vardering` finishes a draft after login.
+  - **Steg 2: Granska föreningen (valfritt)** — always visible; the PDF
+    dropzone (or, with `?forening=<slug>` from a `/brf/$slug` CTA, "finns
+    redan hos Binfo" via `skapaAnalysFranRegisterFn`: no PDF, no API call,
+    loose quota only) plus adress and ort; everything else comes from step 1.
+  - Required for the analysis: boarea, våning, avgift, rum, adress,
+    postnummer, ort. Utgångspris optional (shared `valideraValfrittUtgangspris`:
+    empty ok, invalid/0 = error; without it the report shows the "Binfos
+    värdering" variant and the summary/PDF price rows are hidden).
   - Submits PDF + `PropertyInput` JSON as FormData to `skapaAnalysFn`.
   - On success it goes to `/forhandsvisning/$analysisId`, which polls
     `hamtaStatusFn` every 5 s (status carries `textlager`, `ateranvand`,
-    `vantarPaRapport`, `rapportSteg` for the notices) and then shows the free
-    preview (`hamtaForhandsvisningFn`).
-  - `/analys/$analysisId`: the full report (`hamtaResultatFn`); any error,
-    including a refused entitlement, redirects to the preview.
-- `/vardering`: "Bara priskoll" — the valuation without a PDF
-  (`hamtaPrisuppskattningFn`), free, rate-limited. "Spara" (account) and
-  re-open via `?sparad=<id>` (stored snapshot + "Räkna om med dagens modell").
+    `vantarPaRapport`, `rapportSteg` for the notices) and then renders the
+    **full report** inline (`hamtaResultatFn` + `AnalysRapport`; the free
+    preview/paywall was removed 2026-10-23; a future payment belongs on the
+    `ladda_upp_analys` entitlement, before the run: `behorighet.ts`).
+  - `/analys/$analysisId`: the same full report (bookmarks, /konto links);
+    any error, including a refused entitlement, redirects to `/forhandsvisning`.
+- `/vardering`: 301 to `/analysera` (merged 2026-10-23), carrying `sparad`
+  and `spara`.
 - `/konto` (profile), `/konto/{logga-in,skapa,glomt-losenord,bekrafta,nytt-losenord}`:
   accounts (all `noindex`). `/konto/bekrafta` verifies only on a button press
   (mail scanners must not burn one-time tokens). `?till=` is sanitised.
@@ -133,7 +141,7 @@ per-apartment cost in kronor, and what to do before bidding.
   (`RAPPORTSTEG_TEXT`, `SKANNAD_UPPTACKT_TEXT`, …) and `STEG_TEXT` in
   `src/lib/analysStatusCopy.ts` (also all error copy).
 - **Price check section**: `Prisrimlighet` in `src/components/AnalysRapport.tsx`
-  is shared by the full report, `/exempel` and `/vardering`. The source
+  is shared by the full report, `/exempel` and the Priskoll on `/analysera`. The source
   paragraph ("Modellen är tränad på … Svensk Mäklarstatistik. Områdesindelningen
   bygger på …") is `varderingsKallaText` (period via `formatDataperiodLang`,
   "januari–augusti 2026"); the factor heading is "Exempel på faktorer som
@@ -143,7 +151,7 @@ per-apartment cost in kronor, and what to do before bidding.
   (`metadataText`: n, typical error, model version; `kallaText` = the same
   source paragraph; the same heading over the drivers; the caveat is visible
   there). Change web copy → check the PDF too.
-- `/vardering` page copy lives in `src/routes/vardering.tsx`.
+- Priskoll (step 1) copy lives in `src/routes/analysera.tsx`.
 
 ## Valuation factor rows ("drivers")
 
@@ -243,12 +251,16 @@ per-apartment cost in kronor, and what to do before bidding.
       area (`losRegisteromrade`) + slug, and refreshes `register_sammanfattning`.
    5. `bedomning`: judging over the extraction only (never sees buyer data;
       page refs must be a subset of the extraction's pages); result stored on
-      the rapport; dry assembly.
+      the rapport; dry assembly. `slutforBedomning` clamps the model's grade
+      to the letters the status counts allow (no `kritisk` → A–C, any
+      `kritisk` → C–E; `tillatnaBetyg`), logging every clamp. Each question
+      carries `varfor` (finding + number, shown "Varför:") and optional
+      `svarssignal` ("Bra svar / varningssignal").
    - BRF-level (shareable) = `rapport.extraction` + `rapport.judgement`.
      Buyer-level (assembled per read) = `input`, `prisanalys`, `rantestress`,
      missing-data questions, the fee-deviation question.
    - `PIPELINE_VERSION` = `p<PROMPT_VERSION>.i<IDENTITET_PROMPT_VERSION>.s<SCHEMA_MAJOR>`
-     (production since 2026-10-14: `p7.i1.s1`). v3 adds `rapport.proveniens`
+     (production since 2026-10-14: `p7.i1.s1`; `main`: `p8.i1.s1`). v3 adds `rapport.proveniens`
      (`api` default). Each stage has pure `bygg*Request`/`tolka*Svar` (golden
      tests pin the request bodies).
 4. **Reads** re-assemble on every read from the rapport's extraction/judgement +
@@ -349,7 +361,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-23: 105 files, 2129 tests, all passing)
+npm test                    # vitest run (2026-10-23: 107 files, 2174 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
@@ -384,7 +396,7 @@ cd ml && .venv/bin/pytest                  # ML tests
 
 ## Environment variables (names only; values live in `.env.local`, Lovable Secrets or Supabase secrets)
 
-- **Web app** (every server function, even `/vardering`, needs the full env):
+- **Web app** (every server function, even the Priskoll, needs the full env):
   - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (code default `claude-sonnet-5-5`),
     `MAX_COST_PER_ANALYSIS_SEK` (default 5; the `extract` CLI uses 25 for scans).
   - `PROJECT_URL`, `PROJECT_SECRET_KEY`, `PROJECT_PUBLISHABLE_KEY`,

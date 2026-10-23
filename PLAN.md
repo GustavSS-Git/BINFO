@@ -1,10 +1,35 @@
 # Binfo — current plan
 
-**Current task: four UI changes (2026-10-23), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Current task: round 2 of 2026-10-23 (full analysis, Priskoll merge, question context, grade clamp), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Plan: round 2 (2026-10-23) — full analysis at once, Priskoll in Analysera, question context, reproducible grade
+
+Status: **DONE in the working tree 2026-10-23, not committed, not deployed.** Base: `main` @ c167e0d.
+
+1. **Full analysis immediately.** `/forhandsvisning/$id` renders `AnalysRapport` inline when done
+   (no redirect to `/analys`: that would loop on a done-but-unreadable result). Removed the preview
+   projection (`hamtaForhandsvisning`, `hamtaForhandsvisningFn`, `Forhandsvisning` type), the
+   locked cards and the CTA. Grade card got the "Sammanvägt riskbetyg" label. `gratisSektioner`
+   stays (stored rows, strict schema). Payment hook documented on `ladda_upp_analys`.
+2. **Priskoll merged into `/analysera`** (steg 1 Priskoll, steg 2 BRF-analys valfritt; shared form
+   state; `/vardering` → 301 with `sparad`/`spara`; nav, landing links, /integritet, /konto, sitemap).
+3. **Question context.** `Fraga.svarssignal?` (contract + Zod; blank = absent in the judging
+   schema), prompt asks for a finding+number `varfor`; UI "Varför:" grey italic + signal line; PDF
+   too; deterministic questions say how the answer affects the buyer. `PROMPT_VERSION` 7 → 8.
+4. **Grade clamp** in `slutforBedomning` (`tillatnaBetyg`/`klampaBetyg`, logged), unit tests.
+
+**Deploy (owner):** PROMPT_VERSION 8 → `pipeline_version` `p8.i1.s1`: `npm run deploy:edge` and the
+Lovable publish close together. Every existing register report re-runs lazily once on its next read
+(≈3–3.6 kr each, normal pipeline). No migration.
+
+Checks: typecheck 0, 107 files / 2174 tests pass, lint 0 errors (8 baseline warnings), build OK,
+browser check of `/analysera` + `/exempel` (no console errors), one real v8 run (#107, 3.62 kr).
 
 ---
 
