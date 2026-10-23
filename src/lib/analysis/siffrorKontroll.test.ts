@@ -27,6 +27,13 @@ function verklig(): ExtractionResult {
   return e;
 }
 
+/** The real case with the first key figure (a kr/m² figure) set to `varde`. */
+function fixturMedKrPerM2(varde: number): ExtractionResult {
+  const e = verklig();
+  e.forening.keyFigures[0]!.figure.value = varde;
+  return e;
+}
+
 const kontroll = (text: string, e: ExtractionResult = verklig()) =>
   kontrolleraSiffror(text, e, beraknaFastaVarden(e));
 const texter = (text: string, e: ExtractionResult = verklig()) =>
@@ -77,7 +84,8 @@ describe("kontrolleraSiffror: number formats", () => {
 describe("kontrolleraSiffror: unit scaling", () => {
   it("scales tkr, tusen, miljoner/Mkr/mnkr and miljarder", () => {
     expect(texter("5 759 tkr")).toEqual([]); // 91 kr from the data, within half a tkr
-    expect(texter("5 760 tkr")).toEqual(["5 760 tkr"]);
+    expect(texter("5 760 tkr")).toEqual([]); // rounded to 10 tkr
+    expect(texter("5 761 tkr")).toEqual(["5 761 tkr"]);
     expect(texter("5 759,091 tkr")).toEqual([]);
     expect(texter("7,8 miljoner kronor")).toEqual([]);
     expect(texter("7,8 Mkr")).toEqual([]);
@@ -106,7 +114,23 @@ describe("kontrolleraSiffror: unit scaling", () => {
 
   it("an exact amount has no slack beyond rounding", () => {
     expect(texter("5 759 091 kr")).toEqual([]);
-    expect(texter("5 759 090 kr")).toEqual(["5 759 090 kr"]);
+    expect(texter("5 759 090 kr")).toEqual([]); // rounded to 10 kr
+    expect(texter("5 759 092 kr")).toEqual(["5 759 092 kr"]);
+  });
+
+  it("trailing zeros in an amount read as rounding (owner 2026-10-23: rounding is fine)", () => {
+    expect(texter("5 760 000 kr")).toEqual([]); // nearest 10 000
+    expect(texter("5 800 000 kr")).toEqual([]); // nearest 100 000
+    expect(texter("6 000 000 kr")).toEqual([]); // nearest million
+    expect(texter("5 700 000 kr")).toEqual(["5 700 000 kr"]); // not a rounding of 5 759 091
+    expect(texter("6 759 000 kr")).toEqual(["6 759 000 kr"]); // the real error, rounded
+    expect(texter("3 600 kr/m²", fixturMedKrPerM2(3617))).toEqual([]);
+    expect(texter("3 700 kr/m²", fixturMedKrPerM2(3617))).toEqual(["3 700 kr/m²"]);
+  });
+
+  it("trailing zeros do not widen a percentage: 70 % is not a rounding of 74,2 %", () => {
+    expect(texter("70 %")).toEqual(["70 %"]);
+    expect(texter("cirka 70 %")).toEqual(["70 %"]);
   });
 });
 

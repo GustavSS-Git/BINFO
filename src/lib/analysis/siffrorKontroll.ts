@@ -48,6 +48,8 @@ interface Token {
   enhet: Enhet;
   /** Decimals shown in the number as written. */
   decimaler: number;
+  /** Trailing zeros of a whole number as written ("5 760 000" → 4). */
+  nollor: number;
   /** Multiplier from the unit word (1000 for tkr, ...). */
   skala: number;
   /** Written with a thousands separator or a decimal: cannot be a year. */
@@ -128,6 +130,7 @@ function lasTal(text: string): Token[] {
     const [heltalsdel = "", decimaldel] = numerisk.replace(",", ".").split(".");
     const heltal = heltalsdel.replace(/[ \u00A0\u202F\u2009]/g, "");
     const decimaler = decimaldel?.length ?? 0;
+    const nollor = decimaldel === undefined ? (/0+$/.exec(heltal)?.[0].length ?? 0) : 0;
     const basvarde = Number(`${heltal}${decimaldel !== undefined ? `.${decimaldel}` : ""}`);
     if (!Number.isFinite(basvarde)) continue;
 
@@ -159,6 +162,7 @@ function lasTal(text: string): Token[] {
       varde: Math.abs(basvarde * skala),
       enhet,
       decimaler,
+      nollor: heltal === "0" ? 0 : nollor,
       skala,
       harSeparator: decimaldel !== undefined || /[ \u00A0\u202F\u2009]/.test(numerisk),
       heltalUtanSkala: decimaldel === undefined && skala === 1,
@@ -335,7 +339,16 @@ const EPS = 1e-9;
 /** Does any candidate fall within the tolerance of the written number? */
 function matchar(token: Token, kandidater: readonly number[], narme: Narmevard): boolean {
   const x = token.varde;
-  const precision = 0.5 * Math.pow(10, -token.decimaler) * token.skala;
+  // Rounding is fine (owner 2026-10-23): trailing zeros in an amount read as the
+  // precision it was rounded to ("5 760 000 kr" ±5 000). Not for percentages,
+  // where "70 %" for 74,2 % is a misstatement, not a rounding.
+  const steg =
+    token.decimaler > 0
+      ? Math.pow(10, -token.decimaler)
+      : token.enhet === "procent" || token.enhet === "procentenhet"
+        ? 1
+        : Math.pow(10, token.nollor);
+  const precision = 0.5 * steg * token.skala;
   let lo = x - precision;
   let hi = x + precision;
   switch (narme) {
