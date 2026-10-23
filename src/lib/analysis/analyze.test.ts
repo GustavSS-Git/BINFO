@@ -52,6 +52,11 @@ function giltigtSvar() {
   };
 }
 
+/** A motivation caller that must not be needed: if it is called, the test sees a rejected call. */
+function aldrigOmskrivning() {
+  return vi.fn().mockRejectedValue(new Error("betygMotivering skulle inte skrivas om"));
+}
+
 describe("tillatnaSidor", () => {
   it("samlar in varje sidnummer som faktiskt förekommer i extraktionen", () => {
     const sidor = tillatnaSidor(extraktion);
@@ -63,7 +68,7 @@ describe("analysera", () => {
   it("returnerar det validerade omdömet direkt när modellens svar är giltigt", async () => {
     const callModel = vi.fn().mockResolvedValue(giltigtSvar());
 
-    const analys = await analysera(extraktion, callModel);
+    const analys = await analysera(extraktion, callModel, aldrigOmskrivning());
 
     expect(analys.betyg).toBe("D");
     expect(analys.rodaFlaggor).toHaveLength(2);
@@ -76,7 +81,9 @@ describe("analysera", () => {
     svar.rodaFlaggor[0]!.harledsFran = ["soliditet"];
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    await expect(analysera(extraktion, callModel)).rejects.toThrow(AnalysValidationError);
+    await expect(analysera(extraktion, callModel, aldrigOmskrivning())).rejects.toThrow(
+      AnalysValidationError,
+    );
     expect(callModel).toHaveBeenCalledTimes(2);
   });
 
@@ -85,7 +92,9 @@ describe("analysera", () => {
     svar.rodaFlaggor[0]!.harledsFran = [];
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    await expect(analysera(extraktion, callModel)).rejects.toThrow(AnalysValidationError);
+    await expect(analysera(extraktion, callModel, aldrigOmskrivning())).rejects.toThrow(
+      AnalysValidationError,
+    );
   });
 
   it("avvisar en fråga med ursprung 'saknad_uppgift' — de genereras deterministiskt på annat håll", async () => {
@@ -93,7 +102,9 @@ describe("analysera", () => {
     svar.fragor[0]!.ursprung = "saknad_uppgift";
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    await expect(analysera(extraktion, callModel)).rejects.toThrow(AnalysValidationError);
+    await expect(analysera(extraktion, callModel, aldrigOmskrivning())).rejects.toThrow(
+      AnalysValidationError,
+    );
   });
 
   it("avvisar ett sidnummer som inte finns i extraktionen — modellen får aldrig hitta på en sida", async () => {
@@ -101,7 +112,9 @@ describe("analysera", () => {
     svar.rodaFlaggor[0]!.ref = { page: 99, excerpt: "hittad på" };
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    await expect(analysera(extraktion, callModel)).rejects.toThrow(AnalysValidationError);
+    await expect(analysera(extraktion, callModel, aldrigOmskrivning())).rejects.toThrow(
+      AnalysValidationError,
+    );
   });
 
   it("accepterar en ref vars sida finns i extraktionen", async () => {
@@ -112,7 +125,7 @@ describe("analysera", () => {
     };
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    const analys = await analysera(extraktion, callModel);
+    const analys = await analysera(extraktion, callModel, aldrigOmskrivning());
 
     expect(analys.fragor[1]?.ref?.page).toBe(6);
   });
@@ -122,7 +135,9 @@ describe("analysera", () => {
     svar.rodaFlaggor[1]!.id = svar.rodaFlaggor[0]!.id;
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    await expect(analysera(extraktion, callModel)).rejects.toThrow(AnalysValidationError);
+    await expect(analysera(extraktion, callModel, aldrigOmskrivning())).rejects.toThrow(
+      AnalysValidationError,
+    );
   });
 
   it("avvisar en tom betygMotivering — ett betyg utan motivering går inte att granska", async () => {
@@ -130,7 +145,9 @@ describe("analysera", () => {
     svar.betygMotivering = "";
     const callModel = vi.fn().mockResolvedValue(svar);
 
-    await expect(analysera(extraktion, callModel)).rejects.toThrow(AnalysValidationError);
+    await expect(analysera(extraktion, callModel, aldrigOmskrivning())).rejects.toThrow(
+      AnalysValidationError,
+    );
   });
 
   it("försöker en gång till vid malformat svar och lyckas på försök två", async () => {
@@ -139,7 +156,7 @@ describe("analysera", () => {
       .mockResolvedValueOnce("```json\n{ inte ens giltig JSON")
       .mockResolvedValueOnce(giltigtSvar());
 
-    const analys = await analysera(extraktion, callModel);
+    const analys = await analysera(extraktion, callModel, aldrigOmskrivning());
 
     expect(analys.betyg).toBe("D");
     expect(callModel).toHaveBeenCalledTimes(2);
@@ -149,7 +166,7 @@ describe("analysera", () => {
     const callModel = vi.fn().mockResolvedValue({ nagot: "helt fel format" });
 
     try {
-      await analysera(extraktion, callModel);
+      await analysera(extraktion, callModel, aldrigOmskrivning());
       expect.fail("skulle ha kastat");
     } catch (e) {
       expect(e).toBeInstanceOf(AnalysValidationError);
@@ -163,7 +180,7 @@ describe("analysera", () => {
   it("skickar med hela extraktionen i användarprompten så modellen ser nyckeltalens status", async () => {
     const callModel = vi.fn().mockResolvedValue(giltigtSvar());
 
-    await analysera(extraktion, callModel);
+    await analysera(extraktion, callModel, aldrigOmskrivning());
 
     const [, userPrompt] = callModel.mock.calls[0]!;
     expect(userPrompt).toContain("rantekanslighet");

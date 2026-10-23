@@ -15,7 +15,15 @@ import {
   type AnthropicClientLike,
   type ModelEffort,
 } from "./runExtraction";
-import { slutforBedomning, tillatnaSidor } from "./slutfor";
+import { beraknaFastaVarden } from "./fastaVarden";
+import {
+  byggMotiveringRequestFranPrompt,
+  MOTIVERING_MAX_TOKENS,
+  raMotiveringssvar,
+  sakraMotivering,
+  type MotiveringsLogg,
+} from "./motivering";
+import { kontrolleraBedomning, slutforBedomning, tillatnaSidor } from "./slutfor";
 import {
   enforceCostLimit,
   prissattningForModell,
@@ -120,22 +128,43 @@ export function tolkaBedomningSvar(
 
 /**
  * The testable half: prompts + validation + the one retry, with the model
- * call injected. Model output is untrusted input — an invented KeyFigureId,
+ * calls injected. Model output is untrusted input — an invented KeyFigureId,
  * an invented page number or a 'saknad_uppgift' question fails validation
  * and gets one retry, then surfaces a clear error. Never a silent empty
  * analysis.
+ *
+ * After validation the letter is clamped to the allowed band and the
+ * motivation is made consistent with it (motivering.ts): if the letter was
+ * clamped, or a number in the motivation does not match the data, ONE extra
+ * call (`callMotivering`) rewrites only `betygMotivering`; if that fails or is
+ * still wrong, a deterministic motivation is used. That step never fails the
+ * analysis — the judging call is already paid.
+ *
+ * `callMotivering` is required on purpose: a caller that forgot it would
+ * silently skip the check.
  */
 export async function analysera(
   extraction: ExtractionResult,
   callModel: ModelCaller,
+  callMotivering: ModelCaller,
+  logga: MotiveringsLogg = console.warn,
 ): Promise<AnalysJudgement> {
+  const fasta = beraknaFastaVarden(extraction);
   const systemText = buildAnalysSystemPrompt();
-  const userText = buildAnalysUserPrompt(extraction, tillatnaSidor(extraction));
-  return provaMedOmforsok(
+  const userText = buildAnalysUserPrompt(extraction, tillatnaSidor(extraction), fasta);
+  const kontrollerad = await provaMedOmforsok(
     () => callModel(systemText, userText),
-    (raw) => slutforBedomning(extraction, raw),
+    (raw) => kontrolleraBedomning(extraction, raw, logga),
     (zodError, raw, attempts) => new AnalysValidationError(zodError, raw, attempts),
   );
+  return sakraMotivering({
+    extraction,
+    judgement: kontrollerad.judgement,
+    klampning: kontrollerad.klampning,
+    callMotivering,
+    fasta,
+    logga,
+  });
 }
 
 export interface RunAnalysOptions {
@@ -161,7 +190,8 @@ export interface RunAnalysOptions {
 export interface RunAnalysResult {
   analys: AnalysJudgement;
   spentSek: number;
-  /** Always one entry, or two if validateWithRetry's one retry fired. */
+  /** One entry per call: the judging call, a second one if the validation retry
+   *  fired, and a `motivering` entry if the motivation was rewritten. */
   calls: ModelCallMetrics[];
 }
 
@@ -227,9 +257,36 @@ export async function runAnalys(
     }
   };
 
+  // The small rewrite of betygMotivering (see motivering.ts). Low effort and a
+  // modest output cap: it writes two to four sentences. Same model as the judging.
+  const callMotivering: ModelCaller = async (systemText, userText) => {
+    const begaran = byggMotiveringRequestFranPrompt(systemText, userText, {
+      model,
+      maxTokens: MOTIVERING_MAX_TOKENS,
+      effort: "low",
+    });
+    const count = await client.messages.countTokens(tillRakneParams(begaran));
+    enforceCostLimit(count.input_tokens, MOTIVERING_MAX_TOKENS, maxCostSek - spentSek, pricing);
+
+    const start = performance.now();
+    const response = await client.messages.create(begaran);
+    const latencyMs = performance.now() - start;
+    const metrics = buildCallMetrics({
+      stage: "motivering",
+      model,
+      latencyMs,
+      usage: response.usage,
+      stopReason: response.stop_reason,
+      pricing,
+    });
+    calls.push(metrics);
+    spentSek += metrics.costSek;
+    return raMotiveringssvar(response, MOTIVERING_MAX_TOKENS);
+  };
+
   let analys: AnalysJudgement;
   try {
-    analys = await analysera(extraction, callModel);
+    analys = await analysera(extraction, callModel, callMotivering);
   } catch (error) {
     // Same reasoning as runStructuredExtraction's catch (runExtraction.ts):
     // a validation error thrown after validateWithRetry's own retry already

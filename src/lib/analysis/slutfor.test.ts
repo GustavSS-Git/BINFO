@@ -3,6 +3,7 @@ import { extraktion } from "./__fixtures__/extraktion";
 import type { ExtractionResult, Grade, Status } from "@/types/analysis";
 import {
   klampaBetyg,
+  kontrolleraBedomning,
   raknaStatusar,
   SKANNAD_KONFIDENS_SKAL,
   slutforAnalys,
@@ -96,11 +97,26 @@ function medStatusar(statusar: Status[]): ExtractionResult {
 }
 
 describe("tillatnaBetyg", () => {
-  it("allows A-C without kritisk, C-E with at least one kritisk", () => {
+  it("0 svag, 0 kritisk -> A, B, C", () => {
     expect(tillatnaBetyg({ svag: 0, kritisk: 0 })).toEqual(["A", "B", "C"]);
-    expect(tillatnaBetyg({ svag: 2, kritisk: 0 })).toEqual(["A", "B", "C"]);
-    expect(tillatnaBetyg({ svag: 0, kritisk: 1 })).toEqual(["C", "D", "E"]);
-    expect(tillatnaBetyg({ svag: 3, kritisk: 2 })).toEqual(["C", "D", "E"]);
+  });
+
+  it("1 svag, 0 kritisk -> B, C", () => {
+    expect(tillatnaBetyg({ svag: 1, kritisk: 0 })).toEqual(["B", "C"]);
+  });
+
+  it(">=2 svag, 0 kritisk -> C only (boundary 2, and the maximum of 7)", () => {
+    expect(tillatnaBetyg({ svag: 2, kritisk: 0 })).toEqual(["C"]);
+    expect(tillatnaBetyg({ svag: 3, kritisk: 0 })).toEqual(["C"]);
+    expect(tillatnaBetyg({ svag: 7, kritisk: 0 })).toEqual(["C"]);
+  });
+
+  it("any kritisk -> C, D, E regardless of the number of svag", () => {
+    for (const svag of [0, 1, 2, 5]) {
+      for (const kritisk of [1, 2, 7]) {
+        expect(tillatnaBetyg({ svag, kritisk })).toEqual(["C", "D", "E"]);
+      }
+    }
   });
 });
 
@@ -113,21 +129,33 @@ describe("raknaStatusar", () => {
 });
 
 describe("klampaBetyg", () => {
-  const utanKritisk = tillatnaBetyg({ svag: 1, kritisk: 0 });
-  const medKritisk = tillatnaBetyg({ svag: 1, kritisk: 1 });
+  const ingen = tillatnaBetyg({ svag: 0, kritisk: 0 }); // A-C
+  const enSvag = tillatnaBetyg({ svag: 1, kritisk: 0 }); // B-C
+  const flerSvaga = tillatnaBetyg({ svag: 2, kritisk: 0 }); // C
+  const medKritisk = tillatnaBetyg({ svag: 1, kritisk: 1 }); // C-E
 
-  it("clamps D and E to C without kritisk", () => {
-    expect(klampaBetyg("D", utanKritisk)).toBe("C");
-    expect(klampaBetyg("E", utanKritisk)).toBe("C");
+  it("clamps D and E down to the top of the no-kritisk bands", () => {
+    expect(klampaBetyg("D", ingen)).toBe("C");
+    expect(klampaBetyg("E", ingen)).toBe("C");
+    expect(klampaBetyg("D", enSvag)).toBe("C");
+    expect(klampaBetyg("E", flerSvaga)).toBe("C");
   });
 
-  it("clamps A and B to C with kritisk", () => {
+  it("clamps A up to B with exactly one svag, and to C with two or more", () => {
+    expect(klampaBetyg("A", enSvag)).toBe("B");
+    expect(klampaBetyg("A", flerSvaga)).toBe("C");
+    expect(klampaBetyg("B", flerSvaga)).toBe("C");
+  });
+
+  it("clamps A and B up to C with a kritisk figure", () => {
     expect(klampaBetyg("A", medKritisk)).toBe("C");
     expect(klampaBetyg("B", medKritisk)).toBe("C");
   });
 
   it("leaves letters inside the set untouched", () => {
-    for (const g of ["A", "B", "C"] as Grade[]) expect(klampaBetyg(g, utanKritisk)).toBe(g);
+    for (const g of ["A", "B", "C"] as Grade[]) expect(klampaBetyg(g, ingen)).toBe(g);
+    for (const g of ["B", "C"] as Grade[]) expect(klampaBetyg(g, enSvag)).toBe(g);
+    expect(klampaBetyg("C", flerSvaga)).toBe("C");
     for (const g of ["C", "D", "E"] as Grade[]) expect(klampaBetyg(g, medKritisk)).toBe(g);
   });
 });
@@ -187,5 +215,47 @@ describe("slutforBedomning: deterministic grade check", () => {
     if (!r.ok) throw new Error("ogiltig");
     const tillatna = tillatnaBetyg(raknaStatusar(r.value.extraction));
     expect(tillatna).toContain(r.value.judgement.betyg);
+  });
+});
+
+describe("kontrolleraBedomning: clamp metadata", () => {
+  const med = (betyg: string) => ({ ...bedomning, betyg });
+  const tyst = () => {};
+
+  it("reports the clamp (model letter, new letter, band, counts) so the caller can fix the motivation", () => {
+    const e = medStatusar(["svag", "svag", "god"]);
+    const r = kontrolleraBedomning(e, med("B"), tyst);
+    if (!r.ok) throw new Error("ogiltig");
+    expect(r.value.judgement.betyg).toBe("C");
+    expect(r.value.klampning).toEqual({
+      modellensBetyg: "B",
+      nyttBetyg: "C",
+      tillatna: ["C"],
+      antal: { svag: 2, kritisk: 0 },
+    });
+  });
+
+  it("clamps up from A with exactly one svag", () => {
+    const r = kontrolleraBedomning(medStatusar(["svag"]), med("A"), tyst);
+    if (!r.ok) throw new Error("ogiltig");
+    expect(r.value.judgement.betyg).toBe("B");
+    expect(r.value.klampning?.modellensBetyg).toBe("A");
+  });
+
+  it("clamps down from E without any kritisk", () => {
+    const r = kontrolleraBedomning(medStatusar(["god"]), med("E"), tyst);
+    if (!r.ok) throw new Error("ogiltig");
+    expect(r.value.judgement.betyg).toBe("C");
+    expect(r.value.klampning).not.toBeNull();
+  });
+
+  it("returns klampning null when the letter is allowed", () => {
+    const r = kontrolleraBedomning(medStatusar(["svag"]), med("B"), tyst);
+    if (!r.ok) throw new Error("ogiltig");
+    expect(r.value.klampning).toBeNull();
+  });
+
+  it("a Zod failure stays a failure", () => {
+    expect(kontrolleraBedomning(medStatusar([]), { betyg: "Z" }, tyst).ok).toBe(false);
   });
 });

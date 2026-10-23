@@ -10,6 +10,8 @@ import {
   buildExtractionUserPrompt,
   buildGroundingSystemPrompt,
   buildGroundingUserPrompt,
+  buildMotiveringSystemPrompt,
+  buildMotiveringUserPrompt,
   buildTranskriberingSystemPrompt,
   buildTranskriberingUserPrompt,
   extractGroundingFindings,
@@ -26,6 +28,7 @@ import { extraktion } from "./__fixtures__/extraktion";
 import { tillatnaSidor } from "./analyze";
 import { BENCHMARKS } from "./benchmarks";
 import type { KeyFigureId } from "@/types/analysis";
+import { beraknaFastaVarden } from "./fastaVarden";
 
 describe("ALLA_NYCKELTAL", () => {
   it("innehåller exakt de sju id:n som KeyFigureIdSchema tillåter", () => {
@@ -555,6 +558,102 @@ describe("frågornas varför och svarssignal (PROMPT_VERSION 8)", () => {
   });
 });
 
+describe("fasta värden och betygsskalan (PROMPT_VERSION 8)", () => {
+  const system = buildAnalysSystemPrompt();
+
+  it("E kräver minst ett nyckeltal med status kritisk; en allvarlig risk utan kritisk ger som mest C och en röd flagga med severity hog", () => {
+    expect(system).toContain(
+      '- "E": flera nyckeltal med status "kritisk" som förstärker varandra, eller ett nyckeltal med status "kritisk" tillsammans med en uttalad risk i väsentliga händelser som föreningen inte visar sig kunna bära.',
+    );
+    expect(system).toContain(
+      'En allvarlig risk i väsentliga händelser utan något nyckeltal med status "kritisk" ger som mest betyget C, och ska beskrivas i en röd flagga med severity "hog".',
+    );
+    // The old wording that allowed E without any kritisk figure is gone.
+    expect(system).not.toContain('kritisk" som förstärker varandra, eller en uttalad risk');
+  });
+
+  it("A-D i betygsskalan är oförändrade", () => {
+    expect(system).toContain(
+      '- "A": inget nyckeltal har status "svag" eller "kritisk", och inget i lånebilden eller underhållsplanen pekar mot en betydande kostnad som inte redan är finansierad.',
+    );
+    expect(system).toContain(
+      '- "B": högst ett nyckeltal med status "svag", inget "kritisk", och kommande åtgärder framstår som hanterbara.',
+    );
+    expect(system).toContain('- "C": flera nyckeltal med status "svag", ELLER ett med "kritisk"');
+    expect(system).toContain('- "D": ett eller flera nyckeltal med status "kritisk" som förstärks');
+  });
+
+  it("modellen räknar aldrig själv: fasta värden, kopiera tal, avrundning av procent tillåten, inga tal utifrån", () => {
+    expect(system).not.toContain("Du får räkna ut andelar och summor");
+    expect(system).toContain('under "Fasta värden"');
+    expect(system).toMatch(/Varje tal i "betygMotivering"/);
+    expect(system).toContain("74,2 blir 74 %");
+    expect(system).toMatch(/Räkna aldrig själv/);
+    expect(system).toMatch(/aldrig in en siffra utifrån/);
+  });
+
+  it("användarprompten har ett tydligt märkt block med fasta värden och tillåtna betyg", () => {
+    const user = buildAnalysUserPrompt(extraktion, tillatnaSidor(extraktion));
+    expect(user).toContain(
+      "## Fasta värden (beräknade av Binfo ur underlaget — använd exakt dessa tal, räkna aldrig om dem)",
+    );
+    expect(user).toMatch(/Tillåtna betyg: [A-E](, [A-E])*/);
+    expect(user).toContain("Total räntebärande skuld: 52 000 000 kr");
+    expect(user).toContain("2026: 31 000 000 kr (59,6 % av totala skulden)");
+    // The block is the same one beraknaFastaVarden gives (an explicit argument wins).
+    expect(
+      buildAnalysUserPrompt(extraktion, tillatnaSidor(extraktion), beraknaFastaVarden(extraktion)),
+    ).toBe(user);
+  });
+});
+
+describe("buildMotiveringSystemPrompt / buildMotiveringUserPrompt", () => {
+  const fasta = beraknaFastaVarden(extraktion);
+  const underlag = {
+    betyg: "C" as const,
+    klampadFran: "A" as const,
+    avvikandeSiffror: ["6 759 091 kr", "87 %"],
+    fasta,
+    rodaFlaggor: [
+      { titel: "Lånen omsätts", beskrivning: "Stor del förfaller.", severity: "hog" as const },
+    ],
+    tidigareMotivering: "Tidigare text.",
+  };
+
+  it("systemprompten fastslår betyget, förbjuder egna tal och kräver bara JSON", () => {
+    const p = buildMotiveringSystemPrompt();
+    expect(p).toMatch(/Betyget är redan fastställt/);
+    expect(p).toMatch(/Argumentera aldrig för ett annat betyg/);
+    expect(p).toMatch(/Räkna aldrig själv/);
+    expect(p).toContain('{ "betygMotivering"');
+    expect(p).toMatch(/Svara ENDAST med detta enda JSON-objekt/);
+  });
+
+  it("användarprompten bär betyget, orsakerna, de fasta värdena, flaggorna och den tidigare texten", () => {
+    const u = buildMotiveringUserPrompt(underlag);
+    expect(u).toContain("Fastställt betyg: C");
+    expect(u).toContain("Det första förslaget var betyget A");
+    expect(u).toContain("6 759 091 kr; 87 %");
+    expect(u).toContain("## Fasta värden");
+    expect(u).toContain('status "kritisk"');
+    expect(u).toContain('Lånen omsätts (severity "hog"): Stor del förfaller.');
+    expect(u).toContain("Tidigare text.");
+  });
+
+  it("utelämnar orsaker som inte gäller, och hanterar noll röda flaggor", () => {
+    const u = buildMotiveringUserPrompt({
+      ...underlag,
+      klampadFran: undefined,
+      avvikandeSiffror: [],
+      rodaFlaggor: [],
+    });
+    expect(u).not.toContain("Det första förslaget var betyget");
+    expect(u).not.toContain("stämde inte med underlaget");
+    expect(u).toContain("(ingen angiven orsak)");
+    expect(u).toContain("(inga röda flaggor)");
+  });
+});
+
 describe("buildTranskriberingSystemPrompt", () => {
   it("kräver ordagrann avskrift med originalsidnummer och att textlagret aldrig ska litas på", () => {
     const p = buildTranskriberingSystemPrompt();
@@ -569,7 +668,7 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 8 sedan frågorna fick varför med konkret fynd och valfri svarssignal (7: adresser, 6: skuldsummering)", () => {
+  it("är 8 sedan frågorna fick varför med konkret fynd och valfri svarssignal, betygsbanden skärptes och bedömningen fick fasta värden (7: adresser, 6: skuldsummering)", () => {
     expect(PROMPT_VERSION).toBe("8");
   });
 
@@ -585,13 +684,22 @@ describe("PROMPT_VERSION", () => {
       buildExtractionUserPrompt(""),
       buildAnalysSystemPrompt(),
       buildAnalysUserPrompt(extraktion, new Set()),
+      buildMotiveringSystemPrompt(),
+      buildMotiveringUserPrompt({
+        betyg: "C",
+        klampadFran: "A",
+        avvikandeSiffror: ["6 759 091 kr"],
+        fasta: beraknaFastaVarden(extraktion),
+        rodaFlaggor: [{ titel: "Titel", beskrivning: "Beskrivning.", severity: "hog" }],
+        tidigareMotivering: "Tidigare motivering.",
+      }),
       buildTranskriberingSystemPrompt(),
       buildTranskriberingUserPrompt(6, 5),
     ].join("");
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("e790eb6842e084aa5df6b5744c1d6c2e9409c0a9606976671ab4409c93d2c8d0");
+    expect(hash).toBe("325dc325c83c870d4e61d3efa0867f524009dd400fbdc849ad1d12646998d046");
   });
 });
 

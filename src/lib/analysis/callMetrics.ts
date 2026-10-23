@@ -13,7 +13,13 @@
 import { estimateCostFromUsageSek, prissattningForModell, type ModelPricing } from "./costGuard";
 
 export type PipelineStage =
-  "identifiering" | "transkribering" | "grundning" | "extraktion" | "bedomning";
+  | "identifiering"
+  | "transkribering"
+  | "grundning"
+  | "extraktion"
+  | "bedomning"
+  // The small extra call that rewrites betygMotivering (motivering.ts); part of the judging stage.
+  | "motivering";
 
 /** One real (or faked, in tests) `messages.create` call. */
 export interface ModelCallMetrics {

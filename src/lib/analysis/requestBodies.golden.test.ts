@@ -240,4 +240,49 @@ describe("golden: request bodies of every pipeline stage", () => {
     await runAnalys(extraktion, { maxCostSek: 5, client: c, effort: "medium", promptCache });
     await sparaGolden(`bedomning-cache-${namn}`, await fangaAnrop(c));
   });
+
+  it("bedömning + omskrivning av betygMotivering (betyget justerades: andra anropet, låg effort)", async () => {
+    // The fixture has one kritisk figure, so only C-E are allowed; "A" is clamped to "C".
+    const c = klient();
+    c.messages.create
+      .mockResolvedValueOnce({
+        usage: USAGE,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              betyg: "A",
+              betygMotivering: "Föreningen är i mycket gott skick.",
+              rodaFlaggor: [
+                {
+                  id: "omsattning",
+                  titel: "Stor del av lånen omsätts 2026",
+                  beskrivning: "31 000 000 kr förfaller 2026.",
+                  severity: "hog",
+                  harledsFran: ["rantekanslighet"],
+                },
+              ],
+              fragor: [],
+            }),
+          },
+        ],
+        stop_reason: "end_turn",
+      })
+      .mockResolvedValueOnce({
+        usage: USAGE,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              betygMotivering: "Betyget C beror på att 31 000 000 kr av lånen förfaller 2026.",
+            }),
+          },
+        ],
+        stop_reason: "end_turn",
+      });
+    const varna = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await runAnalys(extraktion, { maxCostSek: 5, client: c, effort: "medium" });
+    varna.mockRestore();
+    await sparaGolden("bedomning-motivering", await fangaAnrop(c));
+  });
 });

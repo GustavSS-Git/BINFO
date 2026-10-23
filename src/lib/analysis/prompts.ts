@@ -1,5 +1,6 @@
-import type { ExtractionResult, KeyFigureId } from "@/types/analysis";
+import type { ExtractionResult, Grade, KeyFigureId, Severity } from "@/types/analysis";
 import { BENCHMARKS } from "./benchmarks";
+import { beraknaFastaVarden, formateraFastaVarden, type FastaVarden } from "./fastaVarden";
 
 /**
  * Del av cachenyckeln (pdf_hash, model, prompt_version) i Supabase-cachen.
@@ -400,7 +401,8 @@ const BETYGSSKALA = `- "A": inget nyckeltal har status "svag" eller "kritisk", o
 - "B": högst ett nyckeltal med status "svag", inget "kritisk", och kommande åtgärder framstår som hanterbara.
 - "C": flera nyckeltal med status "svag", ELLER ett med "kritisk" som inte förstärks av något annat, ELLER en stor planerad åtgärd utan att rapporten säger hur den ska finansieras.
 - "D": ett eller flera nyckeltal med status "kritisk" som förstärks av något annat i underlaget — till exempel att en stor del av lånen omsätts inom kort, eller en stor åtgärd i underhållsplanen.
-- "E": flera nyckeltal med status "kritisk" som förstärker varandra, eller en uttalad risk i väsentliga händelser som föreningen inte visar sig kunna bära.`;
+- "E": flera nyckeltal med status "kritisk" som förstärker varandra, eller ett nyckeltal med status "kritisk" tillsammans med en uttalad risk i väsentliga händelser som föreningen inte visar sig kunna bära.
+En allvarlig risk i väsentliga händelser utan något nyckeltal med status "kritisk" ger som mest betyget C, och ska beskrivas i en röd flagga med severity "hog".`;
 
 export function buildAnalysSystemPrompt(): string {
   return `Du är en oberoende rådgivare på köparens sida. En bostadsköpare ska lägga bud på en lägenhet i en svensk bostadsrättsförening, och du har fått ett faktakontrollerat underlag ur föreningens senaste årsredovisning. Din uppgift är den samlade bedömningen: ett betyg, de röda flaggorna och de frågor köparen bör ställa innan budet läggs.
@@ -421,7 +423,7 @@ Det du tillför är KOMBINATIONEN. Ett enskilt tal säger sällan särskilt myck
 
 Räntekänsligheten är det bärande talet: den anger direkt hur många procent avgifterna måste höjas per procentenhet som räntan stiger. Har du talet får du säga precis det, med talets egen siffra. Bygg ingen egen modell vid sidan av.
 
-Du får räkna ut andelar och summor ur tal som finns i underlaget (till exempel hur stor del av "lanebok.totalSkuld" som förfaller ett visst år enligt "lanebok.forfalloprofil"). Du får inte föra in en enda siffra utifrån.
+Alla andelar och summor du behöver är redan uträknade av Binfo och står under "Fasta värden" i användarmeddelandet (till exempel hur stor del av "lanebok.totalSkuld" som förfaller ett visst år enligt "lanebok.forfalloprofil"). Varje tal i "betygMotivering" (och i flaggornas "beskrivning" och frågornas "varfor") ska komma från underlaget eller från de fasta värdena och kopieras därifrån; att avrunda en procentsats till heltal (74,2 blir 74 %) är tillåtet. Räkna aldrig själv — ingen egen addition, subtraktion, division eller procentberäkning — och för aldrig in en siffra utifrån.
 
 ${buildForbehallAvsnitt()}
 
@@ -436,6 +438,8 @@ ${buildForbehallAvsnitt()}
 ## Betygsskalan
 
 ${BETYGSSKALA}
+
+Användarmeddelandet anger under "Fasta värden" vilka betyg som är tillåtna med tanke på antalet nyckeltal med status "svag" och "kritisk". Välj betyget bland dem; en bokstav utanför intervallet ändras ändå i ett senare steg.
 
 Saknas många av talen helt ("figure.value" är null) ska du inte sätta ett högt betyg på tunt underlag. Säg då uttryckligen i "betygMotivering" att underlaget är tunt, och låt det tynga betyget nedåt snarare än uppåt.
 
@@ -489,6 +493,7 @@ Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklar
 export function buildAnalysUserPrompt(
   extraction: ExtractionResult,
   tillatnaSidor: ReadonlySet<number>,
+  fasta: FastaVarden = beraknaFastaVarden(extraction),
 ): string {
   const sidor = [...tillatnaSidor].sort((a, b) => a - b);
   const sidlista =
@@ -500,7 +505,86 @@ export function buildAnalysUserPrompt(
 
 ${JSON.stringify(extraction, null, 2)}
 
+## Fasta värden (beräknade av Binfo ur underlaget — använd exakt dessa tal, räkna aldrig om dem)
+
+${formateraFastaVarden(fasta)}
+
 Tillåtna sidnummer i en "ref": ${sidlista}. Inga andra sidnummer får förekomma i ditt svar.
 
 Gör den samlade bedömningen enligt systemprompten och svara med enbart JSON-objektet.`;
+}
+
+// ---------------------------------------------------------------------------
+// Grade motivation, regenerated (analyze.ts). A small extra call that rewrites
+// ONLY betygMotivering for a letter that is already fixed, used when the
+// model's letter was clamped by the deterministic band check or when a number
+// in its motivation did not match the data (siffrorKontroll.ts).
+// ---------------------------------------------------------------------------
+
+export function buildMotiveringSystemPrompt(): string {
+  return `Du är en oberoende rådgivare på köparens sida. Du skriver om en enda text: "betygMotivering", den korta motiveringen till betyget i en bedömning av en svensk bostadsrättsförening. Köparen läser den.
+
+Betyget är redan fastställt och står i användarmeddelandet. Skriv motiveringen för just den bokstaven. Argumentera aldrig för ett annat betyg och skriv aldrig att betyget borde ha varit högre eller lägre.
+
+Regler:
+- Använd bara tal som står i användarmeddelandet (de fasta värdena och de röda flaggorna). Kopiera dem exakt; att avrunda en procentsats till heltal (74,2 blir 74 %) är tillåtet. Räkna aldrig själv och för aldrig in en siffra utifrån.
+- Ändra aldrig ett nyckeltals status och beskriv inget nyckeltal i strid med dess status. Ett tal med status "okant" ska aldrig beskrivas som dåligt.
+- Hitta aldrig på riktvärden, riksgenomsnitt eller lagkrav.
+- Skriv på svenska, i klartext, utan facktermer, rakt och kort (två till fyra meningar). Säg vad som faktiskt drev betyget och, när underlaget räcker för det, vad det innebär för köparen.
+- Den tidigare motiveringen är bara material: ta med det som stämmer med de fasta värdena och lämna det som inte gör det.
+
+Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklaring, inga Markdown-kodstaket. Bara JSON:
+
+{ "betygMotivering": "Kort, rak motivering på svenska för det fastställda betyget." }`;
+}
+
+export interface MotiveringsUnderlag {
+  /** The fixed (final) letter. */
+  betyg: Grade;
+  /** Set when the model's own letter was clamped: the letter it first chose. */
+  klampadFran?: Grade | undefined;
+  /** Numbers in the previous motivation that matched nothing in the data, as written. */
+  avvikandeSiffror: readonly string[];
+  fasta: FastaVarden;
+  rodaFlaggor: ReadonlyArray<{ titel: string; beskrivning: string; severity: Severity }>;
+  tidigareMotivering: string;
+}
+
+export function buildMotiveringUserPrompt(u: MotiveringsUnderlag): string {
+  const skal: string[] = [];
+  if (u.klampadFran !== undefined) {
+    skal.push(
+      `- Det första förslaget var betyget ${u.klampadFran}, men antalet nyckeltal med status "svag" och "kritisk" tillåter bara ${u.fasta.tillatnaBetyg.join(", ")}. Betyget blev därför ${u.betyg}, och motiveringen ska stödja det.`,
+    );
+  }
+  if (u.avvikandeSiffror.length > 0) {
+    skal.push(
+      `- Dessa tal i den tidigare motiveringen stämde inte med underlaget: ${u.avvikandeSiffror.join("; ")}. Använd i stället talen under "Fasta värden".`,
+    );
+  }
+  const flaggor =
+    u.rodaFlaggor.length > 0
+      ? u.rodaFlaggor
+          .map((f) => `- ${f.titel} (severity "${f.severity}"): ${f.beskrivning}`)
+          .join("\n")
+      : "(inga röda flaggor)";
+
+  return `Fastställt betyg: ${u.betyg}
+
+Motiveringen skrivs om därför att:
+${skal.length > 0 ? skal.join("\n") : "- (ingen angiven orsak)"}
+
+## Fasta värden (beräknade av Binfo ur underlaget — använd exakt dessa tal, räkna aldrig om dem)
+
+${formateraFastaVarden(u.fasta)}
+
+## Röda flaggor
+
+${flaggor}
+
+## Tidigare motivering (material, inte facit)
+
+${u.tidigareMotivering}
+
+Skriv den nya betygMotivering för betyget ${u.betyg} och svara med enbart JSON-objektet.`;
 }

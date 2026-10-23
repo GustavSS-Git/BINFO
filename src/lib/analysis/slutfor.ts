@@ -37,7 +37,9 @@ import {
  *      allowed (`tillatnaBetyg`); a model letter outside the set is clamped to
  *      the nearest allowed letter and logged (`klampaBetyg`). A clamp is not a
  *      validation failure and never triggers a retry. `betygMotivering` is left
- *      as the model wrote it.
+ *      as the model wrote it here; analyze.ts regenerates it when the letter was
+ *      clamped or its numbers do not match the data (`kontrolleraBedomning`
+ *      reports the clamp).
  *
  * `slutforAnalys` composes both for a caller that holds both raw answers (the
  * bulk `validera` command, which re-runs every stored result for free).
@@ -295,21 +297,21 @@ export function raknaStatusar(extraction: ExtractionResult): StatusAntal {
 }
 
 /**
- * Which letters the risk grade may take, from the benchmark status counts.
- * The rules are written out as in the spec; the owner's "C only for a large
- * unfinanced project or thin data" is NOT deterministic and not enforced here.
- * Each rule removes letters from the full set, so a future tightening is a
- * one-line change.
+ * Which letters the risk grade may take, from the benchmark status counts
+ * (owner decision 2026-10-23, new analyses only):
+ *   0 svag, 0 kritisk  -> A, B, C
+ *   1 svag, 0 kritisk  -> B, C
+ *   >=2 svag, 0 kritisk -> C only
+ *   >=1 kritisk        -> C, D, E (the number of svag does not matter)
+ * The owner's "C only for a large unfinanced project or thin data" is NOT
+ * deterministic and not enforced here; the rubric in prompts.ts (BETYGSSKALA)
+ * must stay consistent with these bands.
  */
 export function tillatnaBetyg({ svag, kritisk }: StatusAntal): readonly Grade[] {
-  let tillatna: readonly Grade[] = BETYGSORDNING;
-  // No kritisk figure -> D and E are not allowed.
-  if (kritisk === 0) tillatna = tillatna.filter((g) => g !== "D" && g !== "E");
-  // Any kritisk figure -> A and B are not allowed.
-  if (kritisk >= 1) tillatna = tillatna.filter((g) => g !== "A" && g !== "B");
-  // No svag and no kritisk -> only A-C (already implied by the first rule).
-  if (svag === 0 && kritisk === 0) tillatna = tillatna.filter((g) => g <= "C");
-  return tillatna;
+  if (kritisk >= 1) return ["C", "D", "E"];
+  if (svag >= 2) return ["C"];
+  if (svag === 1) return ["B", "C"];
+  return ["A", "B", "C"];
 }
 
 /**
@@ -334,6 +336,21 @@ export function klampaBetyg(betyg: Grade, tillatna: readonly Grade[]): Grade {
 
 export type BetygLogg = (...args: unknown[]) => void;
 
+/** What the deterministic grade check did to the model's letter. */
+export interface BetygKlampning {
+  modellensBetyg: Grade;
+  nyttBetyg: Grade;
+  tillatna: readonly Grade[];
+  antal: StatusAntal;
+}
+
+/** A validated judgement, plus the clamp that was applied to its letter (null
+ *  when the model's letter was inside the allowed set). */
+export interface KontrolleradBedomning {
+  judgement: AnalysJudgement;
+  klampning: BetygKlampning | null;
+}
+
 /**
  * The judging answer, validated against the extraction it was written for: an
  * invented KeyFigureId, a page number that is not in the extraction or a
@@ -342,22 +359,27 @@ export type BetygLogg = (...args: unknown[]) => void;
  *
  * Then the grade is checked deterministically (`tillatnaBetyg`): a letter
  * outside the allowed set is clamped and reported through `logga` (default
- * console.warn). A clamp is NOT a failure — the result stays ok, so
- * extractWithRetry never re-rolls because of it.
+ * console.warn) and in the returned `klampning`. A clamp is NOT a failure — the
+ * result stays ok, so extractWithRetry never re-rolls because of it. The
+ * `betygMotivering` is left as the model wrote it (it argued for the unclamped
+ * letter): the caller (analyze.ts) decides whether to regenerate it.
  */
-export function slutforBedomning(
+export function kontrolleraBedomning(
   extraction: ExtractionResult,
   raw: unknown,
   logga: BetygLogg = console.warn,
-): Utfall<AnalysJudgement> {
+): Utfall<KontrolleradBedomning> {
   const parsed = buildAnalysJudgementSchema(tillatnaSidor(extraction)).safeParse(raw);
   // Same reconciliation of Zod's optional types as valideraExtraktion.
   if (!parsed.success) return { ok: false, zodError: parsed.error, raw };
   const bedomning = parsed.data as AnalysJudgement;
 
   const antal = raknaStatusar(extraction);
-  const nyttBetyg = klampaBetyg(bedomning.betyg, tillatnaBetyg(antal));
-  if (nyttBetyg === bedomning.betyg) return { ok: true, value: bedomning };
+  const tillatna = tillatnaBetyg(antal);
+  const nyttBetyg = klampaBetyg(bedomning.betyg, tillatna);
+  if (nyttBetyg === bedomning.betyg) {
+    return { ok: true, value: { judgement: bedomning, klampning: null } };
+  }
   logga("[slutfor] Betyg utanför tillåtet intervall, justerat", {
     modellensBetyg: bedomning.betyg,
     nyttBetyg,
@@ -365,7 +387,23 @@ export function slutforBedomning(
     forening: extraction.forening.namn,
     orgnr: extraction.forening.orgnr,
   });
-  return { ok: true, value: { ...bedomning, betyg: nyttBetyg } };
+  return {
+    ok: true,
+    value: {
+      judgement: { ...bedomning, betyg: nyttBetyg },
+      klampning: { modellensBetyg: bedomning.betyg, nyttBetyg, tillatna, antal },
+    },
+  };
+}
+
+/** `kontrolleraBedomning` without the clamp metadata (bulk `validera`, tests). */
+export function slutforBedomning(
+  extraction: ExtractionResult,
+  raw: unknown,
+  logga: BetygLogg = console.warn,
+): Utfall<AnalysJudgement> {
+  const r = kontrolleraBedomning(extraction, raw, logga);
+  return r.ok ? { ok: true, value: r.value.judgement } : r;
 }
 
 export interface SlutfordAnalys {
