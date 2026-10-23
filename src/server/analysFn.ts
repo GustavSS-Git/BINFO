@@ -56,6 +56,7 @@ import { envFromProcess, type Env } from "./env";
 import { hashaIp, losIp, tanstackKontextKallor, type Kontext } from "./kontext";
 import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
+import { hamtaAnnons } from "./annons/hamta";
 import {
   hamtaForening as hamtaRegisterForening,
   hamtaRegisteranalys as hamtaRegisteranalysImpl,
@@ -235,6 +236,24 @@ export const hamtaPrisuppskattningFn = createServerFn({ method: "POST" })
       return await hamtaPrisuppskattning(data, { anropare });
     } catch (fel) {
       throw sakertFel("hamtaPrisuppskattningFn", fel);
+    }
+  });
+
+/**
+ * "Hämta uppgifter" på /analysera: läser en Booli-annons och returnerar
+ * normaliserade fält (src/server/annons/hamta.ts). Startar aldrig någon
+ * analys. Alla förväntade fel RETURNERAS (`{ ok: false, errorCode,
+ * errorMessage }`, köparsäker text); bara oväntade fel kastas.
+ */
+export const hamtaAnnonsFn = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => data)
+  .handler(async ({ data }) => {
+    try {
+      const env = envFromProcess();
+      const anropare = await anropareFor(env);
+      return await hamtaAnnons(data, { anropare, env });
+    } catch (fel) {
+      throw sakertFel("hamtaAnnonsFn", fel);
     }
   });
 

@@ -207,6 +207,36 @@ export const IndividuellMatningSchema = z
   })
   .strict();
 
+export const AnnonsFaltSchema = z.enum([
+  "adress",
+  "postnummer",
+  "ort",
+  "utgangspris",
+  "manadsavgift",
+  "boarea",
+  "antalRum",
+  "vaning",
+  "byggar",
+  "hiss",
+  "balkong",
+]);
+
+/** Sent by the client, so only the canonical Booli URL shape is accepted. */
+export const AnnonsKallaSchema = z
+  .object({
+    typ: z.literal("booli"),
+    url: z.string().regex(/^https:\/\/www\.booli\.se\/(bostad|annons)\/\d{1,12}$/),
+    maklarUrl: z
+      .string()
+      .max(2000)
+      .regex(/^https?:\/\/[^\s]+$/)
+      .optional(),
+    forening: z.string().max(200).optional(),
+    hamtad: z.string().datetime(),
+    oandradeFalt: z.array(AnnonsFaltSchema).max(AnnonsFaltSchema.options.length),
+  })
+  .strict();
+
 export const PropertyInputSchema = z
   .object({
     kind: PropertyKindSchema,
@@ -225,6 +255,7 @@ export const PropertyInputSchema = z
     balkong: TristateSchema,
     avgiftInkluderar: FeeInclusionSchema,
     antalPersoner: z.number(),
+    kalla: AnnonsKallaSchema.optional(),
   })
   .strict();
 

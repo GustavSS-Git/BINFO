@@ -124,6 +124,40 @@ export interface PropertyInput {
   // client-side mortgage calculator collects it independently of this
   // contract (see the Manadskostnad doc comment below).
   antalPersoner: number;
+
+  /** Where the form's values came from, when the buyer fetched them from a
+   *  listing (owner decision 2026-10-24). Omitted when typed by hand. Buyer
+   *  data: blanked by the 12-month retention like the address. */
+  kalla?: AnnonsKalla;
+}
+
+/** Form fields a listing fetch can fill (src/lib/annons/). */
+export type AnnonsFalt =
+  | "adress"
+  | "postnummer"
+  | "ort"
+  | "utgangspris"
+  | "manadsavgift"
+  | "boarea"
+  | "antalRum"
+  | "vaning"
+  | "byggar"
+  | "hiss"
+  | "balkong";
+
+export interface AnnonsKalla {
+  typ: "booli";
+  /** Canonical listing URL, https://www.booli.se/(bostad|annons)/<id>. */
+  url: string;
+  /** The broker's listing page ("Läs mer hos mäklaren"); stored, never fetched. */
+  maklarUrl?: string;
+  /** BRF name as the listing states it. */
+  forening?: string;
+  /** ISO timestamp of the fetch. */
+  hamtad: string;
+  /** Fields still holding the fetched value when the analysis was created
+   *  (fetched and not edited by the buyer). */
+  oandradeFalt: AnnonsFalt[];
 }
 
 // ---------------------------------------------------------------------------

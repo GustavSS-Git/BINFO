@@ -11,6 +11,7 @@ import {
   LaneUnderlagSchema,
   ManadskostnadSchema,
   PrisanalysSchema,
+  PropertyInputSchema,
   TristateSchema,
 } from "./schema";
 import type {
@@ -886,5 +887,69 @@ describe("FragaSchema", () => {
 
   it("avvisar okända nycklar", () => {
     expect(FragaSchema.safeParse({ ...bas, hittepa: 1 }).success).toBe(false);
+  });
+});
+
+describe("PropertyInputSchema.kalla (Booli, 2026-10-24)", () => {
+  const bas = {
+    kind: "bostadsratt",
+    boarea: 54,
+    antalRum: 2,
+    manadsavgift: 3800,
+    andelstal: 0,
+    orgnr: "",
+    adress: "Sankt Eriksgatan 31A",
+    postnummer: "11239",
+    ort: "Stockholm",
+    hiss: "ja",
+    balkong: "okant",
+    avgiftInkluderar: {
+      varme: "okant",
+      vatten: "okant",
+      el: "okant",
+      bredband: "okant",
+      tv: "okant",
+    },
+    antalPersoner: 2,
+  } as const;
+  const kalla = {
+    typ: "booli",
+    url: "https://www.booli.se/bostad/720821",
+    maklarUrl:
+      "https://connect-resolve.maklare.vitec.net/Description/M22127/OBJ22127_2099178190/Booli",
+    forening: "BRF Väktaren 16",
+    hamtad: "2026-10-24T08:00:00.000Z",
+    oandradeFalt: ["adress", "boarea"],
+  } as const;
+
+  it("accepterar input utan kalla (lagrade rader före 2026-10-24)", () => {
+    expect(PropertyInputSchema.safeParse(bas).success).toBe(true);
+  });
+
+  it("accepterar en giltig kalla", () => {
+    const r = PropertyInputSchema.safeParse({ ...bas, kalla });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.kalla).toEqual(kalla);
+  });
+
+  it("accepterar kalla utan valfria fält", () => {
+    const { maklarUrl: _m, forening: _f, ...minimal } = kalla;
+    expect(PropertyInputSchema.safeParse({ ...bas, kalla: minimal }).success).toBe(true);
+  });
+
+  it.each([
+    ["http-länk", { url: "http://www.booli.se/bostad/720821" }],
+    ["annan domän", { url: "https://www.booli.se.evil.com/bostad/1" }],
+    ["fel sökväg", { url: "https://www.booli.se/sok/till-salu" }],
+    ["frågesträng", { url: "https://www.booli.se/bostad/720821?x=1" }],
+    ["okänt fält", { okant: 1 }],
+    ["okänt formulärfält", { oandradeFalt: ["orgnr"] }],
+    ["fel typ", { typ: "hemnet" }],
+    ["ogiltig tid", { hamtad: "igår" }],
+    ["mäklarlänk utan protokoll", { maklarUrl: "javascript:alert(1)" }],
+  ])("avvisar %s", (_namn, andring) => {
+    expect(PropertyInputSchema.safeParse({ ...bas, kalla: { ...kalla, ...andring } }).success).toBe(
+      false,
+    );
   });
 });
