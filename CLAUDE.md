@@ -78,8 +78,11 @@ per-apartment cost in kronor, and what to do before bidding.
   `?forening=<slug>` from a `/brf/$slug` CTA replaces the dropzone with "finns
   redan hos Binfo" and creates the analysis via `skapaAnalysFranRegisterFn`:
   no PDF, no API call, loose quota only).
-  - Required fields: pris, boarea, våning, avgift, rum, adress, postnummer, ort.
-  - Optional: byggår, hiss, balkong.
+  - Required fields: boarea, våning, avgift, rum, adress, postnummer, ort.
+  - Optional: utgångspris (since 2026-10-23; same rule as `/vardering`, shared
+    `valideraValfrittUtgangspris`: empty ok, invalid/0 = error; without it the
+    report shows the "Binfos värdering" variant with no price comparison and
+    the summary/PDF price rows are hidden), byggår, hiss, balkong.
   - Submits PDF + `PropertyInput` JSON as FormData to `skapaAnalysFn`.
   - On success it goes to `/forhandsvisning/$analysisId`, which polls
     `hamtaStatusFn` every 5 s (status carries `textlager`, `ateranvand`,
@@ -346,7 +349,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (v3, 2026-10-13: 100 files, 2093 tests, all passing)
+npm test                    # vitest run (2026-10-23: 105 files, 2129 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
