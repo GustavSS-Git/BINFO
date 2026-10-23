@@ -7,7 +7,7 @@ const links = [
   { to: "/vardering", label: "Priskoll" },
   { to: "/brf", label: "BRF-register" },
   { to: "/bolanekalkyl", label: "Bolånekalkyl" },
-  { to: "/guide", label: "Guide" },
+  { to: "/kopguide", label: "Köpguide" },
 ];
 
 const lankKlass =

@@ -3,7 +3,7 @@ import type { PropertyType } from "@/data/mockData";
 
 /**
  * Delat val av bostadstyp (Bostadsrätt/Hus).
- * Styr vilka steg och kostnader som visas i Guide och rapporterna.
+ * Styr vilka steg och kostnader som visas i köpguiden och rapporterna.
  */
 let current: PropertyType = "brf";
 const listeners = new Set<() => void>();

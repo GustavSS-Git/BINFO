@@ -4,16 +4,16 @@ import { Card, Callout, Toggle, PageHeader, Badge } from "@/components/ui/binfo"
 import { usePropertyType } from "@/lib/propertyType";
 import type { PropertyType } from "@/data/mockData";
 
-export const Route = createFileRoute("/guide")({
+export const Route = createFileRoute("/kopguide")({
   head: () => ({
     meta: [
-      { title: "Guide: hela bostadsköpet steg för steg — Binfo" },
+      { title: "Köpguide: hela bostadsköpet steg för steg — Binfo" },
       {
         name: "description",
         content:
           "Från lånelöfte till tillträde: varje steg i det svenska bostadsköpet med varningar och tips.",
       },
-      { property: "og:title", content: "Guide: hela bostadsköpet steg för steg — Binfo" },
+      { property: "og:title", content: "Köpguide: hela bostadsköpet steg för steg — Binfo" },
       {
         property: "og:description",
         content: "Interaktiv tidslinje över köpprocessen för bostadsrätt och hus.",
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/guide")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: Guide,
+  component: Kopguide,
 });
 
 type Steg = {
@@ -249,7 +249,7 @@ const steg: Steg[] = [
   },
 ];
 
-function Guide() {
+function Kopguide() {
   const [typ, setTyp] = usePropertyType();
   const [open, setOpen] = useState<string | null>("lanelofte");
   const [klara, setKlara] = useState<string[]>([]);
@@ -264,7 +264,7 @@ function Guide() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-14">
       <PageHeader
-        eyebrow="Guide"
+        eyebrow="Köpguide"
         title="Hela bostadsköpet, steg för steg"
         lead="Klicka på ett steg för att se varningar och tips. Bocka av det du är klar med."
       />

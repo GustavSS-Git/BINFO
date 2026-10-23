@@ -14,7 +14,7 @@ export const STATISKA_SIDOR: readonly string[] = [
   "/analysera",
   "/vardering",
   "/bolanekalkyl",
-  "/guide",
+  "/kopguide",
   "/exempel",
 ];
 

@@ -15,6 +15,7 @@ import { Route as BolanekalkylRouteImport } from './routes/bolanekalkyl'
 import { Route as ExempelRouteImport } from './routes/exempel'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as IntegritetRouteImport } from './routes/integritet'
+import { Route as KopguideRouteImport } from './routes/kopguide'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VarderingRouteImport } from './routes/vardering'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
@@ -57,6 +58,11 @@ const GuideRoute = GuideRouteImport.update({
 const IntegritetRoute = IntegritetRouteImport.update({
   id: '/integritet',
   path: '/integritet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KopguideRoute = KopguideRouteImport.update({
+  id: '/kopguide',
+  path: '/kopguide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
   '/integritet': typeof IntegritetRoute
+  '/kopguide': typeof KopguideRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
   '/integritet': typeof IntegritetRoute
+  '/kopguide': typeof KopguideRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/exempel': typeof ExempelRoute
   '/guide': typeof GuideRoute
   '/integritet': typeof IntegritetRoute
+  '/kopguide': typeof KopguideRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/exempel'
     | '/guide'
     | '/integritet'
+    | '/kopguide'
     | '/sitemap.xml'
     | '/vardering'
     | '/analys/$analysisId'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/exempel'
     | '/guide'
     | '/integritet'
+    | '/kopguide'
     | '/sitemap.xml'
     | '/vardering'
     | '/analys/$analysisId'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/exempel'
     | '/guide'
     | '/integritet'
+    | '/kopguide'
     | '/sitemap.xml'
     | '/vardering'
     | '/analys_/$analysisId'
@@ -263,6 +275,7 @@ export interface RootRouteChildren {
   ExempelRoute: typeof ExempelRoute
   GuideRoute: typeof GuideRoute
   IntegritetRoute: typeof IntegritetRoute
+  KopguideRoute: typeof KopguideRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VarderingRoute: typeof VarderingRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
@@ -320,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/integritet'
       fullPath: '/integritet'
       preLoaderRoute: typeof IntegritetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kopguide': {
+      id: '/kopguide'
+      path: '/kopguide'
+      fullPath: '/kopguide'
+      preLoaderRoute: typeof KopguideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -423,6 +443,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExempelRoute: ExempelRoute,
   GuideRoute: GuideRoute,
   IntegritetRoute: IntegritetRoute,
+  KopguideRoute: KopguideRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VarderingRoute: VarderingRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,

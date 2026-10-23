@@ -71,7 +71,7 @@ function Index() {
               <LinkButton to="/analysera" size="lg">
                 Analysera en bostad
               </LinkButton>
-              <LinkButton to="/guide" size="lg" variant="secondary">
+              <LinkButton to="/kopguide" size="lg" variant="secondary">
                 Se köpguiden
               </LinkButton>
             </div>
@@ -167,7 +167,7 @@ function Index() {
                 <span className="verdict-why">Sänkt från 5,45 mkr för risken med stambytet.</span>
               </div>
 
-              <a className="guide-progress" href="/guide">
+              <a className="guide-progress" href="/kopguide">
                 <span className="gp-text">
                   <strong>Köpguiden:</strong> nästa steg är budgivningen
                 </span>
@@ -248,7 +248,7 @@ function Index() {
               Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör härnäst.
             </p>
           </div>
-          <LinkButton to="/guide" variant="secondary">
+          <LinkButton to="/kopguide" variant="secondary">
             Öppna köpguiden
           </LinkButton>
         </Card>

@@ -112,7 +112,9 @@ per-apartment cost in kronor, and what to do before bidding.
     (`calc/amortering.ts`).
   - Drift schablons (`schabloner.ts`) and the 5× bank skuldkvot are still
     unverified placeholders, labelled "Schablon"/"Antagande" everywhere.
-- `/guide`: buying guide (checked steps in `useState` only).
+- `/kopguide`: Köpguide, the buying guide (checked steps in `useState` only).
+  `/guide` is a 301 redirect to it (renamed 2026-10-23); nav label "Köpguide",
+  running text "köpguiden".
 - **SEO:** SSR on every route. Register pages have real-figure titles and
   descriptions, canonical, og:*, JSON-LD (Organization + BreadcrumbList);
   `/sitemap.xml`; `robots.txt` has a `Sitemap:` line; `public/og.png`
@@ -570,6 +572,15 @@ cd ml && .venv/bin/pytest                  # ML tests
   "Laddar…"). The public register is filled only by user uploads (bulk
   pre-population cut, owner 2026-10-13). No contact address exists for "Hittar
   du ett fel?" on BRF pages (owner to supply).
+- **Recent-analyses storage is still active (open question, owner 2026-10-23).**
+  The "Dina senaste analyser" box on `/analysera` is hidden by
+  `VISA_SENASTE_ANALYSER = false` (`src/routes/analysera.tsx`), but `sparaAnalys`
+  still writes every created/opened analysis id + BRF name to the browser's
+  localStorage (`binfo:senaste-analyser`, `src/lib/senasteAnalyser.ts`). It is
+  per browser, not per IP (the server links anonymous analyses to the
+  `binfo_enhet` device principal; hashed IPs are only used for quotas, purged
+  after 2 days). Whether to keep, replace or remove this storage is undecided.
+  Account history (`/konto` → Analyser) is unaffected.
 - Volontären `antalLokaler` is still missed (1 vs null), pre-existing.
 - Every 5 s status poll reads `rapport` rows with `select *` (large jsonb) and
   Zod-parses the stored result; fine at today's volume.
