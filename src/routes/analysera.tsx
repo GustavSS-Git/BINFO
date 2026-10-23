@@ -30,6 +30,15 @@ import {
 
 type AnalyseraSearch = AnalyseraPrefill & { forening?: string | undefined };
 
+/**
+ * Visar rutan "Dina senaste analyser" (webbläsarens localStorage-lista, se
+ * src/lib/senasteAnalyser.ts). Dold tills vidare (ägarbeslut 2026-10-23):
+ * listan fortsätter att sparas i bakgrunden (sparaAnalys anropas som förut)
+ * och kontohistoriken på /konto påverkas inte. Sätt till `true` för att visa
+ * rutan igen.
+ */
+export const VISA_SENASTE_ANALYSER = false;
+
 export const Route = createFileRoute("/analysera")({
   head: () => ({
     meta: [
@@ -546,7 +555,7 @@ function SenasteAnalyserSektion() {
     setPoster(hamtaSenasteAnalyser());
   };
 
-  if (!laddad || poster.length === 0) return null;
+  if (!VISA_SENASTE_ANALYSER || !laddad || poster.length === 0) return null;
 
   return (
     <Card className="mb-6">
