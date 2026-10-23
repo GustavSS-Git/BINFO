@@ -1,10 +1,133 @@
 # Binfo — current plan
 
-**Current plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)** (accounts, public BRF register,
-bulk analysis via the Batch API, bolånekalkyl PDF/Excel export). Decisions: `docs/DECISIONS.md`.
+**Current task: four UI changes (2026-10-23), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+(v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
-Earlier plans (done, kept for history): the UI copy + new `/exempel` plan below
+Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Plan: four changes (Exempel tab, hide recent analyses, Köpguide, optional utgångspris)
+
+Status: **DONE 2026-10-23** (approved by owner 2026-10-23; all four committed on `main`, not pushed; deploy pending: `deploy:edge`, then Lovable publish). Base: `main` @ 59f968b. Commits go
+directly to `main`, local only; no push, no deploy without the owner's OK.
+
+## Owner answers (Phase 1, 2026-10-23)
+
+1. Tab fix: square off the card's top-left corner. Nobody is editing in Lovable.
+2. Hide "Dina senaste analyser" for everyone behind one constant; logic and storage untouched.
+3. Rename to Köpguide; URL change to `/kopguide` is fine if easy (it is: done with a 301).
+4. OK to make `PropertyInput.utgangspris` optional in the contract.
+5. Without a price: /vardering's validation (a), the existing no-price price check on web
+   and PDF (b), hide the summary row (c), calculator link uses the valuation or no price (d),
+   no new missing-data question (e).
+6. Deploy order documented (Edge first, then Lovable publish); owner deploys.
+7. Commit to `main`. 8. Local E2E incl. one ~3 kr real upload is OK.
+
+## 1. Exempel tab on the landing page
+
+- **Cause:** `.dossier` has `border-radius: 1.25rem 1.25rem 0 0`; the tab
+  (`.dossier-tab`, `left: -1px`, `bottom: 100%`) stands on the curve of the
+  top-left corner, leaving a notch between the tab and the card edge.
+- **Change:** `src/styles.css` only: `.dossier` top-left radius 0 (a folder
+  tab), so the tab's left border continues straight into the card's left
+  border. Nothing else visual changes.
+- **Verify:** Playwright screenshots of `.dossier-wrap` at 390, 820, 1440 px,
+  before/after.
+
+## 2. Hide "Dina senaste analyser" on /analysera
+
+- **Fact:** the box is browser localStorage (`src/lib/senasteAnalyser.ts`, max 5,
+  12 months), not IP-based. Account history (`/konto` → Analyser,
+  `lista_mina_analyser`) is a separate component and stays unchanged.
+- **Change:** `src/routes/analysera.tsx`: one exported module constant
+  `VISA_SENASTE_ANALYSER = false` (with a comment on how to restore);
+  `SenasteAnalyserSektion` stays and renders nothing while it is false.
+  `sparaAnalys` calls (analysera, förhandsvisning, analys) keep writing.
+  The privacy page text about local storage stays true (storage continues).
+- **Layout:** the section was a `Card mb-6` between the "Bara priskoll?" line
+  and the upload card; returning `null` leaves no wrapper, so no gap.
+- **CLAUDE.md:** note that browser-side recent-analyses storage (and server-side
+  device-cookie linkage) is still active in the background; open question.
+- **Verify:** test that the section renders nothing even with stored entries;
+  browser check of /analysera spacing.
+
+## 3. Guide → Köpguide
+
+- **Route:** `git mv src/routes/guide.tsx src/routes/kopguide.tsx`
+  (`createFileRoute("/kopguide")`); new `src/routes/guide.tsx` that only
+  `throw redirect({ to: "/kopguide", statusCode: 301 })` in `beforeLoad`
+  (same pattern as `brf.$slug.tsx`). `routeTree.gen.ts` regenerates (not hand-edited).
+- **Text:** nav label "Köpguide" (`SiteNav.tsx`); title/og:title
+  "Köpguide: hela bostadsköpet steg för steg — Binfo"; eyebrow "Köpguide";
+  links on `/` → `/kopguide` (running text already says "köpguiden");
+  `sitemap.ts` `/guide` → `/kopguide`; `propertyType.ts` comment; CLAUDE.md
+  route list. CSS class names `guide-progress`/`guide-rubrik` stay (not user-visible).
+- **Verify:** `grep` for remaining user-visible "Guide"/`"/guide"`;
+  `curl -I /guide` → 301 to `/kopguide`; sitemap test; browser check.
+
+## 4. Utgångspris optional on /analysera
+
+- **Contract** (`src/types/analysis.ts`, `src/lib/analysis/schema.ts`):
+  `PropertyInput.utgangspris?: number`; `AnalysisResult.prisanalys` takes the
+  no-price shape (`utgangspris?`/`prisPerM2?`, i.e. `Prisanalys` with those two
+  optional). Stored rows all carry a price, so reads stay compatible. The
+  schema field becomes `z.number().optional()`: only `.optional()` is added, so
+  every stored row parses exactly as before; the form is what rejects 0/text.
+- **Form** (`analyseraForm.ts`, `analysera.tsx`): `/vardering`'s rule and
+  message; `Field optional`; `buildPropertyInput` omits the key when empty.
+- **Assembly** (`assemble.ts`): `tillPrisInput` conditional spread;
+  `byggPrisanalys` spreads price figures only when present (the core
+  `byggPrisanalysUtanForening` already omits comparison/avvikelse and writes
+  "Inget utgångspris har angetts…"). Fall-C `byggSlutsats` gets a no-price
+  sentence so no path talks about a missing price.
+- **UI:** `PropertySummary` hides the row; `AnalysRapport` calculator link
+  falls back valuation → nothing (`?.`, no crash); `Prisrimlighet` needs no
+  change. **PDF:** `viewModel.ts` summary omits the row; `PdfPrisanalys`
+  price fields optional; `AnalysPdfDocument` uses the no-price title/rows like
+  the web. `bolanekalkyl.ts` `buildMinimalPropertyInput` drops the dummy 0.
+- **Not changed:** judging/prompts (never see buyer data → no `PROMPT_VERSION`
+  bump), calc/, account lists (already null-safe), `/exempel` data.
+- **Deploy (owner):** `npm run deploy:edge` first (new worker accepts old and
+  new rows), then Lovable publish. Reverse order would fail new price-less
+  analyses in the old worker's strict input parse. No migration.
+- **Tests first:** form (empty ok, "0"/text error, key omitted), schema
+  (optional), assemble (full analysis without price: no utgangspris/prisPerM2,
+  no avvikelse, slutsats text), PropertySummary, PDF view model + document
+  render without price, report link without price/valuation.
+- **E2E (local Supabase stack, `./scripts/v2-lokalt.sh`):** one analysis without
+  price via the register path (0 kr) and one real upload without price (~3 kr,
+  logged in `docs/api-test-log.md`); open preview, full report, PDF export.
+
+## Checks before done
+
+`npm run typecheck`, `npm test`, `npm run lint`, `npm run build`, dev-server
+browser pass over `/`, `/analysera`, `/kopguide`, `/guide`, report; report the
+real output.
+
+## Decisions log (made during execution)
+
+- Change 2: no DOM test environment exists (no jsdom/testing-library) and the box
+  never renders during SSR (storage is read in an effect), so it was verified in
+  a real browser: seeded entry → box absent, storage intact; control run with the
+  flag `true` → box present.
+- Change 3: CSS class names `guide-progress`/`guide-rubrik` kept (not user-visible).
+  `/guide` keeps a tiny redirect route rather than being deleted.
+- Change 1: only the card corner changed; the tab's own radius untouched.
+- Change 4: `PrisanalysUtanForening` simplified to `Omit<Prisanalys, "andelAvForeningensSkuld">`
+  (same shape as before). One shared `valideraValfrittUtgangspris` serves /analysera and
+  /vardering. Fallback (non-model) conclusion and confidence texts got no-price wording.
+  `PropertySummary` switches to 4 columns when the price row is hidden (only styling
+  touch; for Lovable to review). PDF price section title comes from the view model.
+  `DemoPrisdatakalla` (dev only) gets `utgangspris ?? 0`.
+- Lint: `src/routes/index.tsx` had 15 prettier errors from the Lovable edit (59f968b);
+  fixed with `eslint --fix` in its own commit (owner confirmed nobody edits in Lovable).
+- E2E (local stack): fresh upload without price 111 s, 3.09 kr (log #105); register path
+  0 kr; with-price control 0 kr. Report/PDF/calculator link as planned, 0 console errors.
+- Found, not fixed (pre-existing, out of scope): in the PDF the price section heading can
+  be left alone at the bottom of a page while its card moves to the next (same with
+  and without a price).
 
 ---
 
