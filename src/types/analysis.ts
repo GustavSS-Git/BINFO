@@ -480,7 +480,15 @@ export interface Fraga {
    *  These render in separate groups. */
   ursprung: "analys" | "saknad_uppgift";
   riktadTill: "styrelsen" | "maklaren" | "banken";
+  /** One or two short sentences shown under the question ("Varför: …"). For a
+   *  question tied to a finding it names that finding and its number from this
+   *  report; for a generic question it says why the answer matters to the buyer
+   *  (avgift, budnivå, risk). Required. */
   varfor: string;
+  /** What a reassuring and a worrying answer sounds like, one line. Shown as
+   *  "Bra svar / varningssignal". Omitted (never empty) when there is nothing
+   *  useful to say. */
+  svarssignal?: string;
   ref?: PageRef;
 }
 

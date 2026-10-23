@@ -590,6 +590,7 @@ export const FragaSchema = z
     ursprung: z.enum(["analys", "saknad_uppgift"]),
     riktadTill: z.enum(["styrelsen", "maklaren", "banken"]),
     varfor: z.string(),
+    svarssignal: z.string().optional(),
     ref: PageRefSchema.optional(),
   })
   .strict();
@@ -693,6 +694,15 @@ export const AnalysFragaSchema = FragaSchema.extend({
   fraga: ickeTomText("fraga"),
   ursprung: z.literal("analys"),
   varfor: ickeTomText("varfor"),
+  // Valfri: modellen ska utelämna nyckeln, men en tom sträng eller null får
+  // inte förbruka det enda omförsöket. Se transformen nedan.
+  svarssignal: z.string().nullish(),
+}).transform(({ svarssignal, ...resten }): typeof resten & { svarssignal?: string } => {
+  // Tom/blank/null = utelämnad. Nyckeln tas bort helt (aldrig `undefined`):
+  // resultatet valideras om av den strikta FragaSchema och typas som Fraga
+  // under exactOptionalPropertyTypes.
+  const text = svarssignal?.trim();
+  return text ? { ...resten, svarssignal: text } : resten;
 });
 
 function kravUnikaIdn(poster: Array<{ id: string }>, ctx: z.RefinementCtx, vad: string): void {

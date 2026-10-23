@@ -93,6 +93,38 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
     }
   });
 
+  it("shows 'Varför:' with each analysis question's reason", () => {
+    expect(extractedText).toContain("Varför:");
+    for (const fraga of sampleAnalysis.fragor.filter((f) => f.ursprung === "analys")) {
+      const orden = fraga.varfor.split(/\s+/).filter((w) => w.length > 4);
+      for (const ord of orden.slice(0, 4)) expect(extractedText).toContain(ord);
+    }
+  });
+
+  it("renders a question's svarssignal under it, and no signal line otherwise", async () => {
+    const med: typeof sampleAnalysis = {
+      ...sampleAnalysis,
+      fragor: [
+        {
+          ...sampleAnalysis.fragor[0]!,
+          id: "med-signal",
+          svarssignal: "Bra svar: UNIKSIGNALALFA. Varningssignal: UNIKSIGNALBETA.",
+        },
+      ],
+    };
+    const text = async (analys: typeof sampleAnalysis) => {
+      const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
+      const doc = await getDocumentProxy(new Uint8Array(buf));
+      return (await extractText(doc, { mergePages: true })).text;
+    };
+    const { svarssignal: _signal, ...fragaUtanSignal } = med.fragor[0]!;
+    const utanSignal = await text({ ...med, fragor: [fragaUtanSignal] });
+    const medText = await text(med);
+    expect(medText).toContain("UNIKSIGNALALFA");
+    expect(medText).toContain("UNIKSIGNALBETA");
+    expect(utanSignal).not.toContain("UNIKSIGNAL");
+  }, 60_000);
+
   it("includes all röda flaggor from the sample analysis, not just the top two", () => {
     for (const flagga of sampleAnalysis.rodaFlaggor) {
       expect(extractedText).toContain(flagga.titel);

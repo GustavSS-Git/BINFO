@@ -361,10 +361,19 @@ const styles = StyleSheet.create({
     borderColor: PDF_COLORS.mutedForeground,
     marginTop: 1,
   },
+  fragaBody: {
+    flex: 1,
+    gap: 2,
+  },
   fragaText: {
     fontSize: 9,
-    flex: 1,
     lineHeight: 1.4,
+  },
+  // Grey, not italic: only regular and bold faces are registered (fonts.ts).
+  fragaContext: {
+    fontSize: 8,
+    lineHeight: 1.4,
+    color: PDF_COLORS.mutedForeground,
   },
   emptyNote: {
     fontSize: 9,
@@ -756,7 +765,11 @@ function Fragor({ fragor }: { fragor: PdfViewModel["fragor"] }) {
           {fragor.map((f) => (
             <View key={f.id} style={styles.fragaRow} wrap={false}>
               <View style={styles.checkbox} />
-              <Text style={styles.fragaText}>{f.fraga}</Text>
+              <View style={styles.fragaBody}>
+                <Text style={styles.fragaText}>{f.fraga}</Text>
+                <Text style={styles.fragaContext}>Varför: {f.varfor}</Text>
+                {f.svarssignal ? <Text style={styles.fragaContext}>{f.svarssignal}</Text> : null}
+              </View>
             </View>
           ))}
         </View>

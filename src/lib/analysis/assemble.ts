@@ -104,7 +104,10 @@ function genereraSaknadUppgiftFragor(input: PropertyInput, forening: Forening): 
       fraga: "Finns det hiss i huset?",
       ursprung: "saknad_uppgift",
       riktadTill: "maklaren",
-      varfor: "Uppgiften om hiss saknas — det påverkar både värdet och tillgängligheten.",
+      varfor:
+        "Uppgiften om hiss saknas. Hiss påverkar både värdet och hur lätt lägenheten är att " +
+        "komma till, så svaret avgör vad priset rimligen bör vara och hur lätt den är att sälja " +
+        "vidare.",
     });
   }
 
@@ -114,7 +117,9 @@ function genereraSaknadUppgiftFragor(input: PropertyInput, forening: Forening): 
       fraga: "Har lägenheten balkong eller uteplats?",
       ursprung: "saknad_uppgift",
       riktadTill: "maklaren",
-      varfor: "Uppgiften om balkong saknas — det påverkar både pris och jämförbarhet.",
+      varfor:
+        "Uppgiften om balkong saknas. Den påverkar både priset och hur lägenheten ska jämföras " +
+        "med andra, så svaret avgör om budet du tänker lägga är rimligt.",
     });
   }
 
@@ -128,7 +133,13 @@ function genereraSaknadUppgiftFragor(input: PropertyInput, forening: Forening): 
       fraga: `Ingår ${post.label} i månadsavgiften?`,
       ursprung: "saknad_uppgift",
       riktadTill: "maklaren",
-      varfor: `Om ${post.label} ingår i avgiften eller inte påverkar den faktiska månadskostnaden.`,
+      varfor:
+        `Om ${post.label} ingår i avgiften eller inte påverkar din faktiska månadskostnad: ` +
+        `ingår det inte, tillkommer det på din egen räkning och avgiften är inte jämförbar med ` +
+        `andra lägenheters.`,
+      svarssignal:
+        "Bra svar: ett tydligt ja eller nej som går att få skriftligt. " +
+        "Varningssignal: ett vagt svar eller att ingen vet.",
     });
   }
 
@@ -151,7 +162,11 @@ const SAKNAR_RANTEKANSLIGHET_FRAGA: Fraga = {
   riktadTill: "maklaren",
   varfor:
     "Räntekänslighet är ett av de sju lagstadgade nyckeltalen och visar hur känslig avgiften är " +
-    "för högre ränta.",
+    "för högre ränta. Utan den kan du inte räkna ut vad en räntehöjning gör med din " +
+    "månadsavgift, och därmed inte om du klarar kostnaden om räntan stiger.",
+  svarssignal:
+    "Bra svar: en siffra som styrelsen kan räkna fram ur lånen och avgiftsintäkterna. " +
+    "Varningssignal: att styrelsen inte vet hur mycket avgiften påverkas av räntan.",
 };
 
 /** Matches "räntekänslighet"/"räntekänslig" case-insensitively — used to spot
@@ -213,7 +228,13 @@ export function osakerhetsfragor(forening: Forening, befintliga: readonly Fraga[
       fraga: `Kan styrelsen bekräfta siffran för ${nyckelord} i årsredovisningen?`,
       ursprung: "analys",
       riktadTill: "styrelsen",
-      varfor: orsak,
+      varfor:
+        `${orsak}${/[.!?]$/.test(orsak.trim()) ? "" : "."} ` +
+        "Är siffran fel ändras bilden av föreningens ekonomi, och därmed vad du bör vara " +
+        "beredd att betala och hur mycket avgiften kan påverkas.",
+      svarssignal:
+        "Bra svar: styrelsen visar var siffran står i årsredovisningen och hur den räknats. " +
+        "Varningssignal: att ingen kan bekräfta siffran.",
       ...(kf.figure.ref ? { ref: kf.figure.ref } : {}),
     });
   }
@@ -273,7 +294,8 @@ const SAKNAR_SKULD_PER_M2_FRAGA: Fraga = {
   varfor:
     "Årsredovisningen redovisar inte skuldsättning per kvadratmeter bostadsrättsyta. Med den " +
     "går det att räkna ut ungefär hur stor del av föreningens lån lägenheten bär — lån som " +
-    "betalas via avgiften.",
+    "betalas via avgiften. Utan siffran kan du inte bedöma hur skuldtyngd föreningen är, och " +
+    "därmed hur mycket av din månadsavgift som går till lånen.",
 };
 
 /** Samma dedup-idé som harRedanFragaOmRantekanslighet: hoppa över frågan om
@@ -329,7 +351,12 @@ export function avgiftsavvikelseFraga(
       `bostadsrättsyta, vilket för ${boareaText} m² motsvarar ungefär ${sv0(Math.round(forvantad))} kr ` +
       `i månaden. Den angivna månadsavgiften är ${sv0(input.manadsavgift)} kr, ` +
       `${procent(avvikelse * 100)} % ${riktning}. Skillnaden kan bero på ett annat andelstal, på ` +
-      "vad som ingår i avgiften eller på en planerad avgiftsändring.",
+      "vad som ingår i avgiften eller på en planerad avgiftsändring. Svaret avgör vilken " +
+      "månadskostnad du faktiskt kan räkna med i din budget.",
+    svarssignal:
+      "Bra svar: en konkret förklaring, till exempel ett annat andelstal eller en uppgift om " +
+      "vad som ingår. Varningssignal: att ingen kan förklara skillnaden, eller att en " +
+      "avgiftshöjning är på väg.",
     ...(arsavgiftPerM2.ref ? { ref: arsavgiftPerM2.ref } : {}),
   };
 }

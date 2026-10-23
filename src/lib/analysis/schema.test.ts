@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AnalysJudgementSchema,
   AnalysisResultSchema,
+  FragaSchema,
   ExtractionResultSchema,
   FigureMedLeverantorSchema,
   FigureSchema,
@@ -800,5 +801,90 @@ describe("AnalysJudgementSchema", () => {
   it("avvisar okända fält — ett extra fält betyder att modellen hittat på något", () => {
     const trasigt = { ...giltigt, prisanalys: {} };
     expect(AnalysJudgementSchema.safeParse(trasigt).success).toBe(false);
+  });
+
+  describe("svarssignal (valfri, PROMPT_VERSION 8)", () => {
+    const medSignal = (svarssignal: unknown) => {
+      const r = structuredClone(giltigt) as typeof giltigt & {
+        fragor: Array<Record<string, unknown>>;
+      };
+      r.fragor[0]!["svarssignal"] = svarssignal;
+      return AnalysJudgementSchema.safeParse(r);
+    };
+
+    it("behåller en icke-tom svarssignal, trimmad", () => {
+      const r = medSignal("  Bra svar: nej. Varningssignal: ja.  ");
+      expect(r.success).toBe(true);
+      if (r.success) {
+        expect(r.data.fragor[0]).toHaveProperty(
+          "svarssignal",
+          "Bra svar: nej. Varningssignal: ja.",
+        );
+      }
+    });
+
+    it("accepterar att svarssignal helt saknas, och nyckeln finns då inte i utdata", () => {
+      const r = AnalysJudgementSchema.safeParse(giltigt);
+      expect(r.success).toBe(true);
+      if (r.success) expect("svarssignal" in r.data.fragor[0]!).toBe(false);
+    });
+
+    it.each([
+      ["tom sträng", ""],
+      ["bara blanksteg", "  \n "],
+      ["null", null],
+      ["undefined", undefined],
+    ])("behandlar %s som utelämnad: lyckas utan retry och nyckeln tas bort", (_namn, varde) => {
+      const r = medSignal(varde);
+      expect(r.success).toBe(true);
+      if (r.success) expect("svarssignal" in r.data.fragor[0]!).toBe(false);
+    });
+
+    it("avvisar fortfarande en svarssignal som inte är text", () => {
+      expect(medSignal(42).success).toBe(false);
+    });
+
+    it("avvisar fortfarande okända fält på en fråga", () => {
+      const r = structuredClone(giltigt) as typeof giltigt & {
+        fragor: Array<Record<string, unknown>>;
+      };
+      r.fragor[0]!["hittepa"] = "x";
+      expect(AnalysJudgementSchema.safeParse(r).success).toBe(false);
+    });
+
+    it("kräver fortfarande ett ifyllt varfor", () => {
+      const r = structuredClone(giltigt);
+      r.fragor[0]!.varfor = "";
+      expect(AnalysJudgementSchema.safeParse(r).success).toBe(false);
+    });
+
+    it("utdatan klarar den strikta FragaSchema som assemble validerar mot", () => {
+      const r = medSignal("");
+      expect(r.success).toBe(true);
+      if (r.success) expect(FragaSchema.safeParse(r.data.fragor[0]).success).toBe(true);
+    });
+  });
+});
+
+describe("FragaSchema", () => {
+  const bas = {
+    id: "f1",
+    fraga: "Hur ska stambytet finansieras?",
+    ursprung: "analys",
+    riktadTill: "styrelsen",
+    varfor: "Sparandet är 180 kr/m².",
+  };
+
+  it("läser en lagrad fråga utan svarssignal (äldre rader)", () => {
+    expect(FragaSchema.safeParse(bas).success).toBe(true);
+  });
+
+  it("läser en fråga med svarssignal", () => {
+    const r = FragaSchema.safeParse({ ...bas, svarssignal: "Bra svar: en plan." });
+    expect(r.success).toBe(true);
+  });
+
+  it("avvisar okända nycklar", () => {
+    expect(FragaSchema.safeParse({ ...bas, hittepa: 1 }).success).toBe(false);
   });
 });

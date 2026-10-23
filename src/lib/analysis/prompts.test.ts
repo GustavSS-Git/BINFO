@@ -16,6 +16,7 @@ import {
   formatGroundingForExtraction,
 } from "./prompts";
 import {
+  AnalysJudgementSchema,
   ExtractionResultSchema,
   KeyFigureIdSchema,
   KontrollsummorSchema,
@@ -515,6 +516,45 @@ describe("föreningens adress(er) och fastighetsbeteckning(ar) (PROMPT_VERSION 7
   });
 });
 
+describe("frågornas varför och svarssignal (PROMPT_VERSION 8)", () => {
+  const prompt = buildAnalysSystemPrompt();
+
+  it("kräver att varfor namnger det specifika fyndet och talet ur underlaget, och hänvisar till regeln mot utomstående siffror", () => {
+    expect(prompt).toMatch(/"varfor" på en fråga är en eller två korta meningar/);
+    expect(prompt).toMatch(/konkreta (siffra|siffror|tal)/);
+    expect(prompt).toMatch(/aldrig ett tal som inte står i underlaget/);
+    expect(prompt).toMatch(/regel 1/);
+  });
+
+  it("säger att en fråga utan enskilt fynd ska förklara varför den spelar roll och hur svaret påverkar köparen", () => {
+    expect(prompt).toMatch(/inte kopplad till ett enskilt fynd/);
+    expect(prompt).toMatch(/avgift, budnivå eller risk/);
+  });
+
+  it("beskriver svarssignal som valfri, i formen 'Bra svar: … Varningssignal: …', och att nyckeln utelämnas hellre än lämnas tom", () => {
+    expect(prompt).toContain('"svarssignal" är valfri');
+    expect(prompt).toContain("Bra svar:");
+    expect(prompt).toContain("Varningssignal:");
+    expect(prompt).toMatch(/utelämna nyckeln helt/);
+  });
+
+  it("förtydligar 'alla textfält ska vara ifyllda' så att valfria fält utelämnas, aldrig lämnas tomma", () => {
+    expect(prompt).toMatch(/Alla textfält som du skriver ska vara ifyllda/);
+    expect(prompt).toMatch(/Valfria fält utelämnas helt, de skrivs aldrig som tom sträng/);
+  });
+
+  it("JSON-exemplet visar svarssignal och ett varför med fynd och siffra, och validerar mot omdömesschemat", () => {
+    const start = prompt.indexOf('{\n  "betyg"');
+    const slut = prompt.indexOf("\n}\n\nSkarpa regler", start);
+    const exempel = JSON.parse(prompt.slice(start, slut + 2)) as {
+      fragor: Array<{ varfor: string; svarssignal?: string }>;
+    };
+    expect(exempel.fragor[0]!.svarssignal).toMatch(/^Bra svar: .* Varningssignal: /);
+    expect(exempel.fragor[0]!.varfor).toMatch(/\d/);
+    expect(AnalysJudgementSchema.safeParse(exempel).success).toBe(true);
+  });
+});
+
 describe("buildTranskriberingSystemPrompt", () => {
   it("kräver ordagrann avskrift med originalsidnummer och att textlagret aldrig ska litas på", () => {
     const p = buildTranskriberingSystemPrompt();
@@ -529,8 +569,8 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 7 sedan föreningens adresser och fastighetsbeteckningar tillkom (6: skuldsummering, kontrollsummor)", () => {
-    expect(PROMPT_VERSION).toBe("7");
+  it("är 8 sedan frågorna fick varför med konkret fynd och valfri svarssignal (7: adresser, 6: skuldsummering)", () => {
+    expect(PROMPT_VERSION).toBe("8");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -551,7 +591,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("b07110deb36686da52a11288aa5e305b513b1b904b5f5f3d24152408ae42d4d4");
+    expect(hash).toBe("e790eb6842e084aa5df6b5744c1d6c2e9409c0a9606976671ab4409c93d2c8d0");
   });
 });
 

@@ -8,7 +8,7 @@ import { BENCHMARKS } from "./benchmarks";
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "7";
+export const PROMPT_VERSION = "8";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -462,7 +462,8 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
       "fraga": "En konkret fråga som går att besvara med ja, nej eller en siffra.",
       "ursprung": "analys",
       "riktadTill": "styrelsen",
-      "varfor": "Varför köparen behöver svaret innan budet läggs.",
+      "varfor": "Avgiften har inte höjts sedan 2022, men 60 % av lånen förfaller 2026.",
+      "svarssignal": "Bra svar: styrelsen har räknat på avgiften med dagens ränta för lånen som förfaller. Varningssignal: att styrelsen inte vet vad de nya lånen kommer att kosta.",
       "ref": { "page": 12, "excerpt": "SBAB 1,1 % 2026-03-01" }
     }
   ]
@@ -477,7 +478,9 @@ ${ALLA_NYCKELTAL.map((n) => `  - "${n.id}"`).join("\n")}
 - "ursprung" är alltid exakt "analys". Värdet "saknad_uppgift" får aldrig förekomma i ditt svar.
 - "riktadTill" är exakt "styrelsen", "maklaren" eller "banken".
 - "id" är en kort, läsbar sträng i gemener med bindestreck, unik inom sin lista.
-- Alla textfält ska vara ifyllda. Skriv hellre färre flaggor och färre frågor än tomma.
+- "varfor" på en fråga är en eller två korta meningar som namnger det specifika fyndet och de konkreta siffrorna i underlaget som gör frågan nödvändig, till exempel "Avgiften har inte höjts sedan 2022, men 60 % av lånen förfaller 2026." Skriv aldrig ett tal som inte står i underlaget (se regel 1 ovan). Är frågan inte kopplad till ett enskilt fynd ska "varfor" i stället säga varför frågan spelar roll och hur svaret påverkar köparen — avgift, budnivå eller risk.
+- "svarssignal" är valfri och bara på frågor. Skriv en enda rad på formen "Bra svar: … Varningssignal: …" (eller bara en av delarna) som säger hur ett lugnande respektive oroande svar låter, konkret och utan nya siffror. Finns inget användbart att säga: utelämna nyckeln helt.
+- Alla textfält som du skriver ska vara ifyllda. Skriv hellre färre flaggor och färre frågor än tomma. Valfria fält utelämnas helt, de skrivs aldrig som tom sträng eller null.
 - "ref" är valfritt överallt och utelämnas helt när ingen sida i underlaget kan pekas ut.
 
 Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklaring, inga Markdown-kodstaket. Bara JSON.`;

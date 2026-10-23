@@ -163,6 +163,17 @@ export interface PdfRantestress {
 export interface PdfFraga {
   id: string;
   fraga: string;
+  /** "Varför: …" text, shown under the question. */
+  varfor: string;
+  /** Display line for "Bra svar / varningssignal"; absent when the question has none. */
+  svarssignal?: string;
+}
+
+/** The model and the deterministic questions already write "Bra svar: … Varningssignal: …";
+ *  then the line is its own label. Free text gets the label put in front. */
+function svarssignalMedRubrik(text: string): string {
+  const t = text.trim();
+  return /^(bra svar|varningssignal):/i.test(t) ? t : `Bra svar / varningssignal: ${t}`;
 }
 
 /** One "antal"-figure row — antal medlemmar/lägenheter/hyresrätter/lokaler. */
@@ -375,7 +386,12 @@ function buildRantestress(analys: AnalysisResult): PdfRantestress {
 function buildFragor(analys: AnalysisResult): PdfFraga[] {
   return analys.fragor
     .filter((f) => f.ursprung === "analys")
-    .map((f) => ({ id: f.id, fraga: f.fraga }));
+    .map((f) => ({
+      id: f.id,
+      fraga: f.fraga,
+      varfor: f.varfor,
+      ...(f.svarssignal?.trim() ? { svarssignal: svarssignalMedRubrik(f.svarssignal) } : {}),
+    }));
 }
 
 const AVGIFT_LABEL: Record<keyof FeeInclusion, string> = {

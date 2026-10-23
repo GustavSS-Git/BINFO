@@ -1101,3 +1101,75 @@ describe("datakvalitet.kalla följer med från extraktionen", () => {
     expect("kalla" in utan.datakvalitet).toBe(false);
   });
 });
+
+describe("deterministiska frågor — varför-texten säger vad svaret betyder för köparen", () => {
+  // Utan flaggan som handlar om ett känt räntekänslighetstal, annars skymmer
+  // dedup-kontrollen de deterministiska frågorna.
+  const kor = (extraction: ExtractionResult, input: PropertyInput = inputKomplett) =>
+    assembleraAnalys({
+      extraction,
+      input,
+      prisdatakalla: new TomPrisdatakalla(),
+      analys: { ...analysJudgement, rodaFlaggor: [] },
+    });
+
+  it("saknad uppgift (hiss, balkong, avgiftsposter): varför nämner pris/värde eller månadskostnad och svarssignal är utelämnad eller ifylld", async () => {
+    const resultat = await kor(extraktion, inputAllaOkanda);
+    const saknade = resultat.fragor.filter((f) => f.ursprung === "saknad_uppgift");
+    expect(saknade.length).toBe(7);
+    for (const f of saknade) {
+      expect(f.varfor).toMatch(/pris|värde|månadskostnad|budet/i);
+      if ("svarssignal" in f) expect(f.svarssignal!.trim().length).toBeGreaterThan(0);
+    }
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+
+  it("saknad räntekänslighet: varför förklarar följden för avgiften vid ränteuppgång, svarssignal utan siffror", async () => {
+    const resultat = await kor(extraktionUtanRantekanslighet());
+    const fraga = resultat.fragor.find((f) => f.id === "saknar-rantekanslighet")!;
+    expect(fraga.varfor).toMatch(/månadsavgift|avgiften/i);
+    expect(fraga.varfor).toMatch(/ränta/i);
+    expect(fraga.varfor).toMatch(/svar|utan/i);
+    expect(fraga.svarssignal).toMatch(/Bra svar:.*Varningssignal:/);
+    expect(fraga.svarssignal).not.toMatch(/\d/);
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+
+  it("saknad skuld per m²: varför säger vad svaret säger om lånen i köparens avgift", async () => {
+    const resultat = await kor(
+      extraktionMed("skuldsattning_per_m2_brf_yta", {
+        value: null,
+        unit: "kr/m2",
+        source: "berakning",
+      }),
+    );
+    const fraga = resultat.fragor.find((f) => f.id === "saknar-skuldsattning-per-m2")!;
+    expect(fraga.varfor).toMatch(/månadsavgift/i);
+    expect(fraga.varfor).toMatch(/lägenheten bär/);
+  });
+
+  it("avgiftsavvikelse: varför säger vad svaret avgör för köparens månadskostnad, utan nya siffror", () => {
+    const forening = extraktion.forening;
+    const fraga = avgiftsavvikelseFraga({ manadsavgift: 4700, boarea: 62 }, forening);
+    expect(fraga?.varfor).toMatch(/månadskostnad|budget/i);
+    expect(fraga?.svarssignal).toMatch(/Bra svar:.*Varningssignal:/);
+    expect(fraga?.svarssignal).not.toMatch(/\d/);
+  });
+
+  it("osäker siffra: varför behåller orsaken och säger vad bekräftelsen betyder för köparen", async () => {
+    const kf = extraktion.forening.keyFigures.find((k) => k.id === "rantekanslighet")!;
+    const orsak = "Räntekänsligheten 9 % stämmer inte med skulderna, som ger 6,47 %.";
+    const forening: Forening = {
+      ...extraktion.forening,
+      keyFigures: extraktion.forening.keyFigures.map((k) =>
+        k.id === "rantekanslighet" ? { ...kf, figure: { ...kf.figure, osaker: orsak } } : k,
+      ),
+    };
+    const resultat = await kor({ ...extraktion, forening });
+    const fraga = resultat.fragor.find((f) => f.id === "osaker-rantekanslighet")!;
+    expect(fraga.varfor).toContain(orsak);
+    expect(fraga.varfor).toMatch(/lita på|avgiften|bedöm/i);
+    expect(fraga.svarssignal).toMatch(/Bra svar:.*Varningssignal:/);
+    expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+});

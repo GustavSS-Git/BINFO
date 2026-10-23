@@ -690,6 +690,14 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
   );
 }
 
+/** Modellen och de deterministiska frågorna skriver redan "Bra svar: … Varningssignal: …";
+ *  då är raden sin egen rubrik. Annars (fritext) sätts rubriken framför. */
+function svarssignalMedRubrik(text: string): string {
+  return /^(bra svar|varningssignal):/i.test(text.trim())
+    ? text.trim()
+    : `Bra svar / varningssignal: ${text.trim()}`;
+}
+
 export function Fragor({ analys }: { analys: Pick<AnalysisResult, "fragor"> }) {
   const [checked, setChecked] = useState<string[]>([]);
   const toggle = (k: string) =>
@@ -707,12 +715,20 @@ export function Fragor({ analys }: { analys: Pick<AnalysisResult, "fragor"> }) {
           onChange={() => toggle(f.id)}
           className="mt-0.5 size-4 accent-[var(--primary)]"
         />
-        <span
-          className={`text-sm ${
-            checked.includes(f.id) ? "text-muted-foreground line-through" : "text-foreground"
-          }`}
-        >
-          {f.fraga}
+        <span className="flex flex-col gap-1">
+          <span
+            className={`text-sm ${
+              checked.includes(f.id) ? "text-muted-foreground line-through" : "text-foreground"
+            }`}
+          >
+            {f.fraga}
+          </span>
+          <span className="text-xs italic text-muted-foreground">Varför: {f.varfor}</span>
+          {f.svarssignal ? (
+            <span className="text-xs text-muted-foreground">
+              {svarssignalMedRubrik(f.svarssignal)}
+            </span>
+          ) : null}
         </span>
       </label>
     </li>

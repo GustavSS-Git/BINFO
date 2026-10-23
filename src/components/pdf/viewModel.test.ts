@@ -69,6 +69,45 @@ describe("buildPdfViewModel — sample analysis", () => {
     expect(vm.fragor.some((f) => f.id === "saknad-hiss")).toBe(false);
   });
 
+  it("carries varfor on every question and leaves svarssignal out when the question has none", () => {
+    expect(vm.fragor.length).toBeGreaterThan(0);
+    for (const f of vm.fragor) {
+      const kalla = sampleAnalysis.fragor.find((x) => x.id === f.id)!;
+      expect(f.varfor).toBe(kalla.varfor);
+      if (!kalla.svarssignal) expect("svarssignal" in f).toBe(false);
+    }
+  });
+
+  it("carries svarssignal when present; a signal with its own Bra svar/Varningssignal labels is not double-labelled", () => {
+    const med: AnalysisResult = {
+      ...sampleAnalysis,
+      fragor: [
+        {
+          ...sampleAnalysis.fragor[0]!,
+          id: "a",
+          ursprung: "analys",
+          svarssignal: "Bra svar: x. Varningssignal: y.",
+        },
+        {
+          ...sampleAnalysis.fragor[0]!,
+          id: "b",
+          ursprung: "analys",
+          svarssignal: "  Ett datum.  ",
+        },
+        {
+          ...sampleAnalysis.fragor[0]!,
+          id: "c",
+          ursprung: "saknad_uppgift",
+          svarssignal: "Syns inte.",
+        },
+      ],
+    };
+    const fragor = buildPdfViewModel(med).fragor;
+    expect(fragor.map((f) => f.id)).toEqual(["a", "b"]);
+    expect(fragor[0]?.svarssignal).toBe("Bra svar: x. Varningssignal: y.");
+    expect(fragor[1]?.svarssignal).toBe("Bra svar / varningssignal: Ett datum.");
+  });
+
   it("carries betyg and motivering verbatim", () => {
     expect(vm.betyg).toBe("B");
     expect(vm.betygMotivering).toBe(sampleAnalysis.betygMotivering);
