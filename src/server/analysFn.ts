@@ -22,9 +22,9 @@
  * (`skapaAnalysFn`, `hamtaResultatFn`, `hamtaPrisuppskattningFn`) får en hel
  * `Anropare` (kontext + kontolager + standardbehörigheten) och skickar den
  * till de ramverksfria implementationerna, som gör behörighets- och
- * kvotkontrollerna (testade där, mot fakes och en neka-policy). Status och
- * förhandsvisning löser bara upp kontexten (cookien sätts vid första
- * besöket) — ingen kvot, ingen behörighet: de är gratis med flit.
+ * kvotkontrollerna (testade där, mot fakes och en neka-policy). Status löser
+ * bara upp kontexten (cookien sätts vid första besöket) — ingen kvot, ingen
+ * behörighet: den är gratis med flit.
  */
 
 import { createServerFn } from "@tanstack/react-start";
@@ -36,7 +36,6 @@ import {
   skapaAnalysFranRegister as skapaAnalysFranRegisterImpl,
   hamtaStatus as hamtaStatusImpl,
   hamtaResultat as hamtaResultatImpl,
-  hamtaForhandsvisning as hamtaForhandsvisningImpl,
   type SkapaAnalysArgs,
 } from "./analys";
 import {
@@ -204,18 +203,6 @@ export const hamtaResultatFn = createServerFn({ method: "GET" })
       return await hamtaResultatImpl(skapaLager(env), data.analysisId, anropare);
     } catch (fel) {
       throw sakertFel("hamtaResultatFn", fel);
-    }
-  });
-
-export const hamtaForhandsvisningFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { analysisId: string }) => data)
-  .handler(async ({ data }) => {
-    try {
-      const env = envFromProcess();
-      await kontextFor(env);
-      return await hamtaForhandsvisningImpl(skapaLager(env), data.analysisId);
-    } catch (fel) {
-      throw sakertFel("hamtaForhandsvisningFn", fel);
     }
   });
 

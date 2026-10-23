@@ -525,7 +525,7 @@ async function korBedomningssteg(
     // AssemblyValidationError propagera hit (sedan task 7 degraderar
     // beraknaRantestress i stället för att kasta SaknarRantekanslighetError —
     // se rantestress.ts och assemble.ts:s filkommentar).
-    // Samma normalisering som läsvägen (hamtaResultat/hamtaForhandsvisning):
+    // Samma normalisering som läsvägen (hamtaResultat):
     // en rad köad före en kontraktsändring får inte fastna här bara för att
     // dess lagrade input bär en numera borttagen nyckel.
     const input = lasPropertyInputFranRad(rad);

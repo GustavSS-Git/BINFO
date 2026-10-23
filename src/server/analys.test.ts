@@ -28,16 +28,9 @@ import { sparaAnalysICache, sparaExtraktionICache } from "./cache";
 import { extraktion } from "@/lib/analysis/__fixtures__/extraktion";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
 import { AnalysisResultSchema } from "@/lib/analysis/schema";
-// Endast i testet: analysisView.ts är UI-zonens presentationslager och får
-// aldrig importeras av server-koden själv (den drar in @/data/mockData). Ett
-// testfil hamnar dock aldrig i någon bundle, och att jämföra de två
-// implementationerna mot varandra är just poängen med testet nedan.
-import { toppRodaFlaggor } from "@/lib/analysisView";
-import type { RedFlag } from "@/types/analysis";
 import {
   AnalysHittadesInteError,
   AnalysInteKlarError,
-  hamtaForhandsvisning,
   hamtaResultat,
   hamtaStatus,
   skapaAnalys,
@@ -111,46 +104,6 @@ function minimalJudgement(): AnalysJudgement {
     rodaFlaggor: [],
     fragor: [],
   };
-}
-
-/** Fyra flaggor, medvetet i osorterad severity-ordning, för att testa att
- *  hamtaForhandsvisning väljer de TVÅ allvarligaste — inte bara de två
- *  första i listan. */
-function fyraRodaFlaggor(): RedFlag[] {
-  return [
-    {
-      id: "flagga-lag",
-      titel: "Låg risk-flagga",
-      beskrivning: "En mindre anmärkning.",
-      severity: "lag",
-      harledsFran: ["rantekanslighet"],
-    },
-    {
-      id: "flagga-hog-1",
-      titel: "Första allvarliga flaggan",
-      beskrivning: "Något allvarligt.",
-      severity: "hog",
-      harledsFran: ["rantekanslighet"],
-    },
-    {
-      id: "flagga-medel",
-      titel: "Medelrisk-flagga",
-      beskrivning: "En måttlig anmärkning.",
-      severity: "medel",
-      harledsFran: ["rantekanslighet"],
-    },
-    {
-      id: "flagga-hog-2",
-      titel: "Andra allvarliga flaggan",
-      beskrivning: "Något annat allvarligt.",
-      severity: "hog",
-      harledsFran: ["rantekanslighet"],
-    },
-  ];
-}
-
-function judgementMedFleraFlaggor(): AnalysJudgement {
-  return { ...minimalJudgement(), rodaFlaggor: fyraRodaFlaggor() };
 }
 
 describe("skapaAnalys", () => {
@@ -465,58 +418,7 @@ describe("hamtaResultat", () => {
   });
 });
 
-describe("hamtaForhandsvisning", () => {
-  async function insertDoneRad(
-    lager: ReturnType<typeof skapaFakeLager>,
-    judgement: AnalysJudgement,
-    pdfHash = "forhandsvisning-hash",
-  ) {
-    const model = "claude-sonnet-5";
-    const nyckel = { pdfHash, model, promptVersion: PROMPT_VERSION };
-    await sparaExtraktionICache(lager.db, nyckel, extraktion, 1.0);
-    await sparaAnalysICache(lager.db, nyckel, judgement, 0.5);
-
-    const { id } = await lager.db.skapaAnalys({
-      pdfHash,
-      pdfPath: `${pdfHash}.pdf`,
-      propertyInput: propertyInput as never,
-      model,
-      promptVersion: PROMPT_VERSION,
-      status: "done",
-      stage: "complete",
-    });
-    return id;
-  }
-
-  it("returnerar de gratis sektionerna för en klar analys", async () => {
-    const lager = skapaFakeLager();
-    const id = await insertDoneRad(lager, minimalJudgement());
-    const rad = await lager.db.hamtaAnalys(id);
-
-    const forhandsvisning = await hamtaForhandsvisning(lager, id);
-
-    expect(forhandsvisning.analysisId).toBe(id);
-    expect(forhandsvisning.skapad).toBe(rad?.createdAt);
-    expect(forhandsvisning.schemaVersion).toBe("1.0.0");
-    expect(forhandsvisning.betyg).toBe("C");
-    expect(forhandsvisning.betygMotivering).toBe("Testomdöme, inget särskilt att anmärka.");
-    expect(forhandsvisning.forening.namn).toBe(extraktion.forening.namn);
-    expect(forhandsvisning.datakvalitet).toBeDefined();
-    expect(forhandsvisning.gratisSektioner).toEqual(
-      expect.arrayContaining(["betyg", "rodaFlaggor_topp2", "datakvalitet"]),
-    );
-  });
-
-  it("returnerar som mest två röda flaggor — de mest allvarliga — även när fler finns", async () => {
-    const lager = skapaFakeLager();
-    const id = await insertDoneRad(lager, judgementMedFleraFlaggor());
-
-    const forhandsvisning = await hamtaForhandsvisning(lager, id);
-
-    expect(forhandsvisning.rodaFlaggor).toHaveLength(2);
-    expect(forhandsvisning.rodaFlaggor.map((f) => f.id)).toEqual(["flagga-hog-1", "flagga-hog-2"]);
-  });
-
+describe("hamtaResultat: rader från äldre kodversioner", () => {
   // Regressionsskydd för en riktig produktionsbugg. Rader skapade FÖRE Fas 1
   // Steg 0 har ett property_input-JSON med `antalLantagare`, ett fält som
   // steget tog bort ur kontraktet. PropertyInputSchema är .strict(), så
@@ -549,89 +451,10 @@ describe("hamtaForhandsvisning", () => {
     });
 
     const resultat = await hamtaResultat(lager, id);
-    const forhandsvisning = await hamtaForhandsvisning(lager, id);
 
     expect(resultat.betyg).toBe("C");
-    expect(forhandsvisning.betyg).toBe("C");
     // Och det strippade fältet får inte läcka igenom till resultatet.
     expect(Object.keys(resultat.input)).not.toContain("antalLantagare");
-  });
-
-  // Regressionsskydd för en medveten kodduplicering. `toppRodaFlaggorForServer`
-  // i analys.ts är en kopia av `toppRodaFlaggor` i src/lib/analysisView.ts
-  // (som inte får importeras hit — den drar in @/data/mockData). Kopian löser
-  // zonproblemet men skapar ett driftproblem: ändrar någon rangordningen på
-  // ena stället och inte det andra, får köparen se ANDRA "topp 2"-flaggor i
-  // förhandsvisningen än överst i den fullständiga rapporten — en tyst,
-  // användarsynlig inkonsekvens som inget annat test skulle fånga. Testet
-  // jämför de två vägarna mot varandra i stället för mot en hårdkodad lista,
-  // så det går sönder direkt när implementationerna glider isär.
-  it("väljer samma topp-2-flaggor som UI:ts toppRodaFlaggor — kopian får inte glida isär", async () => {
-    const lager = skapaFakeLager();
-    const id = await insertDoneRad(lager, judgementMedFleraFlaggor());
-
-    const forhandsvisning = await hamtaForhandsvisning(lager, id);
-    const fullResultat = await hamtaResultat(lager, id);
-
-    expect(forhandsvisning.rodaFlaggor).toEqual(
-      toppRodaFlaggor(fullResultat.rodaFlaggor, forhandsvisning.rodaFlaggor.length),
-    );
-    // Och att den faktiskt hade fler att välja bland, annars bevisar inget ovan.
-    expect(fullResultat.rodaFlaggor.length).toBeGreaterThan(forhandsvisning.rodaFlaggor.length);
-  });
-
-  it("returnerar INTE någon prissatt sektion — det är hela garantin bakom betalväggen", async () => {
-    const lager = skapaFakeLager();
-    const id = await insertDoneRad(lager, judgementMedFleraFlaggor());
-
-    const forhandsvisning = await hamtaForhandsvisning(lager, id);
-    const nycklar = Object.keys(forhandsvisning);
-
-    expect(nycklar).not.toContain("prisanalys");
-    expect(nycklar).not.toContain("rantestress");
-    expect(nycklar).not.toContain("fragor");
-    expect(nycklar).not.toContain("manadskostnad");
-    expect(nycklar).not.toContain("input");
-    // Ingen FULL forening — bara { namn } enligt Forhandsvisning-kontraktet.
-    expect(Object.keys(forhandsvisning.forening)).toEqual(["namn"]);
-  });
-
-  it("kastar AnalysInteKlarError för en rad som inte är done", async () => {
-    const lager = skapaFakeLager();
-    const { id } = await lager.db.skapaAnalys({
-      pdfHash: "forhandsvisning-pending",
-      pdfPath: "forhandsvisning-pending.pdf",
-      propertyInput: propertyInput as never,
-      model: "claude-sonnet-5",
-      promptVersion: PROMPT_VERSION,
-      status: "queued",
-      stage: "uploaded",
-    });
-
-    await expect(hamtaForhandsvisning(lager, id)).rejects.toThrow(AnalysInteKlarError);
-  });
-
-  it("kastar AnalysHittadesInteError för ett okänt id", async () => {
-    const lager = skapaFakeLager();
-    await expect(hamtaForhandsvisning(lager, "finns-inte")).rejects.toThrow(
-      AnalysHittadesInteError,
-    );
-  });
-
-  it("återberikar nyckeltalen vid läsning, precis som hamtaResultat", async () => {
-    // Speglar cache.ts filkommentar: berikaNyckeltal appliceras alltid på
-    // läsvägen, aldrig lagrad status/benchmark. Vi verifierar indirekt genom
-    // att kontrollera att förening-namnet (från re-monterad extraktion)
-    // matchar fixturen — samma spårbarhet som hamtaResultat-testerna ovan
-    // etablerar för hela AnalysisResult.
-    const lager = skapaFakeLager();
-    const id = await insertDoneRad(lager, minimalJudgement());
-
-    const forsta = await hamtaForhandsvisning(lager, id);
-    const andra = await hamtaForhandsvisning(lager, id);
-
-    expect(JSON.stringify(forsta)).toBe(JSON.stringify(andra));
-    expect(forsta.forening.namn).toBe(extraktion.forening.namn);
   });
 });
 

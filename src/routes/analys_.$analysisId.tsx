@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/binfo";
 import { sparaAnalys } from "@/lib/senasteAnalyser";
 
 /**
- * Ren loader-route för den fullständiga, betalda rapporten — ingen egen
+ * Ren loader-route för den fullständiga rapporten — ingen egen
  * pollning. `hamtaResultatFn` kastar `AnalysInteKlarError` för varje status
  * som inte är `done` (inklusive `failed` — se src/server/analys.ts) och
  * `AnalysHittadesInteError` för ett okänt id. Båda, och alla andra fel,

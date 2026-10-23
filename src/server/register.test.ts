@@ -1,7 +1,7 @@
 /**
  * The register (v2) end to end on the in-memory fake: upload linking
  * (skapaAnalys), the rapport worker (korNastaSteg), and the read paths
- * (hamtaStatus / hamtaResultat / hamtaForhandsvisning). No Anthropic calls:
+ * (hamtaStatus / hamtaResultat). No Anthropic calls:
  * a fake client for the three pipeline stages and an injected identity
  * function for the identifiering stage.
  */
@@ -26,7 +26,6 @@ import type { ExtractionResult } from "@/types/analysis";
 import { skapaFakeLager, type FakeLager } from "./__fakes__/lager";
 import {
   AnalysInteKlarError,
-  hamtaForhandsvisning,
   hamtaResultat,
   hamtaStatus,
   skapaAnalys,
@@ -738,8 +737,7 @@ describe("korNastaSteg — registrets kö", () => {
     });
     const fullt = await hamtaResultat(lager, rad.id);
     expect(AnalysisResultSchema.safeParse(fullt).success).toBe(true);
-    const forhand = await hamtaForhandsvisning(lager, rad.id);
-    expect(forhand.betyg).toBe("B");
+    expect(fullt.betyg).toBe("B");
   });
 
   it("identifiering med träff i registret: rapporten ersätts, analys-rader och filer pekas om", async () => {
@@ -1185,7 +1183,6 @@ describe("läsvägen — versioner och omkörningar", () => {
     const id = rad?.id ?? "";
 
     await expect(hamtaResultat(lager, id)).rejects.toThrow(AnalysInteKlarError);
-    await expect(hamtaForhandsvisning(lager, id)).rejects.toThrow(AnalysInteKlarError);
     const omkorningar = lager.db._allaRapporter().filter((r) => r.id !== gammal);
     expect(omkorningar).toHaveLength(1);
     expect(await hamtaStatus(lager, id)).toMatchObject({

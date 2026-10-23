@@ -68,13 +68,8 @@ const { skapaFakeKontoDatabas } = await import("./__fakes__/konto");
 const { hashaIp, ENHET_COOKIE } = await import("./kontext");
 const { kvotNyckel } = await import("./kvot");
 const { extraktion } = await import("@/lib/analysis/__fixtures__/extraktion");
-const {
-  hamtaForhandsvisningFn,
-  hamtaPrisuppskattningFn,
-  hamtaResultatFn,
-  hamtaStatusFn,
-  skapaAnalysFn,
-} = await import("./analysFn");
+const { hamtaPrisuppskattningFn, hamtaResultatFn, hamtaStatusFn, skapaAnalysFn } =
+  await import("./analysFn");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ENHET = "CCCCCCCCCCCCCCCCCCCCCC";
@@ -163,12 +158,11 @@ describe("analysFn — kontext först i varje handler", () => {
     expect(tillstand.satta).toHaveLength(0);
   });
 
-  it("status, förhandsvisning och full rapport tar ingen kvot", async () => {
+  it("status och full rapport tar ingen kvot", async () => {
     const analysisId = await klarAnalys();
     const fore = kvotTotalt();
 
     await hamtaStatusFn({ data: { analysisId } });
-    await hamtaForhandsvisningFn({ data: { analysisId } });
     const resultat = await hamtaResultatFn({ data: { analysisId } });
 
     expect(resultat.analysisId).toBe(analysisId);
@@ -229,7 +223,6 @@ describe("analysFn — inga interna feltexter når klienten", () => {
     for (const anrop of [
       () => hamtaStatusFn({ data: { analysisId: "x" } }),
       () => hamtaResultatFn({ data: { analysisId: "x" } }),
-      () => hamtaForhandsvisningFn({ data: { analysisId: "x" } }),
     ]) {
       const fel = await anrop().catch((e: unknown) => e);
       expect(fel).toBeInstanceOf(Error);

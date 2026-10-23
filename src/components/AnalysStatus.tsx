@@ -13,9 +13,9 @@ import {
 
 /**
  * Delad väntnings-/felskärm för jobbpollning av en analys — används av både
- * `/forhandsvisning/$analysisId` (som väntar in och sen visar förhandsvisningen)
+ * `/forhandsvisning/$analysisId` (som väntar in och sen visar hela analysen)
  * och tidigare av `/analys/$analysisId` (som numera aldrig pollar själv: dess
- * loader omdirigerar till förhandsvisningen för alla icke-klara/okända
+ * loader omdirigerar till `/forhandsvisning` för alla icke-klara/okända
  * tillstånd, se den routens kommentar). Extraherad hit så att stegtext,
  * förloppsstapel och de sex felkodsskärmarna bara finns skrivna på ett
  * ställe — den här produkten har redan en gång tappat två kopior av en

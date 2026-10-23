@@ -6,12 +6,7 @@ import { extraktion } from "@/lib/analysis/__fixtures__/extraktion";
 import { AnalysisResultSchema } from "@/lib/analysis/schema";
 import { skapaFakeKontoDatabas, type FakeKontoDatabas } from "./__fakes__/konto";
 import { skapaFakeLager, type FakeLager } from "./__fakes__/lager";
-import {
-  hamtaForhandsvisning,
-  hamtaResultat,
-  hamtaStatus,
-  skapaAnalysFranRegister,
-} from "./analys";
+import { hamtaResultat, hamtaStatus, skapaAnalysFranRegister } from "./analys";
 import { skapaBehorighet, STANDARD_POLICY, type Policy } from "./behorighet";
 import type { Env } from "./env";
 import { tolkaSpendSkal } from "./fel";
@@ -148,8 +143,7 @@ describe("skapaAnalysFranRegister", () => {
     expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
     expect(resultat.input.adress).toBe(propertyInput["adress"]);
     expect(resultat.input.utgangspris).toBe(propertyInput["utgangspris"]);
-    const forhand = await hamtaForhandsvisning(lager, svar.analysisId);
-    expect(forhand.betyg).toBe("C");
+    expect(resultat.betyg).toBe("C");
 
     // No upload, no model call.
     expect(fetchSpy).not.toHaveBeenCalled();

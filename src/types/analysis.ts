@@ -549,46 +549,10 @@ export interface AnalysisResult {
 
   datakvalitet: Datakvalitet;
 
-  /** Which parts are visible before payment. Everything else is blurred.
-   *  The free tier must be genuinely useful and visibly incomplete. */
+  /** Vestigial: from the removed free-preview paywall. Nothing reads it any
+   *  more; kept because stored results carry it and the schema is strict. A
+   *  future payment goes before the analysis runs (see src/server/behorighet.ts). */
   gratisSektioner: Array<"betyg" | "rodaFlaggor_topp2" | "datakvalitet">;
-}
-
-/**
- * The narrow, preview-only projection of AnalysisResult that
- * `hamtaForhandsvisning` (src/server/analys.ts) hands to `/forhandsvisning`.
- *
- * Carries EXACTLY the sections `gratisSektioner` already names as free
- * ('betyg', 'rodaFlaggor_topp2', 'datakvalitet'), plus the minimum identity
- * the preview screen needs to render a heading. It exists so gating can be
- * server-side from day one (the paywall is deferred, not removed): even
- * while everything is free, the preview route never reads
- * from the same full-object endpoint as the paid report, so turning payment
- * on later means adding a check to `/analys/$id`'s loader, not re-plumbing
- * `/forhandsvisning`'s data source.
- *
- * MUST NEVER grow to include a priced section — `prisanalys`, `rantestress`,
- * `fragor`, the full `forening`, `input`, or all of `rodaFlaggor`. Widening
- * this interface is a pricing decision, not a type convenience: it is the
- * one change that would silently hand out paid content through the "free"
- * path. If a task seems to want more fields here, stop and ask first.
- */
-export interface Forhandsvisning {
-  schemaVersion: AnalysisResult["schemaVersion"];
-  analysisId: string;
-  skapad: string; // ISO 8601
-
-  forening: Pick<Forening, "namn">;
-
-  betyg: Grade;
-  betygMotivering: string;
-
-  /** At most two — the highest-severity flags, never the full list. */
-  rodaFlaggor: RedFlag[];
-
-  datakvalitet: Datakvalitet;
-
-  gratisSektioner: AnalysisResult["gratisSektioner"];
 }
 
 /** Extraction output only — the raw read of the PDF, before any judgement is

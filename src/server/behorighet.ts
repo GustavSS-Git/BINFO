@@ -6,10 +6,16 @@
  * function checks exactly once, at its top, so changing who may do what
  * later is a change to this table only.
  *
- * Future per-analysis payment: a `behorighet` row (table created by
- * supabase/migrations/20261009120100_konto.sql, empty today) with
- * kalla 'kop' and the `rapport_id`, plus one policy line here, e.g.
- *   full_rapport: ({ kontext, rapportId }) => harKoptRapport(kontext, rapportId)
+ * Future per-analysis payment: put it on `ladda_upp_analys`. `skapaAnalys` and
+ * `skapaAnalysFranRegister` (src/server/analys.ts) both check it first, via
+ * `provaBehorighet`, before anything is uploaded, quota-charged or paid for,
+ * so a buyer pays before the analysis runs (or is re-used from the register).
+ * `full_rapport` stays the read-access hook (`hamtaResultat`, keyed on the
+ * row's `rapportId`): there is no free preview any more, so do not gate the
+ * result behind it as the only paywall. A purchase would be a `behorighet`
+ * row (table created by supabase/migrations/20261009120100_konto.sql, empty
+ * today) with kalla 'kop' and the `rapport_id`, plus one policy line here, e.g.
+ *   ladda_upp_analys: ({ kontext }) => harBetaltForAnalys(kontext)
  *
  * A rule that throws is NOT treated as a grant: the error propagates (fail
  * closed).

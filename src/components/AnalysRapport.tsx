@@ -146,7 +146,12 @@ export function Betygskort({ betyg, motivering }: { betyg: string; motivering: s
       <div className="flex size-20 items-center justify-center rounded-full border-4 border-primary/20 bg-primary/5 font-display text-3xl text-primary">
         {betyg}
       </div>
-      <p className="max-w-xl flex-1 text-sm text-foreground">{motivering}</p>
+      <div className="max-w-xl flex-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Sammanvägt riskbetyg
+        </p>
+        <p className="mt-2 text-sm text-foreground">{motivering}</p>
+      </div>
     </Card>
   );
 }
