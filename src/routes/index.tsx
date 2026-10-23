@@ -64,8 +64,8 @@ function Index() {
               Säljaren har en mäklare. Nu har du Binfo.
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Binfo guidar dig genom köpet, granskar föreningen, kollar priset och räknar ut om du har råd med just den
-              här bostaden.
+              Binfo guidar dig genom köpet, granskar föreningen, kollar priset och räknar ut om du
+              har råd med just den här bostaden.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <LinkButton to="/analysera" size="lg">
@@ -77,7 +77,10 @@ function Index() {
             </div>
             <p className="mt-6 text-sm text-muted-foreground">
               Bara priskoll?{" "}
-              <Link to="/vardering" className="font-medium text-primary underline underline-offset-2">
+              <Link
+                to="/vardering"
+                className="font-medium text-primary underline underline-offset-2"
+              >
                 Klicka här
               </Link>
             </p>
@@ -118,7 +121,9 @@ function Index() {
                     </span>
                     <span>
                       <span className="dstep-name">Föreningen</span>
-                      <span className="dstep-val">Stambyte saknas i underhållsplanen. Skuld 14 200 kr/m².</span>
+                      <span className="dstep-val">
+                        Stambyte saknas i underhållsplanen. Skuld 14 200 kr/m².
+                      </span>
                     </span>
                     <span className="chip">2 flaggor</span>
                   </a>
@@ -130,7 +135,9 @@ function Index() {
                     </span>
                     <span>
                       <span className="dstep-name">Priset</span>
-                      <span className="dstep-val">Rimligt slutpris 5,1–5,45 mkr. Räkna med budgivning.</span>
+                      <span className="dstep-val">
+                        Rimligt slutpris 5,1–5,45 mkr. Räkna med budgivning.
+                      </span>
                     </span>
                     <span className="chip">Klar</span>
                   </a>
@@ -189,8 +196,8 @@ function Index() {
               </a>
 
               <p className="dossier-note">
-                Exempel med påhittade siffror. Kalkylen utgår från 5 250 000 kr, 85 % belåning, 3 % ränta, ränteavdrag
-                och 2 % amortering.
+                Exempel med påhittade siffror. Kalkylen utgår från 5 250 000 kr, 85 % belåning, 3 %
+                ränta, ränteavdrag och 2 % amortering.
               </p>
             </article>
           </div>
@@ -206,10 +213,13 @@ function Index() {
           <Card>
             <h3 className="mt-2 font-display text-xl text-foreground">Är föreningen frisk?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              Vi läser årsredovisningen, förklarar nyckeltalen på vanlig svenska, flaggar det som behöver förklaras, och
-              tar fram frågor att ställa till styrelsen.
+              Vi läser årsredovisningen, förklarar nyckeltalen på vanlig svenska, flaggar det som
+              behöver förklaras, och tar fram frågor att ställa till styrelsen.
             </p>
-            <Link to="/analysera" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
+            <Link
+              to="/analysera"
+              className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
+            >
               Granska föreningen
             </Link>
           </Card>
@@ -217,21 +227,29 @@ function Index() {
           <Card>
             <h3 className="mt-2 font-display text-xl text-foreground">Är priset rimligt?</h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              Utgångspriset säger mer om mäklarens strategi än om bostadens värde. Vi jämför med vad liknande bostäder i
-              området har sålts för och visar vilket slutpris som är rimligt.
+              Utgångspriset säger mer om mäklarens strategi än om bostadens värde. Vi jämför med vad
+              liknande bostäder i området har sålts för och visar vilket slutpris som är rimligt.
             </p>
-            <Link to="/vardering" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
+            <Link
+              to="/vardering"
+              className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
+            >
               Kolla priset
             </Link>
           </Card>
 
           <Card>
-            <h3 className="mt-2 font-display text-xl text-foreground">Har jag råd med just den här?</h3>
+            <h3 className="mt-2 font-display text-xl text-foreground">
+              Har jag råd med just den här?
+            </h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och hur mycket du har kvar i
-              plånboken om räntan stiger.
+              Månadskostnaden med ränta efter avdrag, amortering, avgift och drift. Och hur mycket
+              du har kvar i plånboken om räntan stiger.
             </p>
-            <a href="/bolanekalkyl" className="mt-4 inline-block font-medium text-primary underline underline-offset-2">
+            <a
+              href="/bolanekalkyl"
+              className="mt-4 inline-block font-medium text-primary underline underline-offset-2"
+            >
               Räkna på månadskostnaden
             </a>
           </Card>
@@ -245,7 +263,8 @@ function Index() {
               Och resten av köpet? Köpguiden tar dig hela vägen.
             </h2>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör härnäst.
+              Tolv steg från lånelöfte till tillträde, med vad du ska se upp med och vad du gör
+              härnäst.
             </p>
           </div>
           <LinkButton to="/kopguide" variant="secondary">
@@ -264,12 +283,12 @@ function Index() {
           </h2>
           <div className="max-w-[32em] space-y-4 text-muted-foreground md:text-lg">
             <p>
-              Säljaren anlitar och betalar mäklaren. Banken tjänar på ditt lån. Binfo tar ingen provision från mäklare,
-              banker eller föreningar.
+              Säljaren anlitar och betalar mäklaren. Banken tjänar på ditt lån. Binfo tar ingen
+              provision från mäklare, banker eller föreningar.
             </p>
             <p>
-              Därför kan vi säga det rakt ut när en bostad är för dyr, när en förening har problem eller när du borde
-              låta bli att buda.
+              Därför kan vi säga det rakt ut när en bostad är för dyr, när en förening har problem
+              eller när du borde låta bli att buda.
             </p>
           </div>
         </div>
