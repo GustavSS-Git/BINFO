@@ -105,7 +105,14 @@ per-apartment cost in kronor, and what to do before bidding.
   accounts (all `noindex`). `/konto/bekrafta` verifies only on a button press
   (mail scanners must not burn one-time tokens). `?till=` is sanitised.
 - `/brf`, `/brf/omrade/$omrade`, `/brf/$slug`: the public register (BRF-level
-  data only; cacheable; must never set cookies). `/sitemap.xml` is a server route.
+  data only; cacheable; must never set cookies). `/brf/$slug` is a SUMMARY
+  (owner 2026-10-23): name, fiscal year, grade, the nyckeltal that exist with
+  their status, `BETYG_FORKLARING`; the server function returns nothing else
+  from the analysis. Its link "Se hela analysen …" goes to
+  `/brf/$slug/analys/$ar` (stored full BRF-level analysis, as stored;
+  `hamtaRegisterAnalysFn`, resolves kontext, `no-store`, `noindex`), gated by
+  the `se_registeranalys` entitlement (`behorighet.ts`; granted to all today —
+  one policy line puts it behind an account or payment). `/sitemap.xml` is a server route.
 - `/exempel`: static demo report (`AnalysRapport` over `sampleAnalysis`; the
   BRF name in the intro box is hard-coded in `src/routes/exempel.tsx`).
 - `/bolanekalkyl`: calculator; all math in `src/lib/kalkyl/berakna.ts` (the
@@ -251,9 +258,17 @@ per-apartment cost in kronor, and what to do before bidding.
       area (`losRegisteromrade`) + slug, and refreshes `register_sammanfattning`.
    5. `bedomning`: judging over the extraction only (never sees buyer data;
       page refs must be a subset of the extraction's pages); result stored on
-      the rapport; dry assembly. `slutforBedomning` clamps the model's grade
-      to the letters the status counts allow (no `kritisk` → A–C, any
-      `kritisk` → C–E; `tillatnaBetyg`), logging every clamp. Each question
+      the rapport; dry assembly. The prompt gets Binfo's own "Fasta värden"
+      (`fastaVarden.ts`: the allowed letters, the seven nyckeltal, loan
+      maturities with amounts and shares) and must not compute numbers itself.
+      `kontrolleraBedomning` (slutfor.ts) clamps the grade to the band the
+      status counts allow (`tillatnaBetyg`, owner 2026-10-23: 0 svag/0 kritisk
+      → A–C, 1 svag → B–C, ≥ 2 svag → C, any `kritisk` → C–E), logging every
+      clamp; `sakraMotivering` (motivering.ts) checks every number in
+      `betygMotivering` against the extraction (`siffrorKontroll.ts`) and, on a
+      clamp or a mismatch, makes ONE small rewrite call (letter fixed, effort
+      low, stage `motivering`); still wrong or failed → a deterministic
+      fallback motivation. Never fails the stage. Each question
       carries `varfor` (finding + number, shown "Varför:") and optional
       `svarssignal` ("Bra svar / varningssignal").
    - BRF-level (shareable) = `rapport.extraction` + `rapport.judgement`.
@@ -265,7 +280,13 @@ per-apartment cost in kronor, and what to do before bidding.
      tests pin the request bodies).
 4. **Reads** re-assemble on every read from the rapport's extraction/judgement +
    the buyer's `property_input`; only results that parse with the current
-   schemas are served (older compatible versions with a note + one lazy re-run).
+   schemas are served (older compatible versions exactly as stored, grade
+   included, with a note). **Reads never re-run anything** (owner 2026-10-23:
+   API money only on a user's request). A re-run on the current version is
+   queued only by an upload (`skapaAnalys`) or a register request
+   (`skapaAnalysFranRegister`) when the report exists only at an older
+   version — behind the spend cap and the strict quota; once done, every
+   reader of that report (same orgnr + year or same bytes) gets the new one.
    The valuation uses only the buyer's input; the full analysis adds the
    apartment's debt share (`skuldsättning/m² bostadsrättsyta × boarea`) as a
    comment, never applied to the valuation.
@@ -361,7 +382,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-23: 107 files, 2174 tests, all passing)
+npm test                    # vitest run (2026-10-23: 113 files, 2300 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
@@ -530,8 +551,10 @@ cd ml && .venv/bin/pytest                  # ML tests
   (measured ≤ 30 s). A cut-off invocation holds its lease for 300 s.
 - **pdf.js detaches buffers.** Always pass `bytes.slice()` to `extractPdfText`.
 - **`PROMPT_VERSION` is part of `pipeline_version`**; the model is not. A model
-  switch keeps serving existing results; bump `PROMPT_VERSION` to force re-runs
-  (lazy, once per report). Deploy the web app and the Edge Function together.
+  switch keeps serving existing results; a `PROMPT_VERSION` bump marks stored
+  results as older (served as stored with a note; re-run only when a user
+  uploads or requests that report). Deploy the web app and the Edge Function
+  together.
 - **Deploy order for v2** (see SUPABASE.md): kill switch on → drain → `db push`
   (register, then konto) → `deploy:edge` → Lovable publish →
   `register -- backfill-legacy` (dry-run, then real) → kill switch off.
@@ -623,7 +646,7 @@ v2 (all done, see `docs/PLAN-v2.md`):
    full analysis adds the debt-share comment line (owner decision: no debt in
    the model, no andelstal).
 3. **Register — done.** orgnr + fiscal year,
-   hash pre-check, cheap identity stage, versioned lazy re-runs, admin CLI.
+   hash pre-check, cheap identity stage, versioned re-runs (on user request only since 2026-10-23), admin CLI.
 4. **Account-ready infrastructure — done.** Device principal, entitlement
    layer, quotas, GDPR CLI (Supabase Auth added in v3).
 5. **Prompt caching — measured; off by default** (no net saving per isolated

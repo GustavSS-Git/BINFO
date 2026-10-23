@@ -113,6 +113,7 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 105 | 2026-10-23 | optional utgångspris | LOCAL Supabase stack (`v2-lokalt.sh`), E2E of an analysis WITHOUT utgångspris: fresh upload `Årsredovisning_2025_Riksbyggen.pdf` (Helsingborgshus nr 17, text), 111 s upload→done; report, PDF and calculator link checked. Two further runs were register hits (Pontonjären 3, 0 kr). Cost from local `spend_day` | claude-sonnet-5-5 | — | — | 0 | 0 | 3.09 | ≈284.3 |
 | 106 | 2026-10-23 | Question context (PROMPT_VERSION 8) | `npm run extract`, Pontonjären 3 FY2025: FAILED after grundning + extraktion because the input file lacked `andelstal`/`orgnr` (the CLI validates the input only before assembly, after the paid steps) | claude-sonnet-5-5 | — | — | 0 | 0 | 3.00 | ≈287.3 |
 | 107 | 2026-10-23 | Question context (PROMPT_VERSION 8) | `npm run extract`, Pontonjären 3 FY2025 + the /exempel listing: v8 judging valid on first try, 5 analysis questions all with a finding+number "varfor", 4 with `svarssignal`; grade C. Judging motivation misstated the 2026 maturities (87 %, report: 74 %), questions correct (3 calls: grundning 2.276, extraktion 0.840, bedömning 0.505 kr; 72.2 s) | claude-sonnet-5-5 | 126780 | 11976 | 0 | 0 | 3.62 | ≈290.9 |
+| 108 | 2026-10-23 | Fixed figures + motivation check (v8, grade bands) | `npm run extract`, Pontonjären 3 FY2025 + the /exempel listing: grade B (0 svag, 0 kritisk; no clamp), motivation states "74 % av skulden förfaller under 2026" (correct; the fixed figures give 5 759 091 of 7 759 091 kr); the number check found nothing in the motivation, flags or questions, so no rewrite call (3 calls: grundning 2.222, extraktion 0.772, bedömning 0.514 kr; 67.1 s) | claude-sonnet-5-5 | 125852 | 10991 | 0 | 0 | 3.51 | ≈294.4 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
@@ -120,4 +121,4 @@ Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs
 
 Per-call raw records for entry 96 (W3 full run): `docs/api-runs/2026-10-13-w3-v7-verify-calls.jsonl`. Entries 97-100 are single `npm run extract` runs (extraction only); only the CLI cost line was kept.
 
-**Running total: ≈290.9 SEK** (rows 102, 104 estimated)
+**Running total: ≈294.4 SEK** (rows 102, 104 estimated)

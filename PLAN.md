@@ -1,6 +1,6 @@
 # Binfo — current plan
 
-**Current task: round 2 of 2026-10-23 (full analysis, Priskoll merge, question context, grade clamp), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Current task: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
@@ -8,9 +8,38 @@ Earlier plans (done, kept for history): the UI copy + new `/exempel` plan furthe
 
 ---
 
+# Plan: round 3 (2026-10-23) — before deploying round 2
+
+Status: **DONE and committed on `main` 2026-10-23, not pushed, not deployed** (owner: "Do not
+deploy until I confirm").
+
+1. **No re-runs on read.** Status/result reads never queue anything; an older-version report is
+   served exactly as stored (grade included) with the "tidigare version" note. A new run on the
+   current version only on a user's upload or register request when the report exists only at an
+   older version (spend cap + strict quota); the result then replaces it for every reader. Version
+   stamp = existing `rapport.pipeline_version` / `analys.prompt_version` (no migration).
+2. **Public register summary only.** `/brf/$slug` JSON = identity + per year: grade, existing
+   nyckeltal with status (`RegisterArsSammanfattning`) + `BETYG_FORKLARING`. Full stored analysis
+   on `/brf/$slug/analys/$ar` (`hamtaRegisterAnalysFn`, `no-store`, `noindex`), gated by the
+   `se_registeranalys` entitlement (granted to all; one policy line to gate it).
+3. **Grade bands** (`tillatnaBetyg`): 0/0 → A–C, 1 svag → B–C, ≥ 2 svag → C, any kritisk → C–E.
+   BETYGSSKALA's E line aligned (E needs a kritisk figure). Only new analyses.
+4. **Fixed figures** (`fastaVarden.ts`) in the judging prompt; number check
+   (`siffrorKontroll.ts`) on the motivation.
+5. **Motivation rewrite** (`motivering.ts`) on a clamp or a number mismatch: one small call, then a
+   deterministic fallback. Never fails the stage.
+6. **extract CLI** checks the input file before any paid call (`inputFil.ts`); optional fields warn.
+
+Real run #108 (Pontonjären 3, 3.51 kr): motivation correct (74 %), no clamp, no rewrite needed.
+
+**Deploy (owner, still pending):** `npm run deploy:edge` and the Lovable publish close together
+(PROMPT_VERSION 8). No migration. Existing register reports are NOT re-run by the deploy.
+
+---
+
 # Plan: round 2 (2026-10-23) — full analysis at once, Priskoll in Analysera, question context, reproducible grade
 
-Status: **DONE in the working tree 2026-10-23, not committed, not deployed.** Base: `main` @ c167e0d.
+Status: **DONE and committed 2026-10-23 (097e35d…6c394ad), not deployed.** Base: `main` @ c167e0d.
 
 1. **Full analysis immediately.** `/forhandsvisning/$id` renders `AnalysRapport` inline when done
    (no redirect to `/analys`: that would loop on a done-but-unreadable result). Removed the preview
@@ -25,8 +54,8 @@ Status: **DONE in the working tree 2026-10-23, not committed, not deployed.** Ba
 4. **Grade clamp** in `slutforBedomning` (`tillatnaBetyg`/`klampaBetyg`, logged), unit tests.
 
 **Deploy (owner):** PROMPT_VERSION 8 → `pipeline_version` `p8.i1.s1`: `npm run deploy:edge` and the
-Lovable publish close together. Every existing register report re-runs lazily once on its next read
-(≈3–3.6 kr each, normal pipeline). No migration.
+Lovable publish close together. No migration. (The lazy re-run on read described here originally
+was removed in round 3: stored reports are only re-run on a user's request.)
 
 Checks: typecheck 0, 107 files / 2174 tests pass, lint 0 errors (8 baseline warnings), build OK,
 browser check of `/analysera` + `/exempel` (no console errors), one real v8 run (#107, 3.62 kr).
