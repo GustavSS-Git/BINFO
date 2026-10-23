@@ -41,6 +41,7 @@ import {
   tillAnalysStage,
 } from "./register";
 import { korNastaSteg, type KorNastaStegOptions } from "./steg";
+import { omkorningOmojligResultat } from "./fel";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const MODEL = "claude-sonnet-5";
@@ -553,10 +554,11 @@ describe("granskningsfynd — uppladdning och läsväg", () => {
     await expect(hamtaResultat(lager, gammalKopare)).rejects.toThrow(AnalysInteKlarError);
   });
 
-  it("M1: samma pipeline_version men oläsbart resultat (läsväg): omkörning köas, ingen dödläge", async () => {
+  it("M1: samma pipeline_version men oläsbart resultat (läsväg): ingen omkörning från läsningen, ett synligt fel; nästa uppladdning kör om", async () => {
     const lager = skapaFakeLager();
+    const pdf = await standardPdf();
     const trasig = await seedaKlarRapport(lager, {
-      pdfHash: "trasig",
+      pdfHash: await sha256Hex(pdf),
       judgement: { betyg: "Z" },
     });
     const { id } = await lager.db.skapaAnalys({
@@ -570,11 +572,23 @@ describe("granskningsfynd — uppladdning och läsväg", () => {
       rapportId: trasig,
     });
     await expect(hamtaResultat(lager, id)).rejects.toThrow(AnalysInteKlarError);
+    expect(await hamtaStatus(lager, id)).toMatchObject({
+      status: "failed",
+      errorCode: "versionskonflikt",
+      errorMessage: omkorningOmojligResultat().message,
+    });
+    // Reads wrote nothing: still one rapport, still 'done'.
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect((await lager.db.hamtaRapport(trasig))?.status).toBe("done");
+
+    // A user's upload of the same bytes is what runs it again.
+    await laddaUpp(lager, pdf);
     const levande = lager.db
       ._allaRapporter()
       .filter((r) => r.status !== "failed" && r.pipelineVersion === PIPELINE_VERSION);
     expect(levande).toHaveLength(1);
     expect(levande[0]?.id).not.toBe(trasig);
+    expect(await hamtaStatus(lager, id)).toMatchObject({ status: "queued" });
 
     const client = fakeClient();
     koaPipelineSvar(client);
@@ -602,10 +616,11 @@ describe("granskningsfynd — uppladdning och läsväg", () => {
     expect((await lager.db.hamtaRapport(trasig))?.status).toBe("failed");
   });
 
-  it("M3: samtidiga lata omkörningar av en rapport utan identitet → en omkörning, en pipelinekörning", async () => {
+  it("M3: samtidiga uppladdningar av en äldre version utan identitet → en omkörning, en pipelinekörning; läsningarna köar inget", async () => {
     const bas = skapaFakeLager();
+    const pdf = await standardPdf();
     const gammal = await seedaKlarRapport(bas, {
-      pdfHash: "utan-identitet",
+      pdfHash: await sha256Hex(pdf),
       identitet: null,
       pipelineVersion: "p4.i1.s1",
     });
@@ -623,16 +638,21 @@ describe("granskningsfynd — uppladdning och läsväg", () => {
       });
       ids.push(id);
     }
-    const lager: FakeLager = { ...bas, db: medBarriar(bas.db, "skapaRapport") as FakeLager["db"] };
-
-    const svar = await Promise.all(ids.map((id) => hamtaResultat(lager, id)));
+    // Concurrent reads of the old version: served with the note, nothing queued.
+    const svar = await Promise.all(ids.map((id) => hamtaResultat(bas, id)));
     for (const r of svar) {
       expect(r.datakvalitet.extraktionKonfidens.skal).toContain(ALDRE_VERSION_SKAL);
     }
+    expect(bas.db._allaRapporter()).toHaveLength(1);
+
+    const lager: FakeLager = { ...bas, db: medBarriar(bas.db, "skapaRapport") as FakeLager["db"] };
+    const [a, b] = await Promise.all([laddaUpp(lager, pdf), laddaUpp(lager, pdf.slice())]);
     const omkorningar = bas.db
       ._allaRapporter()
       .filter((r) => r.pipelineVersion === PIPELINE_VERSION);
     expect(omkorningar).toHaveLength(1);
+    expect(a.rad.rapportId).toBe(omkorningar[0]?.id);
+    expect(b.rad.rapportId).toBe(omkorningar[0]?.id);
 
     const client = fakeClient();
     koaPipelineSvar(client);
@@ -1124,21 +1144,36 @@ describe("korNastaSteg — registrets kö", () => {
 });
 
 describe("läsvägen — versioner och omkörningar", () => {
-  it("lat omkörning: en äldre kompatibel version serveras med not, en omkörning köas en gång", async () => {
+  it("en äldre kompatibel version: läsningar serverar den som lagrad och köar inget; en uppladdning kör om och 'skriver över' för alla läsare", async () => {
     const lager = skapaFakeLager();
     const pdf = await standardPdf();
     const pdfHash = await sha256Hex(pdf);
-    const gammal = await seedaKlarRapport(lager, { pdfHash, pipelineVersion: "p4.i1.s1" });
+    const gammal = await seedaKlarRapport(lager, {
+      pdfHash,
+      pipelineVersion: "p4.i1.s1",
+      judgement: { ...minimalJudgement(), betyg: "B" },
+    });
+    const { id: tidigareKopare } = await lager.db.skapaAnalys({
+      pdfHash,
+      pdfPath: null,
+      propertyInput: propertyInput as never,
+      model: MODEL,
+      promptVersion: "4",
+      status: "queued",
+      stage: "uploaded",
+      rapportId: gammal,
+    });
 
-    const { resultat, rad } = await laddaUpp(lager, pdf);
-    expect(resultat).toMatchObject({ ateranvand: true });
-    expect(rad.rapportId).toBe(gammal);
-
-    const forsta = await hamtaResultat(lager, rad.id);
+    const forsta = await hamtaResultat(lager, tidigareKopare);
     expect(forsta.datakvalitet.extraktionKonfidens.skal).toContain(ALDRE_VERSION_SKAL);
-    await hamtaResultat(lager, rad.id);
-    await hamtaStatus(lager, rad.id);
+    expect(forsta.betyg).toBe("B");
+    await hamtaResultat(lager, tidigareKopare);
+    expect(await hamtaStatus(lager, tidigareKopare)).toMatchObject({ status: "done" });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
 
+    // The upload of the same bytes is a request: a new current-version run.
+    const { resultat, rad } = await laddaUpp(lager, pdf);
+    expect(resultat).toEqual({ ok: true, analysisId: rad.id });
     const omkorningar = lager.db
       ._allaRapporter()
       .filter((r) => r.pipelineVersion === PIPELINE_VERSION);
@@ -1150,17 +1185,100 @@ describe("läsvägen — versioner och omkörningar", () => {
       status: "queued",
       pdfHash,
     });
+    expect(rad.rapportId).toBe(omkorningar[0]?.id);
+    // Until it is done, the earlier buyer keeps the old one.
+    expect((await hamtaResultat(lager, tidigareKopare)).betyg).toBe("B");
+    expect(await hamtaStatus(lager, rad.id)).toMatchObject({ status: "queued" });
 
     const client = fakeClient();
     koaPipelineSvar(client);
     await korTillsTomt(lager, { client });
     expect(client.messages.create).toHaveBeenCalledTimes(3);
 
-    const efter = await hamtaResultat(lager, rad.id);
-    expect(efter.datakvalitet.extraktionKonfidens.skal ?? []).not.toContain(ALDRE_VERSION_SKAL);
+    // Done: every reader of the report gets the new version.
+    for (const id of [tidigareKopare, rad.id]) {
+      const efter = await hamtaResultat(lager, id);
+      expect(efter.datakvalitet.extraktionKonfidens.skal ?? []).not.toContain(ALDRE_VERSION_SKAL);
+      expect(efter.betyg).toBe("C");
+    }
+    // The old row itself is untouched.
+    expect(await lager.db.hamtaRapport(gammal)).toMatchObject({
+      status: "done",
+      pipelineVersion: "p4.i1.s1",
+    });
+    // A third upload is now free.
+    expect((await laddaUpp(lager, pdf)).resultat).toMatchObject({ ateranvand: true });
   });
 
-  it("ett inkompatibelt lagrat resultat serveras aldrig: omkörning köas, köparen väntar", async () => {
+  it("en misslyckad omkörning: den gamla versionen serveras vidare, och nästa uppladdning kör igen", async () => {
+    const lager = skapaFakeLager();
+    const pdf = await standardPdf();
+    const gammal = await seedaKlarRapport(lager, {
+      pdfHash: await sha256Hex(pdf),
+      pipelineVersion: "p4.i1.s1",
+    });
+    const forsta = await laddaUpp(lager, pdf);
+    const forstaKorning = forsta.rad.rapportId ?? "";
+    expect(forstaKorning).not.toBe(gammal);
+    await lager.db.uppdateraRapport(forstaKorning, {
+      status: "failed",
+      errorCode: "validation",
+      errorMessage: "Modellens svar kunde inte tolkas.",
+      finishedAt: new Date().toISOString(),
+    });
+
+    // Readers of the old one are unaffected by the failure.
+    const { id: tidigareKopare } = await lager.db.skapaAnalys({
+      pdfHash: "x",
+      pdfPath: null,
+      propertyInput: propertyInput as never,
+      model: MODEL,
+      promptVersion: "4",
+      status: "queued",
+      stage: "uploaded",
+      rapportId: gammal,
+    });
+    expect(
+      (await hamtaResultat(lager, tidigareKopare)).datakvalitet.extraktionKonfidens.skal,
+    ).toContain(ALDRE_VERSION_SKAL);
+
+    const andra = await laddaUpp(lager, pdf);
+    expect(andra.resultat).toEqual({ ok: true, analysisId: andra.rad.id });
+    expect(andra.rad.rapportId).not.toBe(forstaKorning);
+    expect(andra.rad.rapportId).not.toBe(gammal);
+    expect(await lager.db.hamtaRapport(andra.rad.rapportId ?? "")).toMatchObject({
+      status: "queued",
+      pipelineVersion: PIPELINE_VERSION,
+    });
+  });
+
+  it("en misslyckad omkörning blockerar inte heller en annan fil av samma rapport (lokal identitet)", async () => {
+    const lager = skapaFakeLager();
+    await seedaKlarRapport(lager, { pdfHash: "gammal-utgava", pipelineVersion: "p4.i1.s1" });
+    const misslyckad = await seedaKlarRapport(lager, {
+      pdfHash: "misslyckad",
+      status: "failed",
+      stage: "grundning",
+      extraction: null,
+      judgement: null,
+    });
+    const { resultat, rad } = await laddaUpp(
+      lager,
+      await skapaPdf(["Samma rapport, annan nedladdning", "Brf Kastanjen"]),
+      lokalIdentitet(KASTANJEN),
+    );
+    expect(resultat).toEqual({ ok: true, analysisId: rad.id });
+    expect(rad.rapportId).not.toBe(misslyckad);
+    expect(await lager.db.hamtaRapport(rad.rapportId ?? "")).toMatchObject({
+      orgnr: ORGNR,
+      rakenskapsar: AR,
+      pipelineVersion: PIPELINE_VERSION,
+      stage: "grundning",
+      status: "queued",
+    });
+  });
+
+  it("ett inkompatibelt lagrat resultat serveras aldrig och läsningen köar inget: synligt fel; en uppladdning kör om", async () => {
     const lager = skapaFakeLager();
     const pdf = await standardPdf();
     const gammal = await seedaKlarRapport(lager, {
@@ -1168,32 +1286,35 @@ describe("läsvägen — versioner och omkörningar", () => {
       pipelineVersion: "p4.i1.s0",
       extraction: { schemaVersion: "0.9.0", forening: {} },
     });
-    const { rad } = await lager.db
-      .skapaAnalys({
-        pdfHash: "x",
-        pdfPath: null,
-        propertyInput: propertyInput as never,
-        model: MODEL,
-        promptVersion: "4",
-        status: "queued",
-        stage: "uploaded",
-        rapportId: gammal,
-      })
-      .then(async ({ id }) => ({ rad: await lager.db.hamtaAnalys(id) }));
-    const id = rad?.id ?? "";
+    const { id } = await lager.db.skapaAnalys({
+      pdfHash: "x",
+      pdfPath: null,
+      propertyInput: propertyInput as never,
+      model: MODEL,
+      promptVersion: "4",
+      status: "queued",
+      stage: "uploaded",
+      rapportId: gammal,
+    });
 
     await expect(hamtaResultat(lager, id)).rejects.toThrow(AnalysInteKlarError);
-    const omkorningar = lager.db._allaRapporter().filter((r) => r.id !== gammal);
-    expect(omkorningar).toHaveLength(1);
+    expect(await hamtaStatus(lager, id)).toMatchObject({
+      status: "failed",
+      errorCode: "versionskonflikt",
+      errorMessage: omkorningOmojligResultat().message,
+    });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+
+    // A new upload of the same bytes must not serve it either: it runs again,
+    // and the earlier buyer's status follows that run.
+    const ny = await laddaUpp(lager, pdf);
+    expect(ny.resultat).toEqual({ ok: true, analysisId: ny.rad.id });
+    expect(lager.db._allaRapporter()).toHaveLength(2);
     expect(await hamtaStatus(lager, id)).toMatchObject({
       status: "queued",
       stage: "uploaded",
       rapportSteg: "grundning",
     });
-
-    // A new upload of the same bytes must not serve it either.
-    const ny = await laddaUpp(lager, pdf);
-    expect(ny.resultat).toMatchObject({ vantarPaRapport: true });
   });
 
   it("inkompatibelt och PDF:en borta: ett synligt fel, aldrig en evig väntan", async () => {
@@ -1282,5 +1403,54 @@ describe("läsvägen — versioner och omkörningar", () => {
       ["judging", "bedomning"],
     ]);
     expect((await hamtaStatus(lager, rad.id))?.stage).toBe("complete");
+  });
+});
+
+describe("cache-nyckeln: exakta byten → orgnr + räkenskapsår → identitetssteget", () => {
+  it("en annan PDF (annan hash) med samma orgnr + år på aktuell version återanvänds: ingen ny rapport, inget modellanrop", async () => {
+    const lager = skapaFakeLager();
+    const befintlig = await seedaKlarRapport(lager, { pdfHash: "forsta-skanningen" });
+    const annan = await skapaPdf(["En annan skanning av samma arsredovisning"]);
+    expect(await sha256Hex(annan)).not.toBe("forsta-skanningen");
+
+    const { resultat, rad } = await laddaUpp(lager, annan, lokalIdentitet(KASTANJEN));
+    expect(resultat).toEqual({ ok: true, analysisId: rad.id, ateranvand: true });
+    expect(rad.rapportId).toBe(befintlig);
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect(await hamtaStatus(lager, rad.id)).toMatchObject({ status: "done" });
+  });
+
+  it("en annan PDF med samma orgnr + år där bara en ÄLDRE version finns: en ny körning på aktuell version med identiteten", async () => {
+    const lager = skapaFakeLager();
+    const gammal = await seedaKlarRapport(lager, {
+      pdfHash: "forsta-skanningen",
+      pipelineVersion: "p4.i1.s1",
+    });
+    const { resultat, rad } = await laddaUpp(
+      lager,
+      await skapaPdf(["Samma rapport, en annan nedladdning", "Brf Kastanjen"]),
+      lokalIdentitet(KASTANJEN),
+    );
+    expect(resultat).toEqual({ ok: true, analysisId: rad.id });
+    expect(rad.rapportId).not.toBe(gammal);
+    expect(await lager.db.hamtaRapport(rad.rapportId ?? "")).toMatchObject({
+      orgnr: ORGNR,
+      rakenskapsar: AR,
+      pipelineVersion: PIPELINE_VERSION,
+      stage: "grundning",
+    });
+  });
+
+  it("en skanning utan lokal identitet: identitetssteget hittar samma orgnr + år på aktuell version och slår ihop, utan dyra steg", async () => {
+    const lager = skapaFakeLager();
+    const befintlig = await seedaKlarRapport(lager, { pdfHash: "digital-utgava" });
+    const { rad } = await laddaUpp(lager, await skapaPdf(["Skannad, ingen lasbar identitet"]));
+    expect(rad.rapportId).not.toBe(befintlig);
+    const client = fakeClient();
+    const identifiera = fakeIdentifierare(KASTANJEN);
+    await korTillsTomt(lager, { client, identifieraMedModell: identifiera });
+    expect(identifiera).toHaveBeenCalledTimes(1);
+    expect(client.messages.create).not.toHaveBeenCalled();
+    expect((await lager.db.hamtaAnalys(rad.id))?.rapportId).toBe(befintlig);
   });
 });

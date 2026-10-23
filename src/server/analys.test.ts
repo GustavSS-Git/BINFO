@@ -21,7 +21,11 @@ import {
   UPPLADDNINGAR_PER_IP_OCH_DAG,
 } from "./kvot";
 import type { Anropare } from "./portar";
-import { FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE, MAX_SIDOR_SKANNAD_RAPPORT } from "./register";
+import {
+  FOR_MANGA_SKANNADE_SIDOR_MEDDELANDE,
+  MAX_SIDOR_SKANNAD_RAPPORT,
+  PIPELINE_VERSION,
+} from "./register";
 import type { Env } from "./env";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { sparaAnalysICache, sparaExtraktionICache } from "./cache";
@@ -857,6 +861,91 @@ describe("skapaAnalys med anropare", () => {
         propertyInput,
       });
       expect(resultat).toMatchObject({ ok: false, errorCode: "daily_cap" });
+    });
+
+    /** The same bytes analysed at an OLDER pipeline version (done, compatible). */
+    async function medGammalRapport() {
+      const { lager, konto } = skapaDeladeFakes();
+      const pdfBytes = await medTextPdf();
+      const pdfHash = await sha256Hex(pdfBytes);
+      const skapad = await lager.db.skapaRapport({
+        orgnr: null,
+        rakenskapsar: null,
+        pipelineVersion: "p4.i1.s1",
+        model: "claude-sonnet-5",
+        textlager: "ok",
+        status: "done",
+        stage: "klar",
+        pdfHash,
+        extraction: extraktion,
+        judgement: minimalJudgement(),
+        finishedAt: new Date(Date.now() - 60_000).toISOString(),
+      });
+      if (!skapad.ok) throw new Error("seed");
+      await lager.db.skapaRapportFil({
+        pdfHash,
+        rapportId: skapad.id,
+        pdfPath: `${pdfHash}.pdf`,
+        sidor: 1,
+        bytes: pdfBytes.byteLength,
+      });
+      await lager.filer.laggUpp(`${pdfHash}.pdf`, pdfBytes);
+      return { lager, konto, pdfBytes, gammalId: skapad.id };
+    }
+
+    it("en hash-träff på en ÄLDRE version är ingen gratisträff: dagens tak gäller, utan sidoeffekter", async () => {
+      const { lager, konto, pdfBytes } = await medGammalRapport();
+      await fyllDagensTak(lager);
+      const resultat = await skapaAnalys(
+        lager,
+        buildEnv({ maxDailySpendSek: 10 }),
+        { pdfBytes, propertyInput },
+        { anropare: skapaAnropare(konto) },
+      );
+      expect(resultat).toMatchObject({ ok: false, errorCode: "daily_cap" });
+      expect(lager.db._allaRapporter()).toHaveLength(1);
+      expect(lager.db._allaAnalyser()).toHaveLength(0);
+      expect(konto.kvot.size).toBe(0);
+    });
+
+    it("samma bytes på en äldre version: en ny körning på aktuell version köas och den strikta kvoten lämnas INTE tillbaka", async () => {
+      const { lager, konto, pdfBytes, gammalId } = await medGammalRapport();
+      const resultat = await skapaAnalys(
+        lager,
+        buildEnv(),
+        { pdfBytes, propertyInput },
+        { anropare: skapaAnropare(konto) },
+      );
+      if (!resultat.ok) throw new Error(resultat.errorMessage);
+      expect(resultat).toEqual({ ok: true, analysisId: resultat.analysisId });
+      const rad = await lager.db.hamtaAnalys(resultat.analysisId);
+      expect(rad?.rapportId).not.toBe(gammalId);
+      expect(await lager.db.hamtaRapport(rad?.rapportId ?? "")).toMatchObject({
+        status: "queued",
+        pipelineVersion: PIPELINE_VERSION,
+      });
+      expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
+      expect(kvotAnvand(konto, IP_NYCKEL)).toBe(1);
+    });
+
+    it("att ansluta till en omkörning som redan pågår kostar inget: den strikta kvoten lämnas tillbaka", async () => {
+      const { lager, konto, pdfBytes } = await medGammalRapport();
+      const forsta = await skapaAnalys(
+        lager,
+        buildEnv(),
+        { pdfBytes, propertyInput },
+        { anropare: skapaAnropare(konto) },
+      );
+      if (!forsta.ok) throw new Error(forsta.errorMessage);
+      const andra = await skapaAnalys(
+        lager,
+        buildEnv(),
+        { pdfBytes, propertyInput },
+        { anropare: skapaAnropare(konto) },
+      );
+      expect(andra).toMatchObject({ ok: true, vantarPaRapport: true });
+      expect(lager.db._allaRapporter()).toHaveLength(2);
+      expect(kvotAnvand(konto, ENHET_NYCKEL)).toBe(1);
     });
 
     it("kill switch gäller även för en hash-träff", async () => {

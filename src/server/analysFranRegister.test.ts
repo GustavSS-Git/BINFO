@@ -13,7 +13,7 @@ import { tolkaSpendSkal } from "./fel";
 import type { Kontext } from "./kontext";
 import { kvotNyckel } from "./kvot";
 import type { Anropare } from "./portar";
-import { PIPELINE_VERSION, uppdateraRegisterForOrgnr } from "./register";
+import { ALDRE_VERSION_SKAL, PIPELINE_VERSION, uppdateraRegisterForOrgnr } from "./register";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { input: propertyInput } = JSON.parse(
@@ -54,7 +54,13 @@ function anvand(konto: FakeKontoDatabas, nyckel: string): number {
 /** A listed BRF (Kungsholmen via postnummer 112 42) with one done rapport + its PDF row. */
 async function laggBrf(
   lager: FakeLager,
-  o: { pipeline?: string; status?: "done" | "failed"; postnummer?: string } = {},
+  o: {
+    pipeline?: string;
+    status?: "done" | "failed";
+    postnummer?: string;
+    /** Store the PDF bytes too (needed for a re-run). */
+    pdf?: boolean;
+  } = {},
 ) {
   await lager.db.registreraForening(ORGNR, "Brf Pontonjären 3");
   const r = await lager.db.skapaRapport({
@@ -93,6 +99,7 @@ async function laggBrf(
     sidor: 10,
     bytes: 1000,
   });
+  if (o.pdf) await lager.filer.laggUpp("brf-hash.pdf", new TextEncoder().encode("%PDF-1.7 test"));
   await uppdateraRegisterForOrgnr(lager.db, ORGNR);
   const slug = (await lager.db._registerLasning().hamtaForeningViaOrgnr(ORGNR))?.slug;
   return { rapportId: r.id, slug: slug ?? "" };
@@ -295,5 +302,197 @@ describe("skapaAnalysFranRegister", () => {
       { anropare, lasning },
     );
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ orgnr: ORGNR, kalla: "anvandare" }));
+  });
+
+  it("på aktuell version skapas ingen ny rapport (gratis, ingen omkörning)", async () => {
+    const { lager, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pdf: true });
+    const svar = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    expect(svar).toMatchObject({ ok: true, ateranvand: true });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+  });
+});
+
+describe("skapaAnalysFranRegister — rapporten finns bara på en äldre version", () => {
+  const GAMMAL = "p4.i1.s1";
+
+  it("en begäran kör om på den lagrade PDF:en: ny rapport på aktuell version, strikt kvot, länkad, inte återanvänd", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { rapportId: gammal, slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+
+    const svar = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    if (!svar.ok) throw new Error(svar.errorMessage);
+    expect(svar).toEqual({ ok: true, analysisId: svar.analysisId });
+
+    const rad = await lager.db.hamtaAnalys(svar.analysisId);
+    expect(rad?.rapportId).not.toBe(gammal);
+    expect(await lager.db.hamtaRapport(rad?.rapportId ?? "")).toMatchObject({
+      orgnr: ORGNR,
+      rakenskapsar: 2025,
+      pipelineVersion: PIPELINE_VERSION,
+      pdfHash: "brf-hash",
+      status: "queued",
+      stage: "grundning",
+      model: "claude-sonnet-5-5",
+    });
+    expect(rad).toMatchObject({ pdfHash: "brf-hash", pdfPath: "brf-hash.pdf" });
+    expect(anvand(konto, kvotNyckel("uppladdning", "enhet", ENHET))).toBe(1);
+    expect(anvand(konto, kvotNyckel("uppladdning", "ip", IP_HASH))).toBe(1);
+    expect(anvand(konto, kvotNyckel("uppladdning_los", "enhet", ENHET))).toBe(1);
+    expect(await hamtaStatus(lager, svar.analysisId)).toMatchObject({ status: "queued" });
+    // The old one is untouched and still what the public register serves.
+    expect(await lager.db.hamtaRapport(gammal)).toMatchObject({
+      status: "done",
+      pipelineVersion: GAMMAL,
+    });
+    // Queued only: the model is called by the worker, not here.
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("dagens spend-tak nekar omkörningen utan sidoeffekter", async () => {
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+    const svar = await skapaAnalysFranRegister(
+      lager,
+      buildEnv({ maxDailySpendSek: 0 }),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    expect(svar).toMatchObject({ ok: false, errorCode: "daily_cap" });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+    expect(konto.kvot.size).toBe(0);
+    expect(konto.principaler.size).toBe(0);
+  });
+
+  it("den strikta kvoten nekar omkörningen utan att köa något", async () => {
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+    const nyckel = kvotNyckel("uppladdning", "enhet", ENHET);
+    for (let i = 0; i < 5; i++) await konto.taKvot(nyckel, 24 * 3600, 5);
+    const svar = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    expect(svar).toMatchObject({ ok: false, errorCode: "kvot" });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect(lager.db._allaAnalyser()).toHaveLength(0);
+  });
+
+  it("kill switchen nekar omkörningen utan sidoeffekter", async () => {
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+    const svar = await skapaAnalysFranRegister(
+      lager,
+      buildEnv({ killSwitchPa: true }),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    expect(svar).toMatchObject({ ok: false });
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect(konto.kvot.size).toBe(0);
+  });
+
+  it("ett kast efter kvoten lämnar tillbaka både den strikta och den lösa kvoten", async () => {
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+    lager.db.skapaAnalys = async () => {
+      throw new Error("db nere");
+    };
+    await expect(
+      skapaAnalysFranRegister(lager, buildEnv(), { slug, propertyInput }, { anropare, lasning }),
+    ).rejects.toThrow("db nere");
+    expect(anvand(konto, kvotNyckel("uppladdning", "enhet", ENHET))).toBe(0);
+    expect(anvand(konto, kvotNyckel("uppladdning_los", "enhet", ENHET))).toBe(0);
+  });
+
+  it("utan lagrad PDF: den gamla rapporten länkas och serveras som lagrad, gratis (bara den lösa kvoten)", async () => {
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { rapportId: gammal, slug } = await laggBrf(lager, { pipeline: GAMMAL });
+    const svar = await skapaAnalysFranRegister(
+      lager,
+      buildEnv({ maxDailySpendSek: 0 }),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    if (!svar.ok) throw new Error(svar.errorMessage);
+    expect(svar.ateranvand).toBe(true);
+    expect((await lager.db.hamtaAnalys(svar.analysisId))?.rapportId).toBe(gammal);
+    expect(lager.db._allaRapporter()).toHaveLength(1);
+    expect(anvand(konto, kvotNyckel("uppladdning", "enhet", ENHET))).toBe(0);
+    expect(anvand(konto, kvotNyckel("uppladdning_los", "enhet", ENHET))).toBe(1);
+    const resultat = await hamtaResultat(lager, svar.analysisId, anropare);
+    expect(resultat.datakvalitet.extraktionKonfidens.skal).toContain(ALDRE_VERSION_SKAL);
+    expect(resultat.betyg).toBe("C");
+  });
+
+  it("en omkörning som redan pågår: ansluter till den, väntar, och den strikta kvoten lämnas tillbaka", async () => {
+    const { lager, konto, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+    const forsta = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    if (!forsta.ok) throw new Error(forsta.errorMessage);
+    const andra = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    if (!andra.ok) throw new Error(andra.errorMessage);
+    expect(andra).toEqual({ ok: true, analysisId: andra.analysisId, vantarPaRapport: true });
+    expect(lager.db._allaRapporter()).toHaveLength(2);
+    const [a, b] = await Promise.all(
+      [forsta.analysisId, andra.analysisId].map((id) => lager.db.hamtaAnalys(id)),
+    );
+    expect(a?.rapportId).toBe(b?.rapportId);
+    expect(anvand(konto, kvotNyckel("uppladdning", "enhet", ENHET))).toBe(1);
+  });
+
+  it("en tidigare misslyckad omkörning blockerar inte en ny begäran", async () => {
+    const { lager, anropare, lasning } = uppsattning();
+    const { slug } = await laggBrf(lager, { pipeline: GAMMAL, pdf: true });
+    const forsta = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    if (!forsta.ok) throw new Error(forsta.errorMessage);
+    const forstaKorning = (await lager.db.hamtaAnalys(forsta.analysisId))?.rapportId ?? "";
+    await lager.db.uppdateraRapport(forstaKorning, {
+      status: "failed",
+      errorCode: "validation",
+      finishedAt: new Date().toISOString(),
+    });
+    const andra = await skapaAnalysFranRegister(
+      lager,
+      buildEnv(),
+      { slug, propertyInput },
+      { anropare, lasning },
+    );
+    if (!andra.ok) throw new Error(andra.errorMessage);
+    const andraKorning = (await lager.db.hamtaAnalys(andra.analysisId))?.rapportId ?? "";
+    expect(andraKorning).not.toBe(forstaKorning);
+    expect(await lager.db.hamtaRapport(andraKorning)).toMatchObject({
+      status: "queued",
+      pipelineVersion: PIPELINE_VERSION,
+    });
   });
 });

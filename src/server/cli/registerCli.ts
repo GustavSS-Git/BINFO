@@ -382,8 +382,8 @@ export interface OmkorningsRad {
 
 /**
  * Queues a current-version re-run for every DONE rapport at an older
- * pipeline version that has none yet (same rule as the lazy re-run on read,
- * `koaOmkorning`). `limit` caps how many are queued (or would be, in a dry
+ * pipeline version that has none yet (`koaOmkorning`; an operator
+ * action — the product itself re-runs only on a user's upload or request). `limit` caps how many are queued (or would be, in a dry
  * run). Spend is guarded where it happens: the worker reserves against the
  * daily cap before each stage.
  */

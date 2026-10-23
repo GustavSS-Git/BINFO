@@ -25,6 +25,15 @@
  * `rapport` (`rapport_id`) och allt — status, steg, extraktion, bedömning —
  * härleds därifrån. Rader utan `rapport_id` (skapade före registret) läses
  * exakt som förut, från extraktion_cache/analys_cache.
+ *
+ * KOSTNADSREGELN (ägaren 2026-10-23, se register.ts filkommentar): API-pengar
+ * spenderas bara när en användare aktivt begär en analys. Läsningar
+ * (`hamtaStatus`, `hamtaResultat`) köar ALDRIG en omkörning: ett lagrat
+ * resultat från en äldre version serveras som det är (med en not), ett
+ * oläsbart ger ett synligt fel. En omkörning på aktuell version köas bara av
+ * `skapaAnalys` (uppladdning) och `skapaAnalysFranRegister` (begäran från
+ * registret), när rapporten bara finns på en äldre version — bakom kill
+ * switch, spend-tak och den strikta kvoten.
  */
 
 import type { AnalysisResult, ExtractionResult, PropertyInput } from "@/types/analysis";
@@ -75,7 +84,7 @@ import {
   arPagaende,
   foljErsattAv,
   hittaNyareAr,
-  hittaOmkorning,
+  hittaPagaendeKorning,
   klassificeraTextlager,
   koaOmkorning,
   kopplaUppladdning,
@@ -89,6 +98,7 @@ import {
   type IdentitetsBeroenden,
   type LasbarRapport,
   PIPELINE_VERSION,
+  rapportensPdfSokvag,
   tolkaRapportInnehall,
 } from "./register";
 import { LISTADE_OMRADEN } from "./registerPublik";
@@ -139,19 +149,22 @@ async function provaBehorighet(
 }
 
 /**
- * True when this exact PDF is already analysed and servable (done, and its
- * stored result parses with the running code — the same test
- * `kopplaUppladdning` applies): the upload will be answered from the register
- * at no cost, so today's spend cap has no reason to refuse it. A cheap read;
- * never throws — on any failure the answer is "no" and the normal cap check
- * decides.
+ * True when this exact PDF is already analysed and servable at the CURRENT
+ * pipeline version (done, and its stored result parses with the running code
+ * — the same test `kopplaUppladdning` applies): the upload will be answered
+ * from the register at no cost, so today's spend cap has no reason to refuse
+ * it. A report stored only at an older version is NOT free: the upload queues
+ * a new run. A cheap read; never throws — on any failure the answer is "no"
+ * and the normal cap check decides.
  */
 async function kanServerasUtanKostnad(lager: Lager, pdfHash: string): Promise<boolean> {
   try {
     const fil = await lager.db.hamtaRapportFil(pdfHash);
     if (!fil) return false;
     const rapport = await foljErsattAv(lager.db, await lager.db.hamtaRapport(fil.rapportId));
-    return rapport !== null && (await valjLasbarRapport(lager.db, rapport)) !== null;
+    if (rapport === null) return false;
+    const lasbar = await valjLasbarRapport(lager.db, rapport);
+    return lasbar !== null && !lasbar.aldreVersion;
   } catch (fel) {
     console.warn(
       "[register] Kunde inte slå upp hash-träffen före spend-taket: " +
@@ -181,11 +194,13 @@ function harPdfMagicBytes(bytes: Uint8Array): boolean {
  * behörighet (`ladda_upp_analys`) → validering → hash (på ORIGINALA byten,
  * innan något annat rör dem) → magic bytes → storlek → kill switch →
  * textlagerkontroll → dagens spend-tak (läsning, ingen reservation; hoppas
- * över för en hash-träff på en klar rapport) → uppladdningskvoten → principal → uppladdning → registret
+ * över för en hash-träff på en klar rapport på AKTUELL version) →
+ * uppladdningskvoten → principal → uppladdning → registret
  * (`kopplaUppladdning`, register.ts: hash-träff, lokal identitet, eller en ny
- * rapport) → analys-raden (med `principal_id`) → föreningens område (bästa
- * försök) → kvoten tillbaka om analysen serverades direkt ur registret eller
- * anslöt till en rapport som redan analyseras.
+ * rapport; en rapport som bara finns på en äldre version ger en ny körning på
+ * aktuell version) → analys-raden (med `principal_id`) → föreningens område
+ * (bästa försök) → kvoten tillbaka om analysen serverades direkt ur registret
+ * eller anslöt till en rapport som redan analyseras.
  *
  * Varje nekande före uppladdningen lämnar noll sidoeffekter: ingen fil,
  * ingen rad, ingen principal — och ingen förbrukad kvot, eftersom kvoten tas
@@ -264,9 +279,9 @@ export async function skapaAnalys(
 
   // Dagens spend-tak, i förväg: annars köar analysen tyst till i morgon (se
   // `kontrolleraDagligtTak`). Före kvoten, så ett nekande inte kostar köparen
-  // något. Undantag: en hash-träff på en redan klar, kompatibel rapport
-  // serveras direkt ur registret och kostar inget — den nekas inte av taket
-  // (kill switchen ovan gäller däremot alla).
+  // något. Undantag: en hash-träff på en redan klar, kompatibel rapport på
+  // aktuell version serveras direkt ur registret och kostar inget — den nekas
+  // inte av taket (kill switchen ovan gäller däremot alla).
   if (!(await kanServerasUtanKostnad(lager, pdfHash))) {
     const tak = await kontrolleraDagligtTak(lager.db, env);
     if (!tak.ok) {
@@ -390,15 +405,26 @@ const FORENING_SAKNAS_MEDDELANDE =
 /**
  * A buyer's analysis of one apartment in a BRF that is already in the public
  * register: the apartment details only, no PDF. Creates the same per-user
- * `analys` row an upload that hits a finished report creates (linked to the
- * rapport, status derived from it), so status, preview and the full report
- * work unchanged. Costs no API money: no model call, no spend reservation.
+ * `analys` row an upload creates (linked to a rapport, status derived from
+ * it), so status and the full report work unchanged.
+ *
+ * Two cases, decided by the newest fiscal year's stored report (the public
+ * register's pick):
+ *   - stored at the CURRENT pipeline version → linked to it, free: no model
+ *     call, no spend reservation, the LOOSE upload quota only (the strict
+ *     quota caps API spend and this spends none);
+ *   - stored only at an OLDER version → this is a user's request for an
+ *     analysis, so a new current-version run is queued on the stored PDF
+ *     (`koaOmkorning`, or joining one already in progress), behind the daily
+ *     spend cap and the STRICT upload quota, as for an upload (the strict
+ *     quota is given back when an in-progress run is joined). If the stored
+ *     PDF is gone, the old report is linked and served as stored (free).
  *
  * Order: entitlement → BRF resolution (listed + a servable done rapport; the
- * same rules as the public register) → validation → kill switch → LOOSE
- * upload quota only (the strict quota caps API spend and this spends none) →
- * principal → analys row → buyer postnummer registered. Every refusal before
- * the quota leaves no side effects.
+ * same rules as the public register) → validation → kill switch → (re-run
+ * only: stored PDF present? → daily spend cap) → quota → principal → (re-run:
+ * queue) → analys row → buyer postnummer registered. Every refusal before the
+ * quota leaves no side effects; any throw after it gives the quota back.
  */
 export async function skapaAnalysFranRegister(
   lager: Lager,
@@ -450,6 +476,7 @@ export async function skapaAnalysFranRegister(
     }
   }
   if (!lasbar || lasbar.rapport.pdfHash === null) return saknas;
+  const valdRapport = lasbar.rapport;
   const pdfHash = lasbar.rapport.pdfHash;
 
   const parsedInput = PropertyInputSchema.safeParse(args.propertyInput);
@@ -469,9 +496,23 @@ export async function skapaAnalysFranRegister(
     return { ok: false, errorCode, errorMessage: message };
   }
 
+  // An older-version report is re-run on request, if its stored PDF is still
+  // there (read-only check, before any quota). Without it the old report is
+  // linked and served as stored.
+  const omkorning = lasbar.aldreVersion && (await harLagradPdf(lager, valdRapport));
+  if (omkorning) {
+    const tak = await kontrolleraDagligtTak(lager.db, env);
+    if (!tak.ok) {
+      const { errorCode, message } = tolkaSpendSkal(tak.skal ?? "daily_cap");
+      return { ok: false, errorCode, errorMessage: message };
+    }
+  }
+
   let kvotTagen = false;
   if (anropare) {
-    const kvot = await kontrolleraLosUppladdningskvot(anropare.konto, anropare.kontext);
+    const kvot = omkorning
+      ? await kontrolleraUppladdningskvot(anropare.konto, anropare.kontext)
+      : await kontrolleraLosUppladdningskvot(anropare.konto, anropare.kontext);
     if (!kvot.ok) {
       const { errorCode, message } = tolkaKvot(kvot);
       return { ok: false, errorCode, errorMessage: message };
@@ -483,8 +524,28 @@ export async function skapaAnalysFranRegister(
     const principalId = anropare
       ? (await medPrincipal(anropare.konto, anropare.kontext)).principalId
       : null;
-    const fil = await lager.db.hamtaRapportFil(pdfHash);
 
+    let rapportId = valdRapport.id;
+    let ateranvand = true;
+    let vantarPaRapport = false;
+    let nyKostnad = false;
+    if (omkorning) {
+      const utfall = await koaOmkorning(lager, valdRapport, env.anthropicModel, {
+        raknaMisslyckade: false,
+      });
+      if (utfall.utfall !== "pdf_saknas") {
+        const ny = await foljErsattAv(lager.db, await lager.db.hamtaRapport(utfall.rapportId));
+        rapportId = ny?.id ?? utfall.rapportId;
+        // 'finns': joined a current-version run someone else started — still
+        // running, or (a race) just finished.
+        ateranvand = utfall.utfall === "finns" && ny?.status === "done";
+        vantarPaRapport = utfall.utfall === "finns" && ny !== null && arPagaende(ny);
+        nyKostnad = utfall.utfall === "koad";
+      }
+      // 'pdf_saknas' (the file vanished since the check): the old report is
+      // linked as stored — nothing new is paid for.
+    }
+    const fil = await lager.db.hamtaRapportFil(pdfHash);
     const { id } = await lager.db.skapaAnalys({
       pdfHash,
       pdfPath: fil?.pdfPath ?? `${pdfHash}.pdf`,
@@ -493,7 +554,7 @@ export async function skapaAnalysFranRegister(
       promptVersion: PROMPT_VERSION,
       status: "queued",
       stage: "uploaded",
-      rapportId: lasbar.rapport.id,
+      rapportId,
       principalId,
     });
 
@@ -508,11 +569,34 @@ export async function skapaAnalysFranRegister(
       }
     }
 
-    return { ok: true, analysisId: id, ateranvand: true };
+    // Only a newly queued run costs anything: give the strict quota back for
+    // joining a run in progress (as for an upload) or for the fallback.
+    if (omkorning && !nyKostnad && anropare) {
+      await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext);
+    }
+
+    return {
+      ok: true,
+      analysisId: id,
+      ...(ateranvand ? { ateranvand: true } : {}),
+      ...(vantarPaRapport ? { vantarPaRapport: true } : {}),
+    };
   } catch (fel) {
-    if (anropare && kvotTagen) await aterlamnaLosUppladdningskvot(anropare.konto, anropare.kontext);
+    if (anropare && kvotTagen) {
+      if (omkorning) {
+        await aterlamnaUppladdningskvot(anropare.konto, anropare.kontext, { aven_losa: true });
+      } else {
+        await aterlamnaLosUppladdningskvot(anropare.konto, anropare.kontext);
+      }
+    }
     throw fel;
   }
+}
+
+/** The stored bytes of a rapport are still in storage (a re-run is possible). */
+async function harLagradPdf(lager: Lager, r: RapportRad): Promise<boolean> {
+  const sokvag = await rapportensPdfSokvag(lager.db, r);
+  return sokvag !== null && (await lager.filer.finns(sokvag));
 }
 
 // ---------------------------------------------------------------------------
@@ -537,21 +621,24 @@ export interface AnalysStatusSvar {
 }
 
 /**
- * Status för en registerlänkad analys, härledd från rapporten:
+ * Status för en registerlänkad analys, härledd från rapporten. En läsning
+ * köar ALDRIG något (se filkommentaren):
  *   - något läsbart finns (valjLasbarRapport) → done/complete (en äldre
- *     version köar en lat omkörning, samma som läsvägen);
+ *     version serveras som den är, med not i resultatet);
  *   - rapporten pågår → dess status och mappade steg;
- *   - rapporten är klar men oläsbar med den körande koden → omkörningens
- *     förlopp (köas här om ingen finns), eller ett synligt fel om PDF:en
- *     saknas;
- *   - misslyckad → dess (köparsäkra) fel.
+ *   - inget läsbart och rapporten pågår inte (misslyckad, eller klar men
+ *     oläsbar med den körande koden): pågår en nyare körning av samma rapport
+ *     på aktuell version (någon laddade upp eller begärde den), visa dess
+ *     förlopp — den serveras så fort den är klar;
+ *   - annars: misslyckad → dess (köparsäkra) fel; klar men oläsbar → ett
+ *     synligt fel (`omkorningOmojligResultat`: ladda upp igen, så körs en ny
+ *     analys).
  */
 async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysStatusSvar> {
   const lankad = await hamtaLankadRapport(lager, rad);
   const lasbar = await valjLasbarRapport(lager.db, lankad);
 
   if (lasbar) {
-    if (lasbar.aldreVersion) await koaOmkorningSakert(lager, lasbar.rapport);
     const ateranvand =
       lasbar.rapport.finishedAt !== null &&
       Date.parse(lasbar.rapport.finishedAt) <= Date.parse(rad.createdAt);
@@ -566,17 +653,13 @@ async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysS
   }
 
   let aktuell: RapportRad = lankad;
-  if (!arPagaende(lankad) && lankad.status !== "done") {
-    // Misslyckad (t.ex. ogiltigförklarad) — men pågår en nyare körning av
-    // samma rapport (någon laddade upp den igen), visa dess förlopp: den
-    // serveras av läsvägen så fort den är klar.
-    const nyare = await foljErsattAv(lager.db, await hittaOmkorning(lager.db, lankad));
-    if (nyare && arPagaende(nyare)) aktuell = nyare;
-  }
-  if (lankad.status === "done") {
-    // Klar men oläsbar (inkompatibel) — följ omkörningen i stället.
-    const utfall = await koaOmkorningSakert(lager, lankad);
-    if (utfall === "pdf_saknas") {
+  if (!arPagaende(lankad)) {
+    const nyare = await hittaPagaendeKorning(lager.db, lankad);
+    if (nyare) {
+      aktuell = nyare;
+    } else if (lankad.status === "done") {
+      // Klar men oläsbar, och ingen ny körning pågår. Ingen omkörning från en
+      // läsning: ett synligt fel som säger vad köparen kan göra.
       const { errorCode, message } = omkorningOmojligResultat();
       return {
         status: "failed",
@@ -589,7 +672,6 @@ async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysS
         rapportSteg: lankad.stage,
       };
     }
-    aktuell = (await foljErsattAv(lager.db, await hittaOmkorning(lager.db, lankad))) ?? lankad;
   }
 
   const bas = {
@@ -661,24 +743,6 @@ async function hamtaLankadRapport(lager: Lager, rad: AnalysRad): Promise<Rapport
   return lankad;
 }
 
-/**
- * Lazy re-run, never allowed to break a read: a failure is logged and the
- * read goes on. Re-runs use the source rapport's own model — the read paths
- * have no Env (analysFn.ts's signatures are fixed), and the model is not part
- * of the version key anyway.
- */
-async function koaOmkorningSakert(
-  lager: Lager,
-  kalla: RapportRad,
-): Promise<"koad" | "finns" | "pdf_saknas" | "fel"> {
-  try {
-    return (await koaOmkorning(lager, kalla, kalla.model)).utfall;
-  } catch (fel) {
-    console.error(`[register] Kunde inte köa omkörning av rapport ${kalla.id}:`, fel);
-    return "fel";
-  }
-}
-
 interface Underlag {
   extraction: ExtractionResult;
   judgement: AnalysJudgement;
@@ -711,23 +775,18 @@ async function hamtaLegacyUnderlag(lager: Lager, rad: AnalysRad): Promise<Underl
 /**
  * Register read (see register.ts's file comment): the newest done rapport at
  * the current version for the same report; else the linked one if it still
- * parses — with a note and a lazy re-run; a stored result that does not parse
- * is never served: a re-run is queued and the buyer waits
- * (AnalysInteKlarError, which sends the UI back to the polling preview).
+ * parses — exactly as stored (grade included), with a note. Never queues a
+ * re-run. A stored result that does not parse is never served
+ * (AnalysInteKlarError, which sends the UI back to /forhandsvisning, whose
+ * status shows the in-progress newer run or a visible error).
  */
 async function hamtaRegisterUnderlag(lager: Lager, rad: AnalysRad): Promise<Underlag> {
   const lankad = await hamtaLankadRapport(lager, rad);
   const lasbar: LasbarRapport | null = await valjLasbarRapport(lager.db, lankad);
-  if (!lasbar) {
-    if (lankad.status === "done") await koaOmkorningSakert(lager, lankad);
-    throw new AnalysInteKlarError(rad.id, tillAnalysStage(lankad.stage));
-  }
+  if (!lasbar) throw new AnalysInteKlarError(rad.id, tillAnalysStage(lankad.stage));
 
   const extraSkal: string[] = [];
-  if (lasbar.aldreVersion) {
-    extraSkal.push(ALDRE_VERSION_SKAL);
-    await koaOmkorningSakert(lager, lasbar.rapport);
-  }
+  if (lasbar.aldreVersion) extraSkal.push(ALDRE_VERSION_SKAL);
   const nyareAr = await hittaNyareAr(lager.db, lasbar.rapport);
   if (nyareAr !== null) extraSkal.push(nyareArSkal(nyareAr));
 

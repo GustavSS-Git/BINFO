@@ -232,8 +232,10 @@ export function ogiltigforklaradResultat(): FelResultat {
 
 /**
  * Ett lagrat registerresultat som inte går att läsa med den körande koden
- * (schemat har ändrats) OCH inte går att köra om, eftersom PDF:en inte längre
- * finns i lagringen. Samma köparhandling som en versionskonflikt.
+ * (schemat har ändrats) och som ingen ny körning ersätter än. En läsning köar
+ * aldrig en omkörning (kostnadsregeln, register.ts): köparen laddar upp
+ * årsredovisningen igen, och DEN uppladdningen kör en ny analys (på de lagrade
+ * byten om de finns kvar). Samma köparhandling som en versionskonflikt.
  */
 export function omkorningOmojligResultat(): FelResultat {
   return {

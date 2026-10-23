@@ -27,11 +27,38 @@
  * Versioning: a stored rapport is COMPATIBLE with the running code when its
  * extraction parses with ExtractionResultSchema and its judgement with
  * AnalysJudgementSchema (`tolkaRapportInnehall`). Read preference
- * (`valjLasbarRapport`): the newest done rapport for the same identity at the
+ * (`valjLasbarRapport`): the newest done rapport for the same report at the
  * current PIPELINE_VERSION; else the linked rapport if it is done and
- * compatible (served with a note, and a lazy re-run is queued once —
- * `koaOmkorning`); else nothing — a stored result that does not parse is
+ * compatible (served exactly as stored, grade included, with the note
+ * `ALDRE_VERSION_SKAL`); else nothing — a stored result that does not parse is
  * never served.
+ *
+ * Spend policy (owner, 2026-10-23): API tokens are spent only when a user
+ * actively asks for an analysis. READS NEVER RE-RUN: status polling, the
+ * result, the public register and the register request read whatever is
+ * stored and never queue anything. A re-run at the current version
+ * (`koaOmkorning`) is queued only by
+ *   - an upload (`kopplaUppladdning`) whose report exists only at an older
+ *     version (or not servably), and
+ *   - a register request (`skapaAnalysFranRegister` in analys.ts) for a
+ *     report stored only at an older version,
+ * both behind the kill switch, the daily spend cap and the strict upload
+ * quota. A stored report at the current version is reused for free. Once the
+ * new run is done, every reader of the same report (same orgnr + räkenskapsår,
+ * or the same bytes) gets it through `valjLasbarRapport`, and the public
+ * register shows it (`uppdatera_register_sammanfattning` and `enPerAr` prefer
+ * the current version within a year): that is the "overwrite" — the old row
+ * itself is never modified. Until then, or if the new run fails, the old one
+ * stays served.
+ *
+ * Cache key, in order (upload): (1) the exact bytes (`rapport_fil.pdf_hash`)
+ * → that rapport's report; (2) the local text scan's orgnr + räkenskapsår
+ * (free) → a current-version rapport of the same report, also for a
+ * different file of it (another scan or download); (3) otherwise a new
+ * rapport, which for a PDF without a local identity (scans) starts with the
+ * cheap identity stage (Haiku, ~0.05 kr) and, on a register hit with the
+ * same orgnr + räkenskapsår, is merged into the existing current-version
+ * rapport before any expensive stage (steg.ts).
  *
  * A rapport without identity (neither the local text scan nor the model call
  * could read orgnr + räkenskapsår) is reusable only by hash — every lookup
@@ -220,9 +247,10 @@ export function tolkaRapportInnehall(
 }
 
 /** Done, but its stored result does not parse with the running code. At an
- *  older version that is ordinary schema drift (re-run lazily); at the
- *  CURRENT version it is a dead end that would otherwise hold the slot for
- *  ever — see `frigorTrasigPlats`. */
+ *  older version that is ordinary schema drift (re-run on the next upload or
+ *  register request of the report, never on a read); at the CURRENT version
+ *  it is a dead end that would otherwise hold the slot for ever — see
+ *  `frigorTrasigPlats`. */
 export function arTrasig(r: RapportRad): boolean {
   return r.status === "done" && tolkaRapportInnehall(r) === null;
 }
@@ -292,8 +320,9 @@ export interface RegisteruppslagOptions {
   /** Exclude this rapport (the caller itself, in the worker). */
   uteslutId?: string;
   /** Also accept the newest DONE, compatible rapport at an older pipeline
-   *  version (upload path: served at once with a note, lazily re-run). The
-   *  worker passes false — continuing its own run IS the re-run. */
+   *  version. Every caller passes false since 2026-10-23: an older version is
+   *  never reused by an upload (it gets a new current-version run), and the
+   *  worker continuing its own run IS the re-run. */
   tillatAldreVersion: boolean;
 }
 
@@ -335,7 +364,7 @@ export async function hittaRegistertraff(
 export interface LasbarRapport {
   rapport: RapportRad;
   innehall: RapportInnehall;
-  /** Served from an older pipeline version (note + lazy re-run). */
+  /** Served from an older pipeline version (with a note; never re-run by a read). */
   aldreVersion: boolean;
 }
 
@@ -363,21 +392,46 @@ export async function valjLasbarRapport(
   return null;
 }
 
+export interface OmkorningsUppslag {
+  /** Count a FAILED current-version re-run as existing (the default: the
+   *  operator CLI's `rerun` queues at most one per report, and a failure
+   *  stays visible). A user's upload or register request passes false: they
+   *  asked for an analysis, so an earlier failure must not block a new run. */
+  raknaMisslyckade?: boolean;
+}
+
 /** A current-version rapport for the same report other than `kalla` (any
- *  status but 'ersatt' — a failed re-run counts, so a re-run is queued at
- *  most once per report and a failure stays visible). An invalidated one
- *  ('ogiltigforklarad', by an admin or by `frigorTrasigPlats`) does not
- *  count: invalidating means "do it again". */
-export async function hittaOmkorning(db: Databas, kalla: RapportRad): Promise<RapportRad | null> {
+ *  status but 'ersatt'; 'failed' only with `raknaMisslyckade`). An
+ *  invalidated one ('ogiltigforklarad', by an admin or by
+ *  `frigorTrasigPlats`) never counts: invalidating means "do it again". */
+export async function hittaOmkorning(
+  db: Databas,
+  kalla: RapportRad,
+  uppslag: OmkorningsUppslag = {},
+): Promise<RapportRad | null> {
+  const raknaMisslyckade = uppslag.raknaMisslyckade ?? true;
   for (const r of await sammaRapport(db, kalla)) {
     if (
       r.id !== kalla.id &&
       r.pipelineVersion === PIPELINE_VERSION &&
       r.status !== "ersatt" &&
-      r.errorCode !== "ogiltigforklarad"
+      r.errorCode !== "ogiltigforklarad" &&
+      (raknaMisslyckade || r.status !== "failed")
     ) {
       return r;
     }
+  }
+  return null;
+}
+
+/** A current-version run of the same report as `r` (other than `r`) that is
+ *  still queued/running — started by someone's upload or register request.
+ *  Read-only: a status read may follow it, never start one. */
+export async function hittaPagaendeKorning(db: Databas, r: RapportRad): Promise<RapportRad | null> {
+  for (const annan of await sammaRapport(db, r)) {
+    if (annan.id === r.id || annan.pipelineVersion !== PIPELINE_VERSION) continue;
+    const foljd = await foljErsattAv(db, annan);
+    if (foljd && foljd.id !== r.id && arPagaende(foljd)) return foljd;
   }
   return null;
 }
@@ -454,7 +508,7 @@ export async function rapportensPdfSokvag(db: Databas, r: RapportRad): Promise<s
 }
 
 // ---------------------------------------------------------------------------
-// Lazy re-run
+// Re-run (only on a user's upload or register request; never on a read)
 // ---------------------------------------------------------------------------
 
 export type OmkorningsUtfall =
@@ -466,20 +520,25 @@ export type OmkorningsUtfall =
 
 /**
  * Queues a re-run of `kalla` at the current PIPELINE_VERSION, unless one
- * already exists (`hittaOmkorning`). The new rapport runs on the same bytes
- * (`pdf_hash`), keeps the identity (straight to grundning) or, without one,
- * starts at identifiering. Racing callers are settled by the two unique
- * indexes (`skapaRapportMedPlats`): the loser gets 'finns'. A `kalla` that is
- * itself current-version done-but-unparseable is invalidated first — it would
- * otherwise hold the very slot its re-run needs.
+ * already exists (`hittaOmkorning`, with `uppslag`). The new rapport runs on
+ * the same bytes (`pdf_hash`), keeps the identity (straight to grundning) or,
+ * without one, starts at identifiering. Racing callers are settled by the two
+ * unique indexes (`skapaRapportMedPlats`): the loser gets 'finns'. A `kalla`
+ * that is itself current-version done-but-unparseable is invalidated first —
+ * it would otherwise hold the very slot its re-run needs.
+ *
+ * Spends money (the worker runs it): callers are the upload path, the
+ * register request (both after the kill switch, spend cap and strict quota)
+ * and the operator CLI — never a read.
  */
 export async function koaOmkorning(
   lager: Lager,
   kalla: RapportRad,
   model: string,
+  uppslag: OmkorningsUppslag = {},
 ): Promise<OmkorningsUtfall> {
   const { db } = lager;
-  const befintlig = await hittaOmkorning(db, kalla);
+  const befintlig = await hittaOmkorning(db, kalla, uppslag);
   if (befintlig && !(await frigorTrasigPlats(db, befintlig))) {
     return { utfall: "finns", rapportId: befintlig.id };
   }
@@ -587,7 +646,8 @@ export interface Uppladdning {
 
 export interface Koppling {
   rapportId: string;
-  /** Linked to an already finished, servable rapport — no new work. */
+  /** Linked to an already finished rapport servable at the CURRENT pipeline
+   *  version — no new work. */
   ateranvand: boolean;
   /** Linked to a rapport someone else's upload already started. */
   vantarPaRapport: boolean;
@@ -601,11 +661,12 @@ export interface Koppling {
 }
 
 /** How an upload can join an existing rapport, or null when it cannot (failed,
- *  incompatible, or in progress at another pipeline version — that one will
- *  hit the worker's version guard). */
+ *  incompatible, servable only at an OLDER pipeline version — the upload then
+ *  gets a current-version run — or in progress at another pipeline version,
+ *  which will hit the worker's version guard). */
 async function befintligKoppling(db: Databas, r: RapportRad): Promise<Koppling | null> {
   const lasbar = await valjLasbarRapport(db, r);
-  if (lasbar) {
+  if (lasbar && !lasbar.aldreVersion) {
     return {
       rapportId: lasbar.rapport.id,
       ateranvand: true,
@@ -627,12 +688,14 @@ async function befintligKoppling(db: Databas, r: RapportRad): Promise<Koppling |
 }
 
 /**
- * A hash hit whose rapport cannot be joined directly (done but incompatible,
- * failed, or stale) may still have a current-version re-run for the same
- * report: join that. A done-but-incompatible one without a re-run gets one
- * queued now (it carries the identity, unlike a fresh identity-less rapport).
- * Never throws: on any failure here the upload simply falls through to the
- * next step (local identity / a new rapport).
+ * A hash hit whose rapport cannot be joined directly (done at an older
+ * version, done but incompatible, failed, or stale) may still have a live
+ * current-version run for the same report: join that. A done one without a
+ * live run gets one queued now on the same bytes (it carries the identity,
+ * unlike a fresh identity-less rapport) — the user uploaded, so this is a
+ * requested analysis; an earlier FAILED current-version run does not block
+ * it. Never throws: on any failure here the upload simply falls through to
+ * the next step (local identity / a new rapport).
  */
 async function kopplingViaOmkorning(
   lager: Lager,
@@ -640,14 +703,15 @@ async function kopplingViaOmkorning(
   model: string,
 ): Promise<Koppling | null> {
   const { db } = lager;
+  const uppslag: OmkorningsUppslag = { raknaMisslyckade: false };
   try {
-    const omkorning = await foljErsattAv(db, await hittaOmkorning(db, r));
+    const omkorning = await foljErsattAv(db, await hittaOmkorning(db, r, uppslag));
     if (omkorning && arAktiv(omkorning) && !arTrasig(omkorning)) {
       return befintligKoppling(db, omkorning);
     }
     if (r.status !== "done") return null;
 
-    const utfall = await koaOmkorning(lager, r, model);
+    const utfall = await koaOmkorning(lager, r, model, uppslag);
     if (utfall.utfall === "pdf_saknas") return null;
     const ny = await foljErsattAv(db, await db.hamtaRapport(utfall.rapportId));
     if (!ny) return null;
@@ -794,11 +858,14 @@ async function skapaNyRapport(
 
 /**
  * The register half of skapaAnalys (PLAN-v2 §3.2 "Flow at upload"):
- *   1. hash → rapport_fil → its rapport (following ersatt_av): servable →
- *      reuse; in progress at this version → wait on it; else join (or queue)
- *      its current-version re-run;
- *   2. local identity (free) → register hit with BOTH names known and alike
- *      → link this file to it (a name unknown on either side → no reuse);
+ *   1. hash → rapport_fil → its rapport (following ersatt_av): servable at
+ *      the CURRENT version → reuse (free); in progress at this version → wait
+ *      on it; else (older version, unparseable, failed) join a live
+ *      current-version run of the same report or queue one on these bytes;
+ *   2. local identity (free) → a CURRENT-version register hit with BOTH names
+ *      known and alike → link this file to it (a name unknown on either side
+ *      → no reuse). An older-version rapport is never a hit: the upload gets
+ *      its own current-version run;
  *   3. else a new rapport — at 'grundning' with the local identity, or at
  *      'identifiering' without one — settling both races described in the
  *      file comment.
@@ -826,7 +893,7 @@ export async function kopplaUppladdning(
   if (identitet) {
     const traff = await hittaRegistertraff(db, identitet, {
       namnLiknar: beroenden.namnLiknar,
-      tillatAldreVersion: true,
+      tillatAldreVersion: false,
     });
     if (traff.typ === "traff") {
       const k = await befintligKoppling(db, traff.rapport);
