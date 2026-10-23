@@ -17,7 +17,7 @@
  */
 
 import type { AuthSession } from "./kontoPortar";
-import { ATERST_NYCKEL_ETIKETT, hmacMedEtikett } from "./kontext";
+import { ATERST_NYCKEL_ETIKETT, SPARA_NYCKEL_ETIKETT, hmacMedEtikett } from "./kontext";
 import type { CookieAlternativ, KontextKallor } from "./kontext";
 
 export const ACCESS_COOKIE = "binfo_sa";
@@ -139,4 +139,75 @@ export async function harGiltigtAterstallningsmarke(
 
 export function rensaAterstallningsmarke(kallor: KontextKallor): void {
   kallor.sattCookie(ATERST_COOKIE, "", alternativ(0));
+}
+
+// ---------------------------------------------------------------------------
+// Pending "Spara analysen" marker
+// ---------------------------------------------------------------------------
+
+/**
+ * Proof that THIS browser held the device principal an analysis belongs to
+ * when the logged-out user pressed "Spara analysen" (./sparat.ts,
+ * `forberedSparaAnalys`). It survives the device-cookie rotation of
+ * `bekraftaEpost`, so a new account confirmed by e-mail link in the same
+ * browser can still take over exactly that one analysis (`sparaAnalys`).
+ * One pending analysis per browser: a new marker replaces the old one.
+ */
+export const SPARA_COOKIE = "binfo_spara";
+/** 7 days (owner 2026-10-24); the browser draft keeps its 24 h. */
+export const SPARA_MAX_AGE_SEK = 7 * 24 * 60 * 60;
+
+const SPARA_MONSTER =
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.([A-Za-z0-9-]{1,64})\.(\d{10,16})\.([0-9a-f]{64})$/;
+
+export interface SparaMarke {
+  analysisId: string;
+  /** The device principal the analysis belonged to when the marker was set. */
+  enhetsPrincipalId: string;
+}
+
+async function signeraSpara(hemlighet: string, m: SparaMarke, utgarMs: number): Promise<string> {
+  return hmacMedEtikett(
+    hemlighet,
+    SPARA_NYCKEL_ETIKETT,
+    `${m.analysisId}.${m.enhetsPrincipalId}.${utgarMs}`,
+  );
+}
+
+/** Value: `<analysisId>.<devicePrincipalId>.<expiresAtMs>.<hex HMAC of the three>`.
+ *  Throws for ids we could not read back (never a silently unusable cookie). */
+export async function sattSparaMarke(
+  kallor: KontextKallor,
+  hemlighet: string,
+  m: SparaMarke,
+  nuMs: number = Date.now(),
+): Promise<void> {
+  const utgarMs = nuMs + SPARA_MAX_AGE_SEK * 1000;
+  const varde = `${m.analysisId}.${m.enhetsPrincipalId}.${utgarMs}.${await signeraSpara(hemlighet, m, utgarMs)}`;
+  if (!SPARA_MONSTER.test(varde))
+    throw new Error("sattSparaMarke: ogiltigt analys- eller principal-id");
+  kravStorlek(SPARA_COOKIE, varde);
+  kallor.sattCookie(SPARA_COOKIE, varde, alternativ(SPARA_MAX_AGE_SEK));
+}
+
+/** The marker's content if it is unexpired and untampered, else null. */
+export async function lasSparaMarke(
+  kallor: KontextKallor,
+  hemlighet: string,
+  nuMs: number = Date.now(),
+): Promise<SparaMarke | null> {
+  const ra = kallor.lasCookie(SPARA_COOKIE);
+  const m = ra === undefined ? null : SPARA_MONSTER.exec(ra);
+  if (m === null) return null;
+  const utgarMs = Number(m[3]);
+  if (!Number.isSafeInteger(utgarMs) || utgarMs <= nuMs) return null;
+  // Never accept a marker living longer than we issue them.
+  if (utgarMs > nuMs + SPARA_MAX_AGE_SEK * 1000) return null;
+  const marke: SparaMarke = { analysisId: m[1]!, enhetsPrincipalId: m[2]! };
+  const vantad = await signeraSpara(hemlighet, marke, utgarMs);
+  return likaKonstantTid(m[4]!, vantad) ? marke : null;
+}
+
+export function rensaSparaMarke(kallor: KontextKallor): void {
+  kallor.sattCookie(SPARA_COOKIE, "", alternativ(0));
 }

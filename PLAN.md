@@ -1,10 +1,26 @@
 # Binfo — current plan
 
-**Current task: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: "Spara analysen" (2026-10-24, working tree), below. Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Plan: "Spara analysen" for logged-out users (2026-10-24)
+
+Status: **done in the working tree, not committed, not deployed.** No migration, no API spend.
+
+- Button on `/forhandsvisning/$id` and `/analys/$id` (under the grade, plus a card at the end) for
+  a logged-out owner (analysis on this browser's device principal); logged-in owner sees "Sparad i
+  din profil"; someone else's analysis shows nothing. Reuses `SparaKnapp`/`useAterstallUtkast`
+  (`?spara=analys`, draft type `analys`; `SparaKnapp.skrivUtkast` became `forbered`).
+- Password login: already saved by the existing device merge. New account via e-mail link: a
+  signed 7-day marker `binfo_spara` (set by `forberedSparaAnalysFn` after the device check) lets
+  `sparaAnalysFn` move exactly that `analys` row (compare-and-set). Tests:
+  `src/server/sparaAnalys.test.ts`, `analysFn.sparaAnalys.test.ts`,
+  `src/components/konto/SparaAnalys.test.tsx`.
 
 ---
 

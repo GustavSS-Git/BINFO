@@ -60,6 +60,7 @@ import {
   lasSessionCookies,
   rensaAterstallningsmarke,
   rensaSessionCookies,
+  rensaSparaMarke,
   sattAterstallningsmarke,
   sattSessionCookies,
 } from "./sessionCookies";
@@ -200,6 +201,9 @@ export async function loggaUt(b: KontoBeroenden): Promise<LoggaUtSvar> {
     if (accessToken !== undefined) await b.auth.loggaUt(accessToken);
   } finally {
     rensaSessionCookies(b.kallor);
+    // A pending "Spara analysen" marker must not wait for the next person to
+    // log in on this (possibly shared) browser.
+    rensaSparaMarke(b.kallor);
     // A fresh device id: the old one is merged into the account principal, so
     // keeping it would attribute later anonymous uploads on this (possibly
     // shared) device to the account that just logged out.
@@ -367,6 +371,7 @@ export async function raderaKonto(b: KontoBeroenden, data: unknown): Promise<Rad
   } finally {
     rensaSessionCookies(b.kallor);
     rensaAterstallningsmarke(b.kallor);
+    rensaSparaMarke(b.kallor);
   }
   return { ok: true };
 }

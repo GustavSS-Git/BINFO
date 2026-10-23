@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Callout,
@@ -46,7 +46,15 @@ import type {
  * (`/analys/$analysisId`) delar exakt samma renderingskod och aldrig kan
  * glida isär.
  */
-export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
+export function AnalysRapport({
+  analys,
+  sparaSlot,
+}: {
+  analys: AnalysisResult;
+  /** Optional content right under the grade card (the "Spara analysen" row on
+   *  /forhandsvisning and /analys). Absent everywhere else (/exempel). */
+  sparaSlot?: ReactNode;
+}) {
   const navigate = useNavigate();
   const [pdfStatus, setPdfStatus] = useState<"vilande" | "skapar" | "fel">("vilande");
 
@@ -99,6 +107,8 @@ export function AnalysRapport({ analys }: { analys: AnalysisResult }) {
       />
 
       <Betygskort betyg={analys.betyg} motivering={analys.betygMotivering} />
+
+      {sparaSlot}
 
       <RodaFlaggor analys={analys} />
 

@@ -228,6 +228,11 @@ export async function hashaEpost(epost: string, hemlighet: string): Promise<stri
 /** Version label of the derived password-recovery marker key. */
 export const ATERST_NYCKEL_ETIKETT = "binfo-aterst-v1";
 
+/** Version label of the derived key for the pending "Spara analysen" marker
+ *  (`binfo_spara`, ./sessionCookies.ts). Its own label, so a recovery marker
+ *  can never pass as a save marker or the other way round. */
+export const SPARA_NYCKEL_ETIKETT = "binfo-spara-analys-v1";
+
 /**
  * hex(HMAC) of `meddelande` under a key derived from `hemlighet` and a domain
  * `etikett` — the same construction as `hashaIp` / `hashaEpost`. Used to sign

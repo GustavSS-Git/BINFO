@@ -5,6 +5,9 @@ import { GENERELLT_FEL } from "@/components/konto/kontoText";
 import { useSession } from "@/lib/session";
 import { inloggningsSok, type SparaTyp } from "@/lib/till";
 
+const FORBERED_FEL =
+  "Webbläsaren tillåter inte att vi tillfälligt sparar dina uppgifter. Logga in först och fyll sedan i uppgifterna igen.";
+
 /** Det SparaKnapp behöver veta om ett sparförsök. Matchar formen på `KontoFel`. */
 export type SparaUtfall = { ok: true } | { ok: false; felKod?: string; meddelande: string };
 
@@ -12,8 +15,14 @@ export interface SparaKnappProps {
   typ: SparaTyp;
   /** Inloggad: spara direkt. */
   spara: () => Promise<SparaUtfall>;
-  /** Utloggad: skriv utkastet (se `skrivUtkast` i `@/lib/utkast`). True om det lyckades. */
-  skrivUtkast: () => boolean;
+  /** Utloggad, före inloggningen: förbered återkomsten — skriv utkastet (se
+   *  `skrivUtkast` i `@/lib/utkast`) och, för en analys, låt servern sätta sin
+   *  markering. True om det lyckades. */
+  forbered: () => boolean | Promise<boolean>;
+  /** Texten när `forbered` ger false. Standard: att webbläsaren inte tillåter utkastet. */
+  forberedFel?: string;
+  /** Texten bredvid knappen när man är utloggad; null = ingen text. */
+  utloggadTips?: string | null;
   /** Knapptext, t.ex. "Spara värderingen". */
   etikettKnapp: string;
   /** Sidan man ska tillbaka till efter inloggning. Standard: nuvarande sökväg. */
@@ -33,13 +42,17 @@ export function SparaKnapp(props: SparaKnappProps) {
   const [lage, setLage] = useState<SparaLage>("vilar");
   const [fel, setFel] = useState<string | null>(null);
 
-  const tillInloggning = () => {
+  const tillInloggning = async () => {
     const till =
       props.till ?? (typeof window !== "undefined" ? window.location.pathname : "/analysera");
-    if (!props.skrivUtkast()) {
-      setFel(
-        "Webbläsaren tillåter inte att vi tillfälligt sparar dina uppgifter. Logga in först och fyll sedan i uppgifterna igen.",
-      );
+    let klar = false;
+    try {
+      klar = await props.forbered();
+    } catch (error) {
+      console.error("[SparaKnapp] forbered kastade:", error);
+    }
+    if (!klar) {
+      setFel(props.forberedFel ?? FORBERED_FEL);
       setLage("fel");
       return;
     }
@@ -49,7 +62,7 @@ export function SparaKnapp(props: SparaKnappProps) {
   const onKlick = async () => {
     if (lage === "sparar") return;
     if (sessionLage !== "inloggad") {
-      tillInloggning();
+      await tillInloggning();
       return;
     }
     setLage("sparar");
@@ -62,7 +75,7 @@ export function SparaKnapp(props: SparaKnappProps) {
       } else if (svar.felKod === "ej_inloggad") {
         // Sessionen hann gå ut: samma väg som om man inte var inloggad.
         setLage("vilar");
-        tillInloggning();
+        await tillInloggning();
       } else {
         setFel(svar.meddelande);
         setLage("fel");
@@ -80,6 +93,7 @@ export function SparaKnapp(props: SparaKnappProps) {
       lage={lage}
       fel={fel}
       etikettKnapp={props.etikettKnapp}
+      {...(props.utloggadTips !== undefined ? { utloggadTips: props.utloggadTips } : {})}
       onKlick={() => void onKlick()}
     />
   );

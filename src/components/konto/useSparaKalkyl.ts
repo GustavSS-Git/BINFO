@@ -45,7 +45,7 @@ export function useSparaKalkyl(args: {
   etikett?: string;
   id?: string;
   anrop?: SparaKalkylAnropTyp;
-}): Pick<SparaKnappProps, "typ" | "spara" | "skrivUtkast" | "etikettKnapp"> {
+}): Pick<SparaKnappProps, "typ" | "spara" | "forbered" | "etikettKnapp"> {
   const anrop = args.anrop ?? sparaKalkylAnrop;
   const etikett = args.etikett?.trim() ?? "";
   return {
@@ -57,7 +57,7 @@ export function useSparaKalkyl(args: {
         ...(etikett !== "" ? { etikett } : {}),
         ...(args.id !== undefined ? { id: args.id } : {}),
       }),
-    skrivUtkast: () =>
+    forbered: () =>
       skrivUtkast(
         "kalkyl",
         { underlag: args.underlag, etikett },

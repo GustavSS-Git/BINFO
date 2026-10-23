@@ -5,7 +5,8 @@
  * `sakerstall_principal`, `sakerstall_konto_principal`, `sla_samman_principal`
  * (moves the saved items too), `ta_kvot` / `aterlamna_kvot` (UTC-aligned fixed
  * windows), `radera_principal` (with the FK cascade of the saved items), the
- * export query, `lista_mina_analyser` and `radera_min_analys`.
+ * export query, `lista_mina_analyser`, `radera_min_analys`, and the plain
+ * `analys` owner read / compare-and-set move behind "Spara analysen".
  *
  * By default it holds its own minimal `analys` table (only the columns this
  * layer touches) so merge/delete/export can be tested without the job fake.
@@ -531,6 +532,19 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
       analyser.delete(analysId);
       raderadeAnalyser.push(analysId);
       return { borttagen: true, pdfBlevForlorad: false };
+    },
+
+    async hamtaAnalysAgare(analysId) {
+      const a = analyser.get(analysId);
+      return a ? { principalId: a.principalId } : null;
+    },
+
+    async flyttaAnalys(analysId, fran, till) {
+      if (!principaler.has(till)) throw new Error("analys_principal_id_fkey: unknown principal");
+      const a = analyser.get(analysId);
+      if (!a || a.principalId !== fran) return false;
+      a.principalId = till;
+      return true;
     },
   };
 }

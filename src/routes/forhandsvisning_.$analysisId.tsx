@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hamtaResultatFn, hamtaStatusFn } from "@/server/analysFn";
 import { AnalysRapport } from "@/components/AnalysRapport";
+import { SparaAnalysVy } from "@/components/konto/SparaAnalys";
+import { useSparaAnalys } from "@/components/konto/useSparaAnalys";
 import { Callout, PageHeader } from "@/components/ui/binfo";
 import {
   AnalysStatusVakt,
@@ -15,6 +17,7 @@ import {
 import { arAnalysHittadesInteFel } from "@/lib/analysStatusCopy";
 import { klarNotis } from "@/lib/analysStatusVy";
 import { sparaAnalys } from "@/lib/senasteAnalyser";
+import { parseAnalysSok } from "@/lib/till";
 import type { AnalysisResult } from "@/types/analysis";
 
 /**
@@ -43,6 +46,8 @@ export const Route = createFileRoute("/forhandsvisning_/$analysisId")({
       },
     ],
   }),
+  // `?spara=analys`: slutför ett väntande "Spara analysen" efter inloggningen.
+  validateSearch: parseAnalysSok,
   // Samma mönster som /analys/$analysisId's loader (se den routens
   // kommentar för fullständig motivering): hämtar status, och om jobbet
   // redan är klart, hela resultatet — server-sidan, innan sidan
@@ -97,6 +102,20 @@ function KlarInnehall({ analysisId, loaderData }: { analysisId: string; loaderDa
   const klar = statusQuery.data?.status === "done";
   const aterAnvandNotis = statusQuery.data ? klarNotis(statusQuery.data) : undefined;
 
+  const { spara } = Route.useSearch();
+  const navigate = useNavigate();
+  const sparaTillstand = useSparaAnalys({
+    analysisId,
+    spara,
+    rensaParam: () =>
+      void navigate({
+        to: "/forhandsvisning/$analysisId",
+        params: { analysisId },
+        search: {},
+        replace: true,
+      }),
+  });
+
   const resultatQuery = useQuery({
     queryKey: ["resultat", analysisId],
     queryFn: () => hamtaResultatFn({ data: { analysisId } }),
@@ -142,7 +161,11 @@ function KlarInnehall({ analysisId, loaderData }: { analysisId: string; loaderDa
         </div>
       ) : null}
 
-      <AnalysRapport analys={analys} />
+      <AnalysRapport
+        analys={analys}
+        sparaSlot={<SparaAnalysVy variant="topp" {...sparaTillstand} />}
+      />
+      <SparaAnalysVy variant="kort" {...sparaTillstand} />
     </div>
   );
 }

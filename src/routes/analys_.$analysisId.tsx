@@ -1,9 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { hamtaResultatFn } from "@/server/analysFn";
 import { AnalysRapport } from "@/components/AnalysRapport";
+import { SparaAnalysVy } from "@/components/konto/SparaAnalys";
+import { useSparaAnalys } from "@/components/konto/useSparaAnalys";
 import { PageHeader } from "@/components/ui/binfo";
 import { sparaAnalys } from "@/lib/senasteAnalyser";
+import { parseAnalysSok } from "@/lib/till";
 
 /**
  * Ren loader-route för den fullständiga rapporten — ingen egen
@@ -27,6 +30,8 @@ export const Route = createFileRoute("/analys_/$analysisId")({
       },
     ],
   }),
+  // `?spara=analys`: slutför ett väntande "Spara analysen" efter inloggningen.
+  validateSearch: parseAnalysSok,
   loader: async ({ params }) => {
     const { analysisId } = params;
     try {
@@ -40,6 +45,19 @@ export const Route = createFileRoute("/analys_/$analysisId")({
 
 function AnalysSida() {
   const analys = Route.useLoaderData();
+  const { spara } = Route.useSearch();
+  const navigate = useNavigate();
+  const sparaTillstand = useSparaAnalys({
+    analysisId: analys.analysisId,
+    spara,
+    rensaParam: () =>
+      void navigate({
+        to: "/analys/$analysisId",
+        params: { analysisId: analys.analysisId },
+        search: {},
+        replace: true,
+      }),
+  });
 
   // Uppdaterar historiken (src/lib/senasteAnalyser.ts) med det autentiska,
   // servergenererade `skapad` och föreningens namn — sätts redan vid
@@ -57,7 +75,11 @@ function AnalysSida() {
   return (
     <div className="mx-auto max-w-4xl px-5 py-14">
       <PageHeader eyebrow="Klar" title="Din analys" />
-      <AnalysRapport analys={analys} />
+      <AnalysRapport
+        analys={analys}
+        sparaSlot={<SparaAnalysVy variant="topp" {...sparaTillstand} />}
+      />
+      <SparaAnalysVy variant="kort" {...sparaTillstand} />
     </div>
   );
 }

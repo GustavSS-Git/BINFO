@@ -49,6 +49,9 @@ export type KontoFelKod =
   | "ogiltig_indata"
   /** The account has reached the per-kind cap of saved items. */
   | "for_manga_sparade"
+  /** "Spara analysen" refused: not this browser's analysis, no valid pending
+   *  marker, or it already belongs to someone else (one answer for all). */
+  | "kan_inte_sparas"
   /** Accounts are not configured on this deployment. */
   | "konto_ej_konfigurerat"
   | "unknown";
@@ -184,6 +187,24 @@ export type ListaSparatSvar = KontoSvar<{
 
 /** "Ta bort från min lista": the report itself stays in the register. */
 export type TaBortAnalysFranListaSvar = KontoSvar;
+
+/**
+ * "Spara analysen" on /forhandsvisning and /analys (`hamtaSparstatusFn`):
+ * - `sparad`: the analysis is in the logged-in account's profile.
+ * - `kan_sparas`: logged out and the analysis belongs to THIS browser (its
+ *   device id), or logged in with a pending save marker for it from this
+ *   browser. Show the "Spara analysen" button.
+ * - `ingen`: someone else's (or unknown): show nothing.
+ */
+export type AnalysSparstatus = "sparad" | "kan_sparas" | "ingen";
+export interface HamtaSparstatusSvar {
+  status: AnalysSparstatus;
+}
+/** Logged out: the server checked the analysis is this browser's and set the
+ *  pending-save marker. Refused → `kan_inte_sparas`. */
+export type ForberedSparaAnalysSvar = KontoSvar;
+/** Logged in: the analysis is now in the profile (also when it already was). */
+export type SparaAnalysSvar = KontoSvar;
 
 // ---------------------------------------------------------------------------
 // GDPR

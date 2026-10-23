@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  AnalysUtkastSchema,
   UTKAST_TTL_MS,
   VarderingUtkastSchema,
   lasUtkast,
@@ -127,5 +128,45 @@ describe("utkast", () => {
     expect(lasUtkastMal(lager, NU)).toBeNull();
     skrivUtkast("kalkyl", { x: 1 }, "/bolanekalkyl", lager, NU);
     expect(lasUtkastMal(lager, NU)).toEqual({ typ: "kalkyl", till: "/bolanekalkyl" });
+  });
+});
+
+describe("utkast för Spara analysen", () => {
+  const ID = "11111111-1111-4111-8111-111111111111";
+
+  it("skrivs och läses med analys-typen; bara ett uuid godtas", () => {
+    const lager: UtkastLager = { session: minneslager(), lokal: minneslager() };
+    expect(skrivUtkast("analys", { analysisId: ID }, "/forhandsvisning/" + ID, lager, NU)).toBe(
+      true,
+    );
+    expect(lasUtkast("analys", AnalysUtkastSchema, lager, NU)).toEqual({
+      till: "/forhandsvisning/" + ID,
+      data: { analysisId: ID },
+    });
+    skrivUtkast("analys", { analysisId: "inte-ett-id" }, "/analys/x", lager, NU);
+    expect(lasUtkast("analys", AnalysUtkastSchema, lager, NU)).toBeNull();
+    skrivUtkast("analys", { analysisId: ID, extra: 1 }, "/analys/x", lager, NU);
+    expect(lasUtkast("analys", AnalysUtkastSchema, lager, NU)).toBeNull();
+  });
+
+  it("lasUtkastMal hittar analysen (bekräftelselänken i en ny flik)", () => {
+    const lager: UtkastLager = { session: null, lokal: minneslager() };
+    skrivUtkast("analys", { analysisId: ID }, "/analys/" + ID, lager, NU);
+    expect(lasUtkastMal(lager, NU)).toEqual({ typ: "analys", till: "/analys/" + ID });
+  });
+
+  it("utkastet gäller fortfarande högst 24 timmar", () => {
+    const lager: UtkastLager = { session: minneslager(), lokal: null };
+    skrivUtkast("analys", { analysisId: ID }, "/analys/" + ID, lager, NU);
+    expect(lasUtkast("analys", AnalysUtkastSchema, lager, NU + UTKAST_TTL_MS + 1)).toBeNull();
+  });
+
+  it("rensas per typ: ett analys-utkast rör inte värderingens", () => {
+    const lager: UtkastLager = { session: minneslager(), lokal: null };
+    skrivUtkast("analys", { analysisId: ID }, "/analys/" + ID, lager, NU);
+    skrivUtkast("vardering", { x: 1 }, "/analysera", lager, NU);
+    rensaUtkast("analys", lager);
+    expect(lasUtkast("analys", AnalysUtkastSchema, lager, NU)).toBeNull();
+    expect(lasUtkast("vardering", z.unknown(), lager, NU)).not.toBeNull();
   });
 });

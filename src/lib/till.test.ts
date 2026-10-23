@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   inloggningsSok,
   medSparaParam,
+  parseAnalysSok,
   parseKontoSok,
   parseSparaSok,
   parseSparaTyp,
@@ -106,5 +107,30 @@ describe("sessionLage", () => {
     expect(
       sessionLage({ data: { inloggad: true, epost: "a@b.se", principalId: "p" }, isError: false }),
     ).toBe("inloggad");
+  });
+});
+
+describe("Spara analysen (?spara=analys)", () => {
+  it("parseSparaTyp släpper igenom analys", () => {
+    expect(parseSparaTyp("analys")).toBe("analys");
+  });
+
+  it("parseAnalysSok: bara spara=analys, allt annat utelämnas", () => {
+    expect(parseAnalysSok({ spara: "analys" })).toEqual({ spara: "analys" });
+    expect(parseAnalysSok({ spara: "vardering" })).toEqual({});
+    expect(parseAnalysSok({ spara: "kalkyl", annat: "x" })).toEqual({});
+    expect(parseAnalysSok({})).toEqual({});
+  });
+
+  it("inloggningssidorna bär analys-typen vidare", () => {
+    expect(parseKontoSok({ till: "/forhandsvisning/abc", spara: "analys" })).toEqual({
+      till: "/forhandsvisning/abc",
+      spara: "analys",
+    });
+    expect(inloggningsSok("/analys/abc", "analys")).toEqual({
+      till: "/analys/abc",
+      spara: "analys",
+    });
+    expect(medSparaParam("/analys/abc", "analys")).toBe("/analys/abc?spara=analys");
   });
 });

@@ -586,7 +586,7 @@ function Analysera() {
                       },
                     });
                   }}
-                  skrivUtkast={() =>
+                  forbered={() =>
                     skrivUtkast(
                       "vardering",
                       {

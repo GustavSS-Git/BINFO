@@ -50,9 +50,12 @@ import {
   type SparadVardering,
   type SparadVarderingPost,
   type TaBortAnalysFranListaSvar,
+  type ForberedSparaAnalysSvar,
+  type HamtaSparstatusSvar,
+  type SparaAnalysSvar,
 } from "@/lib/kontoTyper";
 import { kontoFel } from "./fel";
-import type { Kontext } from "./kontext";
+import type { Kontext, KontextKallor } from "./kontext";
 import type {
   AnalysListrad,
   KontoDatabas,
@@ -62,6 +65,7 @@ import type {
 } from "./kontoPortar";
 import { kontrolleraPrisuppskattningskvot } from "./kvot";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
+import { lasSparaMarke, rensaSparaMarke, sattSparaMarke } from "./sessionCookies";
 
 /** Per account and kind. A safety limit against storage abuse, not a product
  *  fact; change it here. */
@@ -476,5 +480,145 @@ export async function hamtaMinaUppgifter(b: SparatBeroenden): Promise<HamtaMinaU
         sparadeKalkyler: exp.sparadeKalkyler,
       },
     };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// "Spara analysen": a logged-out analysis into the account (owner 2026-10-24)
+// ---------------------------------------------------------------------------
+//
+// An analysis made logged out is stored under the browser's device principal
+// (`binfo_enhet` → `analys.principal_id`); that is the only ownership proof.
+// - Password login already moves it: `loggaIn` merges the device principal
+//   into the account (`sakerstall_konto_principal`).
+// - A new account confirmed by e-mail link does NOT merge (`bekraftaEpost`:
+//   a link proves nothing about the browser) and rotates `binfo_enhet`. For
+//   that case `forberedSparaAnalys` checks, while still logged out, that the
+//   analysis is this browser's and sets a signed httpOnly marker
+//   `{analysisId, devicePrincipalId, exp}` (`binfo_spara`, 7 days). After the
+//   login `sparaAnalys` verifies it and moves exactly that one `analys` row
+//   (compare-and-set). No re-run, no rapport touched, no API call.
+// Every refusal is the same `kan_inte_sparas`, so an id says nothing about
+// whose analysis it is.
+
+export interface SparaAnalysBeroenden {
+  /** The request's cookie access (the one `kontext` was resolved with). */
+  kallor: KontextKallor;
+  kontext: Kontext;
+  db: KontoDatabas;
+  /** PROJECT_SECRET_KEY: the root of the marker key. */
+  hemlighet: string;
+  nuMs?: () => number;
+}
+
+function tolkaAnalysId(data: unknown): string | null {
+  const r = IdSchema.safeParse(arObjekt(data)["analysisId"]);
+  return r.success ? r.data : null;
+}
+
+/** True iff `principalId` is this request's own, unmerged device principal.
+ *  Reads only (`hamtaPrincipal`): a plain visit never creates a principal. */
+async function arDennaEnhet(b: SparaAnalysBeroenden, principalId: string): Promise<boolean> {
+  const p = await b.db.hamtaPrincipal(principalId);
+  return (
+    p !== null &&
+    p.typ === "anonym" &&
+    p.sammanslagenTill === null &&
+    p.enhetId !== null &&
+    p.enhetId === b.kontext.enhetId
+  );
+}
+
+/** A still-anonymous, unmerged principal (the marker's device principal). */
+async function arFriEnhetsprincipal(
+  b: SparaAnalysBeroenden,
+  principalId: string,
+): Promise<boolean> {
+  const p = await b.db.hamtaPrincipal(principalId);
+  return p !== null && p.typ === "anonym" && p.sammanslagenTill === null;
+}
+
+/** The marker if it is valid for exactly this analysis and the analysis is
+ *  still on the marker's device principal. */
+async function giltigtMarkeFor(
+  b: SparaAnalysBeroenden,
+  analysisId: string,
+  agare: string,
+): Promise<boolean> {
+  const marke = await lasSparaMarke(b.kallor, b.hemlighet, b.nuMs?.());
+  return (
+    marke !== null &&
+    marke.analysisId === analysisId &&
+    marke.enhetsPrincipalId === agare &&
+    (await arFriEnhetsprincipal(b, agare))
+  );
+}
+
+/** What the analysis page shows: saved / can be saved / nothing. */
+export async function hamtaSparstatus(
+  b: SparaAnalysBeroenden,
+  data: unknown,
+): Promise<HamtaSparstatusSvar> {
+  const analysisId = tolkaAnalysId(data);
+  if (analysisId === null) return { status: "ingen" };
+  const rad = await b.db.hamtaAnalysAgare(analysisId);
+  const agare = rad?.principalId ?? null;
+  if (agare === null) return { status: "ingen" };
+
+  const inloggad = b.kontext.konto !== undefined && b.kontext.principalId !== null;
+  if (inloggad) {
+    if (agare === b.kontext.principalId) return { status: "sparad" };
+    return (await giltigtMarkeFor(b, analysisId, agare))
+      ? { status: "kan_sparas" }
+      : { status: "ingen" };
+  }
+  return (await arDennaEnhet(b, agare)) ? { status: "kan_sparas" } : { status: "ingen" };
+}
+
+/** Logged out, on "Spara analysen": check the analysis is this browser's,
+ *  then set the pending-save marker. Logged in and already the owner → ok. */
+export async function forberedSparaAnalys(
+  b: SparaAnalysBeroenden,
+  data: unknown,
+): Promise<ForberedSparaAnalysSvar> {
+  const analysisId = tolkaAnalysId(data);
+  if (analysisId === null) return kontoFel("kan_inte_sparas");
+  const agare = (await b.db.hamtaAnalysAgare(analysisId))?.principalId ?? null;
+  if (agare === null) return kontoFel("kan_inte_sparas");
+  if (b.kontext.konto !== undefined && agare === b.kontext.principalId) return { ok: true };
+  if (!(await arDennaEnhet(b, agare))) return kontoFel("kan_inte_sparas");
+  await sattSparaMarke(b.kallor, b.hemlighet, { analysisId, enhetsPrincipalId: agare }, b.nuMs?.());
+  return { ok: true };
+}
+
+/**
+ * Logged in: puts the analysis in the account. Already the account's → ok
+ * (idempotent; covers the password-login merge). Otherwise only with a valid
+ * marker for exactly this analysis whose device principal still owns it: then
+ * that one `analys` row moves to the account (compare-and-set). The marker is
+ * cleared after a successful save.
+ */
+export async function sparaAnalys(
+  b: SparaAnalysBeroenden,
+  data: unknown,
+): Promise<SparaAnalysSvar> {
+  return skyddad<SparaAnalysSvar>(async () => {
+    const konto = kravAgare(b.kontext);
+    const analysisId = tolkaAnalysId(data);
+    if (analysisId === null) return kontoFel("kan_inte_sparas");
+    const agare = (await b.db.hamtaAnalysAgare(analysisId))?.principalId ?? null;
+    if (agare === null) return kontoFel("kan_inte_sparas");
+
+    if (agare !== konto) {
+      if (!(await giltigtMarkeFor(b, analysisId, agare))) return kontoFel("kan_inte_sparas");
+      if (!(await b.db.flyttaAnalys(analysisId, agare, konto))) {
+        // Lost a race: fine if the other request saved it to this account.
+        const nu = (await b.db.hamtaAnalysAgare(analysisId))?.principalId ?? null;
+        if (nu !== konto) return kontoFel("kan_inte_sparas");
+      }
+    }
+    const marke = await lasSparaMarke(b.kallor, b.hemlighet, b.nuMs?.());
+    if (marke !== null && marke.analysisId === analysisId) rensaSparaMarke(b.kallor);
+    return { ok: true };
   });
 }

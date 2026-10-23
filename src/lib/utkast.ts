@@ -44,7 +44,7 @@ export function webblasarLager(): UtkastLager {
 
 const KuvertSchema = z.object({
   v: z.literal(1),
-  typ: z.enum(["vardering", "kalkyl"]),
+  typ: z.enum(["vardering", "kalkyl", "analys"]),
   /** ms sedan epoch när utkastet skrevs. */
   skapad: z.number().finite(),
   /** Sidan man ska tillbaka till, redan sanerad. */
@@ -132,7 +132,7 @@ export function lasUtkastMal(
   lager: UtkastLager = webblasarLager(),
   nu: number = Date.now(),
 ): { typ: SparaTyp; till: string } | null {
-  for (const typ of ["vardering", "kalkyl"] as const) {
+  for (const typ of ["vardering", "kalkyl", "analys"] as const) {
     const u = lasUtkast(typ, z.unknown(), lager, nu);
     if (u !== null) return { typ, till: u.till };
   }
@@ -175,3 +175,9 @@ export const VarderingUtkastSchema = z
   .strict();
 
 export type VarderingUtkast = z.infer<typeof VarderingUtkastSchema>;
+
+/** "Spara analysen": bara vilken analys (allt annat finns redan på servern). Gör att
+ *  /konto/bekrafta i en ny flik hittar tillbaka till analysen (`lasUtkastMal`). */
+export const AnalysUtkastSchema = z.object({ analysisId: z.string().uuid() }).strict();
+
+export type AnalysUtkast = z.infer<typeof AnalysUtkastSchema>;

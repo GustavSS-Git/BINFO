@@ -461,6 +461,32 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
       const rad = (data ?? {}) as { borttagen?: unknown; pdf_blev_forlorad?: unknown };
       return { borttagen: rad.borttagen === true, pdfBlevForlorad: rad.pdf_blev_forlorad === true };
     },
+
+    async hamtaAnalysAgare(analysId: string): Promise<{ principalId: string | null } | null> {
+      // `analys.id` is a uuid column: anything else would be a query error.
+      if (!UUID.test(analysId)) return null;
+      const { data, error } = await sb
+        .from("analys")
+        .select("principal_id")
+        .eq("id", analysId)
+        .maybeSingle();
+      if (error) throw new Error(`hamtaAnalysAgare misslyckades: ${error.message}`);
+      if (!data) return null;
+      const pid = (data as { principal_id: string | null }).principal_id;
+      return { principalId: typeof pid === "string" ? pid : null };
+    },
+
+    async flyttaAnalys(analysId: string, fran: string, till: string): Promise<boolean> {
+      if (!UUID.test(analysId)) return false;
+      const { data, error } = await sb
+        .from("analys")
+        .update({ principal_id: till })
+        .eq("id", analysId)
+        .eq("principal_id", fran)
+        .select("id");
+      if (error) throw new Error(`flyttaAnalys misslyckades: ${error.message}`);
+      return (data ?? []).length > 0;
+    },
   };
 }
 

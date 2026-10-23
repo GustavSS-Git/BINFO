@@ -339,6 +339,8 @@ export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
   hittades_inte: "Vi hittade inte det du sökte.",
   ogiltig_indata: "Uppgifterna är ogiltiga. Kontrollera dem och försök igen.",
   for_manga_sparade: "Du har nått gränsen för antal sparade objekt. Ta bort något och försök igen.",
+  kan_inte_sparas:
+    "Analysen kunde inte sparas i din profil. Öppna den i webbläsaren där du gjorde analysen och tryck på Spara analysen där.",
   konto_ej_konfigurerat: "Konton är inte aktiverade just nu. Försök igen senare.",
   // Not the analysis copy: account pages must not say "Analysen kunde inte…".
   unknown: "Något gick fel hos oss. Försök igen om en stund, och kontakta oss om felet kvarstår.",

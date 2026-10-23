@@ -6,3 +6,7 @@ export function kontoHead(title: string) {
 }
 
 export const GENERELLT_FEL = "Något gick fel. Försök igen om en stund.";
+
+/** "Spara analysen" på /forhandsvisning och /analys. */
+export const SPARA_ANALYS_KNAPP = "Spara analysen";
+export const SPARAD_I_PROFIL_TEXT = "Analysen är sparad i din profil.";

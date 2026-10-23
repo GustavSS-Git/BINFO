@@ -252,6 +252,21 @@ export interface KontoDatabas {
     principalId: string,
     analysId: string,
   ): Promise<{ borttagen: boolean; pdfBlevForlorad: boolean }>;
+
+  // -------------------------------------------------------------------------
+  // "Spara analysen" (no migration: plain reads/updates of `analys`)
+  // -------------------------------------------------------------------------
+
+  /** `select principal_id from analys where id = $1`. Null when there is no
+   *  such row; `principalId` is null for operator/legacy rows. Never creates
+   *  anything. */
+  hamtaAnalysAgare(analysId: string): Promise<{ principalId: string | null } | null>;
+
+  /** Compare-and-set: `update analys set principal_id = $till where id = $1
+   *  and principal_id = $fran`. True iff exactly that row changed owner; a row
+   *  that is gone or already moved elsewhere changes nothing. No rapport, PDF
+   *  or register row is touched. */
+  flyttaAnalys(analysId: string, fran: string, till: string): Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------

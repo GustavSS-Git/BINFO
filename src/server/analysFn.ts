@@ -66,15 +66,19 @@ import {
 } from "./registerPublik";
 import type { RegisterListaFraga } from "@/lib/registerVy";
 import {
+  forberedSparaAnalys,
   hamtaMinaUppgifter,
   hamtaSparadKalkyl,
+  hamtaSparstatus,
   hamtaSparadVardering,
   listaSparat,
   raderaSparadKalkyl,
   raderaSparadVardering,
+  sparaAnalys,
   sparaKalkyl,
   sparaVardering,
   taBortAnalysFranLista,
+  type SparaAnalysBeroenden,
   type SparatBeroenden,
 } from "./sparat";
 import { skapaLager, skapaRegisterLasning } from "./supabase";
@@ -92,6 +96,13 @@ function kontextFor(env: Env): Promise<Kontext> {
 async function sparatFor(env: Env): Promise<SparatBeroenden> {
   const b = await skapaKontoBeroenden(env);
   return { kontext: b.kontext, db: b.db };
+}
+
+/** Cookie access + session + account store for "Spara analysen" (the marker
+ *  cookie needs the same request-bound `kallor`). Needs the publishable key. */
+async function sparaAnalysFor(env: Env): Promise<SparaAnalysBeroenden> {
+  const b = await skapaKontoBeroenden(env);
+  return { kallor: b.kallor, kontext: b.kontext, db: b.db, hemlighet: b.hemlighet };
 }
 
 // The policy is built per call, never at module scope: a module-level value
@@ -378,6 +389,47 @@ export const taBortAnalysFranListaFn = createServerFn({ method: "POST" })
       return await taBortAnalysFranLista(await sparatFor(envFromProcess()), data);
     } catch (fel) {
       throw sakertFel("taBortAnalysFranListaFn", fel);
+    }
+  });
+
+/**
+ * "Spara analysen" on /forhandsvisning and /analys (see `hamtaSparstatus`,
+ * `forberedSparaAnalys`, `sparaAnalys` in ./sparat.ts). The pages are noindex
+ * and not cached, so resolving the kontext (and setting the device cookie)
+ * is fine. Without accounts configured, status is simply `ingen`.
+ */
+export const hamtaSparstatusFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { analysisId: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const env = envFromProcess();
+      if (env.supabasePublishableKey === undefined) {
+        await kontextFor(env);
+        return { status: "ingen" as const };
+      }
+      return await hamtaSparstatus(await sparaAnalysFor(env), data);
+    } catch (fel) {
+      throw sakertFel("hamtaSparstatusFn", fel);
+    }
+  });
+
+export const forberedSparaAnalysFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { analysisId: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await forberedSparaAnalys(await sparaAnalysFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("forberedSparaAnalysFn", fel);
+    }
+  });
+
+export const sparaAnalysFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { analysisId: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await sparaAnalys(await sparaAnalysFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("sparaAnalysFn", fel);
     }
   });
 

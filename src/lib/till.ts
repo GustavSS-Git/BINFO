@@ -6,11 +6,17 @@
 
 import type { SessionSvar } from "@/lib/kontoTyper";
 
-export type SparaTyp = "vardering" | "kalkyl";
+export type SparaTyp = "vardering" | "kalkyl" | "analys";
 
-/** Läser `?spara=` ur router-sökparametrar. Allt utom de två kända värdena ignoreras. */
+/** Läser `?spara=` ur router-sökparametrar. Allt utom de kända värdena ignoreras. */
 export function parseSparaTyp(varde: unknown): SparaTyp | undefined {
-  return varde === "vardering" || varde === "kalkyl" ? varde : undefined;
+  return varde === "vardering" || varde === "kalkyl" || varde === "analys" ? varde : undefined;
+}
+
+/** `validateSearch` för analyssidorna (/forhandsvisning/$id, /analys/$id): bara
+ *  `?spara=analys` (slutför ett väntande "Spara analysen" efter inloggning). */
+export function parseAnalysSok(s: Record<string, unknown>): { spara?: "analys" } {
+  return parseSparaTyp(s["spara"]) === "analys" ? { spara: "analys" } : {};
 }
 
 export interface SparaSok {

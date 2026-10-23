@@ -99,6 +99,13 @@ per-apartment cost in kronor, and what to do before bidding.
     `ladda_upp_analys` entitlement, before the run: `behorighet.ts`).
   - `/analys/$analysisId`: the same full report (bookmarks, /konto links);
     any error, including a refused entitlement, redirects to `/forhandsvisning`.
+  - **"Spara analysen"** (2026-10-24, both report pages): `useSparaAnalys` +
+    `SparaAnalysVy` (`src/components/konto/`), a small row under the grade card
+    (`AnalysRapport`'s `sparaSlot`) and a card at the end. Server:
+    `hamtaSparstatusFn` (`sparad` | `kan_sparas` | `ingen`),
+    `forberedSparaAnalysFn`, `sparaAnalysFn` (`src/server/sparat.ts`). Same
+    `SparaKnapp` flow as the Priskoll (`?spara=analys`, draft type `analys`);
+    someone else's analysis shows nothing. No re-run, no API call.
 - `/vardering`: 301 to `/analysera` (merged 2026-10-23), carrying `sparad`
   and `spara`.
 - `/konto` (profile), `/konto/{logga-in,skapa,glomt-losenord,bekrafta,nytt-losenord}`:
@@ -343,7 +350,12 @@ citations and effort) is not used anywhere yet.
   on first login; logout rotates `binfo_enhet`). Without
   `PROJECT_PUBLISHABLE_KEY`, everything behaves anonymously as before. Password
   change needs a 15-min signed reset marker (`binfo_aterst`) or the current
-  password; account deletion needs the password. Saved items are filtered by
+  password; account deletion needs the password. A logged-out analysis is
+  saved to the account either by the password-login merge, or (new account
+  confirmed by e-mail link, which does not merge and rotates `binfo_enhet`) by
+  a 7-day HMAC-signed marker `binfo_spara` {analysisId, device principal} set
+  on "Spara analysen" after a device-ownership check, then a compare-and-set
+  move of that one `analys` row (`flyttaAnalys`); cleared on save/logout. Saved items are filtered by
   principal in one helper (`kravAgare`). The UUID `analysisId` is still the
   read capability for analyses. Local Auth config + Swedish templates:
   `supabase/config.toml`, `docs/epostmallar/`; hosted setup: `docs/auth-setup.md`.
@@ -382,7 +394,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-23: 113 files, 2302 tests, all passing)
+npm test                    # vitest run (2026-10-24: 116 files, 2330 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
