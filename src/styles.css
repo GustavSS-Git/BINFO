@@ -167,7 +167,9 @@
   .dossier {
     position: relative;
     border: 1px solid var(--border);
-    border-radius: 1.25rem 1.25rem 0 0;
+    /* Square top-left corner: the "Exempel" tab (.dossier-tab) stands there,
+       so its left edge runs straight into the card's. */
+    border-radius: 0 1.25rem 0 0;
     background: var(--card);
     padding: 1.5rem 1.5rem 1.25rem;
     box-shadow: 0 1rem 2.25rem color-mix(in oklab, var(--foreground) 5%, transparent);
