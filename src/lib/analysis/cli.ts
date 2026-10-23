@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { z } from "zod";
 import { ExtractionValidationError, ModelTruncatedError } from "./extract";
 import { KostnadsgransOverskriden, STANDARD_MODELL } from "./costGuard";
 import {
@@ -20,7 +19,7 @@ import { AnalysValidationError, runAnalys } from "./analyze";
 // letting the two silently drift apart.
 import { STANDARD_EFFORT } from "@/server/env";
 import { AssemblyValidationError, assembleraAnalys } from "./assemble";
-import { PropertyInputSchema } from "./schema";
+import { kontrolleraInputfilText } from "./inputFil";
 import {
   cacheHitRate,
   errorHasKnownSpend,
@@ -42,18 +41,6 @@ try {
 } catch {
   // No .env.local — fine if ANTHROPIC_API_KEY etc. are exported in the shell.
 }
-
-// .strict() med flit: ett okänt fält i objektsfilen är nästan alltid ett
-// stavfel, och en tyst ignorering av det är dyr här — en körning kostar
-// riktiga pengar mot Anthropic. Särskilt lätt att missa på de valfria
-// fälten: "byggår" i stället för "byggar" skulle utan .strict() bara
-// försvinna. Lånedata är sedan Fas 1 Steg 0 inte längre del av pipelinen och
-// hör alltså inte hemma i filen alls.
-const PropertyInputFileSchema = z
-  .object({
-    input: PropertyInputSchema,
-  })
-  .strict();
 
 const GILTIGA_EFFORT: ModelEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
@@ -94,11 +81,24 @@ function lasPromptCache(): PromptCacheMode {
 }
 
 class OgiltigInputfilError extends Error {
-  constructor(zodError: z.ZodError) {
-    const issues = zodError.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-    super(`Objektsfilen matchar inte förväntat format: ${issues}`);
+  constructor(fel: readonly string[]) {
+    super(`Objektsfilen matchar inte förväntat format: ${fel.join("; ")}`);
     this.name = "OgiltigInputfilError";
   }
+}
+
+/**
+ * Reads and validates the object file BEFORE any paid call (a missing
+ * andelstal/orgnr used to surface only after ~3 kr of grounding and
+ * extraction). Refuses exactly what the run would fail on anyway — the same
+ * PropertyInputSchema assembly uses, strict wrapper included (see inputFil.ts);
+ * optional fields that are absent only get a warning on stderr.
+ */
+async function lasOchKontrolleraInputfil(inputPath: string): Promise<PropertyInput> {
+  const resultat = kontrolleraInputfilText(await readFile(inputPath, "utf-8"));
+  if (!resultat.ok) throw new OgiltigInputfilError(resultat.fel);
+  for (const varning of resultat.varningar) console.error(`VARNING: ${varning}`);
+  return resultat.input;
 }
 
 /**
@@ -146,6 +146,9 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+
+  // Before the first byte is sent anywhere: an invalid object file fails here, for free.
+  const input = inputPath ? await lasOchKontrolleraInputfil(inputPath) : undefined;
 
   const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
   const effortTranskribering = lasEffort("ANTHROPIC_EFFORT_TRANSKRIBERING");
@@ -197,7 +200,7 @@ async function main() {
       `${sidref.saknas} osäkra, ${sidref.ejKontrollerbara} ej kontrollerbara.`,
   );
 
-  if (!inputPath) {
+  if (!input) {
     console.log(JSON.stringify(extraction, null, 2));
     console.error(formatCallMetricsTable(allCalls));
     console.error(
@@ -211,17 +214,6 @@ async function main() {
   console.error(
     `Extraktion klar (${spentExtraktion.toFixed(2)} kr). Kör analys och sammanställning...`,
   );
-
-  const rawInputFile: unknown = JSON.parse(await readFile(inputPath, "utf-8"));
-  const parsedInputFile = PropertyInputFileSchema.safeParse(rawInputFile);
-  if (!parsedInputFile.success) {
-    throw new OgiltigInputfilError(parsedInputFile.error);
-  }
-  // Zod's inferred optional-field type allows an explicit `undefined`;
-  // exactOptionalPropertyTypes doesn't. Runtime shape is already
-  // Zod-verified — this reconciles the two type systems, nothing more
-  // (same pattern as extract.ts/analyze.ts).
-  const { input } = parsedInputFile.data as { input: PropertyInput };
 
   const { analys, calls: analysCalls } = await runAnalys(extraction, {
     model,
