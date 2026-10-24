@@ -10,7 +10,43 @@ Earlier plans (done, kept for history): the UI copy + new `/exempel` plan furthe
 
 # Plan: Booli link → prefill on /analysera (round 2026-10-24)
 
-Status: **approved by the owner 2026-10-24; in progress.** Findings: `docs/booli.md`.
+Status: **DONE 2026-10-24, committed on `main` (905b711…c4289f3), not pushed, not deployed.**
+Findings: `docs/booli.md`. API spend this round: 0 kr (see "Not done").
+
+## Result (2026-10-24)
+
+- **Done:** T0 fixtures + docs, T1 contract (`PropertyInput.kalla`), T2a URL check + parser,
+  T2b service (cache, quota, entitlement, kill switch, Nominatim fallback, Haiku fallback behind a
+  flag, migration), T2c UI, T3 verification and an independent review (0 critical; 1 major + 4
+  minor fixed: stale values on a second fetch, schema-unsafe broker link, edits lost during a fetch,
+  model values labelled as Booli facts, geocoding guessing Stockholm).
+- **Checks:** typecheck 0; 124 files / 2610 tests pass; lint 0 errors (8 baseline warnings);
+  build OK (Worker 1.74 MB gz); `npm run dev` on local env: no import-protection overlay.
+- **E2E on the built Worker** (`wrangler dev`, local Supabase, live Booli): all 6 URLs fill every
+  field as in the fixtures, missing fields highlighted, one server call per paste and none other,
+  edit → "Ändrat manuellt", non-Booli/non-listing/empty messages, kill switch message, second
+  fetch clears stale values, submit via the register path stores `property_input.kalla` with the
+  right `oandradeFalt`, report renders. Screenshots at 390/1280 px.
+- **Decisions:** server function instead of `/api/listing/fetch`; ort = kommun; only successes
+  cached (24 h); quota 20/device + 60/IP per hour (not refunded on a failed fetch); a cache hit is
+  free and is served before the entitlement check; overwrite only found fields (first fetch);
+  geocoding only when the postcode is missing, reverse first, no town guess; `behorighet` error
+  code; geocoded postcode labelled with OSM attribution.
+- **Not done:** the real LLM-fallback run (reading `.env.local` was denied in this session; the
+  fallback is off by default and unit-tested with a fake client). Earlier sales (owner: round 3).
+  The production check of Cloudflare blocking (needs deploy).
+
+## Left for the owner
+
+1. Deploy: `npx supabase@2.117.0 db push` (migration `20261024120000_annons.sql`), then the
+   Lovable publish. No Edge Function change needed. Then paste one live Booli link in production;
+   if it's blocked, set `ANNONS_HAMTNING=off` in Lovable Secrets.
+2. Booli's terms of use / database rights (unchecked).
+3. `/integritet`: mention the Booli fetch, the stored listing URL (12 months) and Nominatim
+   (address sent to OpenStreetMap when the postcode is missing). Proposed text in the final
+   summary; not published.
+4. Lovable polish: the Booli card layout, the `framhav` highlight, the hiss/balkong provenance text,
+   the förening hint under the dropzone.
 
 ## Context
 
@@ -20,6 +56,7 @@ structured data. **Zero LLM tokens** on the normal path. The paste never starts 
 existing buttons do. The source URL is stored with the analysis.
 
 Owner answers (2026-10-24):
+
 - Fetch route: server fetch with a normal browser header set, behind a flag, graceful fallback.
   Verify from the deployed Worker before announcing.
 - Earlier sales: **leave out this round**. Document the endpoints for round 3.
@@ -29,6 +66,7 @@ Owner answers (2026-10-24):
 ## Step zero findings (probed read-only 2026-10-24)
 
 **Cloudflare bot check**
+
 - curl's default UA, or a Chrome UA without `br` in `Accept-Encoding`, gets `403` +
   `cf-mitigated: challenge`.
 - A full Chrome-like header set from the owner's Mac gets `200` on 6/6 URLs.
@@ -36,29 +74,31 @@ Owner answers (2026-10-24):
 - Untested: requests from the Cloudflare Worker (CF egress IPs, `CF-Worker` header, workerd TLS).
 
 **Where the data sits (raw HTML, Next.js app router)**
+
 - The `Listing` object (`__typename:"Listing"`) is in the RSC stream: concatenate the
   `self.__next_f.push([1,"…"])` strings, then JSON-parse from `"object":{"__typename":"Listing"`.
 - JSON-LD gives the postcode (`Place.address.postalCode`) and the förening (last item in
   `BreadcrumbList`).
 
-| Field | Path | Fixtures |
-|---|---|---|
-| adress | `streetAddress` | 6/6 |
-| postnummer | JSON-LD `postalCode` / `areas[type=postcode].name` | 6/6 |
-| coords | `latitude`, `longitude` | 6/6 |
-| ort (kommun) / stadsdel | `areas[type=municipality].name` / `descriptiveAreaName` | 6/6 |
-| utgångspris | `listPrice.raw` | 5/6 |
-| månadsavgift | `rent.raw` (`0` → missing) | 5/6 |
-| boarea | `livingArea.raw` | 6/6 |
-| rum | `rooms.raw` (2.5 possible) | 6/6 |
-| våning | `floor.raw` | 6/6 |
-| byggår | `constructionYear` | 6/6 |
-| hiss / balkong | `amenities[].key` `elevator` / `balcony` (only listed when true) | 6/6 |
-| förening | JSON-LD breadcrumb "BRF …" | 6/6 in the saved fixtures |
-| broker link | `listingUrl` | 6/6 |
-| description | none on Booli | 0/6 |
+| Field                   | Path                                                             | Fixtures                  |
+| ----------------------- | ---------------------------------------------------------------- | ------------------------- |
+| adress                  | `streetAddress`                                                  | 6/6                       |
+| postnummer              | JSON-LD `postalCode` / `areas[type=postcode].name`               | 6/6                       |
+| coords                  | `latitude`, `longitude`                                          | 6/6                       |
+| ort (kommun) / stadsdel | `areas[type=municipality].name` / `descriptiveAreaName`          | 6/6                       |
+| utgångspris             | `listPrice.raw`                                                  | 5/6                       |
+| månadsavgift            | `rent.raw` (`0` → missing)                                       | 5/6                       |
+| boarea                  | `livingArea.raw`                                                 | 6/6                       |
+| rum                     | `rooms.raw` (2.5 possible)                                       | 6/6                       |
+| våning                  | `floor.raw`                                                      | 6/6                       |
+| byggår                  | `constructionYear`                                               | 6/6                       |
+| hiss / balkong          | `amenities[].key` `elevator` / `balcony` (only listed when true) | 6/6                       |
+| förening                | JSON-LD breadcrumb "BRF …"                                       | 6/6 in the saved fixtures |
+| broker link             | `listingUrl`                                                     | 6/6                       |
+| description             | none on Booli                                                    | 0/6                       |
 
 **Earlier sales**
+
 - Not in the HTML; only `salesOfResidence` IDs are there.
 - They are loaded by JS from `GET /graphql?operationName=salesOfProperty` (`residenceId`, `booliId`)
   and `comparableSales` (`objectType`, `postcodeId`, `addressId`). These are Apollo persisted
@@ -71,6 +111,7 @@ Owner answers (2026-10-24):
 ## Tasks (in order; one commit each; `git pull` first)
 
 ### T0: fixtures + findings doc (supervisor)
+
 - Save the raw HTML of the 6 URLs with the header set above to `fixtures/booli/<typ>-<id>.html`.
 - Also save one challenge page to `fixtures/booli/cloudflare-challenge.html`.
 - Script `scripts/hamtaBooliFixtures.mjs`: re-fetch, then run the parser and print per-field status.
@@ -80,6 +121,7 @@ Owner answers (2026-10-24):
 - `docs/DECISIONS.md`: entry for the owner answers.
 
 ### T1: shared contract (supervisor, before the parallel work)
+
 - `src/types/analysis.ts`: `PropertyInput.kalla?: AnnonsKalla`, where
   `AnnonsKalla = { typ: "booli"; url: string; maklarUrl?: string; forening?: string; hamtad: string; oandradeFalt: AnnonsFalt[] }`.
 - `src/lib/analysis/schema.ts`: strict Zod mirror, `.optional()`. Stored rows parse unchanged;
@@ -97,6 +139,7 @@ Owner answers (2026-10-24):
 - Schema tests: with/without `kalla`; an unknown nested key is rejected.
 
 ### T2a: URL check + parser (agent `pdf-pipeline`; owns `src/lib/annons/url.ts`, `src/server/annons/booli.ts` + tests)
+
 - **`url.ts`** (pure, shared with the client):
   - https only; host `booli.se` | `www.booli.se` exactly; no userinfo/port.
   - Path `/bostad/<digits>` or `/annons/<digits>`.
@@ -119,9 +162,11 @@ Owner answers (2026-10-24):
   cases (`booli.se.evil.com`, `http:`, `user@`, ports, other paths).
 
 ### T2b: service (agent `pdf-pipeline`, second instance)
+
 Owns `src/server/annons/{hamta,geokod,llmFallback}.ts` + tests, plus `kvot.ts`, `behorighet.ts`,
 `kontoPortar.ts`, `supabaseKonto.ts`, `__fakes__/konto.ts`, `env.ts`, the `analysFn.ts` handler
 and the migration.
+
 - **`hamtaAnnonsFn`** (POST server function in `analysFn.ts`, same pattern as
   `hamtaPrisuppskattningFn`, no module-scope values). It runs, in order:
   1. Kill switch `ANNONS_HAMTNING` (`off` → `avstangd`; default on).
@@ -154,6 +199,7 @@ and the migration.
   and logs. Also `kvot.test.ts`, `behorighet.test.ts`, `analysFn.test.ts`.
 
 ### T2c: frontend (agent `frontend-state`; owns `src/routes/analysera.tsx`, new `src/lib/annons/formular.ts` + tests, `analyseraForm.ts`, `analysera.test.tsx`)
+
 - **Above Steg 1:** `Field` "Klistra in länk från Booli" + `Button` "Hämta uppgifter", which shows
   "Hämtar…" while loading.
 - **Client-side URL check first:**
@@ -177,6 +223,7 @@ and the migration.
   A test asserts this.
 
 ### T3: integrate + verify (supervisor; `reviewer` agent on the full diff)
+
 - Run `npm run typecheck`, `npm test`, `npm run lint` and `npm run build`, and report the real
   output.
 - `npm run dev` on the **local stack** (`./scripts/v2-lokalt.sh`, migration applied, not
@@ -194,10 +241,12 @@ and the migration.
   `docs/booli.md`.
 
 ## Parallelism
+
 T0 → T1 (supervisor), then T2a ∥ T2b ∥ T2c on disjoint files, then T3. Agents don't commit; the
 supervisor reviews each diff and commits per task.
 
 ## Deploy (owner, later)
+
 1. `db push` (new migration).
 2. Lovable publish. No Edge Function change: the worker only strips `kalla`, and there is no
    `PROMPT_VERSION` bump.
@@ -205,6 +254,7 @@ supervisor reviews each diff and commits per task.
    `ANNONS_HAMTNING=off` in Lovable Secrets.
 
 ## Risks
+
 - Production fetch is blocked by Cloudflare (likely). The flag and the "fyll i manuellt" fallback
   limit the damage.
 - Booli changes its RSC/GraphQL layout. Mitigation: parse-failure logs and the re-fetch script.
@@ -214,6 +264,7 @@ supervisor reviews each diff and commits per task.
 - `oandradeFalt` in `kalla` and the förening hint are small scope additions; drop them if unwanted.
 
 ## Decisions I'll make myself (noted in the final summary)
+
 - Server function instead of a raw `/api/listing/fetch` route (consistent CSRF/kontext handling).
 - The quota numbers, cache-only-successes, and overwriting only found fields.
 - ort = kommun.
@@ -458,6 +509,7 @@ Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
 ## Changes
 
 ### 1. Waiting text ("Din analys pågår") — workstream A
+
 - File: `src/components/AnalysStatus.tsx` (`Pagar`).
 - Normal: "Det här tar normalt **3–5 minuter**. Vi går igenom hela
   årsredovisningen, granskar nyckeltalen och tar fram potentiella
@@ -473,6 +525,7 @@ Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
   old string is gone.
 
 ### 2. Source/data disclaimer — workstream B
+
 - Web (`Prisrimlighet` in `src/components/AnalysRapport.tsx`): replace the two
   lines ("Bygger på försäljningar …" + `OMRADESINDELNING_ATTRIBUTION`) with one
   `<p>`: "Modellen är tränad på bostadsrättsförsäljningar i Stockholm under
@@ -485,7 +538,7 @@ Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
     `formatDataperiod`) and a builder for the paragraph;
   - remove `OMRADESINDELNING_ATTRIBUTION`;
   - fix the misplaced doc comment.
-  The short formatter stays for server texts (`prisdata.ts`, `assemble.ts`).
+    The short formatter stays for server texts (`prisdata.ts`, `assemble.ts`).
 - PDF (`src/components/pdf/viewModel.ts` + `AnalysPdfDocument.tsx`): the same
   paragraph, with the metadata kept on its own line ("4 991 försäljningar ·
   typiskt fel ±X % · modell valuation-v3.1").
@@ -494,6 +547,7 @@ Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
   the paragraph.
 
 ### 3. "Vad påverkar värderingen" — workstream B (same owner as 2, shared files)
+
 - Heading → "Exempel på faktorer som påverkar värderingen utöver område:",
   dropping the `uppercase tracking-wide` classes so it renders in sentence case.
   The PDF gets the same heading above its driver rows (it has none today).
@@ -509,12 +563,14 @@ Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
   test for the heading text and that it has no `uppercase` class.
 
 ### 4. Priskoll: remove disclaimer — workstream A
+
 - `src/routes/vardering.tsx`: delete the whole
   `<div className="mb-6"><Callout … "Uppskattning utan årsredovisning">…</div>`
   so no empty margin remains, and drop the `Callout` import if it becomes
   unused.
 
 ### 5. New example analysis — workstream E (after A–D are merged)
+
 1. Write `input.json` (scratchpad) from the listing, with the
    `/analysera` form defaults for fields the form doesn't ask for (andelstal,
    avgiftInkluderar, antalPersoner, `orgnr` from the report), matching what a
@@ -534,12 +590,12 @@ Previous plan: `docs/PLAN-v2.md` (v2, done; archived, kept for history).
 
 ## Ownership and parallelism
 
-| Workstream | Agent | Files owned (exclusive) | Runs |
-|---|---|---|---|
-| A (1 + 4) | frontend-state | `AnalysStatus.tsx`, `analysStatusCopy.ts` (comment only), `routes/vardering.tsx`, `components/Prisrimlighet.test.tsx` | parallel with B |
-| B (2 + 3) | frontend-state | `AnalysRapport.tsx`, `lib/analysisView.ts` + test, `lib/vardering/drivare.ts` + test, `pdf/viewModel.ts` + test, `pdf/AnalysPdfDocument.tsx` (+ test), new `components/PrisrimlighetKalla.test.tsx` | parallel with A |
-| E (5) | pdf-pipeline | `data/sampleAnalysis.ts`, `routes/exempel.tsx`, `docs/api-test-log.md`, `docs/api-runs/` | after A+B accepted |
-| Verify | supervisor + reviewer | — | last |
+| Workstream | Agent                 | Files owned (exclusive)                                                                                                                                                                             | Runs               |
+| ---------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| A (1 + 4)  | frontend-state        | `AnalysStatus.tsx`, `analysStatusCopy.ts` (comment only), `routes/vardering.tsx`, `components/Prisrimlighet.test.tsx`                                                                               | parallel with B    |
+| B (2 + 3)  | frontend-state        | `AnalysRapport.tsx`, `lib/analysisView.ts` + test, `lib/vardering/drivare.ts` + test, `pdf/viewModel.ts` + test, `pdf/AnalysPdfDocument.tsx` (+ test), new `components/PrisrimlighetKalla.test.tsx` | parallel with A    |
+| E (5)      | pdf-pipeline          | `data/sampleAnalysis.ts`, `routes/exempel.tsx`, `docs/api-test-log.md`, `docs/api-runs/`                                                                                                            | after A+B accepted |
+| Verify     | supervisor + reviewer | —                                                                                                                                                                                                   | last               |
 
 A and B share no files. Workstream B's new web render test goes in its own new
 file so it doesn't collide with A's edits to `Prisrimlighet.test.tsx`. The
@@ -563,6 +619,7 @@ unrelated changes) and re-runs the checks before accepting it.
    Exceptions: historical records in `docs/api-runs/`, `docs/api-test-log.md`,
    and the ML artifact label in `effects.json`/`effects.data.ts` (model data,
    not display), which are listed in the report rather than rewritten.
+
 3. Visual check with Playwright from the scratchpad (no project dependency;
    cached Chromium), desktop 1280 px and mobile 390 px:
    - Waiting screen, normal and scanned: real runs on the local Supabase stack
