@@ -159,13 +159,38 @@ describe("plan-cost span math", () => {
   it("an item with only fran uses that year: 600 000 in 2031 → span 1 → 600 000 ÷ 2 000 = 300", () => {
     expect(med([post(600_000, "lan", { fran: 2031 })]).sparbehov.malKrPerM2).toBe(300);
   });
-  it("an item without years makes the span PLANKOSTNAD_MAX_AR (30): 6 000 000 ÷ 30 ÷ 2 000 = 100", () => {
-    expect(med([post(6_000_000, "lan")]).sparbehov.malKrPerM2).toBe(100);
+  it("an item without years makes the span PLANKOSTNAD_MAX_AR (30): 12 000 000 ÷ 30 ÷ 2 000 = 200", () => {
+    expect(med([post(12_000_000, "lan")]).sparbehov.malKrPerM2).toBe(200);
   });
-  it("span is capped at 30: 2000–2100 with 6 000 000 → 100", () => {
-    expect(med([post(6_000_000, "lan", { fran: 2000, till: 2100 })]).sparbehov.malKrPerM2).toBe(
-      100,
+  it("span is capped at 30: 2000–2100 with 12 000 000 → 200", () => {
+    expect(med([post(12_000_000, "lan", { fran: 2000, till: 2100 })]).sparbehov.malKrPerM2).toBe(
+      200,
     );
+  });
+  it("a plan target below 50 % of the schablon (6 000 000 ÷ 30 ÷ 2 000 = 100 < 150) falls back to the schablon", () => {
+    const r = med([post(6_000_000, "lan")]);
+    expect(r.sparbehov.malKalla).toBe("schablon");
+    expect(r.forkastatPlanmal).toEqual({ malKrPerM2: 100, malKalla: "planerade_kostnader" });
+    expect(r.planBaserad).toBe(false);
+  });
+  it("totalyta is derived as debt ÷ skuldsättning per m² totalyta when the report states none", () => {
+    const f = forening({
+      lanebok: { totalSkuld: fig(10_000_000) },
+      keyFigures: [
+        ...forening().keyFigures,
+        {
+          id: "skuldsattning_per_m2_totalyta",
+          label: "Skuld",
+          figure: fig(4_000, { unit: "kr/m2" }),
+          status: "okant",
+          forklaring: "",
+        },
+      ],
+    });
+    delete (f as { totalyta?: Figure }).totalyta;
+    const r = kor(f);
+    expect(r.sparbehov.totalyta).toBe(2_500);
+    expect(r.totalytaHarledd).toBe(true);
   });
   it("items without amounts are ignored", () => {
     const r = kor(

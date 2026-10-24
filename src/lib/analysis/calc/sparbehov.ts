@@ -37,6 +37,7 @@ import type {
   Tristate,
 } from "@/types/analysis";
 import {
+  PLANMAL_MIN_ANDEL_AV_SCHABLON,
   BYGGDEL_LIVSLANGD,
   HORISONT_MANADER,
   PLANKOSTNAD_MAX_AR,
@@ -61,6 +62,10 @@ export interface SparbehovResultat {
   krPerAr: number | null;
   /** True for targets 1–3 (the förening's own plan). */
   planBaserad: boolean;
+  /** Totalyta derived as total debt ÷ skuldsättning per m² totalyta (the report states no area). */
+  totalytaHarledd: boolean;
+  /** A plan-based target that was too low to trust (see PLANMAL_MIN_ANDEL_AV_SCHABLON). */
+  forkastatPlanmal?: { malKrPerM2: number; malKalla: Sparbehov["malKalla"] };
 }
 
 const BYGGDELAR: Byggdel[] = ["stambyte", "tak", "fasad", "fonster", "ventilation", "el", "hiss"];
@@ -159,10 +164,22 @@ function positivt(f: Figure | undefined): number | null {
 export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
   const { forening, idag } = input;
   const up = forening.underhallsplan;
-  const totalyta = (() => {
+  const angivenTotalyta = (() => {
     const t = forening.totalyta?.value ?? null;
     return t !== null && t > 0 ? t : null;
   })();
+  // No stated totalyta: derive it from the two figures the report does state.
+  const harleddTotalyta = (() => {
+    if (angivenTotalyta !== null) return null;
+    const skuld = forening.lanebok?.totalSkuld?.value ?? null;
+    const perM2 =
+      forening.keyFigures.find((k) => k.id === "skuldsattning_per_m2_totalyta")?.figure.value ??
+      null;
+    return skuld !== null && skuld > 0 && perM2 !== null && perM2 > 0
+      ? Math.round(skuld / perM2)
+      : null;
+  })();
+  const totalyta = angivenTotalyta ?? harleddTotalyta;
 
   let mal: number | null = null;
   let malKalla: Sparbehov["malKalla"] = "schablon";
@@ -206,6 +223,13 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
       }
     }
   }
+  let forkastatPlanmal: SparbehovResultat["forkastatPlanmal"];
+  if (mal !== null && mal < PLANMAL_MIN_ANDEL_AV_SCHABLON * SPARMAL_SCHABLON_KR_PER_M2) {
+    forkastatPlanmal = { malKrPerM2: Math.round(mal), malKalla };
+    mal = null;
+    malKalla = "schablon";
+    malRef = undefined;
+  }
   if (mal === null) {
     const { delar, score } = bedomaByggdelar(forening, input.byggar, input.hiss, idag);
     const halv = (SPARMAL_SCHABLON_MAX - SPARMAL_SCHABLON_MIN) / 2;
@@ -241,5 +265,11 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
     dampning,
     ...(byggdelar ? { byggdelar } : {}),
   };
-  return { sparbehov, krPerAr, planBaserad: malKalla !== "schablon" };
+  return {
+    sparbehov,
+    krPerAr,
+    planBaserad: malKalla !== "schablon",
+    totalytaHarledd: harleddTotalyta !== null,
+    ...(forkastatPlanmal ? { forkastatPlanmal } : {}),
+  };
 }

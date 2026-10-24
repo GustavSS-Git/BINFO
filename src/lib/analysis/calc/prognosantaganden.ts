@@ -113,6 +113,13 @@ export const BYGGDEL_LIVSLANGD: Record<Byggdel, { label: string; lag: number; ho
   hiss: { label: "Hiss", lag: 20, hog: 40 },
 };
 
+/** A plan-based savings target below this share of the schablon is taken to
+ *  cover only part of the plan (e.g. "underhållsbehov" without the large
+ *  investments) and is not used; the schablon applies instead. Measured case:
+ *  Helsingborgshus 17, 777 tkr/year ≈ 46 kr/m² totalyta (2026-10-24). */
+// TODO: unverified placeholder (round 2026-10-24c)
+export const PLANMAL_MIN_ANDEL_AV_SCHABLON = 0.5;
+
 /** The plan-cost target averages planned costs over at most this many years
  *  when a plan item has no year span. */
 // TODO: unverified placeholder (round 2026-10-24c)

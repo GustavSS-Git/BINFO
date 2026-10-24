@@ -251,6 +251,12 @@ function sparandegap(
     forening.sparandeUttag.finansierat === "ja"
       ? " Årsredovisningen beskriver ett planerat, finansierat uttag, vilket inte ändrar schablonen."
       : "";
+  const forkastat = r.forkastatPlanmal
+    ? ` Underhållsplanens siffra (cirka ${kr(r.forkastatPlanmal.malKrPerM2)} kr/m² per år) är så låg att den troligen bara täcker en del av planen, så vi använder schablonen.`
+    : "";
+  const harledd = r.totalytaHarledd
+    ? ` Totalytan (${kr(sb.totalyta as number)} m²) är beräknad ur skulden och skuldsättningen per kvadratmeter.`
+    : "";
   const skillnad =
     glapp > 0
       ? `ett glapp på ${kr(glapp)} kr/m²`
@@ -269,7 +275,9 @@ function sparandegap(
         forklaring:
           `Behovet är cirka ${kr(sb.malKrPerM2)} kr/m² per år (${MAL_TEXT[sb.malKalla]}), ` +
           `föreningen sparar ${sb.sparandeKrPerM2 < 0 ? "−" : ""}${kr(sb.sparandeKrPerM2)} kr/m², ${skillnad}${dampText}.` +
-          uttag,
+          uttag +
+          forkastat +
+          harledd,
       },
       andel,
       ref,
