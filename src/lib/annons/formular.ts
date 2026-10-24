@@ -7,6 +7,7 @@
  */
 
 import type { AnalyseraFormFields } from "@/lib/analyseraForm";
+import { AnnonsKallaSchema } from "@/lib/analysis/schema";
 import {
   ANNONS_FALT,
   ANNONS_MEDDELANDE,
@@ -81,6 +82,8 @@ export interface AnnonsFormLage {
   ursprung: Record<AnnonsFalt, Ursprung>;
   /** The postcode came from geocoding the address (OpenStreetMap), not from the listing. */
   postnummerGeokodat: boolean;
+  /** The values were read out of the listing text by a model (server fallback), not parsed. */
+  tolkatAvModell: boolean;
 }
 
 export interface AnnonsTristates {
@@ -134,27 +137,44 @@ const TEXTFALT: Record<Exclude<AnnonsFalt, "hiss" | "balkong">, Formaterare> = {
 
 /**
  * New form strings, Tristates and provenance for a successful answer. A field
- * the listing has overwrites the form value; a field it lacks is left alone
- * (ursprung "saknas"). hiss/balkong become "ja" when the listing says so and
- * are otherwise kept: a missing amenity is unknown, never "nej". A second fetch
- * replaces the whole provenance state.
+ * the listing has overwrites the form value. For a field it lacks (ursprung
+ * "saknas"), `fore` (the state after the previous fetch, null on the first)
+ * decides:
+ * - the value still came from the previous listing ("booli"): it is cleared
+ *   (text) or reset to "okant" (hiss/balkong), so a stale value never passes
+ *   for this listing's;
+ * - the buyer typed or changed it ("manuellt", "saknas"), or there was no
+ *   previous fetch: it is kept.
+ * hiss/balkong become "ja" when the listing says so and are otherwise never
+ * "nej": a missing amenity is unknown. A second fetch replaces the whole
+ * provenance state.
  */
 export function tillampaAnnons(
   form: AnalyseraFormFields,
   tristates: AnnonsTristates,
   svar: Extract<AnnonsSvar, { ok: true }>,
+  fore: AnnonsFormLage | null = null,
 ): AnnonsTillampning {
   const u = svar.uppgifter;
   const nyForm: AnalyseraFormFields = { ...form };
   const ursprung = {} as Record<AnnonsFalt, Ursprung>;
+  const nyaTristates: AnnonsTristates = { hiss: tristates.hiss, balkong: tristates.balkong };
 
   for (const falt of ANNONS_FALT) {
+    const varFranForraAnnonsen = fore?.ursprung[falt] === "booli";
     if (falt === "hiss" || falt === "balkong") {
-      ursprung[falt] = u[falt] === "ja" ? "booli" : "saknas";
+      if (u[falt] === "ja") {
+        nyaTristates[falt] = "ja";
+        ursprung[falt] = "booli";
+      } else {
+        if (varFranForraAnnonsen) nyaTristates[falt] = "okant";
+        ursprung[falt] = "saknas";
+      }
       continue;
     }
     const varde = TEXTFALT[falt](u);
     if (varde === undefined) {
+      if (varFranForraAnnonsen) nyForm[falt] = "";
       ursprung[falt] = "saknas";
     } else {
       nyForm[falt] = varde;
@@ -175,9 +195,14 @@ export function tillampaAnnons(
 
   return {
     form: nyForm,
-    hiss: u.hiss === "ja" ? "ja" : tristates.hiss,
-    balkong: u.balkong === "ja" ? "ja" : tristates.balkong,
-    lage: { kalla, ursprung, postnummerGeokodat: svar.postnummerKalla === "geokodning" },
+    hiss: nyaTristates.hiss,
+    balkong: nyaTristates.balkong,
+    lage: {
+      kalla,
+      ursprung,
+      postnummerGeokodat: svar.postnummerKalla === "geokodning",
+      tolkatAvModell: svar.tolkning === "llm",
+    },
   };
 }
 
@@ -193,16 +218,38 @@ export function markeraAndrad(lage: AnnonsFormLage, falt: string): AnnonsFormLag
   return { ...lage, ursprung: { ...lage.ursprung, [nyckel]: "manuellt" } };
 }
 
-/** The `kalla` stored with the analysis: fields still holding the fetched value, in form order. */
+/**
+ * The `kalla` stored with the analysis: fields still holding the fetched value,
+ * in form order. The optional texts come from the listing and are untrusted:
+ * one that breaks the strict schema (`AnnonsKallaSchema`) is dropped, never
+ * truncated, so it can't make the whole analysis fail.
+ */
 export function tillAnnonsKalla(lage: AnnonsFormLage): AnnonsKalla {
-  return {
-    typ: "booli",
+  const bas = {
+    typ: "booli" as const,
     url: lage.kalla.url,
-    ...(lage.kalla.maklarUrl !== undefined ? { maklarUrl: lage.kalla.maklarUrl } : {}),
-    ...(lage.kalla.forening !== undefined ? { forening: lage.kalla.forening } : {}),
     hamtad: lage.kalla.hamtad,
     oandradeFalt: ANNONS_FALT.filter((f) => lage.ursprung[f] === "booli"),
   };
+  const { maklarUrl, forening } = lage.kalla;
+  const giltig = (extra: { maklarUrl?: string; forening?: string }): AnnonsKalla | null => {
+    const kandidat = {
+      typ: bas.typ,
+      url: bas.url,
+      ...extra,
+      hamtad: bas.hamtad,
+      oandradeFalt: bas.oandradeFalt,
+    };
+    return AnnonsKallaSchema.safeParse(kandidat).success ? kandidat : null;
+  };
+  const med = {
+    ...(maklarUrl !== undefined ? { maklarUrl } : {}),
+    ...(forening !== undefined ? { forening } : {}),
+  };
+  const utanMaklarUrl = forening !== undefined ? { forening } : {};
+  const utanForening = maklarUrl !== undefined ? { maklarUrl } : {};
+  // Keep as much as is valid: both, then each alone, then neither.
+  return giltig(med) ?? giltig(utanMaklarUrl) ?? giltig(utanForening) ?? { ...bas };
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +259,8 @@ export function tillAnnonsKalla(lage: AnnonsFormLage): AnnonsKalla {
 export const HINT_BOOLI = "Hämtat från Booli";
 /** ODbL attribution: the postcode was looked up in OpenStreetMap data. */
 export const HINT_GEOKODAT = "Uppslaget från adressen (© OpenStreetMap-bidragsgivare)";
+/** The model fallback read the values out of the listing text: not a Booli fact. */
+export const HINT_TOLKAT = "Tolkat från annonsens text – kontrollera";
 export const HINT_MANUELLT = "Ändrat manuellt";
 export const HINT_SAKNAS = "Fanns inte i annonsen, fyll i själv";
 export const HINT_SAKNAS_VALFRITT = "Framgår inte av annonsen";
@@ -226,7 +275,12 @@ export function annonsFaltVisning(
   switch (lage.ursprung[falt]) {
     case "booli":
       return {
-        hint: falt === "postnummer" && lage.postnummerGeokodat ? HINT_GEOKODAT : HINT_BOOLI,
+        hint:
+          falt === "postnummer" && lage.postnummerGeokodat
+            ? HINT_GEOKODAT
+            : lage.tolkatAvModell
+              ? HINT_TOLKAT
+              : HINT_BOOLI,
       };
     case "manuellt":
       return { hint: HINT_MANUELLT };
@@ -244,7 +298,7 @@ export function annonsTristateText(
   if (lage === null) return undefined;
   switch (lage.ursprung[falt]) {
     case "booli":
-      return HINT_BOOLI;
+      return lage.tolkatAvModell ? HINT_TOLKAT : HINT_BOOLI;
     case "manuellt":
       return HINT_MANUELLT;
     case "saknas":

@@ -45,6 +45,11 @@ export function setIngar(id: AvgiftPostId, value: Tristate) {
   emit();
 }
 
+/** Nuvarande tillstånd utanför React (t.ex. efter ett await), där en hook-snapshot kan vara gammal. */
+export function lasUppgifter(): UppgifterState {
+  return current;
+}
+
 export function useUppgifter(): UppgifterState {
   return useSyncExternalStore(
     (cb) => {

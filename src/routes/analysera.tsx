@@ -6,7 +6,7 @@ import { SparadVardering } from "@/components/analysera/SparadVardering";
 import { InfoRuta, FelRuta } from "@/components/konto/AuthSida";
 import { SparaKnapp } from "@/components/konto/SparaKnapp";
 import { useAterstallUtkast } from "@/components/konto/useAterstallUtkast";
-import { useUppgifter, setUppgifter } from "@/lib/uppgifter";
+import { useUppgifter, setUppgifter, lasUppgifter } from "@/lib/uppgifter";
 import {
   buildPropertyInput,
   formateraFilstorlek,
@@ -225,6 +225,12 @@ function Analysera() {
     ...(prefill.byggar ? { byggar: prefill.byggar } : {}),
   }));
   const uppgifter = useUppgifter();
+  // Senaste formulär och annonsläge, för svaret på en hämtning som kan ha tagit en stund:
+  // det som köparen ändrat under tiden ska räknas som hens eget.
+  const formRef = useRef(form);
+  const annonsLageRef = useRef(annonsLage);
+  formRef.current = form;
+  annonsLageRef.current = annonsLage;
 
   // Klick på säkerhetsmätaren i rapporten länkar hit med #vet-ej.
   useEffect(() => {
@@ -255,19 +261,23 @@ function Analysera() {
         setAnnonsFel(utfall.meddelande);
         return;
       }
-      const ny = tillampaAnnons(
-        form,
-        { hiss: uppgifter.hiss, balkong: uppgifter.balkong },
-        utfall.svar,
-      );
-      setForm(ny.form);
+      // Allt räknas från nuvarande läge (inte klickögonblickets): hiss/balkong direkt ur
+      // butiken, ursprunget ur senaste annonsläget. Själva formuläret uppdateras med en
+      // funktion så att tecken som skrivits under hämtningen inte skrivs över.
+      const fore = annonsLageRef.current;
+      const nuvarande = lasUppgifter();
+      const tristates = { hiss: nuvarande.hiss, balkong: nuvarande.balkong };
+      const svar = utfall.svar;
+      const ny = tillampaAnnons(formRef.current, tristates, svar, fore);
+      setForm((f) => tillampaAnnons(f, tristates, svar, fore).form);
       setUppgifter({
         hiss: ny.hiss,
         balkong: ny.balkong,
-        ...(utfall.svar.uppgifter.boarea !== undefined
+        ...(svar.uppgifter.boarea !== undefined || ny.form.boarea !== formRef.current.boarea
           ? { boarea: boareaTillTal(ny.form.boarea) }
           : {}),
       });
+      annonsLageRef.current = ny.lage;
       setAnnonsLage(ny.lage);
     } finally {
       setHamtarAnnons(false);
