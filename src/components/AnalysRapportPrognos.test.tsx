@@ -14,8 +14,8 @@ const rita = (a = analysMedPrognos()) =>
 describe("AnalysRapport — avgiftsprognos och priskedja", () => {
   it("visar två prisrader och jämför mot den justerade värderingen", () => {
     const html = rita();
-    expect(html).toContain("Binfos värdering (modell)");
-    expect(html).toContain("Justerat för väntad avgiftshöjning");
+    expect(html).toContain("Vad jämförbara lägenheter säljs för");
+    expect(html).toContain("Värde med hänsyn till föreningens ekonomi");
     expect(html).toContain("den justerade värderingen");
     expect(html).not.toContain("(jämfört per m²)");
   });
@@ -46,7 +46,7 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
 
   it("visar del 2 och 3 med data: komponenter, saknat underlag, pris och lån", () => {
     const html = rita();
-    expect(html).toContain("väntar vi oss att avgiften höjs med ca 500 kr/mån");
+    expect(html).toContain("+500 kr/mån");
     expect(html).toContain("Underlag saknas – spannet breddas");
     expect(html).toContain("≈ 300 kr i pris per krona i månadsavgift");
     expect(html).toContain("Underhållsplanens belopp saknas");
@@ -92,7 +92,7 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
   it("renderar som förut när de nya fälten saknas (gamla resultat)", () => {
     const html = rita(analysUtanPrognos());
     for (const t of [
-      "Binfos värdering (modell)",
+      "Värde med hänsyn till föreningens ekonomi",
       "Justerat för väntad",
       "Sammanfattning",
       "Väntad avgiftsutveckling",

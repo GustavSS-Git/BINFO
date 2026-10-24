@@ -6,6 +6,11 @@
  * domain figure — it selects, ranks, and formats.
  */
 import { kr } from "@/data/mockData";
+import {
+  SPARMAL_SCHABLON_KR_PER_M2,
+  SPARMAL_SCHABLON_MAX,
+  SPARMAL_SCHABLON_MIN,
+} from "@/lib/analysis/calc/prognosantaganden";
 import type {
   AnalysisResult,
   Avgiftsprognos,
@@ -20,7 +25,10 @@ import type {
   PageRef,
   Prisanalys,
   RedFlag,
+  RefinansieringsLan,
   Severity,
+  Sparbehov,
+  Tryck,
   Varderingsunderlag,
 } from "@/types/analysis";
 
@@ -608,4 +616,414 @@ export function formatForandringKr(v: number): string {
   const r = Math.round(v);
   if (r === 0) return "0";
   return `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("sv-SE")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Visuell prognos (round 2026-10-24c): färg, kedja, vattenfall, lån, byggdelar.
+// ---------------------------------------------------------------------------
+
+export const PRIS_LABEL_BAS = "Vad jämförbara lägenheter säljs för";
+export const PRIS_LABEL_JUSTERAD = "Värde med hänsyn till föreningens ekonomi";
+
+export type Ton = "success" | "warning" | "danger" | "neutral";
+
+/** Avgiftstryck -> samma toner som nyckeltalens status (god / svag / kritisk). */
+export const TRYCK_STATUS = { gron: "god", gul: "svag", rod: "kritisk" } as const;
+export const TRYCK_TON: Record<Tryck, Ton> = { gron: "success", gul: "warning", rod: "danger" };
+/** Samma utility-klasser som StatusDot / StatusLabel i UI-kitet använder. */
+export const TON_BG: Record<Ton, string> = {
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+  neutral: "bg-muted-foreground/40",
+};
+export const TON_TEXT: Record<Ton, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+  neutral: "text-muted-foreground",
+};
+export const TRYCK_ETIKETT: Record<Tryck, string> = {
+  gron: "Inget tryck på avgiften",
+  gul: "Visst tryck på avgiften",
+  rod: "Tydlig avgiftshöjning väntas",
+};
+
+export function tonForTryck(t: Tryck | undefined): Ton {
+  return t ? TRYCK_TON[t] : "neutral";
+}
+
+/** "+1 200 kr" / "−150 000 kr" / "0 kr". */
+export function formatSigneratKr(v: number, enhet = "kr"): string {
+  const r = Math.round(v);
+  if (r === 0) return `0 ${enhet}`;
+  return `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("sv-SE")} ${enhet}`;
+}
+
+const kronorM2 = (v: number) => `${Math.round(v).toLocaleString("sv-SE")} kr/m²`;
+
+function ärSparkomponent(k: AvgiftsKomponent): boolean {
+  const id = k.id as string;
+  return id === "spargap" || id === "sparandegap";
+}
+
+export function sparKomponent(p: Avgiftsprognos): AvgiftsKomponent | undefined {
+  return p.komponenter.find(ärSparkomponent);
+}
+
+export function refiKomponent(p: Avgiftsprognos): AvgiftsKomponent | undefined {
+  return p.komponenter.find((k) => k.id === "refinansiering");
+}
+
+/** Rubrikens stora tal: "+500 kr/mån" och raden under. */
+export function avgiftsHuvud(p: Avgiftsprognos): { varde: string; under: string } {
+  const under = `inom ${p.horisontManader} månader`;
+  if (p.totalKrPerManad === null) return { varde: "Kan inte uppskattas", under };
+  if (Math.abs(p.totalKrPerManad) < TYDLIG_FORANDRING_KR) {
+    return { varde: "Ingen tydlig förändring", under };
+  }
+  return { varde: formatSigneratKr(p.totalKrPerManad, "kr/mån"), under };
+}
+
+/** Källtagg på en komponentrad: årsredovisningssida när det finns, annars estimat. */
+export function komponentKalla(k: AvgiftsKomponent): { text: string; fakta: boolean } | undefined {
+  if (k.status !== "beraknad") return undefined;
+  return k.ref
+    ? { text: `Årsredovisning s. ${k.ref.page}`, fakta: true }
+    : { text: "Uppskattning", fakta: false };
+}
+
+/**
+ * Prisbidrag per komponent (kr, signerat; negativt sänker priset). Med
+ * justeringens kr-per-kr/mån-faktor: -krPerManad × faktor. Utan faktor delas
+ * justeringens belopp proportionellt mot komponenternas kr/mån
+ * (`proportionell: true`).
+ */
+export function komponentPris(
+  prisanalys: Pick<Prisanalys, "justeringar">,
+  prognos: Avgiftsprognos,
+): { bidrag: Record<string, number>; proportionell: boolean } {
+  const j = prisanalys.justeringar?.find((x) => x.id === "forvantad_avgiftshojning");
+  const bidrag: Record<string, number> = {};
+  if (!j) return { bidrag, proportionell: false };
+  const kmp = prognos.komponenter.filter(
+    (k) => k.status === "beraknad" && k.krPerManad !== null && Math.round(k.krPerManad) !== 0,
+  );
+  if (j.krPerKrManad !== undefined) {
+    for (const k of kmp) bidrag[k.id] = -(k.krPerManad ?? 0) * j.krPerKrManad;
+    return { bidrag, proportionell: false };
+  }
+  const summa = kmp.reduce((a, k) => a + (k.krPerManad ?? 0), 0);
+  const total = j.belopp.value;
+  if (summa === 0 || total === null) return { bidrag, proportionell: true };
+  for (const k of kmp) bidrag[k.id] = (total * (k.krPerManad ?? 0)) / summa;
+  return { bidrag, proportionell: true };
+}
+
+export interface VattenfallRad {
+  id: string;
+  label: string;
+  typ: "bas" | "steg" | "slut";
+  /** "−150 000 kr" för steg, hela beloppet för bas/slut. */
+  beloppText: string;
+  /** Position och bredd i procent av skalan (skalan är utzoomad kring värdena). */
+  vansterPct: number;
+  breddPct: number;
+  ton: Ton;
+}
+
+/** Stapeldiagram baslinje -> varje komponents prisbidrag -> justerat värde. */
+export function vattenfall(
+  prisanalys: Pick<Prisanalys, "justeringar" | "externVardering" | "justeradVardering">,
+  prognos: Avgiftsprognos,
+): { rader: VattenfallRad[]; proportionell: boolean } | undefined {
+  const bas = prisanalys.externVardering?.value;
+  const slut = prisanalys.justeradVardering?.value;
+  if (bas === null || bas === undefined || slut === null || slut === undefined) return undefined;
+  const { bidrag, proportionell } = komponentPris(prisanalys, prognos);
+  const steg: Array<{ id: string; label: string; c: number; ton: Ton }> = [];
+  for (const k of prognos.komponenter) {
+    const c = bidrag[k.id];
+    if (c === undefined || Math.round(c) === 0) continue;
+    steg.push({
+      id: k.id,
+      label: k.label,
+      c,
+      ton: k.tryck ? TRYCK_TON[k.tryck] : c < 0 ? "danger" : "success",
+    });
+  }
+  if (steg.length === 0) return undefined;
+  const summa = steg.reduce((a, s) => a + s.c, 0);
+  const rest = slut - (bas + summa);
+  if (Math.abs(rest) > 1) steg.push({ id: "ovrigt", label: "Övrigt", c: rest, ton: "neutral" });
+
+  const punkter = [bas, slut];
+  let lopande = bas;
+  for (const s of steg) {
+    lopande += s.c;
+    punkter.push(lopande);
+  }
+  const min = Math.min(...punkter);
+  const max = Math.max(...punkter);
+  if (max - min <= 0) return undefined;
+  const pad = (max - min) * 0.08;
+  const lo = min - pad;
+  const spann = max - min + 2 * pad;
+  const pct = (v: number) => ((v - lo) / spann) * 100;
+  const MIN_BREDD = 1.5;
+
+  const rader: VattenfallRad[] = [
+    {
+      id: "bas",
+      label: PRIS_LABEL_BAS,
+      typ: "bas",
+      beloppText: formatVarde(bas, "kr"),
+      vansterPct: pct(bas) - MIN_BREDD / 2,
+      breddPct: MIN_BREDD,
+      ton: "neutral",
+    },
+  ];
+  let start = bas;
+  for (const s of steg) {
+    const till = start + s.c;
+    rader.push({
+      id: s.id,
+      label: s.label,
+      typ: "steg",
+      beloppText: formatSigneratKr(s.c),
+      vansterPct: pct(Math.min(start, till)),
+      breddPct: Math.max((Math.abs(s.c) / spann) * 100, MIN_BREDD),
+      ton: s.ton,
+    });
+    start = till;
+  }
+  rader.push({
+    id: "slut",
+    label: PRIS_LABEL_JUSTERAD,
+    typ: "slut",
+    beloppText: formatVarde(slut, "kr"),
+    vansterPct: pct(slut) - MIN_BREDD / 2,
+    breddPct: MIN_BREDD,
+    ton: prognos.tryck ? TRYCK_TON[prognos.tryck] : slut < bas ? "danger" : "success",
+  });
+  return { rader, proportionell };
+}
+
+// --- Sparandekedja ----------------------------------------------------------
+
+export interface KedjeSteg {
+  id: "behov" | "sparar" | "glapp" | "avgift" | "pris";
+  rubrik: string;
+  varde: string;
+  kalla?: string;
+  /** true = uppgift ur årsredovisningen/planen, false = vår uppskattning/schablon. */
+  fakta?: boolean;
+  ton?: Ton;
+}
+
+export interface SparKedja {
+  steg: KedjeSteg[];
+  dampningTag?: string;
+  /** Stapelbredd i procent (behov är alltid mot skalans max). */
+  behovPct: number;
+  sparPct: number | null;
+  sparTon: Ton;
+}
+
+const MAL_KALLA_TEXT: Record<Sparbehov["malKalla"], string> = {
+  investeringsbehov: "Underhållsplan",
+  rekommenderad_avsattning: "Underhållsplan",
+  planerade_kostnader: "Underhållsplan",
+  schablon: "Schablon",
+};
+
+export function sparKedja(
+  prognos: Avgiftsprognos,
+  prisanalys: Pick<Prisanalys, "justeringar">,
+): SparKedja | undefined {
+  const sb = prognos.sparbehov;
+  if (!sb) return undefined;
+  const komp = sparKomponent(prognos);
+  const schablon = sb.malKalla === "schablon";
+  const sida = (r: { page: number } | undefined) => (r ? ` s. ${r.page}` : "");
+  const steg: KedjeSteg[] = [
+    {
+      id: "behov",
+      rubrik: "Behov",
+      varde: kronorM2(sb.malKrPerM2),
+      kalla: `${MAL_KALLA_TEXT[sb.malKalla]}${schablon ? "" : sida(sb.malRef)}`,
+      fakta: !schablon,
+    },
+    {
+      id: "sparar",
+      rubrik: "Sparar",
+      varde: sb.sparandeKrPerM2 === null ? "Uppgift saknas" : kronorM2(sb.sparandeKrPerM2),
+      kalla: `Årsredovisning${sida(sb.sparandeRef)}`,
+      fakta: true,
+    },
+    {
+      id: "glapp",
+      rubrik: sb.glappKrPerM2 !== null && sb.glappKrPerM2 < 0 ? "Överskott" : "Glapp",
+      varde: sb.glappKrPerM2 === null ? "–" : kronorM2(Math.abs(sb.glappKrPerM2)),
+      ton:
+        sb.glappKrPerM2 === null
+          ? "neutral"
+          : sb.glappKrPerM2 > 0
+            ? tonForTryck(komp?.tryck)
+            : "success",
+    },
+  ];
+  if (komp) {
+    steg.push({
+      id: "avgift",
+      rubrik: "Avgift",
+      varde: komp.krPerManad === null ? "–" : formatSigneratKr(komp.krPerManad, "kr/mån"),
+      kalla: "Uppskattning",
+      fakta: false,
+      ton: tonForTryck(komp.tryck),
+    });
+    const pris =
+      komp.krPerManad === null ? undefined : komponentPris(prisanalys, prognos).bidrag[komp.id];
+    if (pris !== undefined) {
+      steg.push({
+        id: "pris",
+        rubrik: "Pris",
+        varde: formatSigneratKr(pris),
+        kalla: "Uppskattning",
+        fakta: false,
+        ton: pris < 0 ? "danger" : "success",
+      });
+    }
+  }
+  const max = Math.max(sb.malKrPerM2, sb.sparandeKrPerM2 ?? 0, 1);
+  const sparTon: Ton =
+    sb.glappKrPerM2 === null
+      ? "neutral"
+      : sb.glappKrPerM2 <= 0
+        ? "success"
+        : tonForTryck(komp?.tryck);
+  const tag =
+    sb.dampning < 1
+      ? `Räknas till ${Math.round(sb.dampning * 100)} %${schablon ? " (schablon)" : ""}`
+      : undefined;
+  return {
+    steg,
+    ...(tag ? { dampningTag: tag } : {}),
+    behovPct: (sb.malKrPerM2 / max) * 100,
+    sparPct: sb.sparandeKrPerM2 === null ? null : (Math.max(sb.sparandeKrPerM2, 0) / max) * 100,
+    sparTon,
+  };
+}
+
+export const BYGGDEL_KALLA_TEXT = "Livslängder: FAR 2025, SIB M84:10.";
+
+export function byggdelNot(): string {
+  return `Byggdelarna flyttar målet inom ${SPARMAL_SCHABLON_MIN}–${SPARMAL_SCHABLON_MAX} kr/m² (schablon ${SPARMAL_SCHABLON_KR_PER_M2}).`;
+}
+
+export interface ByggdelRad {
+  key: string;
+  label: string;
+  senast: string;
+  livslangd: string;
+  status: "nyligen" | "ok" | "eftersatt" | "okant";
+  statusEtikett: string;
+  ton: "success" | "warning" | "neutral";
+  ref?: PageRef;
+}
+
+const BYGGDEL_STATUS: Record<ByggdelRad["status"], { text: string; ton: ByggdelRad["ton"] }> = {
+  nyligen: { text: "Nyligen", ton: "success" },
+  ok: { text: "Ok", ton: "neutral" },
+  eftersatt: { text: "Eftersatt", ton: "warning" },
+  okant: { text: "Okänt", ton: "neutral" },
+};
+
+export function byggdelRader(sb: Pick<Sparbehov, "byggdelar">): ByggdelRad[] {
+  return (sb.byggdelar ?? []).map((b) => ({
+    key: b.byggdel,
+    label: b.label,
+    senast:
+      b.senast === undefined
+        ? "okänt"
+        : `${b.senast} (${b.senastKalla === "atgard" ? "åtgärd" : "byggår"})`,
+    livslangd: `${b.livslangd.lag}–${b.livslangd.hog} år`,
+    status: b.status,
+    statusEtikett: BYGGDEL_STATUS[b.status].text,
+    ton: BYGGDEL_STATUS[b.status].ton,
+    ...(b.ref ? { ref: b.ref } : {}),
+  }));
+}
+
+// --- Lån ---------------------------------------------------------------------
+
+export const REFI_FASTRAD =
+  "Lån som omsätts om 3–5 år räknas bara om de har lägre ränta än i dag, och väger mindre ju längre bort de ligger – ett medvetet försiktigt val.";
+export const RANTEKANSLIGHET_RAD =
+  "Räntekänsligheten påverkar inte priset; tabellen nedan visar hur avgiften ändras om räntan stiger.";
+export const RAKNA_UTGANGSLAGE_KORT =
+  "Utgångsläget bygger på tidigare försäljningar av bostadsrätter.";
+
+const MANADER = [
+  "januari",
+  "februari",
+  "mars",
+  "april",
+  "maj",
+  "juni",
+  "juli",
+  "augusti",
+  "september",
+  "oktober",
+  "november",
+  "december",
+];
+
+/** "2027-03-01" -> "1 mars 2027"; allt annat returneras oförändrat. */
+export function formatDag(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  const manad = m ? MANADER[Number(m[2]) - 1] : undefined;
+  return m && manad ? `${Number(m[3])} ${manad} ${m[1]}` : iso;
+}
+
+export interface LanRad {
+  key: string;
+  forfaller: string;
+  belopp: string;
+  ranta: string;
+  fas: string;
+  senare: boolean;
+  effekt: string;
+  ref?: PageRef;
+}
+
+export function lanRader(
+  r: NonNullable<Avgiftsprognos["refinansiering"]>,
+  horisontManader: number,
+): LanRad[] {
+  const senareAr = Math.round((r.senareHorisontManader ?? 60) / 12);
+  return (r.lan ?? []).map((l: RefinansieringsLan, i) => {
+    const senare = l.fas === "senare";
+    return {
+      key: `${i}-${l.dag ?? "rorlig"}-${l.belopp}`,
+      forfaller: l.dag ? formatDag(l.dag) : l.rorlig ? "Rörligt" : "Datum saknas",
+      belopp: formatVarde(l.belopp, "kr"),
+      ranta:
+        l.rantaProcent === null
+          ? "Ränta saknas"
+          : `${formatProcentTal(l.rantaProcent)} → ${formatProcentTal(r.nyRantaProcent)}`,
+      fas: senare
+        ? `År ${Math.floor(horisontManader / 12) + 1}–${senareAr} · väger ${Math.round(l.vikt * 100)} %`
+        : `≤ ${horisontManader} mån`,
+      senare,
+      effekt: l.foreningKrPerAr === null ? "–" : formatSigneratKr(l.foreningKrPerAr, "kr/år"),
+      ...(l.ref ? { ref: l.ref } : {}),
+    };
+  });
+}
+
+/** Referensränta och marginal som en liten rad. */
+export function referensrantaRad(r: NonNullable<Avgiftsprognos["refinansiering"]>): string {
+  const rf = r.referensranta;
+  return `Ny ränta ${formatProcentTal(r.nyRantaProcent)} = ${rf.namn} ${formatProcentTal(rf.procent)} (${rf.datum}${rf.reserv ? ", reservvärde" : ""}) + marginal ${formatProcentTal(r.marginalProcent)}`;
 }

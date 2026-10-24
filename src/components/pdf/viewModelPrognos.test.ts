@@ -7,7 +7,9 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
   const vm = buildPdfViewModel(analysMedPrognos());
 
   it("har två prisrader och flyttar jämförelsen till den justerade", () => {
-    expect(vm.prisanalys.justeradVardering?.label).toBe("Justerat för väntad avgiftshöjning");
+    expect(vm.prisanalys.justeradVardering?.label).toBe(
+      "Värde med hänsyn till föreningens ekonomi",
+    );
     expect(vm.prisanalys.justeradVardering?.avvikelseText).toContain("den justerade värderingen");
     expect(vm.prisanalys.avvikelseText).toBeUndefined();
   });
@@ -15,7 +17,7 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
   it("bygger 'Så har vi räknat' med utgångsläge, prognos och lån", () => {
     expect(vm.rakning?.utgangslage?.faktorer.length).toBeGreaterThan(3);
     const p = vm.rakning?.prognos;
-    expect(p?.rubrik).toContain("höjs med ca 500 kr/mån");
+    expect(p?.rubrik).toContain("+500 kr/mån");
     expect(p?.komponenter.map((k) => k.vardeText)).toContain("Underlag saknas – spannet breddas");
     expect(p?.prisTexter.join(" ")).toContain("≈ 300 kr i pris per krona");
     expect(p?.prisCaveat).toBeDefined();

@@ -8,6 +8,7 @@ import {
   type PdfRedFlag,
   type PdfViewModel,
 } from "@/components/pdf/viewModel";
+import { PRIS_LABEL_BAS, type Ton } from "@/lib/analysisView";
 import type { AnalysisResult, Status } from "@/types/analysis";
 
 // Deliberately does NOT call registerPdfFonts() itself: react-pdf's Font
@@ -23,6 +24,13 @@ const STATUS_COLOR: Record<Status, string> = {
   svag: PDF_COLORS.warning,
   kritisk: PDF_COLORS.danger,
   okant: PDF_COLORS.mutedForeground,
+};
+
+const TON_COLOR: Record<Ton, string> = {
+  success: PDF_COLORS.success,
+  warning: PDF_COLORS.warning,
+  danger: PDF_COLORS.danger,
+  neutral: PDF_COLORS.mutedForeground,
 };
 
 const SEVERITY_COLOR: Record<PdfRedFlag["severity"], string> = {
@@ -608,7 +616,7 @@ function OvrigInfo({ ovrigInfo }: { ovrigInfo: PdfOvrigInfo }) {
 function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
   const p = vm.prisanalys;
   const u = p.varderingsunderlag;
-  const varderingslabel = p.externVardering?.isSchablon ? "Binfos värdering" : "Extern värdering";
+  const varderingslabel = p.externVardering?.isSchablon ? PRIS_LABEL_BAS : "Extern värdering";
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{p.titel}</Text>
@@ -635,7 +643,7 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
           <View style={[styles.priceRow, u ? undefined : { borderBottomWidth: 0 }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.priceLabel}>
-                {p.justeradVardering ? `${varderingslabel} (modell)` : varderingslabel}
+                {varderingslabel}
                 {p.externVardering.isSchablon ? " (estimat)" : ""}
               </Text>
               <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
@@ -665,6 +673,23 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
                 <Text style={styles.summaryLabel}>{p.justeradVardering.avvikelseText}</Text>
               ) : null}
             </View>
+          </View>
+        ) : null}
+        {p.justeradVardering && p.justeradVardering.vattenfall.length > 0 ? (
+          <View style={{ marginTop: 6 }} wrap={false}>
+            {p.justeradVardering.vattenfall.map((r) => (
+              <View key={r.label} style={styles.driverRow}>
+                <Text style={styles.summaryLabel}>{r.label}</Text>
+                <Text
+                  style={[
+                    styles.summaryLabel,
+                    { color: TON_COLOR[r.typ === "steg" ? r.ton : "neutral"] },
+                  ]}
+                >
+                  {r.beloppText}
+                </Text>
+              </View>
+            ))}
           </View>
         ) : null}
         {p.andelAvSkuld ? (
@@ -721,20 +746,114 @@ function Rakning({ vm }: { vm: PdfViewModel }) {
         ) : null}
         {r.prognos ? (
           <View style={r.utgangslage ? styles.varderingsunderlag : {}}>
-            <Text style={styles.priceLabel}>Väntad avgiftsutveckling enligt årsredovisningen</Text>
-            <Text style={{ marginTop: 4 }}>{r.prognos.rubrik}</Text>
-            {r.prognos.komponenter.map((k) => (
-              <View key={k.label} style={{ marginTop: 4 }} wrap={false}>
-                <View style={styles.driverRow}>
-                  <Text style={styles.priceLabel}>{k.label}</Text>
-                  <Text style={styles.summaryLabel}>{k.vardeText}</Text>
-                </View>
-                <Text style={styles.summaryLabel}>
-                  {k.forklaring}
-                  {k.pageRef ? ` (${k.pageRef})` : ""}
+            <View style={styles.driverRow}>
+              <Text style={styles.priceLabel}>
+                Väntad avgiftsutveckling enligt årsredovisningen
+              </Text>
+              <Text style={[styles.priceValue, { color: TON_COLOR[r.prognos.huvud.ton] }]}>
+                {r.prognos.huvud.varde}
+              </Text>
+            </View>
+            <Text style={styles.summaryLabel}>{r.prognos.huvud.under} (uppskattning)</Text>
+            {r.prognos.spar ? (
+              <View style={{ marginTop: 8 }} wrap={false}>
+                <Text style={styles.priceLabel}>
+                  Sparande till underhåll
+                  {r.prognos.spar.dampningTag ? ` · ${r.prognos.spar.dampningTag}` : ""}
                 </Text>
+                <View style={[styles.driverRow, { marginTop: 2 }]}>
+                  {r.prognos.spar.steg.map((st, i) => (
+                    <View key={st.rubrik} style={{ flex: 1 }}>
+                      <Text style={styles.summaryLabel}>
+                        {i > 0 ? "→ " : ""}
+                        {st.rubrik}
+                      </Text>
+                      <Text style={[styles.priceLabel, st.ton ? { color: TON_COLOR[st.ton] } : {}]}>
+                        {st.varde}
+                      </Text>
+                      {st.kalla ? <Text style={styles.pageRefTag}>{st.kalla}</Text> : null}
+                    </View>
+                  ))}
+                </View>
+                {r.prognos.spar.byggdelar.length > 0 ? (
+                  <View style={styles.table}>
+                    <View style={styles.tableHeaderRow}>
+                      <Text style={styles.tableCellHeader}>Byggdel</Text>
+                      <Text style={styles.tableCellHeader}>Senast</Text>
+                      <Text style={styles.tableCellHeader}>Normalt</Text>
+                      <Text style={styles.tableCellHeader}>Status</Text>
+                    </View>
+                    {r.prognos.spar.byggdelar.map((b) => (
+                      <View key={b.label} style={styles.tableRow}>
+                        <Text style={styles.tableCell}>{b.label}</Text>
+                        <Text style={styles.tableCell}>
+                          {b.senast}
+                          {b.pageRef ? ` (${b.pageRef})` : ""}
+                        </Text>
+                        <Text style={styles.tableCell}>{b.livslangd}</Text>
+                        <Text style={[styles.tableCell, { color: TON_COLOR[b.ton] }]}>
+                          {b.status}
+                        </Text>
+                      </View>
+                    ))}
+                    <Text style={styles.confidenceNote}>
+                      {r.prognos.spar.byggdelNot} {r.prognos.spar.byggdelKalla}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-            ))}
+            ) : null}
+            {r.prognos.lan ? (
+              <View style={{ marginTop: 8 }} wrap={false}>
+                <View style={styles.driverRow}>
+                  <Text style={styles.priceLabel}>Lån som omsätts</Text>
+                  {r.prognos.lan.varde ? (
+                    <Text style={[styles.priceLabel, { color: TON_COLOR[r.prognos.lan.ton] }]}>
+                      {r.prognos.lan.varde}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.table}>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={styles.tableCellHeader}>Förfaller</Text>
+                    <Text style={styles.tableCellHeader}>Belopp</Text>
+                    <Text style={styles.tableCellHeader}>Ränta</Text>
+                    <Text style={styles.tableCellHeader}>Period</Text>
+                    <Text style={styles.tableCellHeader}>Effekt</Text>
+                  </View>
+                  {r.prognos.lan.rader.map((l) => (
+                    <View key={`${l.forfaller}-${l.belopp}-${l.fas}`} style={styles.tableRow}>
+                      <Text style={styles.tableCell}>{l.forfaller}</Text>
+                      <Text style={styles.tableCell}>{l.belopp}</Text>
+                      <Text style={styles.tableCell}>{l.ranta}</Text>
+                      <Text style={styles.tableCell}>{l.fas}</Text>
+                      <Text style={styles.tableCell}>{l.effekt}</Text>
+                    </View>
+                  ))}
+                </View>
+                {r.prognos.lan.fastrad ? (
+                  <Text style={styles.confidenceNote}>{r.prognos.lan.fastrad}</Text>
+                ) : null}
+                <Text style={styles.confidenceNote}>{r.prognos.lan.referens}</Text>
+              </View>
+            ) : null}
+            {r.prognos.komponenter
+              .filter((k) => k.ovrig)
+              .map((k) => (
+                <View key={k.label} style={{ marginTop: 4 }} wrap={false}>
+                  <View style={styles.driverRow}>
+                    <Text style={styles.priceLabel}>{k.label}</Text>
+                    <Text style={[styles.summaryLabel, k.ton ? { color: TON_COLOR[k.ton] } : {}]}>
+                      {k.vardeText}
+                      {k.kalla ? ` · ${k.kalla}` : ""}
+                    </Text>
+                  </View>
+                  <Text style={styles.summaryLabel}>
+                    {k.forklaring}
+                    {k.pageRef ? ` (${k.pageRef})` : ""}
+                  </Text>
+                </View>
+              ))}
             {r.prognos.osaker ? (
               <Text style={styles.osakerText}>Osäker: {r.prognos.osaker}</Text>
             ) : null}
@@ -747,7 +866,8 @@ function Rakning({ vm }: { vm: PdfViewModel }) {
             {r.prognos.prisCaveat ? (
               <Text style={styles.confidenceNote}>{r.prognos.prisCaveat}</Text>
             ) : null}
-            {r.prognos.refinansiering ? (
+            <Text style={styles.confidenceNote}>{r.prognos.rantekanslighetRad}</Text>
+            {r.prognos.refinansiering && !r.prognos.lan ? (
               <View style={{ marginTop: 8 }}>
                 <Text style={styles.priceLabel}>Lån som omsätts inom horisonten</Text>
                 {r.prognos.refinansiering.rader.map((rad) => (
@@ -773,8 +893,16 @@ function Sammanfattning({ sammanfattning }: { sammanfattning: PdfViewModel["samm
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Sammanfattning</Text>
       <View style={styles.card} wrap={false}>
-        {sammanfattning.stycken.map((t) => (
+        {sammanfattning.stycken.map((t, i) => (
           <Text key={t} style={{ marginBottom: 6 }}>
+            {i === 2 && sammanfattning.avgiftTryck ? (
+              <Text
+                style={{ color: TON_COLOR[sammanfattning.avgiftTryck.ton], fontWeight: "bold" }}
+              >
+                {sammanfattning.avgiftTryck.etikett}
+                {": "}
+              </Text>
+            ) : null}
             {t}
           </Text>
         ))}

@@ -24,19 +24,41 @@ import {
   toppRodaFlaggor,
   type AndelAvSkuldRad,
   antagenAndelText,
-  avgiftsprognosRubrik,
+  avgiftsHuvud,
   avvikelseJusteradText,
+  BYGGDEL_KALLA_TEXT,
+  byggdelNot,
+  byggdelRader,
   ENERGI_TEXT,
   formatForandringKr,
+  komponentKalla,
   komponentRader,
+  lanRader,
   prisEffektTexter,
+  PRIS_LABEL_BAS,
+  PRIS_LABEL_JUSTERAD,
   PRISEFFEKT_CAVEAT,
   RAKNA_FAKTORER,
   RAKNA_PROGNOS_RUBRIK,
   RAKNA_REFINANSIERING_RUBRIK,
   RAKNA_UTGANGSLAGE_INTRO,
+  RAKNA_UTGANGSLAGE_KORT,
   RAKNA_UTGANGSLAGE_RUBRIK,
+  RANTEKANSLIGHET_RAD,
+  referensrantaRad,
   refinansieringRader,
+  refiKomponent,
+  REFI_FASTRAD,
+  sparKedja,
+  sparKomponent,
+  TON_BG,
+  TON_TEXT,
+  tonForTryck,
+  TRYCK_ETIKETT,
+  TRYCK_TON,
+  vattenfall,
+  type Ton,
+  type VattenfallRad,
 } from "@/lib/analysisView";
 import { veljRantekanslighetForSok, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import type {
@@ -50,6 +72,7 @@ import type {
   Sammanfattning,
   Severity,
   Tristate,
+  Tryck,
 } from "@/types/analysis";
 
 /**
@@ -136,7 +159,10 @@ export function AnalysRapport({
       />
       <Rantestress analys={analys} />
       <Fragor analys={analys} />
-      <SammanfattningSektion sammanfattning={analys.sammanfattning} />
+      <SammanfattningSektion
+        sammanfattning={analys.sammanfattning}
+        tryck={analys.avgiftsprognos?.tryck}
+      />
 
       <div className="mt-10 flex flex-wrap items-center gap-4">
         <Button
@@ -480,7 +506,7 @@ export function Prisrimlighet({
   const u = p.varderingsunderlag;
   const tackningText = u ? varderingsTackningText(u) : null;
   const varderingslabel =
-    p.externVardering?.source === "schablon" ? "Binfos värdering" : "Extern värdering";
+    p.externVardering?.source === "schablon" ? PRIS_LABEL_BAS : "Extern värdering";
   return (
     <section className="mb-10">
       <SectionTitle
@@ -522,7 +548,7 @@ export function Prisrimlighet({
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <div>
                 <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  {p.justeradVardering ? `${varderingslabel} (modell)` : varderingslabel}
+                  {varderingslabel}
                   {p.externVardering.source === "schablon" ? <Tag>Estimat</Tag> : null}
                 </p>
                 {/* Dold rad (ägarens beslut 2026-10-09): leverantören av
@@ -572,7 +598,7 @@ export function Prisrimlighet({
           {p.justeradVardering ? (
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                Justerat för väntad avgiftshöjning
+                {PRIS_LABEL_JUSTERAD}
                 <Tag>Estimat</Tag>
               </p>
               <div className="text-right">
@@ -588,6 +614,10 @@ export function Prisrimlighet({
                 ) : null}
               </div>
             </div>
+          ) : null}
+
+          {p.justeradVardering && avgiftsprognos ? (
+            <PrisVattenfall prisanalys={p} prognos={avgiftsprognos} />
           ) : null}
 
           {skuldrad ? (
@@ -644,17 +674,22 @@ export function Prisrimlighet({
           </summary>
           <div className="space-y-6 border-t border-border px-4 pb-4 pt-3">
             {u ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-foreground">
                   {RAKNA_UTGANGSLAGE_RUBRIK}
                 </h3>
-                <p className="text-sm text-muted-foreground">{RAKNA_UTGANGSLAGE_INTRO}</p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  {RAKNA_FAKTORER.map((f) => (
-                    <li key={f}>{f}</li>
-                  ))}
-                </ul>
-                <p className="text-xs text-muted-foreground">{varderingsKallaText(u.dataperiod)}</p>
+                <p className="text-sm text-muted-foreground">{RAKNA_UTGANGSLAGE_KORT}</p>
+                <VisaMer>
+                  <p className="text-sm text-muted-foreground">{RAKNA_UTGANGSLAGE_INTRO}</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {RAKNA_FAKTORER.map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {varderingsKallaText(u.dataperiod)}
+                  </p>
+                </VisaMer>
               </div>
             ) : null}
             {avgiftsprognos ? <RaknaPrognos prognos={avgiftsprognos} prisanalys={p} /> : null}
@@ -665,7 +700,254 @@ export function Prisrimlighet({
   );
 }
 
-/** Del 2 och 3 i "Så har vi räknat": den väntade avgiftshöjningen och lånen bakom den. */
+/** Liten färgprick för avgiftstryck (samma toner som nyckeltalens status). */
+function Prick({ ton, etikett }: { ton: Ton; etikett?: string }) {
+  return (
+    <>
+      <span
+        data-ton={ton}
+        className={`inline-block size-2.5 shrink-0 rounded-full ${TON_BG[ton]}`}
+        aria-hidden
+      />
+      {etikett ? <span className="sr-only">{etikett}</span> : null}
+    </>
+  );
+}
+
+/** "Visa mer": inbyggd <details>, stängd från start (fungerar utan JS och i SSR). */
+function VisaMer({ children }: { children: ReactNode }) {
+  return (
+    <details className="group">
+      <summary className="cursor-pointer text-xs font-medium text-primary">Visa mer</summary>
+      <div className="mt-2 space-y-2">{children}</div>
+    </details>
+  );
+}
+
+function KallaTagg({ text }: { text: string }) {
+  return <Tag>{text}</Tag>;
+}
+
+/** Stapeldiagram från "vad jämförbara säljs för" till det justerade värdet. */
+function PrisVattenfall({
+  prisanalys,
+  prognos,
+}: {
+  prisanalys: PrisanalysUtanForening;
+  prognos: Avgiftsprognos;
+}) {
+  const v = vattenfall(prisanalys, prognos);
+  if (!v) return null;
+  return (
+    <div className="py-4 first:pt-0 last:pb-0" data-slot="pris-vattenfall">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Så påverkar föreningens ekonomi priset
+      </p>
+      <ul className="space-y-2">
+        {v.rader.map((r: VattenfallRad) => (
+          <li key={r.id} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3">
+            <span className="text-xs text-foreground">{r.label}</span>
+            <span className="relative h-3 rounded bg-secondary" aria-hidden>
+              <span
+                data-ton={r.ton}
+                className={`absolute inset-y-0 rounded ${r.typ === "steg" ? TON_BG[r.ton] : "bg-foreground/60"}`}
+                style={{ left: `${r.vansterPct}%`, width: `${r.breddPct}%` }}
+              />
+            </span>
+            <span
+              className={`text-right text-xs font-medium ${r.typ === "steg" ? TON_TEXT[r.ton] : "text-foreground"}`}
+            >
+              {r.beloppText}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Skalan är utzoomad kring värdena.
+        {v.proportionell ? " Delbeloppen är fördelade efter komponenternas kr/mån." : ""}
+      </p>
+    </div>
+  );
+}
+
+/** Sparandekedjan: behov → sparar → glapp → avgift → pris, plus en stapel. */
+function SparSteg({
+  prognos,
+  prisanalys,
+}: {
+  prognos: Avgiftsprognos;
+  prisanalys: PrisanalysUtanForening;
+}) {
+  const kedja = sparKedja(prognos, prisanalys);
+  const sb = prognos.sparbehov;
+  if (!kedja || !sb) return null;
+  const komp = sparKomponent(prognos);
+  const byggdelar = byggdelRader(sb);
+  return (
+    <div className="space-y-3" data-slot="spar-steg">
+      <div className="flex flex-wrap items-center gap-2">
+        <h4 className="text-sm font-semibold text-foreground">Sparande till underhåll</h4>
+        {komp?.tryck ? (
+          <Prick ton={TRYCK_TON[komp.tryck]} etikett={TRYCK_ETIKETT[komp.tryck]} />
+        ) : null}
+        {kedja.dampningTag ? <Tag>{kedja.dampningTag}</Tag> : null}
+      </div>
+      <ol className="flex flex-wrap items-stretch gap-2">
+        {kedja.steg.map((k, i) => (
+          <li key={k.id} className="flex items-center gap-2">
+            {i > 0 ? (
+              <span className="text-muted-foreground" aria-hidden>
+                →
+              </span>
+            ) : null}
+            <div className="rounded-xl border border-border bg-card px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {k.rubrik}
+              </p>
+              <p className={`font-display text-lg ${k.ton ? TON_TEXT[k.ton] : "text-foreground"}`}>
+                {k.varde}
+              </p>
+              {k.kalla ? <KallaTagg text={k.kalla} /> : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="space-y-1" aria-hidden>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="w-12">Behov</span>
+          <span className="h-2 flex-1 rounded bg-secondary">
+            <span
+              className="block h-2 rounded bg-foreground/50"
+              style={{ width: `${kedja.behovPct}%` }}
+            />
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="w-12">Sparar</span>
+          <span className="h-2 flex-1 rounded bg-secondary">
+            <span
+              data-ton={kedja.sparTon}
+              className={`block h-2 rounded ${TON_BG[kedja.sparTon]}`}
+              style={{ width: `${kedja.sparPct ?? 0}%` }}
+            />
+          </span>
+        </div>
+      </div>
+      {byggdelar.length > 0 ? (
+        <VisaMer>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
+                <th className="pb-1 font-medium">Byggdel</th>
+                <th className="pb-1 font-medium">Senast</th>
+                <th className="pb-1 font-medium">Normalt</th>
+                <th className="pb-1 text-right font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {byggdelar.map((b) => (
+                <tr key={b.key}>
+                  <td className="py-1.5 text-foreground">{b.label}</td>
+                  <td className="py-1.5 text-muted-foreground">
+                    {b.senast}{" "}
+                    {b.ref ? (
+                      <span title={b.ref.excerpt}>
+                        <Tag>s. {b.ref.page}</Tag>
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="py-1.5 text-muted-foreground">{b.livslangd}</td>
+                  <td className="py-1.5 text-right">
+                    <Badge tone={b.ton === "neutral" ? "neutral" : b.ton}>{b.statusEtikett}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-xs text-muted-foreground">{byggdelNot()}</p>
+          <p className="text-[11px] text-muted-foreground">{BYGGDEL_KALLA_TEXT}</p>
+        </VisaMer>
+      ) : null}
+    </div>
+  );
+}
+
+/** Refinansieringssteget: stort tal, lånelista och försiktighetsraden. */
+function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
+  const r = prognos.refinansiering;
+  const komp = refiKomponent(prognos);
+  if (!r && !komp) return null;
+  const rader = r ? lanRader(r, prognos.horisontManader) : [];
+  const antagen = r ? antagenAndelText(r) : undefined;
+  const vard = komp ? komponentRader({ ...prognos, komponenter: [komp] })[0] : undefined;
+  return (
+    <div className="space-y-3" data-slot="refi-steg">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-foreground">Lån som omsätts</h4>
+          {komp?.tryck ? (
+            <Prick ton={TRYCK_TON[komp.tryck]} etikett={TRYCK_ETIKETT[komp.tryck]} />
+          ) : null}
+        </div>
+        {vard ? (
+          <span
+            className={`font-display text-xl ${vard.dimmad ? "text-muted-foreground" : TON_TEXT[tonForTryck(komp?.tryck)]}`}
+          >
+            {vard.vardeText}
+          </span>
+        ) : null}
+      </div>
+      {rader.length > 0 ? (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
+              <th className="pb-1 font-medium">Förfaller</th>
+              <th className="pb-1 text-right font-medium">Belopp</th>
+              <th className="pb-1 text-right font-medium">Ränta</th>
+              <th className="pb-1 font-medium">Period</th>
+              <th className="pb-1 text-right font-medium">Effekt</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rader.map((l) => (
+              <tr key={l.key} data-fas={l.senare ? "senare" : "inom"}>
+                <td className="py-1.5 text-foreground">{l.forfaller}</td>
+                <td className="py-1.5 text-right text-foreground">{l.belopp}</td>
+                <td className="py-1.5 text-right text-muted-foreground">{l.ranta}</td>
+                <td className="py-1.5 text-muted-foreground">{l.fas}</td>
+                <td className="py-1.5 text-right text-foreground">{l.effekt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {r && rader.some((l) => l.senare) ? (
+        <p className="text-xs text-muted-foreground">{REFI_FASTRAD}</p>
+      ) : null}
+      {r ? <p className="text-[11px] text-muted-foreground">{referensrantaRad(r)}</p> : null}
+      {komp?.ref ? (
+        <span title={komp.ref.excerpt}>
+          <Tag>Årsredovisning s. {komp.ref.page}</Tag>
+        </span>
+      ) : null}
+      <VisaMer>
+        {komp ? <p className="text-xs text-muted-foreground">{komp.forklaring}</p> : null}
+        {r ? (
+          <ul className="space-y-1 text-xs text-foreground">
+            {refinansieringRader(r).map((rad) => (
+              <li key={rad.label}>
+                <span className="text-muted-foreground">{rad.label}:</span> {rad.value}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {antagen ? <p className="text-xs text-muted-foreground">{antagen}</p> : null}
+      </VisaMer>
+    </div>
+  );
+}
+
+/** Del 2: den väntade avgiftsutvecklingen, visuellt först och text sedan. */
 function RaknaPrognos({
   prognos,
   prisanalys,
@@ -673,70 +955,113 @@ function RaknaPrognos({
   prognos: Avgiftsprognos;
   prisanalys: PrisanalysUtanForening;
 }) {
-  const komponenter = komponentRader(prognos);
+  const huvud = avgiftsHuvud(prognos);
+  const spar = sparKomponent(prognos);
+  const refi = refiKomponent(prognos);
+  const harSparSteg = prognos.sparbehov !== undefined && spar !== undefined;
+  const ovriga = komponentRader(prognos).filter(
+    (k) => !(harSparSteg && k.id === spar?.id) && k.id !== refi?.id,
+  );
   const prisTexter = prisEffektTexter(prisanalys);
-  const antagen = prognos.refinansiering ? antagenAndelText(prognos.refinansiering) : undefined;
   return (
     <>
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">{RAKNA_PROGNOS_RUBRIK}</h3>
-        <p className="text-sm text-foreground">{avgiftsprognosRubrik(prognos)}</p>
-        {komponenter.length > 0 ? (
-          <ul className="divide-y divide-border">
-            {komponenter.map((k) => (
-              <li key={k.id} className="py-2 first:pt-0 last:pb-0">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-foreground">{k.label}</span>
-                  <span
-                    className={`text-sm ${k.dimmad ? "text-muted-foreground" : "text-foreground"}`}
-                  >
-                    {k.vardeText}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {k.forklaring}{" "}
-                  {k.ref ? (
-                    <span title={k.ref.excerpt}>
-                      <Tag>s. {k.ref.page}</Tag>
-                    </span>
-                  ) : null}
-                </p>
-              </li>
-            ))}
-          </ul>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            {RAKNA_PROGNOS_RUBRIK}
+            {prognos.tryck ? (
+              <Prick ton={TRYCK_TON[prognos.tryck]} etikett={TRYCK_ETIKETT[prognos.tryck]} />
+            ) : null}
+          </h3>
+          <div className="text-right">
+            <p
+              data-ton={tonForTryck(prognos.tryck)}
+              className={`font-display text-2xl ${TON_TEXT[tonForTryck(prognos.tryck)]}`}
+            >
+              {huvud.varde}
+            </p>
+            <p className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+              {huvud.under} <Tag>Uppskattning</Tag>
+            </p>
+          </div>
+        </div>
+        {prognos.tryck ? (
+          <p className="text-xs text-muted-foreground">{TRYCK_ETIKETT[prognos.tryck]}</p>
         ) : null}
         {prognos.osaker ? <p className="text-xs text-muted-foreground">{prognos.osaker}</p> : null}
-        <p className="text-xs text-muted-foreground">{ENERGI_TEXT}</p>
+
+        {harSparSteg ? <SparSteg prognos={prognos} prisanalys={prisanalys} /> : null}
+        <RefiSteg prognos={prognos} />
+
+        {ovriga.length > 0 ? (
+          <ul className="divide-y divide-border">
+            {ovriga.map((k) => {
+              const komp = prognos.komponenter.find((x) => x.id === k.id);
+              const kalla = komp ? komponentKalla(komp) : undefined;
+              return (
+                <li
+                  key={k.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    {komp?.tryck ? (
+                      <Prick ton={TRYCK_TON[komp.tryck]} etikett={TRYCK_ETIKETT[komp.tryck]} />
+                    ) : null}
+                    {k.label}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`text-sm ${k.dimmad ? "text-muted-foreground" : "text-foreground"}`}
+                    >
+                      {k.vardeText}
+                    </span>
+                    {kalla ? (
+                      <span title={komp?.ref?.excerpt}>
+                        <KallaTagg text={kalla.text} />
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        {ovriga.length > 0 ? (
+          <VisaMer>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {ovriga.map((k) => (
+                <li key={k.id}>
+                  <span className="font-medium text-foreground">{k.label}:</span> {k.forklaring}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">{ENERGI_TEXT}</p>
+          </VisaMer>
+        ) : null}
         {prisTexter.length > 0 ? (
-          <div className="space-y-1">
+          <VisaMer>
             {prisTexter.map((t) => (
-              <p key={t} className="text-sm text-foreground">
+              <p key={t} className="text-xs text-foreground">
                 {t}
               </p>
             ))}
             <p className="text-xs text-muted-foreground">{PRISEFFEKT_CAVEAT}</p>
-          </div>
+          </VisaMer>
         ) : null}
+        <p className="text-xs text-muted-foreground">{RANTEKANSLIGHET_RAD}</p>
       </div>
-      {prognos.refinansiering ? (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">{RAKNA_REFINANSIERING_RUBRIK}</h3>
-          <ul className="space-y-1 text-sm text-foreground">
-            {refinansieringRader(prognos.refinansiering).map((r) => (
-              <li key={r.label}>
-                <span className="text-muted-foreground">{r.label}:</span> {r.value}
-              </li>
-            ))}
-          </ul>
-          {antagen ? <p className="text-xs text-muted-foreground">{antagen}</p> : null}
-        </div>
-      ) : null}
     </>
   );
 }
 
 /** Slutsammanfattningen, sist i rapporten (före sparalternativen). */
-function SammanfattningSektion({ sammanfattning }: { sammanfattning: Sammanfattning | undefined }) {
+function SammanfattningSektion({
+  sammanfattning,
+  tryck,
+}: {
+  sammanfattning: Sammanfattning | undefined;
+  tryck?: Tryck | undefined;
+}) {
   if (!sammanfattning) return null;
   return (
     <section className="mt-10">
@@ -745,7 +1070,14 @@ function SammanfattningSektion({ sammanfattning }: { sammanfattning: Sammanfattn
         <div className="space-y-3 text-sm text-foreground">
           <p>{sammanfattning.betyg}</p>
           <p>{sammanfattning.pris}</p>
-          <p>{sammanfattning.avgift}</p>
+          <p>
+            {tryck ? (
+              <span className="mr-2 align-middle">
+                <Badge tone={TRYCK_TON[tryck]}>{TRYCK_ETIKETT[tryck]}</Badge>
+              </span>
+            ) : null}
+            {sammanfattning.avgift}
+          </p>
           <p>{sammanfattning.slutsats}</p>
         </div>
       </Card>
@@ -787,7 +1119,17 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
             <tbody className="divide-y divide-border">
               {r.prognosTabell.rader.map((rad) => (
                 <tr key={rad.id}>
-                  <td className="py-2 text-foreground">{rad.label}</td>
+                  <td className="py-2 text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      {rad.id === "forvantad" && analys.avgiftsprognos?.tryck ? (
+                        <Prick
+                          ton={TRYCK_TON[analys.avgiftsprognos.tryck]}
+                          etikett={TRYCK_ETIKETT[analys.avgiftsprognos.tryck]}
+                        />
+                      ) : null}
+                      {rad.label}
+                    </span>
+                  </td>
                   <td className="py-2 text-right text-foreground">
                     {Math.round(rad.manadsavgift).toLocaleString("sv-SE")}
                   </td>

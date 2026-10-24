@@ -12,8 +12,24 @@ import {
   byggarMarkor,
   antagenAndelText,
   arSkannad,
-  avgiftsprognosRubrik,
+  avgiftsHuvud,
   avvikelseJusteradText,
+  BYGGDEL_KALLA_TEXT,
+  byggdelNot,
+  byggdelRader,
+  komponentKalla,
+  lanRader,
+  PRIS_LABEL_JUSTERAD,
+  RANTEKANSLIGHET_RAD,
+  referensrantaRad,
+  REFI_FASTRAD,
+  sparKedja,
+  sparKomponent,
+  refiKomponent,
+  tonForTryck,
+  TRYCK_ETIKETT,
+  vattenfall,
+  type Ton,
   ENERGI_TEXT,
   formatForandringKr,
   komponentRader,
@@ -151,6 +167,8 @@ export interface PdfJusteradVardering {
   label: string;
   value: string;
   avvikelseText: string | undefined;
+  /** Baslinje -> komponenternas prisbidrag -> justerat värde (tomt utan prognos). */
+  vattenfall: Array<{ label: string; beloppText: string; ton: Ton; typ: "bas" | "steg" | "slut" }>;
 }
 
 /** "Så har vi räknat", alltid helt uppfälld i PDF:en. */
@@ -159,12 +177,55 @@ export interface PdfRakning {
   prognos:
     | {
         rubrik: string;
+        /** Stora talet och raden under ("+500 kr/mån", "inom 24 månader"). */
+        huvud: { varde: string; under: string; ton: Ton };
         komponenter: Array<{
           label: string;
           vardeText: string;
           forklaring: string;
           pageRef: string | undefined;
+          ton: Ton | undefined;
+          kalla: string | undefined;
+          /** Visas i listan "övriga"; spar- och lånesteg har egna block. */
+          ovrig: boolean;
         }>;
+        spar:
+          | {
+              steg: Array<{
+                rubrik: string;
+                varde: string;
+                kalla: string | undefined;
+                ton: Ton | undefined;
+              }>;
+              dampningTag: string | undefined;
+              byggdelar: Array<{
+                label: string;
+                senast: string;
+                livslangd: string;
+                status: string;
+                ton: Ton;
+                pageRef: string | undefined;
+              }>;
+              byggdelNot: string;
+              byggdelKalla: string;
+            }
+          | undefined;
+        lan:
+          | {
+              rader: Array<{
+                forfaller: string;
+                belopp: string;
+                ranta: string;
+                fas: string;
+                effekt: string;
+              }>;
+              varde: string | undefined;
+              ton: Ton;
+              fastrad: string | undefined;
+              referens: string;
+            }
+          | undefined;
+        rantekanslighetRad: string;
         osaker: string | undefined;
         energiText: string;
         prisTexter: string[];
@@ -183,6 +244,8 @@ export interface PdfPrognosTabell {
 
 export interface PdfSammanfattning {
   stycken: string[];
+  /** Färgmärkning av avgiftsstycket (index 2), när prognosen har tryck. */
+  avgiftTryck: { etikett: string; ton: Ton } | undefined;
 }
 
 export interface PdfRantestressRad {
@@ -403,7 +466,15 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
     avvikelseText,
     justeradVardering: p.justeradVardering
       ? {
-          label: "Justerat för väntad avgiftshöjning",
+          label: PRIS_LABEL_JUSTERAD,
+          vattenfall: analys.avgiftsprognos
+            ? (vattenfall(p, analys.avgiftsprognos)?.rader ?? []).map((r) => ({
+                label: r.label,
+                beloppText: r.beloppText,
+                ton: r.ton,
+                typ: r.typ,
+              }))
+            : [],
           value: formatFigureVarde(p.justeradVardering),
           avvikelseText:
             p.avvikelseMotJusteradVardering !== undefined
@@ -554,26 +625,82 @@ function buildRakning(analys: AnalysisResult): PdfRakning | undefined {
   const pg = analys.avgiftsprognos;
   if (!u && !pg) return undefined;
   const refi = pg?.refinansiering;
+  const kedja = pg ? sparKedja(pg, analys.prisanalys) : undefined;
+  const sparK = pg ? sparKomponent(pg) : undefined;
+  const refiK = pg ? refiKomponent(pg) : undefined;
+  const refiRad = pg && refiK ? komponentRader({ ...pg, komponenter: [refiK] })[0] : undefined;
   return {
     utgangslage: u ? { intro: RAKNA_UTGANGSLAGE_INTRO, faktorer: RAKNA_FAKTORER } : undefined,
     prognos: pg
-      ? {
-          rubrik: avgiftsprognosRubrik(pg),
-          komponenter: komponentRader(pg).map((k) => ({
-            label: k.label,
-            vardeText: k.vardeText,
-            forklaring: k.forklaring,
-            pageRef: formatPageRef(k.ref),
-          })),
-          osaker: pg.osaker,
-          energiText: ENERGI_TEXT,
-          prisTexter: prisEffektTexter(analys.prisanalys),
-          prisCaveat:
-            (analys.prisanalys.justeringar ?? []).length > 0 ? PRISEFFEKT_CAVEAT : undefined,
-          refinansiering: refi
-            ? { rader: refinansieringRader(refi), antagenAndel: antagenAndelText(refi) }
-            : undefined,
-        }
+      ? (() => {
+          const huvud = avgiftsHuvud(pg);
+          const harSpar = kedja !== undefined && sparK !== undefined;
+          const harLan = (refi?.lan ?? []).length > 0;
+          return {
+            rubrik: huvud.varde,
+            huvud: { ...huvud, ton: tonForTryck(pg.tryck) },
+            komponenter: komponentRader(pg).map((k) => {
+              const komp = pg.komponenter.find((x) => x.id === k.id);
+              return {
+                label: k.label,
+                vardeText: k.vardeText,
+                forklaring: k.forklaring,
+                pageRef: formatPageRef(k.ref),
+                ton: komp?.tryck ? tonForTryck(komp.tryck) : undefined,
+                kalla: komp ? komponentKalla(komp)?.text : undefined,
+                ovrig: !(harSpar && k.id === sparK?.id) && !(harLan && k.id === refiK?.id),
+              };
+            }),
+            spar: kedja
+              ? {
+                  steg: kedja.steg.map((k) => ({
+                    rubrik: k.rubrik,
+                    varde: k.varde,
+                    kalla: k.kalla,
+                    ton: k.ton,
+                  })),
+                  dampningTag: kedja.dampningTag,
+                  byggdelar: byggdelRader(pg.sparbehov ?? {}).map((b) => ({
+                    label: b.label,
+                    senast: b.senast,
+                    livslangd: b.livslangd,
+                    status: b.statusEtikett,
+                    ton: b.ton,
+                    pageRef: formatPageRef(b.ref),
+                  })),
+                  byggdelNot: byggdelNot(),
+                  byggdelKalla: BYGGDEL_KALLA_TEXT,
+                }
+              : undefined,
+            lan:
+              refi && harLan
+                ? {
+                    rader: lanRader(refi, pg.horisontManader).map((l) => ({
+                      forfaller: l.forfaller,
+                      belopp: l.belopp,
+                      ranta: l.ranta,
+                      fas: l.fas,
+                      effekt: l.effekt,
+                    })),
+                    varde: refiRad?.vardeText,
+                    ton: tonForTryck(refiK?.tryck),
+                    fastrad: lanRader(refi, pg.horisontManader).some((l) => l.senare)
+                      ? REFI_FASTRAD
+                      : undefined,
+                    referens: referensrantaRad(refi),
+                  }
+                : undefined,
+            rantekanslighetRad: RANTEKANSLIGHET_RAD,
+            osaker: pg.osaker,
+            energiText: ENERGI_TEXT,
+            prisTexter: prisEffektTexter(analys.prisanalys),
+            prisCaveat:
+              (analys.prisanalys.justeringar ?? []).length > 0 ? PRISEFFEKT_CAVEAT : undefined,
+            refinansiering: refi
+              ? { rader: refinansieringRader(refi), antagenAndel: antagenAndelText(refi) }
+              : undefined,
+          };
+        })()
       : undefined,
   };
 }
@@ -600,6 +727,12 @@ export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
             analys.sammanfattning.avgift,
             analys.sammanfattning.slutsats,
           ],
+          avgiftTryck: analys.avgiftsprognos?.tryck
+            ? {
+                etikett: TRYCK_ETIKETT[analys.avgiftsprognos.tryck],
+                ton: tonForTryck(analys.avgiftsprognos.tryck),
+              }
+            : undefined,
         }
       : undefined,
   };

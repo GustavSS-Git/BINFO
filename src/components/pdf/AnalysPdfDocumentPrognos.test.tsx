@@ -33,7 +33,7 @@ describe("AnalysPdfDocument — avgiftsprognos", () => {
   it("innehåller de nya sektionerna", () => {
     for (const t of [
       "Så har vi räknat",
-      "Justerat för väntad avgiftshöjning",
+      "Värde med hänsyn till föreningens ekonomi",
       "Sammanfattning",
       "SUMSLUTSATS",
       "TABELLKOMMENTAR",
@@ -46,4 +46,25 @@ describe("AnalysPdfDocument — avgiftsprognos", () => {
   it("noterar byggårets avvikelse vid Byggår i sammanfattningen", () => {
     expect(text.replace(/\s+/g, " ")).toContain("årsredovisningen: 1958, du angav 1962, s. 3");
   });
+});
+
+describe("AnalysPdfDocument — sparsteg och lån (2026-10-24c)", () => {
+  it("renderar kedja, byggdelar och lån som text", async () => {
+    const { analysMedSparbehov } = await import("@/components/prognosTestdata");
+    const buf = await renderToBuffer(<AnalysPdfDocument analys={analysMedSparbehov()} />);
+    const text = (
+      await extractText(await getDocumentProxy(new Uint8Array(buf)), { mergePages: true })
+    ).text.replace(/\s+/g, " ");
+    for (const t of [
+      "Sparande till underhåll",
+      "Räknas till 50 % (schablon)",
+      "Eftersatt",
+      "Livslängder: FAR 2025, SIB M84:10",
+      "År 3–5 · väger 50 %",
+      "Visst tryck på avgiften",
+      "−150 000 kr",
+    ]) {
+      expect(text).toContain(t);
+    }
+  }, 30_000);
 });
