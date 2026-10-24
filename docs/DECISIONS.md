@@ -61,3 +61,12 @@ One line each: date — decision — rationale. Owner decisions are marked (owne
 - 2026-10-24 — Earlier sales at the same address are only in Booli's internal GraphQL (persisted queries, challenged for servers): left out this round, documented in `docs/booli.md` for round 3 (owner).
 - 2026-10-24 — Booli has no description text; store the broker link (`listingUrl`) only, never fetch it (owner).
 - 2026-10-24 — Source stored as optional `PropertyInput.kalla` (contract change) + a retention migration that drops it after 12 months like the address (owner).
+
+## Report → price via the expected fee rise (2026-10-24b)
+
+- 2026-10-24 — Everything from the årsredovisning reaches the price through ONE channel: the expected rise in månadsavgift (spargap, refinansiering, ofinansierat underhåll, lokalintäkter i riskzonen, ofinansierade energiprojekt). The grade never moves the price. Previous sales in the förening: out of scope (no data source); the price is a list of adjustments so one can be added later (owner).
+- 2026-10-24 — Coefficient: the OLS companion's β = −0.0024471 per kr/m²/mån on log(kr/m²) (`metadata.json` `effects_fee_per_sqm`), applied flat-specifically: price effect = β × rise × baseline kr/m². The LightGBM trees give no stable slope (finite differences −1 278…+170 kr per kr/mån, sign flips). β is an association, labelled as such (owner).
+- 2026-10-24 — Base rate: the Riksbank API stopped publishing STIBOR in July 2020; swfbf.se blocks servers (Vercel checkpoint, HTTP 429) and its terms require a paid licence for commercial use. Use the 3-month T-bill (SSVX, `SETB3MBENCH`) behind a reference-rate interface that licensed STIBOR can replace (owner).
+- 2026-10-24 — BRF margin 0.58 pp over SSVX: per-BRF median of variable loans (labelled "rörlig", or villkorsändringsdag ≤ 3 months after the balance date) in 5 of the test reports. Details: `docs/avgiftsprognos.md`.
+- 2026-10-24 — Assumptions (moderate set, placeholders): horizon 24 months; 50 % of debt refinances when maturities are missing (range 0–100 %); maintenance spread over 10 years; 50 % of lokal rent at risk; each missing input widens only the LOW end of the price range by 3 % (owner).
+- 2026-10-24 — No separate recommendation: the buyer decides. Instead "Så har vi räknat" under the price explains model + report, and a deterministic closing summary (grade, adjusted price vs utgångspris and area budpremie, fee rise, closing line) sits before the save options. "Sammanvägt riskbetyg" unchanged (owner).

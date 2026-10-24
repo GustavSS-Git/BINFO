@@ -1,10 +1,326 @@
 # Binfo — current plan
 
-**Latest: Booli prefill (2026-10-24), below. Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: report → price via the expected fee rise (2026-10-24b), below. Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Plan: report → price through the expected fee rise (round 2026-10-24b)
+
+Status: **IN PROGRESS (approved 2026-10-24).**
+Budget: max 60 kr API. No deploy without the owner's OK. One commit per task.
+
+## Context
+
+Step 1 (Priskoll) prices the flat from the form. Step 2 (årsredovisning) grades the BRF, but nothing
+from the report reaches the price. Goal: the report affects the price through **one channel**, the
+expected rise in månadsavgift over the next ~24 months. The model already prices today's fee, so we
+only add what isn't visible yet. The grade never moves the price. Previous sales in the förening
+are out of scope, but the price is built as a list of adjustments so one can be added later.
+Round 2 (Booli) is not touched.
+
+## Step zero: findings (read-only, done 2026-10-24)
+
+1. **Månadsavgift is a model feature**, as `fee_per_sqm` = avgift ÷ boarea, in the LightGBM model
+   on log(kr/m²) (`src/lib/vardering/features.ts:65`). The trees have no single coefficient and are
+   not monotone in the fee. Finite differences measured −1 278 … +170 kr per kr/mån, signs flipping.
+   The OLS companion (`ml/artifacts/valuation-v3.1/metadata.json` `effects_fee_per_sqm`) gives
+   **β = −0.0024471 per kr/m²/mån** (CI −0.00280 … −0.00210, p = 1.9e-42, n = 4 991).
+   - In kronor: price change ≈ β × rise(kr/mån) × the flat's kr/m².
+   - Examples: ≈ 300 kr per kr/mån at Kungsholmen (122 000 kr/m²), ≈ 125 kr in Farsta.
+   - **Owner: use the OLS β, flat-specific.** Caveat to keep visible: it is an association; the fee
+     level partly proxies debt and building condition.
+2. **No price adjustment exists** for debt deviation or the riskbetyg, so there is nothing to
+   remove. The debt share (`andelAvForeningensSkuld`) stays a comment line, never applied.
+3. **Extraction audit** (what's missing vs the brief):
+   - **Fee share is extracted already** (13/13 answer keys). It is ungraded (`status` always
+     `okant`) and hidden in the report by the owner (`BENCHMARKS.md`).
+   - Missing: the full villkorsändringsdag (only the year is kept); fixed vs rörlig; lender;
+     räntekostnader; planned withdrawal and its financing; underhållsplan amounts, fund balance and
+     financing; lokal rent and lease end dates; energy projects.
+   - **brf-yta is extracted but dropped** (it lives in `kontrollsummor`, which is not in
+     `AnalysisResult`).
+   - The prompt example mixes totalyta and brf-yta.
+   - Byggår is sometimes read from "Värdeår".
+4. **The byggår-missing bug** comes from model-written text: the extraction's
+   `extraktionKonfidens.skal` and the judging. Neither sees the buyer's input; no code merges the two.
+5. **STIBOR:**
+   - The Riksbank API stopped publishing it in July 2020.
+   - swfbf.se blocks servers (Vercel bot checkpoint, HTTP 429).
+   - Its terms require a paid licence for commercial use.
+   - **Owner: use the 3-month T-bill (SSVX, Riksbank `SETB3MBENCH`) behind a reference-rate
+     interface that STIBOR can replace later.**
+6. **BRF margin.** Loans counted as variable: explicitly "rörlig", or a villkorsändringsdag within
+   3 months of the balance-sheet date, since the reports rarely label the type.
+
+   | BRF (balance date) | Loan, rate, reset date | SSVX that day | Margin |
+   |---|---|---|---|
+   | Volontären (2023-12-31) | 4.85 % 2024-01-02 / 5.70 % 2024-03-07 / 5.05 % 2024-03-01 | 3.984 | 0.87 / 1.72 / 1.07 |
+   | Beckasinen 14 (2024-12-31) | 3.54 % 2025-01-20 | 2.422 | 1.12 |
+   | Helsingborgshus 17 (2025-08-31) | 2.61 % 2025-09-28 | 2.026 | 0.58 |
+   | Torsborgen 3 (2025-12-31) | 2.43 % 2026-01-28 / 2.32 % 2026-03-28 | 1.948 | 0.48 / 0.37 |
+   | Pontonjären 3 (2025-12-31) | 2.53 % 2026-03-28 | 1.948 | 0.58 |
+
+   - Median per loan 0.73; **median per BRF 0.58 → default margin 0.58 pp**.
+   - No qualifying loan: Granen, Hökensgata, Albohem, Näcken. Göken is debt-free.
+   - test_rapport's loan table is garbled.
+   - The 3 scans (Zederslundshus, Ängsknarren, Startfältet) are read visually in T0 (free) and added
+     if they qualify.
+
+## Owner decisions this round (2026-10-24)
+
+- **Assumptions (moderate set, all `TODO: unverified placeholder` in one config file):**
+  - horizon 24 months
+  - 50 % of debt refinances when maturities are missing
+  - maintenance spread over 10 years
+  - 50 % of lokal rent at risk
+  - each missing input widens only the **low** end of the price range by 3 %
+  - the refinancing range runs from 0 to 100 % of debt when maturities are missing
+- **No separate recommendation.** Instead:
+  - "Så har vi räknat" explains where the price comes from: the model AND the report (fee rise,
+    energy).
+  - "Sammanvägt riskbetyg" stays as it is.
+  - A **new closing summary section** at the end of the report, before the save options, covers:
+    - the grade + a comment
+    - the estimated (adjusted) price
+    - the deviation from utgångspris, if one was given, and whether it looks attractive given how
+      far above utgångspris flats in the area tend to sell (budpremie)
+    - the potential fee rise + a comment
+    - a short closing line
+  - Buyer-level, so it is **deterministic** (no API; assembled on every read).
+
+## Design decisions I'm taking (change any at approval)
+
+- **Apartment share** = (avgift × 12) ÷ the BRF's årsavgifter (`kontrollsummor.arsavgifter`).
+  - Fallback: boarea ÷ brf-yta.
+  - Fallback: årsavgifter derived as debt ÷ räntekänslighet.
+  - (`andelstal` is always 0 in the form, so it is never used.)
+- **Horizon** counts from the day of the read. A loan whose reset date fell between the balance
+  date and today counts as repricing: its new rate isn't in the report. Rörlig loans always count.
+  An old extraction with only a maturity year gets a 1 July date.
+- **Computed on every read** with today's cached rate (reads stay free). The rate value, date and
+  source are shown. `/exempel` is a frozen snapshot.
+- **Per-field confidence** is derived, not asked of the model:
+  - hög = report source + verified citation, no `osaker` mark, not a scan, extraction confidence not
+    `lag`
+  - medel = a scan or a computed value
+  - låg = an `osaker` mark
+- **Byggår:**
+  - At hög confidence the report's byggår replaces the user's in the **valuation input**, so the
+    full analysis can differ from the Priskoll; this is explained in "Så har vi räknat".
+  - Within ±1 year counts as a match.
+  - **Osäkert:** the valuation is re-run with the other value and the range is extended to cover it.
+- **Deviation from utgångspris** in the full report is measured against the **adjusted** price.
+  This uses a new field; the shared core and the Priskoll are unchanged.
+- **Sanity guard:** a total rise above 30 % of today's fee (placeholder) still applies, but is
+  marked osäker and adds a question to the styrelse. This guards against misreading a 30-year
+  maintenance total as unfinanced.
+- **Rate table** replaces the web slider (owner request). `rantestress.scenarier` stays for the
+  calculator link and old data.
+
+## The calculation (pure, `src/lib/analysis/calc/avgiftsprognos.ts`)
+
+All amounts are BRF kr/year, converted to the flat's kr/month with `× andel ÷ 12`. Each component
+has a status: `beraknad` | `saknar_underlag` (→ widens the range) | `ej_aktuell`.
+
+1. **Spargap:**
+   - sparande/m² totalyta × totalyta when that is negative.
+   - `ej_aktuell` if a planned withdrawal is reported as financed.
+   - Value null with sign "neg" → `saknar_underlag`.
+2. **Refinansiering:**
+   - Σ over loans resetting within the horizon (plus rörlig loans) of belopp × (ny − nuvarande) ÷ 100.
+   - Can be negative.
+   - The current rate is the loan's rate; fallback snittränta; fallback räntekostnader ÷ total debt.
+   - Ny = SSVX + margin.
+   - No maturities → 50 % × total debt (range 0–100 %).
+   - Debt-free → 0.
+3. **Underhåll:**
+   - Planned costs within the window that are not financed by a loan, the fund or a decision,
+     minus the fund balance, minus planned yearly savings × years.
+   - When positive, spread ÷ 10 years.
+   - Plan amounts missing → `saknar_underlag`.
+4. **Lokaler:**
+   - Rent of leases ending within the horizon × 50 %.
+   - A lease end date without its rent: total lokal rent × (ending leases ÷ all leases).
+   - Otherwise `saknar_underlag`.
+5. **Energi:**
+   - Unfinanced energy projects with an amount, ÷ 10 years.
+   - Financing unknown → `saknar_underlag`.
+   - Energikostnad itself is already in today's fee, so it is explained in the text but never added.
+
+Price adjustments (`src/lib/analysis/prisjustering.ts`):
+- The structure is `justeringar: Prisjustering[]`; today the list holds one entry,
+  `forvantad_avgiftshojning`.
+- Price effect = −rise × (−β × baseline kr/m²).
+- Adjusted price = baseline + Σ effects.
+- Range = the baseline range shifted by the same amount, then the low end widened 3 % per
+  `saknar_underlag` component, and for osäkert byggår.
+
+Rate table rows:
+1. idag
+2. förväntad = fee + rise
+3. +1 pp
+4. +2 pp
+
+Rows 3–4 add only on debt that reprices within the horizon (repricing debt R × pp ÷ 100 × andel ÷
+12). Each row shows kr/month and the change from today.
+
+## Tasks (order; owner of each; files)
+
+### T0 — step-zero record (supervisor)
+- Read the 3 scans' loan notes visually; finalise the margin.
+- `docs/avgiftsprognos.md` gets: step-zero findings, the β derivation, the margin table, the STIBOR
+  finding, the formulas, known overlaps.
+- `docs/DECISIONS.md` gets an entry; `PLAN.md` gets this plan.
+
+### T1 — contract + Zod (supervisor; stop-and-flag file, approved via this plan)
+
+All additions are **optional**, so every stored result still parses.
+
+`src/types/analysis.ts` + `src/lib/analysis/schema.ts`:
+- `Forening`:
+  - `bostadsrattsyta?: Figure`
+  - `balansdag?: string`
+  - `lanebok.lan?: Lan[]`, where `Lan = {kreditgivare?, belopp: Figure, ranta?: Figure, villkorsandringsdag?: string, rantetyp: 'rorlig'|'bunden'|'okant', ref}`
+  - `lanebok.rantekostnader?: Figure`
+  - `sparandeUttag?: {planerat: Tristate, finansierat: Tristate, text?, ref?}`
+  - `underhallsplan.{planeradeKostnader?: [{fran?, till?, belopp: Figure, text?, finansiering: 'lan'|'fond'|'beslutad'|'ofinansierad'|'okant', ref?}], underhallsfond?: Figure, arligAvsattning?: Figure}`
+  - `lokaler?: {hyresintakter?: Figure, kontrakt?: [{arshyra?: Figure, slutdatum?: string, ref}]}`
+  - `energiprojekt?: [{text, belopp?: Figure, finansierat: Tristate, ref?}]`
+- `AnalysisResult` (assembled):
+  - `avgiftsprognos?`: components, total, andel + method, the refinancing inputs (maturing amount,
+    current rate, new rate, reference rate {name, series, date, %}, margin), missing inputs
+  - `uppgiftsjamforelse?`: per field {user value, report value, status
+    `bekraftat|avviker|manuellt|osakert|endast_rapport`, value used, text, ref}
+  - `sammanfattning?`: {betyg, pris, avgift, slutsats} text blocks
+- `Prisanalys`: `justeringar?`, `justeradVardering?`, `avvikelseMotJusteradVardering?`
+- `Rantestress`: `prognosTabell?`
+- `Forhandsvisning` is not widened. `PrisuppskattningResultat` is unchanged.
+- Schema tests: old sample and old fixtures still parse; unknown nested keys are rejected.
+- Config file `src/lib/analysis/calc/prognosantaganden.ts` holds all assumptions + β + margin +
+  fallback rate, each with its source/date or a TODO.
+- A sync test checks β against `metadata.json`.
+
+### T2 — extraction (agent `pdf-pipeline`)
+Owns: `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`, `rimlighet.ts`, `tolkaVarde.ts` if needed,
+`__fixtures__/extraktion.ts`, `__golden__/*`, `answerKey.ts` / `verifyAnswerKey.ts`, new
+`fixtures/answer-key-lan/*.json`.
+- Grounding + extraction prompts for the new fields; **PROMPT_VERSION 9**.
+- Fix the totalyta/brf-yta example.
+- Byggår ≠ värdeår (take värdeår only when nothing else is given, and say so in the excerpt).
+- Never write "byggår saknas" type notes into `skal`.
+- Every new item is cited; uncited items are dropped (slutfor).
+- ISO date validation.
+- `forfalloprofil` is derived deterministically from `lan` (one source; the judging and
+  `fastaVarden` keep working).
+- `rantetyp` heuristic in code: label first, else reset date ≤ 3 months after the balance date →
+  rörlig.
+- New excerpts are verified by `sidreferenser`.
+- Sanity checks: Σ lan ≈ totalSkuld; räntekostnader ÷ debt within 0–10 %.
+- Loan answer keys drafted by me from the PDF text for ~5 reports, marked `UTKAST` for the owner to
+  verify; `verify-extraction` scores them.
+
+### T3 — calculation + price + merge (agent `pdf-pipeline` #2; pure, new files only, tests first)
+- `calc/avgiftsprognos.ts` (+ test)
+- `prisjustering.ts` (+ test)
+- `uppgiftsjamforelse.ts` (+ test)
+- `calc/rantestress.ts` gets `prognosTabell` (+ test)
+- Hand-computed cases: each component, negative refinancing, debt-free, missing maturities (0/50/100
+  %), old extraction with years only, missing andel fallbacks, lease inside/outside the horizon, the
+  30 % guard, widening counts, byggår statuses (bekräftat / avviker / manuellt / osäkert,
+  medium-confidence match).
+
+### T4 — reference rate (supervisor)
+- `src/server/referensranta.ts`, server-only, behind an interface.
+- Riksbank SWEA `SETB3MBENCH` latest observation; 5 s timeout.
+- Cached daily in a new table `referensranta` (migration `20261025120000_referensranta.sql`, RLS on,
+  zero policies, plus a rollback script).
+- Fetch fails → the last cached value, with its date. Nothing cached → the config fallback, labelled.
+- New `Databas` methods go in `portar.ts`, `supabase.ts`, `__fakes__/lager.ts` and the Edge
+  `index.ts` (enforced by a test).
+- `assembleraAnalys` takes the rate as an optional input. The Edge dry assembly passes the fallback
+  and never fetches.
+- Fetched in `monteraResultat` (`src/server/analys.ts`).
+- Tests use a fake fetch (timeout, stale cache, bad JSON).
+
+### T5 — assembly + summary + byggår fix (supervisor)
+- `assemble.ts`:
+  - merge → valuation input (byggår)
+  - `avgiftsprognos`
+  - adjustments
+  - rate table
+  - question for the 30 % guard
+  - filtering of model text claiming byggår is missing when the user or report has it
+- New `sammanfattning.ts`: deterministic Swedish texts from the result; no causal wording; no "köp /
+  köp inte".
+- Tests with the extraction fixture and with an old (p8) extraction.
+
+### T6 — UI + PDF (agent `frontend-state`; after T1/T3 types are fixed)
+Owns: `AnalysRapport.tsx`, `PropertySummary.tsx`, `analysisView.ts`, `pdf/viewModel.ts`,
+`pdf/AnalysPdfDocument.tsx`, `src/data/sampleAnalysis.ts` and the tests that follow it.
+- **Price section:**
+  - a "Binfos värdering (modell)" line + a "Justerat för väntad avgiftshöjning" line
+  - the deviation against the adjusted price
+  - **"Så har vi räknat"** as a native `<details>`, collapsed (the `bolanekalkyl` pattern):
+    1. what drives the baseline, with directions; the factor list moves here (the Priskoll too)
+    2. "Baserat på årsredovisningen väntar vi oss att avgiften höjs med ca X kr/mån…": the
+       components, the price effect, the energy note
+    3. the refinancing inputs
+  - No riskbetyg mention.
+- **Räntekänslighet:** a 4-row table instead of the slider.
+- **"Dina uppgifter mot årsredovisningen"** rows with statuses.
+- **Closing summary** before the save card.
+- **PDF mirrors all of it.**
+- Existing components only, minimal styling; a "For Lovable to polish" list.
+
+### T7 — paid verification + worked examples + review (supervisor + agent `reviewer`)
+- `verify-extraction` on the ~9 text answer-key PDFs (≈ 27 kr) and one fix iteration (≈ 10 kr).
+- `npm run extract` on two reports for the worked examples, Pontonjären 3 and Helsingborgshus 17
+  (≈ 7 kr). The Pontonjären run regenerates `/exempel` after checking the judging against the PDF.
+- Planned ≈ 45 kr; every run logged in `docs/api-test-log.md`; a warning at 50 kr.
+- Independent `reviewer` pass on the full diff; then `typecheck`, `test`, `lint`, `build`, `dev`
+  (browser check of `/analysera` + a report page).
+- CLAUDE.md / PLAN.md updated.
+
+Parallel: T2 ∥ T3 ∥ T4 after T1; T5 after T3/T4; T6 after T1/T3 (it can start on the fixture); T7
+last. No two agents share a file. Agents never commit; I review every diff, re-run the checks and
+commit per task.
+
+## Risks
+
+- **PROMPT_VERSION 9** → the web app and the Edge Function must deploy together. Existing register
+  reports are served as the older version with year-only maturities. Their prognosis then rests on
+  years and assumptions, with wider ranges, until someone uploads the report again (reads never
+  re-run).
+- **New migration** (`referensranta`) must be applied before the Lovable publish. The Riksbank API
+  from Cloudflare egress is unverified; the fallback chain covers it.
+- **Underhållsplan amounts are often missing**, so many reports will show a widened range rather
+  than a maintenance amount. Model misreads could create large rises; the 30 % guard and per-item
+  citations are the mitigation.
+- **β is an association**, and the defaults (50 %, 10 years, 3 %) are placeholders. Both are
+  labelled in the UI and docs.
+- **The full-analysis baseline can differ from the Priskoll** when the report's byggår wins. This
+  is explained in "Så har vi räknat".
+- **Contract change touches both sides.** All additions are optional and the schema tests cover old
+  data.
+- **`/exempel` regeneration may need two runs** (judging text checked against the PDF).
+
+## Verification
+
+- Unit tests for the fee-rise maths, the adjustments, the merge statuses and the rate table
+  (hand-computed numbers in the test names).
+- A schema test for old stored results.
+- An assembly test on p8 and p9 extractions.
+- A UI SSR test: `<details>` closed by default, the table has 4 rows, the summary sits before the
+  save card.
+- PDF view-model tests.
+- `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`, `npm run dev` with a browser
+  check.
+- Two worked examples (Pontonjären 3, Helsingborgshus 17) shown in the final summary: each
+  component, andel, refinancing inputs, rise, coefficient, baseline → adjusted price, rate table.
 
 ---
 
