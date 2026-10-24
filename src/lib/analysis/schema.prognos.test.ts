@@ -110,3 +110,94 @@ describe("schema, round 2026-10-24b", () => {
     expect(res.success).toBe(false);
   });
 });
+
+describe("schema, round 2026-10-24c", () => {
+  const bas = ForeningSchema.parse(extraktion.forening);
+
+  it("accepts past renovations, the plan's need figures and a plan total", () => {
+    const f = {
+      ...bas,
+      underhallsplan: {
+        finns: "ja" as const,
+        investeringsbehovPerM2: { ...kr(285, 6, "Investeringsbehov 285 kr/kvm"), unit: "kr/m2" },
+        rekommenderadAvsattning: kr(1_200_000, 6, "bör avsättas 1,2 Mkr per år"),
+        planTotal: { belopp: kr(45_000_000, 6, "45 Mkr de kommande 30 åren"), ar: 30 },
+      },
+      genomfordaAtgarder: [
+        {
+          byggdel: "stambyte" as const,
+          ar: 1998,
+          text: "Stambyte",
+          ref: citat(5, "Stambyte 1998"),
+        },
+      ],
+    };
+    expect(ForeningSchema.safeParse(f).success).toBe(true);
+  });
+
+  it("a past renovation needs a cited excerpt and a known building part", () => {
+    const utanCitat = {
+      ...bas,
+      genomfordaAtgarder: [{ byggdel: "stambyte", ar: 1998, text: "x", ref: { page: 5 } }],
+    };
+    const okandDel = {
+      ...bas,
+      genomfordaAtgarder: [{ byggdel: "tvattstuga", ar: 1998, text: "x", ref: citat(5, "x") }],
+    };
+    expect(ForeningSchema.safeParse(utanCitat).success).toBe(false);
+    expect(ForeningSchema.safeParse(okandDel).success).toBe(false);
+  });
+
+  it("accepts the savings target, pressure colours and per-loan rows on a prognosis", () => {
+    const prognos = sampleAnalysis.avgiftsprognos;
+    expect(prognos).toBeDefined();
+    const ny = {
+      ...sampleAnalysis,
+      avgiftsprognos: {
+        ...prognos,
+        tryck: "gul",
+        komponenter: prognos!.komponenter.map((k) => ({ ...k, tryck: "gron" })),
+        sparbehov: {
+          malKrPerM2: 312,
+          malKalla: "schablon",
+          sparandeKrPerM2: 150,
+          glappKrPerM2: 162,
+          totalyta: 5500,
+          dampning: 0.5,
+          byggdelar: [
+            {
+              byggdel: "stambyte",
+              label: "Stambyte",
+              senast: 1946,
+              senastKalla: "byggar",
+              livslangd: { lag: 40, hog: 60 },
+              status: "eftersatt",
+            },
+          ],
+        },
+        ...(prognos!.refinansiering
+          ? {
+              refinansiering: {
+                ...prognos!.refinansiering,
+                senareHorisontManader: 60,
+                lan: [
+                  {
+                    belopp: 1_000_000,
+                    rantaProcent: 1.2,
+                    dag: "2029-06-01",
+                    rorlig: false,
+                    fas: "senare",
+                    vikt: 0.5,
+                    foreningKrPerAr: 7_240,
+                  },
+                ],
+              },
+            }
+          : {}),
+      },
+    };
+    expect(AnalysisResultSchema.safeParse(ny).success).toBe(true);
+    const fel = { ...ny, avgiftsprognos: { ...ny.avgiftsprognos, tryck: "lila" } };
+    expect(AnalysisResultSchema.safeParse(fel).success).toBe(false);
+  });
+});

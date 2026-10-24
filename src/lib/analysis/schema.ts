@@ -347,6 +347,16 @@ export const LanSchema = z
   })
   .strict();
 
+export const ByggdelSchema = z.enum([
+  "stambyte",
+  "tak",
+  "fasad",
+  "fonster",
+  "ventilation",
+  "el",
+  "hiss",
+]);
+
 export const PlaneradUnderhallskostnadSchema = z
   .object({
     text: z.string().min(1),
@@ -403,8 +413,26 @@ export const ForeningSchema = z
         planeradeKostnader: z.array(PlaneradUnderhallskostnadSchema).optional(),
         underhallsfond: FigureSchema.optional(),
         arligAvsattning: FigureSchema.optional(),
+        investeringsbehovPerM2: FigureSchema.optional(),
+        rekommenderadAvsattning: FigureSchema.optional(),
+        planTotal: z
+          .object({ belopp: FigureSchema, ar: z.number().int().positive() })
+          .strict()
+          .optional(),
       })
       .strict()
+      .optional(),
+    genomfordaAtgarder: z
+      .array(
+        z
+          .object({
+            byggdel: ByggdelSchema,
+            ar: z.number().int().min(1800).max(2100),
+            text: z.string().min(1),
+            ref: CitatPageRefSchema,
+          })
+          .strict(),
+      )
       .optional(),
     sparandeUttag: z
       .object({
@@ -669,6 +697,8 @@ export const RantestressSchema = z
 // Expected fee rise, report-vs-input comparison, closing summary (2026-10-24b)
 // ---------------------------------------------------------------------------
 
+export const TryckSchema = z.enum(["gron", "gul", "rod"]);
+
 export const AvgiftsKomponentSchema = z
   .object({
     id: z.enum(["spargap", "refinansiering", "underhall", "lokaler", "energi"]),
@@ -677,6 +707,53 @@ export const AvgiftsKomponentSchema = z
     foreningKrPerAr: z.number().nullable(),
     krPerManad: z.number().nullable(),
     forklaring: z.string(),
+    ref: PageRefSchema.optional(),
+    tryck: TryckSchema.optional(),
+  })
+  .strict();
+
+export const SparbehovSchema = z
+  .object({
+    malKrPerM2: z.number(),
+    malKalla: z.enum([
+      "investeringsbehov",
+      "rekommenderad_avsattning",
+      "planerade_kostnader",
+      "schablon",
+    ]),
+    malRef: PageRefSchema.optional(),
+    sparandeKrPerM2: z.number().nullable(),
+    sparandeRef: PageRefSchema.optional(),
+    glappKrPerM2: z.number().nullable(),
+    totalyta: z.number().nullable(),
+    dampning: z.number().min(0).max(1),
+    byggdelar: z
+      .array(
+        z
+          .object({
+            byggdel: ByggdelSchema,
+            label: z.string(),
+            senast: z.number().int().optional(),
+            senastKalla: z.enum(["atgard", "byggar", "okand"]),
+            livslangd: z.object({ lag: z.number(), hog: z.number() }).strict(),
+            status: z.enum(["nyligen", "ok", "eftersatt", "okant"]),
+            ref: PageRefSchema.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
+
+export const RefinansieringsLanSchema = z
+  .object({
+    belopp: z.number(),
+    rantaProcent: z.number().nullable(),
+    dag: IsoDatumSchema.optional(),
+    rorlig: z.boolean(),
+    fas: z.enum(["inom_horisont", "senare"]),
+    vikt: z.number().min(0).max(1),
+    foreningKrPerAr: z.number().nullable(),
     ref: PageRefSchema.optional(),
   })
   .strict();
@@ -714,10 +791,14 @@ export const AvgiftsprognosSchema = z
         marginalProcent: z.number(),
         antagenAndelProcent: z.number().optional(),
         antalLan: z.number().int().nonnegative(),
+        lan: z.array(RefinansieringsLanSchema).optional(),
+        senareHorisontManader: z.number().int().positive().optional(),
       })
       .strict()
       .optional(),
     osaker: z.string().min(1).optional(),
+    tryck: TryckSchema.optional(),
+    sparbehov: SparbehovSchema.optional(),
   })
   .strict();
 

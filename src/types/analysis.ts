@@ -264,7 +264,19 @@ export interface Forening {
     underhallsfond?: Figure;
     /** Planned yearly allocation to the fund, kr/year. */
     arligAvsattning?: Figure;
+    /** The report's "investeringsbehov per m²" (average yearly need of the
+     *  long-term plan, kr/m² totalyta/year), when stated (PROMPT_VERSION 10). */
+    investeringsbehovPerM2?: Figure;
+    /** What the plan says SHOULD be set aside per year (kr/year), when the
+     *  report states it separately from the actual allocation. */
+    rekommenderadAvsattning?: Figure;
+    /** A stated plan total, e.g. "underhållsplanen visar 45 Mkr de kommande 30 åren". */
+    planTotal?: { belopp: Figure; ar: number };
   };
+
+  /** Major renovations already done, with the year (PROMPT_VERSION 10). Only
+   *  the tracked building parts; every item cited. */
+  genomfordaAtgarder?: Array<{ byggdel: Byggdel; ar: number; text: string; ref: PageRef }>;
 
   /** Whether the report says a negative sparande is a planned withdrawal, and
    *  whether it is financed (e.g. from the fund or a decided loan). Absent =
@@ -299,6 +311,10 @@ export interface Forening {
    *  stated in the report (e.g. "Pontonjären 3"). Cited like `adresser`. */
   fastighetsbeteckningar?: Array<{ beteckning: string; ref: PageRef }>;
 }
+
+/** Building parts whose age moves the schablon savings target
+ *  (docs/underhall-referens.md). */
+export type Byggdel = "stambyte" | "tak" | "fasad" | "fonster" | "ventilation" | "el" | "hiss";
 
 /** One loan from the loan note. Cited with an excerpt like any extracted item. */
 export interface Lan {
@@ -551,6 +567,58 @@ export interface AvgiftsKomponent {
   krPerManad: number | null;
   forklaring: string;
   ref?: PageRef;
+  /** Pressure on the fee: |krPerManad| ÷ today's fee; a decrease is 'gron'. */
+  tryck?: Tryck;
+}
+
+/** Fee pressure colour (round 2026-10-24c): green < 2 %, yellow 2–10 %,
+ *  red > 10 % of today's fee; thresholds in prognosantaganden.ts. */
+export type Tryck = "gron" | "gul" | "rod";
+
+/** The savings target behind the 'spargap' component (round 2026-10-24c). */
+export interface Sparbehov {
+  /** Target savings, kr/m² totalyta/year. */
+  malKrPerM2: number;
+  malKalla: "investeringsbehov" | "rekommenderad_avsattning" | "planerade_kostnader" | "schablon";
+  malRef?: PageRef;
+  /** The statutory sparande per m² totalyta; null when missing. */
+  sparandeKrPerM2: number | null;
+  sparandeRef?: PageRef;
+  /** Target − sparande, kr/m²/year; negative = surplus. */
+  glappKrPerM2: number | null;
+  totalyta: number | null;
+  /** Share of the gap that counts (1 with the förening's own plan, 0.5 with the schablon). */
+  dampning: number;
+  /** Only with the schablon target: the parts that moved it. */
+  byggdelar?: ByggdelBedomning[];
+}
+
+export interface ByggdelBedomning {
+  byggdel: Byggdel;
+  label: string;
+  /** Year last renovated (or built, when never mentioned). */
+  senast?: number;
+  senastKalla: "atgard" | "byggar" | "okand";
+  /** Typical lifetime range, years (docs/underhall-referens.md). */
+  livslangd: { lag: number; hog: number };
+  status: "nyligen" | "ok" | "eftersatt" | "okant";
+  ref?: PageRef;
+}
+
+/** One loan in the refinancing calculation (round 2026-10-24c). */
+export interface RefinansieringsLan {
+  belopp: number;
+  rantaProcent: number | null;
+  /** Reset date, YYYY-MM-DD; absent for rörlig loans without one. */
+  dag?: string;
+  rorlig: boolean;
+  /** 'inom_horisont' = within 24 months (both directions); 'senare' = months
+   *  25–60, counted only when cheaper than the new rate. */
+  fas: "inom_horisont" | "senare";
+  vikt: number;
+  /** kr/year after the weight; null when the rate is missing. */
+  foreningKrPerAr: number | null;
+  ref?: PageRef;
 }
 
 export interface Referensranta {
@@ -577,6 +645,10 @@ export interface Refinansieringsunderlag {
   /** Set when maturities were missing and a share of total debt was assumed. */
   antagenAndelProcent?: number;
   antalLan: number;
+  /** Per-loan rows, both phases (round 2026-10-24c). */
+  lan?: RefinansieringsLan[];
+  /** Months of the later, cheap-loans-only phase (e.g. 60). */
+  senareHorisontManader?: number;
 }
 
 export interface Avgiftsprognos {
@@ -591,6 +663,9 @@ export interface Avgiftsprognos {
   refinansiering?: Refinansieringsunderlag;
   /** Set when the total looks implausibly large (sanity guard). */
   osaker?: string;
+  /** Pressure colour of the total. */
+  tryck?: Tryck;
+  sparbehov?: Sparbehov;
 }
 
 /** Report data vs the buyer's input, per field (round 2026-10-24b). */

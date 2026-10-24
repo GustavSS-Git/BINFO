@@ -4,7 +4,7 @@
  * nowhere else. Values marked "TODO: unverified placeholder" are owner-chosen
  * product assumptions (the "moderate set", 2026-10-24), not market facts.
  */
-import type { Referensranta } from "@/types/analysis";
+import type { Byggdel, Referensranta } from "@/types/analysis";
 
 /** How far ahead the prognosis looks, months. */
 // TODO: unverified placeholder (owner default 2026-10-24)
@@ -64,6 +64,88 @@ export const BRF_MARGINAL_PROCENT = 0.58;
 export const REFERENSRANTA_SERIE = "SETB3MBENCH";
 export const REFERENSRANTA_NAMN = "3-månaders statsskuldväxel";
 export const REFERENSRANTA_KALLA = "Sveriges riksbank";
+
+// ---------------------------------------------------------------------------
+// Sustainable fee: savings target (round 2026-10-24c, docs/underhall-referens.md)
+// ---------------------------------------------------------------------------
+
+/**
+ * Savings target when the förening states no plan-based need, kr/m² totalyta
+ * per year. HSB, Sveriges Bostadsrättsbarometer 2026: "Saknas en underhålls-
+ * och investeringsplan kan styrelsen utgå från ett schabloniserat sparande på
+ * 300 kr/kvm/år"; Riksbyggen (April 2025): 305 kr/kvm. Sources in
+ * docs/underhall-referens.md §2. Labelled "Schablon" in the UI.
+ */
+export const SPARMAL_SCHABLON_KR_PER_M2 = 300;
+
+/** The building parts move the schablon within the range the sources span
+ *  (Nabo/HSB 250–300, Swedbank 350 per boyta; docs/underhall-referens.md §2d). */
+export const SPARMAL_SCHABLON_MIN = 250;
+export const SPARMAL_SCHABLON_MAX = 350;
+
+/** Share of a schablon-based gap (or surplus) that counts in the fee prognosis
+ *  (owner decision 2026-10-24: cautious when the target is not the förening's
+ *  own). A plan-based gap counts in full. */
+// TODO: unverified placeholder (owner decision 2026-10-24)
+export const SPARMAL_SCHABLON_DAMPNING = 0.5;
+
+/**
+ * Typical lifetime per tracked building part, years (lag–hog across the
+ * sources' variants). FAR "Komponentindelning i bostadsrättsförening"
+ * (2025-06-25) and SIB M84:10 (1984); docs/underhall-referens.md §1a.
+ * A part is 'nyligen' when last done less than half of `lag` ago and
+ * 'eftersatt' when last done (or built, never mentioned) more than `hog` ago.
+ */
+export const BYGGDEL_LIVSLANGD: Record<Byggdel, { label: string; lag: number; hog: number }> = {
+  // FAR 50, M84:10 50, Lusa 40–60 (cast iron)
+  stambyte: { label: "Stambyte", lag: 40, hog: 60 },
+  // papp 20–30, tegel 30–40, plåt 35–60
+  tak: { label: "Tak", lag: 20, hog: 60 },
+  // puts 20–40, trä 40, tegel 100
+  fasad: { label: "Fasad", lag: 20, hog: 100 },
+  // M84:10 40; FAR 40 (trä/plast), 60 (aluminiumbeklätt)
+  fonster: { label: "Fönster", lag: 40, hog: 60 },
+  // FAR: FTX/FT 20, självdrag 100
+  ventilation: { label: "Ventilation", lag: 20, hog: 100 },
+  // FAR 50, M84:10 45
+  el: { label: "El", lag: 45, hog: 50 },
+  // FAR 20–40, Hissförbundet 20–30
+  hiss: { label: "Hiss", lag: 20, hog: 40 },
+};
+
+/** The plan-cost target averages planned costs over at most this many years
+ *  when a plan item has no year span. */
+// TODO: unverified placeholder (round 2026-10-24c)
+export const PLANKOSTNAD_MAX_AR = 30;
+
+// ---------------------------------------------------------------------------
+// Refinancing, later phase (round 2026-10-24c)
+// ---------------------------------------------------------------------------
+
+/** End of the later refinancing phase, months. Loans resetting between
+ *  HORISONT_MANADER and this count only when cheaper than the new rate. */
+// TODO: unverified placeholder (owner decision 2026-10-24)
+export const HORISONT_LANG_MANADER = 60;
+
+/** Weight per maturity band of the later phase: [up to month, weight].
+ *  Owner decision 2026-10-24. */
+// TODO: unverified placeholder (owner decision 2026-10-24)
+export const SENARE_FAS_VIKTER: ReadonlyArray<readonly [number, number]> = [
+  [36, 0.75],
+  [48, 0.5],
+  [60, 0.25],
+];
+
+// ---------------------------------------------------------------------------
+// Fee pressure colour (round 2026-10-24c)
+// ---------------------------------------------------------------------------
+
+/** |kr/month| ÷ today's fee: below GUL = green, up to ROD = yellow, above =
+ *  red. A decrease is always green. Owner decision 2026-10-24. */
+// TODO: unverified placeholder (owner decision 2026-10-24)
+export const TRYCK_GRANS_GUL = 0.02;
+// TODO: unverified placeholder (owner decision 2026-10-24)
+export const TRYCK_GRANS_ROD = 0.1;
 
 /** Used only when no fetched value exists at all; labelled as a fallback.
  *  SSVX 3M on 2026-10-23 per the Riksbank API. */
