@@ -51,9 +51,11 @@ describe("PropertySummary — byggårsmarkör", () => {
       byggar({ anvandare: 1962, rapport: 1962, ref: { page: 4, excerpt: "Värdeåret 1962" } }),
     );
     expect(html).toContain("✓ Bekräftat");
-    expect(html).toContain('title="Bekräftat av årsredovisningen (s. 4). FORKLARING');
+    expect(html).toContain('title="Bekräftat av årsredovisningen. FORKLARING (s. 4)');
     expect(html).toContain("Värdeåret 1962");
-    expect(html).toMatch(/<span class="sr-only">Bekräftat av årsredovisningen \(s\. 4\)/);
+    expect(html).toMatch(
+      /<span class="sr-only">Bekräftat av årsredovisningen\. FORKLARING \(s\. 4\)/,
+    );
   });
 
   it("avviker: visar årsredovisningens år och avvikelsen synligt, inte bara i tooltip", () => {

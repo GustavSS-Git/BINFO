@@ -47,7 +47,7 @@ Status: **DONE 2026-10-24, committed on `main`, not pushed, not deployed.** API 
    the PDF sections.
 5. Optional: a deterministic re-run of grounding when all seven nyckeltal come back null on a
    text report (the drop-out was seen twice on intermediate wordings, 0/3 on the shipped one).
-Budget: max 60 kr API. No deploy without the owner's OK. One commit per task.
+   Budget: max 60 kr API. No deploy without the owner's OK. One commit per task.
 
 ## Context
 
@@ -92,14 +92,13 @@ Round 2 (Booli) is not touched.
 6. **BRF margin.** Loans counted as variable: explicitly "rörlig", or a villkorsändringsdag within
    3 months of the balance-sheet date, since the reports rarely label the type.
 
-   | BRF (balance date) | Loan, rate, reset date | SSVX that day | Margin |
-   |---|---|---|---|
-   | Volontären (2023-12-31) | 4.85 % 2024-01-02 / 5.70 % 2024-03-07 / 5.05 % 2024-03-01 | 3.984 | 0.87 / 1.72 / 1.07 |
-   | Beckasinen 14 (2024-12-31) | 3.54 % 2025-01-20 | 2.422 | 1.12 |
-   | Helsingborgshus 17 (2025-08-31) | 2.61 % 2025-09-28 | 2.026 | 0.58 |
-   | Torsborgen 3 (2025-12-31) | 2.43 % 2026-01-28 / 2.32 % 2026-03-28 | 1.948 | 0.48 / 0.37 |
-   | Pontonjären 3 (2025-12-31) | 2.53 % 2026-03-28 | 1.948 | 0.58 |
-
+   | BRF (balance date)              | Loan, rate, reset date                                    | SSVX that day | Margin             |
+   | ------------------------------- | --------------------------------------------------------- | ------------- | ------------------ |
+   | Volontären (2023-12-31)         | 4.85 % 2024-01-02 / 5.70 % 2024-03-07 / 5.05 % 2024-03-01 | 3.984         | 0.87 / 1.72 / 1.07 |
+   | Beckasinen 14 (2024-12-31)      | 3.54 % 2025-01-20                                         | 2.422         | 1.12               |
+   | Helsingborgshus 17 (2025-08-31) | 2.61 % 2025-09-28                                         | 2.026         | 0.58               |
+   | Torsborgen 3 (2025-12-31)       | 2.43 % 2026-01-28 / 2.32 % 2026-03-28                     | 1.948         | 0.48 / 0.37        |
+   | Pontonjären 3 (2025-12-31)      | 2.53 % 2026-03-28                                         | 1.948         | 0.58               |
    - Median per loan 0.73; **median per BRF 0.58 → default margin 0.58 pp**.
    - No qualifying loan: Granen, Hökensgata, Albohem, Näcken. Göken is debt-free.
    - test_rapport's loan table is garbled.
@@ -188,6 +187,7 @@ has a status: `beraknad` | `saknar_underlag` (→ widens the range) | `ej_aktuel
    - Energikostnad itself is already in today's fee, so it is explained in the text but never added.
 
 Price adjustments (`src/lib/analysis/prisjustering.ts`):
+
 - The structure is `justeringar: Prisjustering[]`; today the list holds one entry,
   `forvantad_avgiftshojning`.
 - Price effect = −rise × (−β × baseline kr/m²).
@@ -196,6 +196,7 @@ Price adjustments (`src/lib/analysis/prisjustering.ts`):
   `saknar_underlag` component, and for osäkert byggår.
 
 Rate table rows:
+
 1. idag
 2. förväntad = fee + rise
 3. +1 pp
@@ -207,6 +208,7 @@ Rows 3–4 add only on debt that reprices within the horizon (repricing debt R �
 ## Tasks (order; owner of each; files)
 
 ### T0 — step-zero record (supervisor)
+
 - Read the 3 scans' loan notes visually; finalise the margin.
 - `docs/avgiftsprognos.md` gets: step-zero findings, the β derivation, the margin table, the STIBOR
   finding, the formulas, known overlaps.
@@ -217,6 +219,7 @@ Rows 3–4 add only on debt that reprices within the horizon (repricing debt R �
 All additions are **optional**, so every stored result still parses.
 
 `src/types/analysis.ts` + `src/lib/analysis/schema.ts`:
+
 - `Forening`:
   - `bostadsrattsyta?: Figure`
   - `balansdag?: string`
@@ -241,9 +244,11 @@ All additions are **optional**, so every stored result still parses.
 - A sync test checks β against `metadata.json`.
 
 ### T2 — extraction (agent `pdf-pipeline`)
+
 Owns: `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`, `rimlighet.ts`, `tolkaVarde.ts` if needed,
 `__fixtures__/extraktion.ts`, `__golden__/*`, `answerKey.ts` / `verifyAnswerKey.ts`, new
 `fixtures/answer-key-lan/*.json`.
+
 - Grounding + extraction prompts for the new fields; **PROMPT_VERSION 9**.
 - Fix the totalyta/brf-yta example.
 - Byggår ≠ värdeår (take värdeår only when nothing else is given, and say so in the excerpt).
@@ -260,6 +265,7 @@ Owns: `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`, `rimlighet.ts`, `tolkaVard
   verify; `verify-extraction` scores them.
 
 ### T3 — calculation + price + merge (agent `pdf-pipeline` #2; pure, new files only, tests first)
+
 - `calc/avgiftsprognos.ts` (+ test)
 - `prisjustering.ts` (+ test)
 - `uppgiftsjamforelse.ts` (+ test)
@@ -270,6 +276,7 @@ Owns: `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`, `rimlighet.ts`, `tolkaVard
   medium-confidence match).
 
 ### T4 — reference rate (supervisor)
+
 - `src/server/referensranta.ts`, server-only, behind an interface.
 - Riksbank SWEA `SETB3MBENCH` latest observation; 5 s timeout.
 - Cached daily in a new table `referensranta` (migration `20261025120000_referensranta.sql`, RLS on,
@@ -283,6 +290,7 @@ Owns: `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`, `rimlighet.ts`, `tolkaVard
 - Tests use a fake fetch (timeout, stale cache, bad JSON).
 
 ### T5 — assembly + summary + byggår fix (supervisor)
+
 - `assemble.ts`:
   - merge → valuation input (byggår)
   - `avgiftsprognos`
@@ -295,8 +303,10 @@ Owns: `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`, `rimlighet.ts`, `tolkaVard
 - Tests with the extraction fixture and with an old (p8) extraction.
 
 ### T6 — UI + PDF (agent `frontend-state`; after T1/T3 types are fixed)
+
 Owns: `AnalysRapport.tsx`, `PropertySummary.tsx`, `analysisView.ts`, `pdf/viewModel.ts`,
 `pdf/AnalysPdfDocument.tsx`, `src/data/sampleAnalysis.ts` and the tests that follow it.
+
 - **Price section:**
   - a "Binfos värdering (modell)" line + a "Justerat för väntad avgiftshöjning" line
   - the deviation against the adjusted price
@@ -313,6 +323,7 @@ Owns: `AnalysRapport.tsx`, `PropertySummary.tsx`, `analysisView.ts`, `pdf/viewMo
 - Existing components only, minimal styling; a "For Lovable to polish" list.
 
 ### T7 — paid verification + worked examples + review (supervisor + agent `reviewer`)
+
 - `verify-extraction` on the ~9 text answer-key PDFs (≈ 27 kr) and one fix iteration (≈ 10 kr).
 - `npm run extract` on two reports for the worked examples, Pontonjären 3 and Helsingborgshus 17
   (≈ 7 kr). The Pontonjären run regenerates `/exempel` after checking the judging against the PDF.

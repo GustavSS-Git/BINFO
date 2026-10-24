@@ -285,7 +285,7 @@ describe("byggarMarkor", () => {
   it("bekräftat: bockmarkör och sidhänvisning", () => {
     const m = byggarMarkor(rad({ ref: { page: 4, excerpt: "Värdeåret är 1962." } }), 1962);
     expect(m.markor?.text).toBe("✓ Bekräftat");
-    expect(m.forklaring).toContain("Bekräftat av årsredovisningen (s. 4)");
+    expect(m.forklaring).toContain("Bekräftat av årsredovisningen. TEXT (s. 4)");
     expect(m.forklaring).toContain("Värdeåret är 1962.");
     expect(m.pdfNotis).toBe("bekräftat, s. 4");
   });
