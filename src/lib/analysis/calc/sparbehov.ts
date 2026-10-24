@@ -152,7 +152,8 @@ function bedomaByggdelar(
 }
 
 function positivt(f: Figure | undefined): number | null {
-  return f?.value !== null && f?.value !== undefined && f.value > 0 ? f.value : null;
+  // A figure the sanity checks marked osäker is not used as a target.
+  return f?.value !== null && f?.value !== undefined && f.value > 0 && !f.osaker ? f.value : null;
 }
 
 export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {

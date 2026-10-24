@@ -80,6 +80,14 @@ describe("target source precedence", () => {
     expect(r.planBaserad).toBe(true);
     expect(r.sparbehov.byggdelar).toBeUndefined();
   });
+  it("an investeringsbehov marked osäker is skipped: rekommenderad 1 200 000 / 2 000 = 600 wins", () => {
+    const f = allt();
+    const up = f.underhallsplan as NonNullable<Forening["underhallsplan"]>;
+    up.investeringsbehovPerM2 = { ...(up.investeringsbehovPerM2 as Figure), osaker: "orimligt" };
+    const r = kor(f);
+    expect(r.sparbehov.malKalla).toBe("rekommenderad_avsattning");
+    expect(r.sparbehov.malKrPerM2).toBe(600);
+  });
   it("1 needs no totalyta for the target, but kr/year is then null", () => {
     const f = allt();
     delete (f as { totalyta?: Figure }).totalyta;
