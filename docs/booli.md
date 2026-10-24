@@ -8,15 +8,15 @@ Investigated 2026-10-24 (round "Booli prefill", see `PLAN.md`). Fixtures: `fixtu
 
 www.booli.se is behind Cloudflare. The verdict depends on the client's fingerprint, not just headers:
 
-| Client                                                                                                | Result                                              |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| curl, default UA                                                                                      | `403`, `cf-mitigated: challenge` ("Just a moment…") |
-| curl, Chrome UA, no `br` in `Accept-Encoding`                                                         | `403` challenge                                     |
-| curl, full Chrome-like header set (`Accept-Encoding: gzip, deflate, br`, `sec-ch-ua*`, `Sec-Fetch-*`) | `200`, real page (HTTP/2 and HTTP/1.1)              |
-| Node 22 `fetch` (undici), same full header set                                                        | `403` challenge (TLS fingerprint)                   |
-| Local workerd (`wrangler dev`), Chrome-like headers, no `Accept-Encoding`                             | `200`, real page                                    |
-| Booli GraphQL (`/graphql`) from curl, full header set                                                 | `403` challenge                                     |
-| Production Worker (Cloudflare egress, `CF-Worker` header)                                             | **untested**; verify right after deploy             |
+| Client                                                                                                | Result                                                |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| curl, default UA                                                                                      | `403`, `cf-mitigated: challenge` ("Just a moment…")   |
+| curl, Chrome UA, no `br` in `Accept-Encoding`                                                         | `403` challenge                                       |
+| curl, full Chrome-like header set (`Accept-Encoding: gzip, deflate, br`, `sec-ch-ua*`, `Sec-Fetch-*`) | `200`, real page (HTTP/2 and HTTP/1.1)                |
+| Node 22 `fetch` (undici), same full header set                                                        | `403` challenge (TLS fingerprint)                     |
+| Local workerd (`wrangler dev`), Chrome-like headers, no `Accept-Encoding`                             | `200`, real page                                      |
+| Booli GraphQL (`/graphql`) from curl, full header set                                                 | `403` challenge                                       |
+| Production Worker (Cloudflare egress, `CF-Worker` header)                                             | **challenged** (`blockerad`, 2026-10-24 after deploy) |
 
 Binfo sends one request with a normal browser header set and never tries to solve or bypass a
 challenge. A challenge is reported as `blockerad`, and the buyer fills in the form manually. The
