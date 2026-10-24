@@ -47,14 +47,14 @@ Owner answers (2026-10-24):
 | postnummer | JSON-LD `postalCode` / `areas[type=postcode].name` | 6/6 |
 | coords | `latitude`, `longitude` | 6/6 |
 | ort (kommun) / stadsdel | `areas[type=municipality].name` / `descriptiveAreaName` | 6/6 |
-| utgångspris | `listPrice.raw` | 4/6 |
+| utgångspris | `listPrice.raw` | 5/6 |
 | månadsavgift | `rent.raw` (`0` → missing) | 5/6 |
 | boarea | `livingArea.raw` | 6/6 |
 | rum | `rooms.raw` (2.5 possible) | 6/6 |
 | våning | `floor.raw` | 6/6 |
 | byggår | `constructionYear` | 6/6 |
 | hiss / balkong | `amenities[].key` `elevator` / `balcony` (only listed when true) | 6/6 |
-| förening | JSON-LD breadcrumb "BRF …" | 5/6 |
+| förening | JSON-LD breadcrumb "BRF …" | 6/6 in the saved fixtures |
 | broker link | `listingUrl` | 6/6 |
 | description | none on Booli | 0/6 |
 
