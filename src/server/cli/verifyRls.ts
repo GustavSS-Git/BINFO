@@ -11,7 +11,7 @@
  *     datum långt bak i tiden (1999) som aldrig kan krocka med riktig data.
  *  2. v2-tabellerna (register: forening, rapport, rapport_fil, sidtext,
  *     forening_adress; konto: principal, behorighet, kvot; v3: sparad_vardering,
- *     sparad_kalkyl; annons_cache; plus RPC:erna sakerstall_konto_principal,
+ *     sparad_kalkyl; annons_cache; referensranta; plus RPC:erna sakerstall_konto_principal,
  *     lista_mina_analyser, radera_min_analys). Secret-nyckeln
  *     skriver en probe-rad i varje (så att "publishable ser 0 rader" betyder
  *     något), publishable ska varken se, skriva, ändra eller radera dem.
@@ -59,6 +59,8 @@ const PROBE_ETIKETT_PUBLISHABLE = "verify-rls-probe-publishable";
 // Listing-fetch cache (20261024120000_annons.sql): probed through its url.
 const PROBE_ANNONS_URL = "verify-rls-probe";
 const PROBE_ANNONS_URL_PUBLISHABLE = "verify-rls-probe-publishable";
+const PROBE_SERIE = "verify-rls-probe";
+const PROBE_SERIE_PUBLISHABLE = "verify-rls-probe-publishable";
 
 interface Utfall {
   namn: string;
@@ -337,6 +339,13 @@ async function skrivProbeRader(
         "annons_cache",
         () => secretClient.from("annons_cache").insert({ url: PROBE_ANNONS_URL, svar: {} }),
       ],
+      [
+        "referensranta",
+        () =>
+          secretClient
+            .from("referensranta")
+            .insert({ serie: PROBE_SERIE, datum: "2026-01-01", procent: 0 }),
+      ],
     );
     for (const [tabell, gor] of steg) {
       const { error } = await gor();
@@ -497,6 +506,13 @@ async function provaV2Tabeller(secretClient: Klient, publishableClient: Klient, 
       publishableRad: { url: PROBE_ANNONS_URL_PUBLISHABLE, svar: {} },
       publishableNyckel: ["url", PROBE_ANNONS_URL_PUBLISHABLE],
       uppdatering: { svar: { hijack: true } },
+    },
+    {
+      tabell: "referensranta",
+      nyckel: ["serie", PROBE_SERIE],
+      publishableRad: { serie: PROBE_SERIE_PUBLISHABLE, datum: "2026-01-01", procent: 0 },
+      publishableNyckel: ["serie", PROBE_SERIE_PUBLISHABLE],
+      uppdatering: { procent: 99 },
     },
   ];
 
@@ -885,6 +901,15 @@ async function stada(secretClient: Klient): Promise<void> {
         .from("annons_cache")
         .delete()
         .in("url", [PROBE_ANNONS_URL, PROBE_ANNONS_URL_PUBLISHABLE])
+    ).error,
+  );
+  notera(
+    "referensranta",
+    (
+      await secretClient
+        .from("referensranta")
+        .delete()
+        .in("serie", [PROBE_SERIE, PROBE_SERIE_PUBLISHABLE])
     ).error,
   );
 

@@ -282,6 +282,19 @@ export interface KontoDatabas {
   /** `insert into annons_cache (url, svar, hamtad) values ($1, $2, now())
    *  on conflict (url) do update set svar = excluded.svar, hamtad = now()`. */
   skrivAnnonsCache(url: string, svar: unknown): Promise<void>;
+
+  // -------------------------------------------------------------------------
+  // Reference-rate cache (supabase/migrations/20261025120000_referensranta.sql)
+  // -------------------------------------------------------------------------
+
+  /** `select datum, procent, hamtad from referensranta where serie = $1`.
+   *  Null when there is no row. */
+  lasReferensranta(
+    serie: string,
+  ): Promise<{ datum: string; procent: number; hamtad: string } | null>;
+
+  /** `insert … on conflict (serie) do update` with `hamtad = now()`. */
+  skrivReferensranta(serie: string, varde: { datum: string; procent: number }): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

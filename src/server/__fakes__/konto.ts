@@ -88,6 +88,8 @@ export interface FakeKontoDatabas extends KontoDatabas {
   readonly rapporter: Map<string, FakeRapportRad>;
   /** `annons_cache`, keyed by the canonical listing URL. */
   readonly annonsCache: Map<string, { svar: unknown; hamtad: string }>;
+  /** `referensranta`, keyed by series id. */
+  readonly referensrantor: Map<string, { datum: string; procent: number; hamtad: string }>;
   /** Keyed `${nyckel}|${fonsterStart}`. */
   readonly kvot: Map<string, FakeKvotRad>;
   /** Calls to `radera_analys` made by `raderaAnalysFranLista` (analysId). */
@@ -126,6 +128,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
   const rapporter = new Map<string, FakeRapportRad>();
   const kvot = new Map<string, FakeKvotRad>();
   const annonsCache = new Map<string, { svar: unknown; hamtad: string }>();
+  const referensrantor = new Map<string, { datum: string; procent: number; hamtad: string }>();
   const raderadeAnalyser: string[] = [];
   let nastaId = 1;
 
@@ -178,6 +181,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
     rapporter,
     kvot,
     annonsCache,
+    referensrantor,
     raderadeAnalyser,
 
     laggTillAnalys(rad) {
@@ -562,6 +566,17 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
     //   on conflict (url) do update set svar = excluded.svar, hamtad = now()
     async skrivAnnonsCache(url, svar) {
       annonsCache.set(url, { svar: structuredClone(svar), hamtad: nu().toISOString() });
+    },
+
+    // select datum, procent, hamtad from referensranta where serie = $1
+    async lasReferensranta(serie) {
+      const rad = referensrantor.get(serie);
+      return rad ? { ...rad } : null;
+    },
+
+    // insert into referensranta … on conflict (serie) do update, hamtad = now()
+    async skrivReferensranta(serie, varde) {
+      referensrantor.set(serie, { ...varde, hamtad: nu().toISOString() });
     },
   };
 }

@@ -506,6 +506,33 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
         .upsert({ url, svar, hamtad: new Date().toISOString() }, { onConflict: "url" });
       if (error) throw new Error(`skrivAnnonsCache misslyckades: ${error.message}`);
     },
+
+    async lasReferensranta(
+      serie: string,
+    ): Promise<{ datum: string; procent: number; hamtad: string } | null> {
+      const { data, error } = await sb
+        .from("referensranta")
+        .select("datum, procent, hamtad")
+        .eq("serie", serie)
+        .maybeSingle();
+      if (error) throw new Error(`lasReferensranta misslyckades: ${error.message}`);
+      if (!data) return null;
+      const rad = data as { datum: string; procent: number | string; hamtad: string };
+      return { datum: rad.datum, procent: Number(rad.procent), hamtad: rad.hamtad };
+    },
+
+    async skrivReferensranta(
+      serie: string,
+      varde: { datum: string; procent: number },
+    ): Promise<void> {
+      const { error } = await sb
+        .from("referensranta")
+        .upsert(
+          { serie, datum: varde.datum, procent: varde.procent, hamtad: new Date().toISOString() },
+          { onConflict: "serie" },
+        );
+      if (error) throw new Error(`skrivReferensranta misslyckades: ${error.message}`);
+    },
   };
 }
 
