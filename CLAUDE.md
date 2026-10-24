@@ -177,9 +177,10 @@ per-apartment cost in kronor, and what to do before bidding.
 
 - **Price section additions (2026-10-24b)**: second price row "Justerat för
   väntad avgiftshöjning", the collapsed "Så har vi räknat" `<details>` (part 1
-  factor list + model drivers, also on the Priskoll; part 2 fee rise; part 3
-  refinancing inputs), the fee table in `Rantestress`, "Dina uppgifter mot
-  årsredovisningen", the closing "Sammanfattning" — all in `AnalysRapport.tsx`
+  generic factor list, also on the Priskoll; the per-flat driver % rows were
+  removed there 2026-10-24 (owner: "kaka på kaka"); part 2 fee rise; part 3
+  refinancing inputs), the fee table in `Rantestress`, the closing
+  "Sammanfattning" — all in `AnalysRapport.tsx`
   with text helpers in `src/lib/analysisView.ts`; component texts come from
   `avgiftsprognos.ts`, summary texts from `sammanfattning.ts`. PDF mirrors it.
 - **Waiting screen** (`/forhandsvisning` while running): `Pagar` in
@@ -192,13 +193,16 @@ per-apartment cost in kronor, and what to do before bidding.
   is shared by the full report, `/exempel` and the Priskoll on `/analysera`. The source
   paragraph ("Modellen är tränad på … Svensk Mäklarstatistik. Områdesindelningen
   bygger på …") is `varderingsKallaText` (period via `formatDataperiodLang`,
-  "januari–augusti 2026"); the factor heading is "Exempel på faktorer som
-  påverkar värderingen utöver område:"; caveat/tier texts are also in
+  "januari–augusti 2026"); caveat/tier texts are also in
   `src/lib/analysisView.ts`.
+- **Byggår vs the report**: no separate comparison section (removed
+  2026-10-24, owner); `PropertySummary` shows a badge next to Byggår
+  (Bekräftat / Avviker + "Årsredovisningen: X (du angav Y)" / Osäkert / Från
+  årsredovisningen) from the `uppgiftsjamforelse` row `byggar`, logic in
+  `byggarMarkor` (`analysisView.ts`), mirrored as a suffix in the PDF.
 - **PDF export** builds its own view model in `src/components/pdf/viewModel.ts`
   (`metadataText`: n, typical error, model version; `kallaText` = the same
-  source paragraph; the same heading over the drivers; the caveat is visible
-  there). Change web copy → check the PDF too.
+  source paragraph; no driver rows since 2026-10-24). Change web copy → check the PDF too.
 - Priskoll (step 1) copy lives in `src/routes/analysera.tsx`.
 
 ## Valuation factor rows ("drivers")
@@ -748,7 +752,8 @@ and add it to a "For Lovable to polish" list reported at the end. Exception: the
 PDF export layout is ours to design, kept simple and consistent with the site.
 
 Owner-hidden elements are kept in the DOM with `hidden`: the valuation
-provider line, the valuation range and the drivers caveat. Do not unhide them.
+provider line and the valuation range (the drivers caveat went with the driver
+rows, 2026-10-24). Do not unhide them.
 
 ## Lovable sync workflow
 

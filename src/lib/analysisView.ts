@@ -233,27 +233,6 @@ export function formatFigureVarde(figure: Figure): string {
   return formatVarde(figure.value, figure.unit);
 }
 
-/**
- * Caveat-text för värderingsdrivarlistan (Prisanalys.varderingsunderlag.drivare).
- * Ren UI-kopia av samma budskap som src/lib/vardering/drivare.ts's
- * hamtaVarderingsdrivareCaveat() (effects.json -> caveat_sv) — inte hämtad
- * därifrån, eftersom src/lib/vardering är server-only och aldrig får nå
- * klientbundeln (se dess filkommentar). Håll de två i synk för hand om
- * caveat-budskapet någonsin ändras; de säger avsiktligt samma sak.
- */
-export const VARDERINGSDRIVARE_CAVEAT =
-  "Det här är genomsnittliga effekter för hela Stockholm (eller för området, där det står " +
-  "inom parentes), inte en beräkning för just din lägenhet.";
-
-/** Driver label; area-specific effects name their area so a buyer can tell
- *  them from the Stockholm-wide averages. */
-export function formatDrivareLabel(
-  d: { label: string; niva: "stad" | "omrade" },
-  omrade: string | null,
-): string {
-  return d.niva === "omrade" && omrade !== null ? `${d.label} (${omrade})` : d.label;
-}
-
 /** "över" / "under" / "i linje med" — ±0,5 procentenheter räknas som "i
  *  linje med" hellre än att låtsas veta en riktning på ren mätbrus. */
 function riktningstext(procentVarde: number): string {
@@ -536,16 +515,88 @@ export const RAKNA_FAKTORER: string[] = [
 export const RAKNA_PROGNOS_RUBRIK = "Väntad avgiftsutveckling enligt årsredovisningen";
 export const RAKNA_REFINANSIERING_RUBRIK = "Lån som omsätts inom horisonten";
 
-/** Etikett för jämförelsestatus (uppgift mot årsredovisningen). */
-export const JAMFORELSE_STATUS_LABEL: Record<Faltjamforelse["status"], string> = {
-  bekraftat: "Bekräftat",
-  avviker: "Avviker",
-  manuellt: "Ej i årsredovisningen",
-  osakert: "Osäkert",
-  endast_rapport: "Från årsredovisningen",
-};
+/** Byggår-raden i objektsammanfattningen: värdet vi använder och en liten
+ *  markör som säger hur det förhåller sig till årsredovisningen. */
+export interface ByggarMarkor {
+  /** Värdet som visas. */
+  varde: string;
+  markor?: { ton: "success" | "warning" | "teal"; text: string };
+  /** Synlig rad under värdet när uppgiften avviker eller är osäker. */
+  rad?: string;
+  /** Hela förklaringen, för tooltip och skärmläsare. */
+  forklaring?: string;
+  /** Kort notis efter värdet i PDF:en, t.ex. "bekräftat, s. 4". */
+  pdfNotis?: string;
+}
 
-export const JAMFORELSE_RUBRIK = "Dina uppgifter mot årsredovisningen";
+export function byggarMarkor(
+  rad: Faltjamforelse | undefined,
+  inputByggar: number | undefined,
+): ByggarMarkor {
+  const fran = (v: number | undefined) => (v !== undefined ? String(v) : "Okänt");
+  if (!rad || rad.falt !== "byggar") return { varde: fran(inputByggar) };
+  const sida = rad.ref ? `s. ${rad.ref.page}` : undefined;
+  const utdrag = rad.ref?.excerpt ? ` Ur årsredovisningen: "${rad.ref.excerpt}"` : "";
+  const forklaring = `${rad.text}${sida ? ` (${sida})` : ""}${utdrag}`;
+  const varde = fran(rad.anvant ?? inputByggar);
+  const motArsredovisning =
+    rad.rapport !== undefined && rad.anvandare !== undefined
+      ? `Årsredovisningen: ${rad.rapport} (du angav ${rad.anvandare})`
+      : undefined;
+  const medSida = (t: string) => (sida ? `${t} · ${sida}` : t);
+  const pdfMed = (t: string) => (sida ? `${t}, ${sida}` : t);
+  switch (rad.status) {
+    case "bekraftat":
+      return {
+        varde,
+        markor: { ton: "success", text: "✓ Bekräftat" },
+        forklaring: `Bekräftat av årsredovisningen. ${forklaring}`,
+        pdfNotis: pdfMed("bekräftat"),
+      };
+    case "avviker":
+      return {
+        varde,
+        markor: { ton: "warning", text: "Avviker" },
+        rad: medSida(motArsredovisning ?? rad.text),
+        forklaring,
+        pdfNotis: pdfMed(
+          motArsredovisning
+            ? `årsredovisningen: ${rad.rapport}, du angav ${rad.anvandare}`
+            : "avviker från årsredovisningen",
+        ),
+      };
+    case "osakert":
+      return {
+        varde,
+        markor: { ton: "warning", text: "Osäkert" },
+        rad: rad.text,
+        forklaring,
+        pdfNotis: pdfMed(
+          rad.rapport !== undefined
+            ? `årsredovisningen: ${rad.rapport}, osäkert läst`
+            : "osäkert mot årsredovisningen",
+        ),
+      };
+    case "endast_rapport":
+      if (rad.anvant === null) {
+        return {
+          varde: "Okänt",
+          markor: { ton: "warning", text: "Osäkert" },
+          rad: rad.text,
+          forklaring,
+          pdfNotis: pdfMed(`årsredovisningen: ${rad.rapport}, osäkert, används inte`),
+        };
+      }
+      return {
+        varde,
+        markor: { ton: "teal", text: "Från årsredovisningen" },
+        forklaring,
+        pdfNotis: pdfMed("från årsredovisningen"),
+      };
+    case "manuellt":
+      return { varde };
+  }
+}
 
 /** Texten under det justerade värdet (jämförelse mot utgångspriset). */
 export function avvikelseJusteradText(avvikelse: number): string {

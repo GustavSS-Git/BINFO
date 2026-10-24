@@ -9,20 +9,19 @@
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   andelAvSkuldRad,
+  byggarMarkor,
   antagenAndelText,
   arSkannad,
   avgiftsprognosRubrik,
   avvikelseJusteradText,
   ENERGI_TEXT,
   formatForandringKr,
-  JAMFORELSE_STATUS_LABEL,
   komponentRader,
   prisEffektTexter,
   PRISEFFEKT_CAVEAT,
   RAKNA_FAKTORER,
   RAKNA_UTGANGSLAGE_INTRO,
   refinansieringRader,
-  formatDrivareLabel,
   formatBudpremieText,
   formatFigureVarde,
   formatSkapadDatum,
@@ -99,12 +98,6 @@ export interface PdfKeyFigure {
   osaker: string | undefined;
 }
 
-export interface PdfVarderingsdrivare {
-  label: string;
-  effektProcentText: string;
-  positiv: boolean;
-}
-
 export interface PdfVarderingsunderlag {
   omradeText: string;
   /** 'utanfor_lan' only: rendered first in the section, above the estimate. */
@@ -113,7 +106,6 @@ export interface PdfVarderingsunderlag {
   /** 'lan' only: method note shown with the data basis. */
   metodText: string | undefined;
   intervallText: string | undefined;
-  drivare: PdfVarderingsdrivare[];
   metadataText: string;
   kallaText: string;
 }
@@ -187,13 +179,6 @@ export interface PdfRakning {
 export interface PdfPrognosTabell {
   rader: Array<{ label: string; manadsavgift: string; forandring: string }>;
   kommentar: string;
-}
-
-export interface PdfJamforelseRad {
-  label: string;
-  text: string;
-  statusLabel: string;
-  pageRef: string | undefined;
 }
 
 export interface PdfSammanfattning {
@@ -289,7 +274,6 @@ export interface PdfViewModel {
   prisanalys: PdfPrisanalys;
   rantestress: PdfRantestress;
   fragor: PdfFraga[];
-  jamforelse: PdfJamforelseRad[];
   rakning: PdfRakning | undefined;
   sammanfattning: PdfSammanfattning | undefined;
 }
@@ -318,6 +302,11 @@ function allRedFlagsBySeverity(flaggor: AnalysisResult["rodaFlaggor"]): PdfRedFl
 
 function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
   const { input } = analys;
+  const byggar = byggarMarkor(
+    analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar"),
+    input.byggar,
+  );
+  const byggarText = byggar.pdfNotis ? `${byggar.varde} (${byggar.pdfNotis})` : byggar.varde;
   const adressLabel =
     input.adress !== ""
       ? `${input.adress}, ${input.ort}`
@@ -330,7 +319,7 @@ function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
     { label: "Månadsavgift", value: `${formatVarde(input.manadsavgift, "kr")}/mån` },
     { label: "Antal rum", value: String(input.antalRum) },
     { label: "Våning", value: input.vaning !== undefined ? String(input.vaning) : "Okänt" },
-    { label: "Byggår", value: input.byggar !== undefined ? String(input.byggar) : "Okänt" },
+    { label: "Byggår", value: byggarText },
     { label: "Adress", value: adressLabel },
   ];
 }
@@ -382,11 +371,6 @@ function buildVarderingsunderlag(
     disclaimerText: tackning?.typ === "utanfor_lan" ? tackning.text : undefined,
     metodText: tackning?.typ === "lan" ? tackning.text : undefined,
     intervallText,
-    drivare: u.drivare.map((d) => ({
-      label: formatDrivareLabel(d, u.omrade),
-      effektProcentText: `${d.effektProcent >= 0 ? "+" : ""}${d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %`,
-      positiv: d.effektProcent >= 0,
-    })),
     metadataText: `${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
     kallaText: varderingsKallaText(u.dataperiod),
   };
@@ -607,12 +591,6 @@ export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
     prisanalys: buildPrisanalys(analys),
     rantestress: buildRantestress(analys),
     fragor: buildFragor(analys),
-    jamforelse: (analys.uppgiftsjamforelse ?? []).map((j) => ({
-      label: j.label,
-      text: j.text,
-      statusLabel: JAMFORELSE_STATUS_LABEL[j.status],
-      pageRef: formatPageRef(j.ref),
-    })),
     rakning: buildRakning(analys),
     sammanfattning: analys.sammanfattning
       ? {

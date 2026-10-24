@@ -8,7 +8,6 @@ import {
   type PdfRedFlag,
   type PdfViewModel,
 } from "@/components/pdf/viewModel";
-import { VARDERINGSDRIVARE_CAVEAT } from "@/lib/analysisView";
 import type { AnalysisResult, Status } from "@/types/analysis";
 
 // Deliberately does NOT call registerPdfFonts() itself: react-pdf's Font
@@ -717,29 +716,6 @@ function Rakning({ vm }: { vm: PdfViewModel }) {
                 • {f}
               </Text>
             ))}
-            {u.drivare.length > 0 ? (
-              <View style={{ marginTop: 6 }}>
-                <Text style={styles.summaryLabel}>
-                  Exempel på faktorer som påverkar värderingen utöver område:
-                </Text>
-                {u.drivare.map((d) => (
-                  <View key={d.label} style={styles.driverRow}>
-                    <Text style={styles.summaryLabel}>{d.label}</Text>
-                    <Text
-                      style={[
-                        styles.summaryLabel,
-                        { color: d.positiv ? PDF_COLORS.success : PDF_COLORS.danger },
-                      ]}
-                    >
-                      {d.effektProcentText}
-                    </Text>
-                  </View>
-                ))}
-                <Text style={[styles.confidenceNote, { marginTop: 2 }]}>
-                  {VARDERINGSDRIVARE_CAVEAT}
-                </Text>
-              </View>
-            ) : null}
             <Text style={styles.confidenceNote}>{u.kallaText}</Text>
           </View>
         ) : null}
@@ -786,29 +762,6 @@ function Rakning({ vm }: { vm: PdfViewModel }) {
             ) : null}
           </View>
         ) : null}
-      </View>
-    </View>
-  );
-}
-
-function Jamforelse({ rader }: { rader: PdfViewModel["jamforelse"] }) {
-  if (rader.length === 0) return null;
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Dina uppgifter mot årsredovisningen</Text>
-      <View style={styles.card}>
-        {rader.map((rad) => (
-          <View key={rad.label} style={styles.priceRow} wrap={false}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.priceLabel}>{rad.label}</Text>
-              <Text style={styles.summaryLabel}>
-                {rad.text}
-                {rad.pageRef ? ` (${rad.pageRef})` : ""}
-              </Text>
-            </View>
-            <Text style={styles.summaryLabel}>{rad.statusLabel}</Text>
-          </View>
-        ))}
       </View>
     </View>
   );
@@ -931,7 +884,6 @@ export function AnalysPdfDocument({ analys }: { analys: AnalysisResult }) {
       <Page size="A4" style={styles.page}>
         <Header foreningNamn={vm.foreningNamn} skapadLabel={vm.skapadLabel} />
         <Summary vm={vm} />
-        <Jamforelse rader={vm.jamforelse} />
         <Betyg vm={vm} />
         <RodaFlaggor flaggor={vm.rodaFlaggor} />
         <Foreningsekonomi keyFigures={vm.keyFigures} />

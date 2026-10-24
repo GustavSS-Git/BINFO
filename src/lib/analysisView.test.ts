@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  byggarMarkor,
   costItemOsaker,
   formatBudpremieText,
   formatDataperiod,
   formatDataperiodLang,
-  formatDrivareLabel,
   formatEnhet,
   formatFigureVarde,
   formatSkapadDatum,
@@ -14,6 +14,7 @@ import {
   varderingsTackningText,
 } from "./analysisView";
 import type {
+  Faltjamforelse,
   Varderingsunderlag,
   Budpremie,
   FeeInclusion,
@@ -266,14 +267,76 @@ describe("formatFigureVarde", () => {
   });
 });
 
-describe("formatDrivareLabel", () => {
-  it("names the area for an area-specific driver, not for a Stockholm-wide one", () => {
-    expect(formatDrivareLabel({ label: "Ingen hiss", niva: "omrade" }, "Östermalm")).toBe(
-      "Ingen hiss (Östermalm)",
+describe("byggarMarkor", () => {
+  const rad = (r: Partial<Faltjamforelse>): Faltjamforelse => ({
+    falt: "byggar",
+    label: "Byggår",
+    status: "bekraftat",
+    anvant: 1962,
+    text: "TEXT",
+    ...r,
+  });
+
+  it("utan rad visar bara indata, utan markör", () => {
+    expect(byggarMarkor(undefined, 1962)).toEqual({ varde: "1962" });
+    expect(byggarMarkor(undefined, undefined)).toEqual({ varde: "Okänt" });
+  });
+
+  it("bekräftat: bockmarkör och sidhänvisning", () => {
+    const m = byggarMarkor(rad({ ref: { page: 4, excerpt: "Värdeåret är 1962." } }), 1962);
+    expect(m.markor?.text).toBe("✓ Bekräftat");
+    expect(m.forklaring).toContain("Bekräftat av årsredovisningen (s. 4)");
+    expect(m.forklaring).toContain("Värdeåret är 1962.");
+    expect(m.pdfNotis).toBe("bekräftat, s. 4");
+  });
+
+  it("avviker: visar värdet vi använder och avvikelsen på en egen rad", () => {
+    const m = byggarMarkor(
+      rad({
+        status: "avviker",
+        anvandare: 1962,
+        rapport: 1974,
+        anvant: 1974,
+        ref: { page: 3 },
+      }),
+      1962,
     );
-    expect(formatDrivareLabel({ label: "Ingen hiss", niva: "stad" }, "Södermalm")).toBe(
-      "Ingen hiss",
+    expect(m.varde).toBe("1974");
+    expect(m.markor?.ton).toBe("warning");
+    expect(m.rad).toBe("Årsredovisningen: 1974 (du angav 1962) · s. 3");
+    expect(m.pdfNotis).toBe("årsredovisningen: 1974, du angav 1962, s. 3");
+  });
+
+  it("osäkert: behåller ditt år och visar radens text", () => {
+    const m = byggarMarkor(rad({ status: "osakert", anvandare: 1962, rapport: 1958 }), 1962);
+    expect(m.varde).toBe("1962");
+    expect(m.rad).toBe("TEXT");
+    expect(m.markor?.text).toBe("Osäkert");
+  });
+
+  it("endast_rapport: årsredovisningens år med markören 'Från årsredovisningen'", () => {
+    const m = byggarMarkor(
+      rad({ status: "endast_rapport", rapport: 1958, anvant: 1958 }),
+      undefined,
     );
+    expect(m.varde).toBe("1958");
+    expect(m.markor).toEqual({ ton: "teal", text: "Från årsredovisningen" });
+  });
+
+  it("endast_rapport som vi inte använder: Okänt med en varning", () => {
+    const m = byggarMarkor(
+      rad({ status: "endast_rapport", rapport: 1958, anvant: null }),
+      undefined,
+    );
+    expect(m.varde).toBe("Okänt");
+    expect(m.markor?.ton).toBe("warning");
+    expect(m.rad).toBe("TEXT");
+  });
+
+  it("manuellt: ingen markör", () => {
+    expect(byggarMarkor(rad({ status: "manuellt", anvandare: 1962 }), 1962)).toEqual({
+      varde: "1962",
+    });
   });
 });
 

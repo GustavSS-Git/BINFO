@@ -27,10 +27,13 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
     expect(vm.rantestress.prognosTabell?.rader[1]?.forandring).toBe("+500");
   });
 
-  it("tar med jämförelserader och sammanfattning sist", () => {
-    expect(vm.jamforelse).toHaveLength(2);
-    expect(vm.jamforelse[0]?.statusLabel).toBe("Avviker");
-    expect(vm.jamforelse[0]?.pageRef).toBe("s. 3");
+  it("noterar byggårets avvikelse i sammanfattningen, utan egen jämförelsesektion", () => {
+    expect(vm).not.toHaveProperty("jamforelse");
+    const byggar = vm.summary.find((r) => r.label === "Byggår");
+    expect(byggar?.value).toBe("1958 (årsredovisningen: 1958, du angav 1962, s. 3)");
+  });
+
+  it("tar med sammanfattningen sist", () => {
     expect(vm.sammanfattning?.stycken).toEqual(["SUMBETYG", "SUMPRIS", "SUMAVGIFT", "SUMSLUTSATS"]);
   });
 
@@ -38,7 +41,9 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
     const gammal = buildPdfViewModel(analysUtanPrognos());
     expect(gammal.prisanalys.justeradVardering).toBeUndefined();
     expect(gammal.rantestress.prognosTabell).toBeUndefined();
-    expect(gammal.jamforelse).toEqual([]);
+    expect(gammal.summary.find((r) => r.label === "Byggår")?.value).toBe(
+      String(sampleAnalysis.input.byggar),
+    );
     expect(gammal.sammanfattning).toBeUndefined();
     expect(gammal.rakning?.prognos).toBeUndefined();
   });

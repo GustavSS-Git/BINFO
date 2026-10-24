@@ -35,10 +35,10 @@ describe("Prisrimlighet — delad av rapporten och priskollen på /analysera", (
     expect(html).toContain("5 681 607 kr");
   });
 
-  it("behåller de ägardolda elementen dolda (leverantör, spann, drivarnas förbehåll)", () => {
+  it("behåller de ägardolda elementen dolda (leverantör och spann)", () => {
     const html = renderToStaticMarkup(<Prisrimlighet prisanalys={sampleAnalysis.prisanalys} />);
     const dolda = html.match(/<(p|div) class="hidden[^"]*">/g) ?? [];
-    expect(dolda.length).toBe(3);
+    expect(dolda.length).toBe(2);
   });
 
   it("visar skuldraden separat, med sidhänvisning, bara när den skickas in", () => {

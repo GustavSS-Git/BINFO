@@ -33,7 +33,6 @@ describe("AnalysPdfDocument — avgiftsprognos", () => {
   it("innehåller de nya sektionerna", () => {
     for (const t of [
       "Så har vi räknat",
-      "Dina uppgifter mot årsredovisningen",
       "Justerat för väntad avgiftshöjning",
       "Sammanfattning",
       "SUMSLUTSATS",
@@ -41,5 +40,10 @@ describe("AnalysPdfDocument — avgiftsprognos", () => {
     ]) {
       expect(text).toContain(t);
     }
+    expect(text).not.toContain("Dina uppgifter mot årsredovisningen");
+  });
+
+  it("noterar byggårets avvikelse vid Byggår i sammanfattningen", () => {
+    expect(text.replace(/\s+/g, " ")).toContain("årsredovisningen: 1958, du angav 1962, s. 3");
   });
 });

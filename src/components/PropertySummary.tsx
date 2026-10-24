@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { Card, Badge } from "@/components/ui/binfo";
 import { kr } from "@/data/mockData";
-import { formatSkapadDatum } from "@/lib/analysisView";
-import type { PropertyInput } from "@/types/analysis";
+import { byggarMarkor, formatSkapadDatum } from "@/lib/analysisView";
+import type { Faltjamforelse, PropertyInput } from "@/types/analysis";
 
 /**
  * Liten sammanfattning av objektet — visas överst på rapportskärmar. Kräver
@@ -13,19 +14,37 @@ export function PropertySummary({
   input,
   foreningNamn,
   skapad,
+  byggarJamforelse,
 }: {
   input: PropertyInput;
   foreningNamn: string;
   skapad: string;
+  /** Raden `falt === "byggar"` ur `uppgiftsjamforelse`; saknas på äldre resultat. */
+  byggarJamforelse?: Faltjamforelse | undefined;
 }) {
-  const rows = [
+  const byggar = byggarMarkor(byggarJamforelse, input.byggar);
+  const rows: Array<[string, ReactNode]> = [
     // Utgångspriset är valfritt: raden utelämnas helt när det saknas.
-    ...(input.utgangspris !== undefined ? [["Utgångspris", kr(input.utgangspris)]] : []),
+    ...(input.utgangspris !== undefined
+      ? [["Utgångspris", kr(input.utgangspris)] as [string, ReactNode]]
+      : []),
     ["Boarea", `${input.boarea.toFixed(1).replace(".", ",")} m²`],
     ["Månadsavgift", `${kr(input.manadsavgift)}/mån`],
     // Kontraktet har ingen "våning X av N" — bara en enskild våning, om känd.
     ["Våning", input.vaning !== undefined ? String(input.vaning) : "Okänt"],
-    ["Byggår", input.byggar !== undefined ? String(input.byggar) : "Okänt"],
+    [
+      "Byggår",
+      <>
+        <span title={byggar.forklaring} className="inline-flex flex-wrap items-center gap-2">
+          {byggar.varde}
+          {byggar.markor ? <Badge tone={byggar.markor.ton}>{byggar.markor.text}</Badge> : null}
+          {byggar.forklaring ? <span className="sr-only">{byggar.forklaring}</span> : null}
+        </span>
+        {byggar.rad ? (
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">{byggar.rad}</span>
+        ) : null}
+      </>,
+    ],
   ];
   return (
     <Card className="mb-8">

@@ -43,7 +43,7 @@ Status: **DONE 2026-10-24, committed on `main`, not pushed, not deployed.** API 
 3. Review the placeholder assumptions in `src/lib/analysis/calc/prognosantaganden.ts` (50 %,
    10 years, 50 % lokal rent, 3 % widening, 30 % guard, 18-month staleness).
 4. Lovable polish: "Så har vi räknat" layout, component rows, the fee table (narrow screens),
-   "Dina uppgifter mot årsredovisningen" badges, the "Sammanfattning" card, the second price row,
+   the Byggår badge in the summary card (smaller badge or icon; full-width PDF cell), the "Sammanfattning" card, the second price row,
    the PDF sections.
 5. Optional: a deterministic re-run of grounding when all seven nyckeltal come back null on a
    text report (the drop-out was seen twice on intermediate wordings, 0/3 on the shipped one).

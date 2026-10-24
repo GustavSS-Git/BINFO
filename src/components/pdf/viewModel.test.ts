@@ -38,12 +38,12 @@ describe("buildPdfViewModel — sample analysis", () => {
     expect(vm.prisanalys.externVardering?.leverantor).toContain("Binfo värderingsmodell");
   });
 
-  it("carries Binfos värderingsunderlag (task 4g) — område, intervall, drivare, databasis, attribution", () => {
+  it("carries Binfos värderingsunderlag (task 4g) — område, intervall, databasis, attribution", () => {
     expect(vm.prisanalys.varderingsunderlag).toBeDefined();
     const u = vm.prisanalys.varderingsunderlag;
     expect(u?.omradeText).toContain("Kungsholmen");
     expect(u?.intervallText).toMatch(/Sannolikt mellan/);
-    expect(u?.drivare.length).toBeGreaterThan(0);
+    expect(u).not.toHaveProperty("drivare");
     expect(u?.metadataText).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
     expect(u?.kallaText).toContain("Svensk Mäklarstatistik");
     expect(u?.kallaText).toContain("januari–augusti 2026");

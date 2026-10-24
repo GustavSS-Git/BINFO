@@ -20,14 +20,14 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     expect(html).not.toContain("(jämfört per m²)");
   });
 
-  it("behåller exakt tre dolda element", () => {
+  it("behåller exakt två dolda element (värderingsleverantören och intervallet)", () => {
     const html = renderToStaticMarkup(
       <Prisrimlighet
         prisanalys={analysMedPrognos().prisanalys}
         avgiftsprognos={analysMedPrognos().avgiftsprognos}
       />,
     );
-    expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(3);
+    expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(2);
   });
 
   it("har 'Så har vi räknat' hopfälld, med faktorlistan och källan inuti", () => {
@@ -38,7 +38,8 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     expect(detaljer?.[0]).not.toMatch(/\sopen/);
     const slut = html.indexOf("</details>", i);
     const inne = html.slice(i, slut);
-    expect(inne).toContain("Exempel på faktorer som påverkar värderingen utöver område:");
+    expect(inne).not.toContain("Exempel på faktorer som påverkar värderingen utöver område:");
+    expect(inne).toContain("Månadsavgift: högre avgift drar ner priset.");
     expect(inne).toContain("Modellen är tränad på");
     expect(html.split("Modellen är tränad på").length - 1).toBe(1);
   });
@@ -71,14 +72,13 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     expect(html).toContain("+500");
   });
 
-  it("visar jämförelseraderna direkt efter objektsammanfattningen", () => {
+  it("visar byggårets avvikelse i objektsammanfattningen, inte som egen sektion", () => {
     const html = rita();
-    expect(html).toContain("Dina uppgifter mot årsredovisningen");
-    expect(html).toContain("Du angav 1962, årsredovisningen anger 1958, vi använder 1958.");
+    expect(html).not.toContain("Dina uppgifter mot årsredovisningen");
+    expect(html).not.toContain("Ej i årsredovisningen");
+    expect(html).toContain("Årsredovisningen: 1958 (du angav 1962)");
     expect(html).toContain("Avviker");
-    expect(html).toContain("Ej i årsredovisningen");
-    expect(html).toContain("s. 3");
-    expect(html.indexOf("Dina uppgifter mot")).toBeLessThan(html.indexOf("Sammanvägt riskbetyg"));
+    expect(html.indexOf("Avviker")).toBeLessThan(html.indexOf("Sammanvägt riskbetyg"));
   });
 
   it("lägger sammanfattningen efter Frågor och före knapparna", () => {
@@ -94,7 +94,6 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     for (const t of [
       "Binfos värdering (modell)",
       "Justerat för väntad",
-      "Dina uppgifter mot",
       "Sammanfattning",
       "Väntad avgiftsutveckling",
     ]) {

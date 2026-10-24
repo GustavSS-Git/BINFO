@@ -12,7 +12,6 @@ import {
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
-  formatDrivareLabel,
   formatBudpremieText,
   andelAvSkuldRad,
   arSkannad,
@@ -24,14 +23,11 @@ import {
   SKANNAD_NOTIS,
   toppRodaFlaggor,
   type AndelAvSkuldRad,
-  VARDERINGSDRIVARE_CAVEAT,
   antagenAndelText,
   avgiftsprognosRubrik,
   avvikelseJusteradText,
   ENERGI_TEXT,
   formatForandringKr,
-  JAMFORELSE_RUBRIK,
-  JAMFORELSE_STATUS_LABEL,
   komponentRader,
   prisEffektTexter,
   PRISEFFEKT_CAVEAT,
@@ -47,7 +43,6 @@ import type {
   AnalysisResult,
   Avgiftsprognos,
   FeeInclusion,
-  Faltjamforelse,
   Figure,
   Fraga,
   PrisanalysUtanForening,
@@ -123,9 +118,8 @@ export function AnalysRapport({
         input={analys.input}
         foreningNamn={analys.forening.namn}
         skapad={analys.skapad}
+        byggarJamforelse={analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar")}
       />
-
-      <Uppgiftsjamforelse rader={analys.uppgiftsjamforelse} />
 
       <Betygskort betyg={analys.betyg} motivering={analys.betygMotivering} />
 
@@ -660,35 +654,6 @@ export function Prisrimlighet({
                     <li key={f}>{f}</li>
                   ))}
                 </ul>
-                {u.drivare.length > 0 ? (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Exempel på faktorer som påverkar värderingen utöver område:
-                    </p>
-                    <ul className="mt-1 space-y-1 text-sm text-foreground">
-                      {u.drivare.map((d) => (
-                        <li key={d.label} className="flex items-center justify-between gap-2">
-                          <span>{formatDrivareLabel(d, u.omrade)}</span>
-                          <span className={d.effektProcent >= 0 ? "text-success" : "text-danger"}>
-                            {d.effektProcent >= 0 ? "+" : ""}
-                            {d.effektProcent.toLocaleString("sv-SE", {
-                              maximumFractionDigits: 1,
-                            })}{" "}
-                            %
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {/* Driveförklaringens förbehållsrad är dold på ägarbegäran
-                      2026-10-08. Texten ligger kvar i VARDERINGSDRIVARE_CAVEAT
-                      (och i PDF-exporten) och tas fram genom ta bort div:en. */}
-                    <div className="hidden">
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {VARDERINGSDRIVARE_CAVEAT}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
                 <p className="text-xs text-muted-foreground">{varderingsKallaText(u.dataperiod)}</p>
               </div>
             ) : null}
@@ -767,48 +732,6 @@ function RaknaPrognos({
         </div>
       ) : null}
     </>
-  );
-}
-
-const JAMFORELSE_TON: Record<Faltjamforelse["status"], "teal" | "warning" | "neutral" | "success"> =
-  {
-    bekraftat: "success",
-    avviker: "warning",
-    manuellt: "neutral",
-    osakert: "warning",
-    endast_rapport: "teal",
-  };
-
-/** "Dina uppgifter mot årsredovisningen" — köparens fält mot det rapporten anger. */
-function Uppgiftsjamforelse({ rader }: { rader: Faltjamforelse[] | undefined }) {
-  if (!rader || rader.length === 0) return null;
-  return (
-    <section className="mb-6">
-      <SectionTitle>{JAMFORELSE_RUBRIK}</SectionTitle>
-      <Card>
-        <ul className="divide-y divide-border">
-          {rader.map((r) => (
-            <li
-              key={r.falt}
-              className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="max-w-xl">
-                <p className="text-sm font-medium text-foreground">{r.label}</p>
-                <p className="text-sm text-muted-foreground">{r.text}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {r.ref ? (
-                  <span title={r.ref.excerpt}>
-                    <Tag>s. {r.ref.page}</Tag>
-                  </span>
-                ) : null}
-                <Badge tone={JAMFORELSE_TON[r.status]}>{JAMFORELSE_STATUS_LABEL[r.status]}</Badge>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </section>
   );
 }
 

@@ -42,11 +42,11 @@ describe("Prisrimlighet — källtext och rubrik", () => {
     expect(html.split(KALLA).length - 1).toBe(1);
   });
 
-  it("visar rubriken utan versaler", () => {
-    expect(html).toContain(RUBRIK);
-    const m = html.match(new RegExp(`<p class="([^"]*)">\\s*${RUBRIK}`));
-    expect(m).not.toBeNull();
-    expect(m?.[1]).not.toContain("uppercase");
+  it("visar inte längre listan med värderingsfaktorer och procentsatser", () => {
+    expect(html).not.toContain(RUBRIK);
+    expect(html).not.toContain("Ett rum till");
+    expect(html).not.toContain("En våning högre");
+    expect(html).not.toContain("genomsnittliga effekter");
   });
 
   it("visar inga av de borttagna texterna", () => {
