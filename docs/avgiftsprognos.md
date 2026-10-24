@@ -40,16 +40,16 @@ A loan counts as variable when the report labels it "rörlig", or its villkorsä
 3 months of the balance-sheet date (the reports almost never label the type; a 3-month variable
 loan resets quarterly). Rate − SSVX 3M on the balance-sheet date.
 
-| BRF (balance date) | Loan (rate, reset date) | SSVX | Margin (pp) |
-|---|---|---|---|
-| Volontären 12 (2023-12-31) | 4.85 % 2024-01-02 | 3.984 | 0.87 |
-| | 5.70 % 2024-03-07 | 3.984 | 1.72 |
-| | 5.05 % 2024-03-01 | 3.984 | 1.07 |
-| Beckasinen 14 (2024-12-31) | 3.54 % 2025-01-20 | 2.422 | 1.12 |
-| Helsingborgshus 17 (2025-08-31) | 2.61 % 2025-09-28 | 2.026 | 0.58 |
-| Torsborgen 3 (2025-12-31) | 2.43 % 2026-01-28 | 1.948 | 0.48 |
-| | 2.32 % 2026-03-28 | 1.948 | 0.37 |
-| Pontonjären 3 (2025-12-31) | 2.53 % 2026-03-28 | 1.948 | 0.58 |
+| BRF (balance date)              | Loan (rate, reset date) | SSVX  | Margin (pp) |
+| ------------------------------- | ----------------------- | ----- | ----------- |
+| Volontären 12 (2023-12-31)      | 4.85 % 2024-01-02       | 3.984 | 0.87        |
+|                                 | 5.70 % 2024-03-07       | 3.984 | 1.72        |
+|                                 | 5.05 % 2024-03-01       | 3.984 | 1.07        |
+| Beckasinen 14 (2024-12-31)      | 3.54 % 2025-01-20       | 2.422 | 1.12        |
+| Helsingborgshus 17 (2025-08-31) | 2.61 % 2025-09-28       | 2.026 | 0.58        |
+| Torsborgen 3 (2025-12-31)       | 2.43 % 2026-01-28       | 1.948 | 0.48        |
+|                                 | 2.32 % 2026-03-28       | 1.948 | 0.37        |
+| Pontonjären 3 (2025-12-31)      | 2.53 % 2026-03-28       | 1.948 | 0.58        |
 
 - Per loan: median 0.73. Per BRF (median of each BRF's loans): 1.07, 1.12, 0.58, 0.425, 0.58 →
   **median 0.58 pp = the default**. 2025 loans alone: 0.37–0.58.
@@ -69,7 +69,12 @@ kr/month for the flat = BRF kr/year × andel ÷ 12.
 2. **Refinansiering**: Σ belopp × (new − current) ÷ 100 over loans repricing within the horizon
    (reset date ≤ today + horizon, incl. dates already passed since the balance date; rörlig loans
    always). Current rate: the loan's, else snittränta, else räntekostnader ÷ total debt. New = SSVX
-   + margin. No maturities: 50 % of debt (range 0–100 %). Can be negative.
+   - margin. No maturities: 50 % of debt (range 0–100 %). The same 50 % (and
+     range) applies to undated loan rows and to debt the rows don't cover (> 2 %).
+     Can be negative: refinancing at a lower rate lowers the fee and raises the
+     price. A report whose balance date is more than 18 months old is not used
+     for this component (its loans have most likely been refinanced already):
+     `saknar_underlag`, wider range, no price effect.
 3. **Underhåll**: planned costs in the window not financed by loan/fund/decision, minus the fund
    balance, minus planned yearly savings × years; positive remainder ÷ 10 years.
 4. **Lokaler**: rent of leases ending within the horizon × 50 %.

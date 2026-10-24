@@ -37,6 +37,7 @@ import {
   DAG_FOR_FORFALLOAR,
   HORISONT_MANADER,
   LOKALHYRA_RISKANDEL,
+  MAX_RAPPORTALDER_MANADER,
   MAX_RIMLIG_HOJNING_ANDEL,
   REFINANSIERINGSANDEL_UTAN_FORFALL,
   UNDERHALL_FORDELNING_AR,
@@ -278,8 +279,9 @@ interface RefinResultat {
   komponent: AvgiftsKomponent;
   omsattningsbarSkuld: number | null;
   underlag?: Refinansieringsunderlag;
-  /** Annual association cost with the full debt repricing (assumed case only). */
-  helSkuldKrPerAr?: number;
+  /** Assumed case only: the component's annual association cost when 0 % and
+   *  100 % of the debt with unknown timing reprices (for the price range). */
+  spannKrPerAr?: { noll: number; hel: number };
   antagen: boolean;
 }
 
@@ -327,6 +329,29 @@ function refinansiering(
         totalSkuldFigur?.ref,
       ),
       omsattningsbarSkuld: 0,
+      antagen: false,
+    };
+  }
+
+  // A stale report: its loans have most likely been refinanced already.
+  const balansdag = forening.balansdag ?? `${forening.rakenskapsar}-12-31`;
+  if (laggTillManader(balansdag, MAX_RAPPORTALDER_MANADER) < input.idag) {
+    return {
+      komponent: komponent(
+        {
+          id: "refinansiering",
+          label,
+          status: "saknar_underlag",
+          foreningKrPerAr: null,
+          forklaring:
+            `Årsredovisningen gäller räkenskapsåret som slutade ${balansdag}, mer än ` +
+            `${MAX_RAPPORTALDER_MANADER} månader sedan. Lånen har troligen redan omsatts, så vi ` +
+            "räknar inte på omsättningen utifrån den.",
+        },
+        andel,
+        totalSkuldFigur?.ref,
+      ),
+      omsattningsbarSkuld: null,
       antagen: false,
     };
   }
@@ -396,15 +421,25 @@ function refinansiering(
       ),
       omsattningsbarSkuld: belopp,
       underlag,
-      helSkuldKrPerAr: avrunda(helPerAr),
+      spannKrPerAr: { noll: 0, hel: avrunda(helPerAr) },
       antagen: true,
     };
   }
 
   const omsatts = lan.filter((l) => l.rorlig || (l.dag !== undefined && l.dag <= horisontSlut));
-  const belopp = omsatts.reduce((s, l) => s + l.belopp, 0);
+  // Debt whose timing is unknown: undated (non-rörlig) loan rows plus any part
+  // of the total debt the rows don't cover (beyond a 2 % rounding tolerance).
+  // The same assumption as when no maturities exist applies to it.
+  const odaterat = lan
+    .filter((l) => !l.rorlig && l.dag === undefined)
+    .reduce((s, l) => s + l.belopp, 0);
+  const lanSumma = lan.reduce((s, l) => s + l.belopp, 0);
+  const otackt = totalSkuld - lanSumma > totalSkuld * 0.02 ? totalSkuld - lanSumma : 0;
+  const okandTid = odaterat + otackt;
+  const okandAntagen = avrunda(okandTid * REFINANSIERINGSANDEL_UTAN_FORFALL);
+  const belopp = omsatts.reduce((s, l) => s + l.belopp, 0) + okandAntagen;
   const ref = omsatts.find((l) => l.ref)?.ref ?? totalSkuldFigur?.ref;
-  if (omsatts.length === 0) {
+  if (omsatts.length === 0 && okandTid === 0) {
     return {
       komponent: komponent(
         {
@@ -421,10 +456,14 @@ function refinansiering(
       antagen: false,
     };
   }
-  const saknarRanta = omsatts.some((l) => (l.ranta ?? allmanRanta) === null);
+  const saknarRanta =
+    omsatts.some((l) => (l.ranta ?? allmanRanta) === null) ||
+    (okandTid > 0 && allmanRanta === null);
   const viktadNuvarande = saknarRanta
     ? null
-    : omsatts.reduce((s, l) => s + l.belopp * (l.ranta ?? (allmanRanta as number)), 0) / belopp;
+    : (omsatts.reduce((s, l) => s + l.belopp * (l.ranta ?? (allmanRanta as number)), 0) +
+        okandAntagen * (allmanRanta ?? 0)) /
+      belopp;
   const underlag: Refinansieringsunderlag = {
     forfallandeBelopp: belopp,
     nuvarandeRantaProcent:
@@ -432,6 +471,7 @@ function refinansiering(
     nyRantaProcent: Math.round(nyRanta * 1000) / 1000,
     referensranta,
     marginalProcent: BRF_MARGINAL_PROCENT,
+    ...(okandTid > 0 ? { antagenAndelProcent: REFINANSIERINGSANDEL_UTAN_FORFALL * 100 } : {}),
     antalLan: omsatts.length,
   };
   if (saknarRanta) {
@@ -452,11 +492,17 @@ function refinansiering(
       antagen: false,
     };
   }
-  const perArExakt = omsatts.reduce(
+  const datadPerAr = omsatts.reduce(
     (s, l) => s + (l.belopp * (nyRanta - (l.ranta ?? (allmanRanta as number)))) / 100,
     0,
   );
-  const perAr = avrunda(perArExakt);
+  const okandHelPerAr = okandTid > 0 ? (okandTid * (nyRanta - (allmanRanta as number))) / 100 : 0;
+  const perAr = avrunda(datadPerAr + okandHelPerAr * REFINANSIERINGSANDEL_UTAN_FORFALL);
+  const okandText =
+    okandTid > 0
+      ? ` För ${kr(okandTid)} kr av skulden anger årsredovisningen inte när lånen omsätts; där har vi ` +
+        `antagit att ${pct(REFINANSIERINGSANDEL_UTAN_FORFALL * 100)} % omsätts inom horisonten.`
+      : "";
   return {
     komponent: komponent(
       {
@@ -468,14 +514,18 @@ function refinansiering(
           `${kr(belopp)} kr av lånen ska omsättas inom ${HORISONT_MANADER} månader. ` +
           `Räntan går från i snitt ${pct(underlag.nuvarandeRantaProcent as number)} % till ${pct(nyRanta)} % ` +
           `(${referensranta.namn} ${pct(referensranta.procent)} % plus ${pct(BRF_MARGINAL_PROCENT)} procentenheter), ` +
-          `vilket ${perAr < 0 ? "sänker" : "höjer"} föreningens kostnad med cirka ${kr(perAr)} kr per år.`,
+          `vilket ${perAr < 0 ? "sänker" : "höjer"} föreningens kostnad med cirka ${kr(perAr)} kr per år.` +
+          okandText,
       },
       andel,
       ref,
     ),
     omsattningsbarSkuld: belopp,
     underlag,
-    antagen: false,
+    antagen: okandTid > 0,
+    ...(okandTid > 0
+      ? { spannKrPerAr: { noll: avrunda(datadPerAr), hel: avrunda(datadPerAr + okandHelPerAr) } }
+      : {}),
   };
 }
 
@@ -719,14 +769,14 @@ export function beraknaAvgiftsprognos(input: AvgiftsprognosInput): Avgiftsprogno
   let totalSpannVidAntagande: { lag: number; hog: number } | undefined;
   if (
     refin.antagen &&
-    refin.helSkuldKrPerAr !== undefined &&
+    refin.spannKrPerAr !== undefined &&
     refin.komponent.status === "beraknad" &&
     total !== null &&
     andel !== null
   ) {
     const utanRefin = total - (refin.komponent.krPerManad ?? 0);
-    const noll = utanRefin;
-    const hel = utanRefin + avrunda((refin.helSkuldKrPerAr * andel) / 12);
+    const noll = utanRefin + avrunda((refin.spannKrPerAr.noll * andel) / 12);
+    const hel = utanRefin + avrunda((refin.spannKrPerAr.hel * andel) / 12);
     totalSpannVidAntagande = { lag: Math.min(noll, hel), hog: Math.max(noll, hel) };
   }
 

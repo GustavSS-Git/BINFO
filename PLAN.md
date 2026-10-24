@@ -10,7 +10,43 @@ Earlier plans (done, kept for history): the UI copy + new `/exempel` plan furthe
 
 # Plan: report → price through the expected fee rise (round 2026-10-24b)
 
-Status: **IN PROGRESS (approved 2026-10-24).**
+Status: **DONE 2026-10-24, committed on `main`, not pushed, not deployed.** API spend this round:
+54.28 kr of 60 (rows 109–114 in `docs/api-test-log.md`).
+
+## Result (2026-10-24)
+
+- **Done:** T0–T7. Contract (optional fields), extraction v9 (per-loan rows, räntekostnader,
+  maintenance amounts, lokaler, energy, balansdag, brf-yta), fee prognosis + price adjustment +
+  fee table + report-vs-input comparison + closing summary on every read, Riksbank reference
+  rate with a daily cache (migration `20261025120000_referensranta.sql`), UI + PDF, new `/exempel`
+  snapshot from a real v9 run.
+- **Checks:** typecheck 0; 136 files / 2824 tests pass; build OK; lint: 0 errors in this round's
+  files (14 prettier errors remain in Lovable-edited files outside the diff: `AnalysStatus.tsx`,
+  `SparadKalkylExport.tsx`, `ui/*`, `routes/index.tsx` — fix with `npx eslint --fix` when Lovable
+  is idle); `npm run dev`: `/exempel`, `/analysera`, `/forhandsvisning/<id>` 200, "Så har vi
+  räknat" collapsed in SSR.
+- **Paid verification:** nyckeltal 144/159 on the first v9 wording (Granen dropped all 7: the
+  longer grounding prompt skipped the flerårsöversikt; Albohem later the same). Fix: nyckeltal
+  FIRST in the grounding prompt. Shipped wording: Albohem 24/24 ×2, Granen 27/27; loans 42/42 +
+  19/19 + 10/10 on the UTKAST loan keys; Helsingborgshus 10/10 loans exactly.
+- **Review** (independent agent): 0 critical; fixed: stale reports (> 18 months) no longer price
+  refinancing, undated/uncovered debt gets the 50 % assumption + range, byggår filters tightened
+  (false positives), Riksbank back-off after a failed fetch, the uncertain-byggår alternative
+  price now carries the fee adjustment.
+
+## Left for the owner
+
+1. **Deploy together** (PROMPT_VERSION 9): `db push` (`20261024120000_annons.sql` if not yet,
+   then `20261025120000_referensranta.sql`), `deploy:edge`, Lovable publish. Existing register
+   reports are served as "older version" with year-only maturities until re-uploaded.
+2. Verify the loan answer keys (`fixtures/answer-key-lan/*.json`, all `UTKAST`).
+3. Review the placeholder assumptions in `src/lib/analysis/calc/prognosantaganden.ts` (50 %,
+   10 years, 50 % lokal rent, 3 % widening, 30 % guard, 18-month staleness).
+4. Lovable polish: "Så har vi räknat" layout, component rows, the fee table (narrow screens),
+   "Dina uppgifter mot årsredovisningen" badges, the "Sammanfattning" card, the second price row,
+   the PDF sections.
+5. Optional: a deterministic re-run of grounding when all seven nyckeltal come back null on a
+   text report (the drop-out was seen twice on intermediate wordings, 0/3 on the shipped one).
 Budget: max 60 kr API. No deploy without the owner's OK. One commit per task.
 
 ## Context

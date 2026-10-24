@@ -21,3 +21,28 @@ describe("byggår-missing text filter", () => {
     expect(fragarBaraOmByggar({ fraga: "När planeras takrenoveringen?" })).toBe(false);
   });
 });
+
+describe("byggår filter false positives (review 2026-10-24)", () => {
+  it.each([
+    "Byggår 1965 anges, men energideklaration saknas.",
+    "Byggåret är okänt för garaget men framgår för huset 1931.",
+  ])("keeps skäl line: %s", (t) => expect(sagerAttByggarSaknas(t)).toBe(false));
+
+  it.each([
+    "Uppgift om byggår saknas.",
+    "Byggår och energiklass saknas.",
+    "Det saknas uppgift om byggår.",
+  ])("drops skäl line: %s", (t) => expect(sagerAttByggarSaknas(t)).toBe(true));
+
+  it.each([
+    "Vilka större underhåll har gjorts sedan byggåret?",
+    "Hur påverkar byggåret kommande avgiftshöjningar?",
+    "Varför saknas uppgift om byggår, och vilka stammar har bytts?",
+  ])("keeps question: %s", (fraga) => expect(fragarBaraOmByggar({ fraga })).toBe(false));
+
+  it.each([
+    "Vilket år byggdes huset?",
+    "När uppfördes byggnaden?",
+    "Kan styrelsen bekräfta byggåret?",
+  ])("drops question: %s", (fraga) => expect(fragarBaraOmByggar({ fraga })).toBe(true));
+});

@@ -27,6 +27,7 @@ import { reservReferensranta } from "./calc/prognosantaganden";
 import { byggPrisjustering } from "./prisjustering";
 import { jamforUppgifter } from "./uppgiftsjamforelse";
 import { byggSammanfattning } from "./sammanfattning";
+import { sagerAttByggarSaknas } from "./tolkaVarde";
 import {
   konfidensUtanPrisdata,
   konfidensUtanPostnummer,
@@ -253,30 +254,15 @@ export function osakerhetsfragor(forening: Forening, befintliga: readonly Fraga[
   return fragor;
 }
 
-/**
- * Model-written text that says byggår is missing. The extraction and the
- * judging never see the buyer's input, so they can write "byggår saknas" even
- * when the buyer typed it (or, for the judging, when only the report lacks
- * it). Matched per sentence/line: a byggår word and a "missing" phrase in the
- * same sentence.
- */
-const BYGGAR_ORD = /bygg(?:nads)?år|byggnadsåret|byggåret|uppförandeår/i;
-const SAKNAS_ORD =
-  /saknas|framgår inte|anges inte|inte anges|inte angivet|ej angivet|okänt|uppges inte|redovisas inte/i;
+export { sagerAttByggarSaknas };
 
-export function sagerAttByggarSaknas(text: string): boolean {
-  return text
-    .split(/(?<=[.!?])\s+|\n/)
-    .some((mening) => BYGGAR_ORD.test(mening) && SAKNAS_ORD.test(mening));
-}
-
-/** A question that only asks which year the house was built. */
-const FRAGAR_OM_BYGGAR =
-  /(vilket år|när)\b[^?]*\b(byggdes|uppfördes|är huset byggt|byggt)\b|\bbyggår(et)?\b/i;
-const ANNAT_AMNE = /\b(om|stam|stammar|renover|tak|fasad|fönster|hiss)\w*/i;
+/** A question that ONLY asks which year the house was built (or asks to
+ *  confirm the year) — nothing else. Anything longer is kept. */
+const FRAGAR_BARA_OM_BYGGAR =
+  /^\s*(?:(?:vilket år|när)\s+(?:byggdes|uppfördes)\s+(?:huset|husen|byggnaden|byggnaderna|fastigheten)|(?:kan\s+\S+\s+)?(?:bekräfta|uppge|ange)\s+(?:vilket\s+)?(?:byggår(?:et)?|byggnadsår(?:et)?))\s*\??\s*$/i;
 
 export function fragarBaraOmByggar(fraga: Pick<Fraga, "fraga">): boolean {
-  return FRAGAR_OM_BYGGAR.test(fraga.fraga) && !ANNAT_AMNE.test(fraga.fraga);
+  return FRAGAR_BARA_OM_BYGGAR.test(fraga.fraga);
 }
 
 // ---------------------------------------------------------------------------

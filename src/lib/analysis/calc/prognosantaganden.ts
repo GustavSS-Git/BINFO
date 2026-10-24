@@ -33,6 +33,13 @@ export const BREDDNING_PER_SAKNAT_UNDERLAG = 0.03;
 // TODO: unverified placeholder (product guard, 2026-10-24)
 export const MAX_RIMLIG_HOJNING_ANDEL = 0.3;
 
+/** A report whose balance date is older than this, counted from the read, is
+ *  too stale to price refinancing from: its loans have most likely been
+ *  refinanced already and the fee adjusted. The component then counts as
+ *  missing data (wider range, no effect on the price). */
+// TODO: unverified placeholder (review 2026-10-24)
+export const MAX_RAPPORTALDER_MANADER = 18;
+
 /** A loan whose reset date is at most this many months after the balance
  *  date counts as variable-rate when the report doesn't say (a 3-month
  *  variable loan resets quarterly). Used for the margin in step zero and for

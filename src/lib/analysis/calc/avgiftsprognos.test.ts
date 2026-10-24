@@ -223,14 +223,41 @@ describe("refinansiering", () => {
     const k = komp(med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2026-05-01")])), "refinansiering");
     expect(k.foreningKrPerAr).toBe(6480);
   });
-  it("horizon edge: 2028-10-24 is in, 2028-10-25 is out (a non-dated loan is ignored too)", () => {
+  it("horizon edge: 2028-10-24 is in, 2028-10-25 is out", () => {
     const i = komp(med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2028-10-24")])), "refinansiering");
     expect(i.foreningKrPerAr).toBe(6480);
-    const u = med(
-      lanebok(2_000_000, [lan(1_000_000, 2.0, "2028-10-25"), lan(1_000_000, 2.0, undefined)]),
-    );
+    const u = med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2028-10-25")]));
     expect(komp(u, "refinansiering")).toMatchObject({ status: "beraknad", foreningKrPerAr: 0 });
     expect(u.omsattningsbarSkuld).toBe(0);
+  });
+  it("an undated loan among dated ones gets the 50 % assumption: 1 000 000 × 50 % × (2,648 − 2,0) % = 3 240; spann 0 / 6 480", () => {
+    const u = med(
+      lanebok(2_000_000, [lan(1_000_000, 2.0, "2028-10-25"), lan(1_000_000, 2.0, undefined)], {
+        snittranta: fig(2.0, { unit: "procent" }),
+      }),
+    );
+    expect(komp(u, "refinansiering")).toMatchObject({ status: "beraknad", foreningKrPerAr: 3240 });
+    expect(u.omsattningsbarSkuld).toBe(500_000);
+    expect(u.prognos.refinansiering?.antagenAndelProcent).toBe(50);
+    expect(u.totalSpannVidAntagande).toBeDefined();
+  });
+  it("debt the loan rows don't cover (> 2 %) gets the 50 % assumption too", () => {
+    // rows 1 000 000 (outside horizon), total 3 000 000 → 2 000 000 uncovered → 1 000 000 × 0,648 % = 6 480
+    const u = med(
+      lanebok(3_000_000, [lan(1_000_000, 2.0, "2029-12-01")], {
+        snittranta: fig(2.0, { unit: "procent" }),
+      }),
+    );
+    expect(komp(u, "refinansiering").foreningKrPerAr).toBe(6480);
+  });
+  it("a report older than 18 months (balansdag 2024-12-31, read 2026-10-24) → saknar_underlag", () => {
+    const r = med({
+      ...lanebok(1_000_000, [lan(1_000_000, 4.85, "2025-01-02")]),
+      rakenskapsar: 2024,
+      balansdag: "2024-12-31",
+    });
+    expect(komp(r, "refinansiering").status).toBe("saknar_underlag");
+    expect(r.antalSaknadeUnderlag).toBeGreaterThan(0);
   });
   it("debt-free (totalSkuld 0): beraknad 0", () => {
     const r = med(lanebok(0));

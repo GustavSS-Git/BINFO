@@ -94,13 +94,15 @@ export function byggPrisjustering(input: PrisjusteringInput): Resultat | null {
     high = Math.max(high, baseline.value - spann.lag * krPerKrManadExakt);
     breddat = true;
     skal.push(
-      "Årsredovisningen anger inte när lånen ska omsättas. Vi har antagit att hälften av skulden prissätts om, och spannet visar utfallet om ingen respektive hela skulden gör det.",
+      "Årsredovisningen anger inte när hela skulden ska omsättas. För den delen har vi antagit att hälften prissätts om inom horisonten, och spannet visar utfallet om ingen respektive allt av den gör det.",
     );
   }
 
   for (const a of alternativa) {
-    low = Math.min(low, a.pris);
-    high = Math.max(high, a.pris);
+    // The alternative valuation gets the same fee adjustment as the baseline.
+    const justerad = a.pris + belopp;
+    low = Math.min(low, justerad);
+    high = Math.max(high, justerad);
     breddat = true;
     skal.push(a.skal);
   }

@@ -392,12 +392,25 @@ export function synkaBostadsrattsyta(extraction: ExtractionResult): ExtractionRe
 /** A model note that the construction year is missing. It is shown to buyers who
  *  may have typed the year themselves, so it must not reach the confidence
  *  `skal` (saknadeFalt may still list it). */
-const BYGGAR_SAKNAS_SKAL =
-  /bygg(nads)?\s?år[^.]*\b(saknas|saknad|framgår inte|anges inte|uppges inte|ej angivet)/i;
+const BYGGAR = String.raw`bygg(?:nads)?\s?år(?:et)?|uppförandeår(?:et)?`;
+const SAKNAS = String.raw`saknas|saknad|framgår\s+inte|anges\s+inte|uppges\s+inte|redovisas\s+inte|ej\s+angivet|inte\s+angivet`;
+/** At most two (digit-free) words between the byggår word and the "missing"
+ *  phrase, in either order — "Byggår 1965 anges, men energideklaration saknas"
+ *  must NOT match. */
+const MELLAN = String.raw`(?:\s+[^\s\d.,;:!?]+){0,2}\s+`;
+const BYGGAR_SAKNAS = new RegExp(
+  `(?:\\b(?:${BYGGAR})${MELLAN}(?:${SAKNAS})\\b)|(?:\\b(?:${SAKNAS})(?:\\s+uppgift(?:er)?\\s+om)?${MELLAN}(?:${BYGGAR})\\b)`,
+  "i",
+);
+
+/** True when one sentence of `text` says the construction year is missing. */
+export function sagerAttByggarSaknas(text: string): boolean {
+  return text.split(/(?<=[.!?])\s+|\n/).some((mening) => BYGGAR_SAKNAS.test(mening));
+}
 
 export function rensaByggarSaknasSkal(konfidens: Konfidens): Konfidens {
   if (!konfidens.skal) return konfidens;
-  const kvar = konfidens.skal.filter((s) => !BYGGAR_SAKNAS_SKAL.test(s));
+  const kvar = konfidens.skal.filter((s) => !sagerAttByggarSaknas(s));
   if (kvar.length === konfidens.skal.length) return konfidens;
   return kvar.length === 0 ? { niva: konfidens.niva } : { niva: konfidens.niva, skal: kvar };
 }

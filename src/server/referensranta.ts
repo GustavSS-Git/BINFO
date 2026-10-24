@@ -49,6 +49,14 @@ function tillReferensranta(datum: string, procent: number, reserv: boolean): Ref
 
 export { reservReferensranta };
 
+const MISSLYCKAD_PAUS_MS = 5 * 60 * 1000;
+let senastMisslyckadMs = Number.NEGATIVE_INFINITY;
+
+/** Tests only: forget an earlier failed fetch. */
+export function aterstallReferensrantaPaus(): void {
+  senastMisslyckadMs = Number.NEGATIVE_INFINITY;
+}
+
 /**
  * The reference rate for a read. `cache` null = no database (CLI): fetch
  * directly, else the fallback.
@@ -72,7 +80,14 @@ export async function hamtaReferensranta(
     }
   }
 
-  const farsk = await hamtaFranRiksbanken(opts.fetchFn);
+  // After a failed fetch, don't make every read wait for the timeout again:
+  // serve the cached/fallback value for a few minutes (per isolate).
+  const nuMs = nu.getTime();
+  let farsk: { datum: string; procent: number } | null = null;
+  if (nuMs - senastMisslyckadMs >= MISSLYCKAD_PAUS_MS) {
+    farsk = await hamtaFranRiksbanken(opts.fetchFn);
+    if (!farsk) senastMisslyckadMs = nuMs;
+  }
   if (farsk) {
     if (cache) {
       try {

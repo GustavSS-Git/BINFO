@@ -1,12 +1,34 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REFERENSRANTA_RESERV, REFERENSRANTA_SERIE } from "@/lib/analysis/calc/prognosantaganden";
 import { skapaFakeKontoDatabas } from "./__fakes__/konto";
-import { hamtaFranRiksbanken, hamtaReferensranta, stockholmsDatum } from "./referensranta";
+import {
+  aterstallReferensrantaPaus,
+  hamtaFranRiksbanken,
+  hamtaReferensranta,
+  stockholmsDatum,
+} from "./referensranta";
 
 const svarMed = (body: unknown, status = 200) =>
   vi.fn(async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
 
 describe("referensranta", () => {
+  beforeEach(() => aterstallReferensrantaPaus());
+
+  it("after a failed fetch, the next read within 5 minutes does not refetch", async () => {
+    const nu = new Date("2026-10-24T10:00:00Z");
+    const fel = svarMed({}, 503);
+    await hamtaReferensranta(null, { fetchFn: fel, nu });
+    const ok = svarMed({ date: "2026-10-23", value: 2.068 });
+    const r = await hamtaReferensranta(null, { fetchFn: ok, nu: new Date("2026-10-24T10:03:00Z") });
+    expect(ok).not.toHaveBeenCalled();
+    expect(r.reserv).toBe(true);
+    const senare = await hamtaReferensranta(null, {
+      fetchFn: ok,
+      nu: new Date("2026-10-24T10:06:00Z"),
+    });
+    expect(senare.reserv).toBe(false);
+  });
+
   it("stockholmsDatum uses Stockholm time (23:30 UTC on 24 Oct is 25 Oct in Stockholm)", () => {
     expect(stockholmsDatum(new Date("2026-10-24T23:30:00Z"))).toBe("2026-10-25");
   });
