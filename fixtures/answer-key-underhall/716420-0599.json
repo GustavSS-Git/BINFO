@@ -1,0 +1,79 @@
+{
+  "orgnr": "716420-0599",
+  "namn": "Brf Pontonjären 3",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "exemple_analysis_report/Årsredovisning 2025 (1).pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren (sida 6; textlagret har åtgärdsnamn och årtal i två separata kolumner, parningen är gjord i ordning: 18 historiska rader + 6 planerade = 24 årtal)"
+  },
+  "anmarkning": "'Utförda historiska underhåll' (sida 6). 'Fönsterrenovering fas 1/2' (2012, 2013) är renovering, inte byte: gränsfall. Planerade underhåll (2026) ska inte med. Ingen investeringsbehov per m², rekommenderad avsättning eller plantotal i rapporten (att bekräfta mot sidbilden).",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "stambyte",
+      "ar": 1998,
+      "sida": 6,
+      "tryckt": "Stambyte i del av fastigheten (1998)"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 1999,
+      "sida": 6,
+      "tryckt": "Takomläggning (1999)"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 1999,
+      "sida": 6,
+      "tryckt": "Fasadrenovering etapp 1 (1999)"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2005,
+      "sida": 6,
+      "tryckt": "Fasadrenovering etapp 2 (2005)"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2017,
+      "sida": 6,
+      "tryckt": "Stambyte i del av fastigheten (2017)"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2024,
+      "sida": 6,
+      "tryckt": "Köksstambyte (2024)"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2025,
+      "sida": 6,
+      "tryckt": "Stambyte i källaren inklusive tvättstugan (2025)"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "ventilation",
+      "ar": 2001,
+      "sida": 6,
+      "tryckt": "Installation av frånluftventilation och renovering av öppna spisar (2001)"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2012,
+      "sida": 6,
+      "tryckt": "Fönsterrenovering fas 1 (2012)"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2013,
+      "sida": 6,
+      "tryckt": "Fönsterrenovering fas 2 (2013)"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

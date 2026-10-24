@@ -738,8 +738,8 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 9 sedan extraktionen fick lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler och energiprojekt (8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("9");
+  it("är 10 sedan extraktionen fick investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("10");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -769,7 +769,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("bbf96e197f2f3ab4ee027e03dd943ce3fe5349a5080cd6c61e62a1ac51f5fc2a");
+    expect(hash).toBe("b590b34032b4db5d98db1e0285a6522b22b52b396f382d93a739775c4c514c5a");
   });
 });
 

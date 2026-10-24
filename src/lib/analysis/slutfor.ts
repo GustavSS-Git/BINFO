@@ -167,9 +167,35 @@ function rensaLan(lanebok: Rad): void {
   else delete lanebok["lan"];
 }
 
+/** Keeps a Figure only when its value is a positive number (a need or an
+ *  allocation of 0 or less is a misread, not a finding). */
+function rensaPositivtFigurfalt(rad: Rad, nyckel: string): void {
+  rensaFigurfalt(rad, nyckel);
+  const f = rad[nyckel];
+  if (arRad(f) && !((f["value"] as number) > 0)) delete rad[nyckel];
+}
+
 function rensaUnderhall(plan: Rad): void {
   rensaFigurfalt(plan, "underhallsfond");
   rensaFigurfalt(plan, "arligAvsattning");
+  // PROMPT_VERSION 10. Implausible (but positive) magnitudes are marked by rimlighet.ts.
+  rensaPositivtFigurfalt(plan, "investeringsbehovPerM2");
+  rensaPositivtFigurfalt(plan, "rekommenderadAvsattning");
+  if ("planTotal" in plan) {
+    const total = plan["planTotal"];
+    const belopp = arRad(total) ? behallFigur(total["belopp"]) : undefined;
+    if (
+      arRad(total) &&
+      belopp &&
+      (belopp["value"] as number) > 0 &&
+      Number.isInteger(total["ar"]) &&
+      (total["ar"] as number) > 0
+    ) {
+      plan["planTotal"] = { ...total, belopp };
+    } else {
+      delete plan["planTotal"];
+    }
+  }
   if (!Array.isArray(plan["planeradeKostnader"])) {
     delete plan["planeradeKostnader"];
     return;
@@ -209,6 +235,49 @@ function rensaLokaler(lokaler: Rad): void {
   else delete lokaler["kontrakt"];
 }
 
+const BYGGDELAR = new Set(["stambyte", "tak", "fasad", "fonster", "ventilation", "el", "hiss"]);
+
+/** Year from a "YYYY-MM-DD" balansdag, else the fiscal year, else undefined. */
+function senasteMojligaAr(forening: Rad): number | undefined {
+  const dag = forening["balansdag"];
+  if (arIsoDatum(dag)) return Number(dag.slice(0, 4));
+  const ar = forening["rakenskapsar"];
+  return Number.isInteger(ar) ? (ar as number) : undefined;
+}
+
+/**
+ * Renovations already done (PROMPT_VERSION 10). Dropped: uncited, unknown
+ * byggdel, no integer year, a year after the balance-sheet year (that is
+ * planned, not done), a year more than 10 before the construction year, and
+ * repeats of the same byggdel + year.
+ */
+function rensaGenomfordaAtgarder(forening: Rad): void {
+  if (!Array.isArray(forening["genomfordaAtgarder"])) {
+    delete forening["genomfordaAtgarder"];
+    return;
+  }
+  const sista = senasteMojligaAr(forening);
+  const byggar = arRad(forening["byggar"]) ? forening["byggar"]["value"] : undefined;
+  const tidigast = typeof byggar === "number" && Number.isFinite(byggar) ? byggar - 10 : undefined;
+  const sett = new Set<string>();
+  const kvar: Rad[] = [];
+  for (const a of forening["genomfordaAtgarder"]) {
+    if (!arRad(a) || !arCitat(a["ref"])) continue;
+    if (!BYGGDELAR.has(String(a["byggdel"]))) continue;
+    const ar = a["ar"];
+    if (!Number.isInteger(ar) || (ar as number) < 1800) continue;
+    if (sista !== undefined && (ar as number) > sista) continue;
+    if (tidigast !== undefined && (ar as number) < tidigast) continue;
+    if (typeof a["text"] !== "string" || a["text"].trim() === "") continue;
+    const nyckel = `${String(a["byggdel"])}:${String(ar)}`;
+    if (sett.has(nyckel)) continue;
+    sett.add(nyckel);
+    kvar.push(a);
+  }
+  if (kvar.length > 0) forening["genomfordaAtgarder"] = kvar;
+  else delete forening["genomfordaAtgarder"];
+}
+
 /**
  * Cleans the new optional fields of `forening` in the model's raw JSON (a copy
  * already). Anything malformed, uncited where a citation is the evidence, or
@@ -224,6 +293,8 @@ export function rensaNyaFalt(raw: unknown): void {
   if (arRad(forening["lanebok"])) rensaLan(forening["lanebok"]);
 
   if (arRad(forening["underhallsplan"])) rensaUnderhall(forening["underhallsplan"]);
+
+  rensaGenomfordaAtgarder(forening);
 
   const uttag = forening["sparandeUttag"];
   if (arRad(uttag) && arCitat(uttag["ref"])) {

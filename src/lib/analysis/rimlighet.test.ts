@@ -487,3 +487,33 @@ describe("kontrolleraRimlighet: lånenoten (round 2026-10-24b)", () => {
     );
   });
 });
+
+describe("kontrolleraRimlighet: investeringsbehov per m² (PROMPT_VERSION 10)", () => {
+  const medBehov = (value: number): ExtractionResult => {
+    const e = extraktion({});
+    return {
+      ...e,
+      forening: {
+        ...e.forening,
+        underhallsplan: { finns: "ja", investeringsbehovPerM2: fig(value, "kr/m2") },
+      },
+    };
+  };
+
+  it("godkänner 20–2000 kr/m² (inklusive gränserna)", () => {
+    for (const v of [20, 310, 2000]) {
+      expect(kontrolleraRimlighet(medBehov(v)).anmarkningar).toEqual([]);
+    }
+  });
+
+  it("markerar värden utanför intervallet osäkra och sänker konfidensen", () => {
+    for (const v of [5, 2001, 310_000]) {
+      const r = kontrolleraRimlighet(medBehov(v));
+      expect(r.anmarkningar).toHaveLength(1);
+      expect(r.extraction.forening.underhallsplan!.investeringsbehovPerM2!.osaker).toMatch(
+        /rimliga intervallet/,
+      );
+      expect(r.extraction.datakvalitet.extraktionKonfidens.niva).not.toBe("hog");
+    }
+  });
+});

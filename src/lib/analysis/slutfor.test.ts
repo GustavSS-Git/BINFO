@@ -483,3 +483,115 @@ describe("slutforExtraktion: övriga nya fält", () => {
     expect(e.datakvalitet.extraktionKonfidens.skal).toEqual(["Räntekänsligheten är svårläst."]);
   });
 });
+
+describe("slutforExtraktion: underhåll och genomförda åtgärder (PROMPT_VERSION 10)", () => {
+  const med = (forening: Rad) => {
+    const a = rå() as Rad;
+    Object.assign(a["forening"], forening);
+    return a;
+  };
+  const atgard = (byggdel: string, ar: unknown, extra: Rad = {}): Rad => ({
+    byggdel,
+    ar,
+    text: `Åtgärd ${byggdel}`,
+    ref: { page: 5, excerpt: `${byggdel} ${String(ar)}` },
+    ...extra,
+  });
+
+  it("behåller giltiga åtgärder och släpper de ociterade, okända, framtida, för gamla och dubbletter", () => {
+    // fixturen: byggår 1962, balansdag 2025-12-31
+    const e = ok(
+      med({
+        genomfordaAtgarder: [
+          atgard("tak", 2019),
+          atgard("stambyte", 2021),
+          atgard("stambyte", 2021, { text: "Relining igen" }), // dubblett
+          atgard("fasad", 2020, { ref: { page: 5 } }), // ingen excerpt
+          atgard("fasad", 2020, { ref: { page: 5, excerpt: "  " } }),
+          atgard("balkong", 2020), // ej spårad byggdel
+          atgard("hiss", 2026), // efter balansdagen: planerat, inte gjort
+          atgard("el", 1940), // mer än 10 år före byggår
+          atgard("ventilation", 2018.5),
+          atgard("fonster", "2018"),
+          atgard("el", 1952), // exakt byggår - 10: behålls
+        ],
+      }),
+    );
+    expect(e.forening.genomfordaAtgarder!.map((a) => [a.byggdel, a.ar])).toEqual([
+      ["tak", 2019],
+      ["stambyte", 2021],
+      ["el", 1952],
+    ]);
+  });
+
+  it("utan byggår gäller bara övre gränsen; utan balansdag används räkenskapsåret", () => {
+    const a = med({ genomfordaAtgarder: [atgard("tak", 1930), atgard("hiss", 2026)] });
+    delete a["forening"]["byggar"];
+    delete a["forening"]["balansdag"];
+    const e = ok(a);
+    expect(e.forening.genomfordaAtgarder!.map((x) => x.ar)).toEqual([1930]);
+  });
+
+  it("ingen kvar -> fältet försvinner; icke-array -> fältet försvinner", () => {
+    expect(
+      ok(med({ genomfordaAtgarder: [atgard("tak", 2030)] })).forening.genomfordaAtgarder,
+    ).toBeUndefined();
+    expect(ok(med({ genomfordaAtgarder: "tak 2019" })).forening.genomfordaAtgarder).toBeUndefined();
+  });
+
+  it("investeringsbehov, rekommenderad avsättning och plantotal: giltiga behålls", () => {
+    const e = ok(
+      med({
+        underhallsplan: {
+          finns: "ja",
+          investeringsbehovPerM2: fig(310, "kr/m2", 8, "Investeringsbehov kr/kvm 310"),
+          rekommenderadAvsattning: fig(1_100_000, "kr", 6, "bör avsättas 1 100 000"),
+          planTotal: { belopp: fig(45_000_000, "kr", 6, "45 Mkr under 30 år"), ar: 30 },
+        },
+      }),
+    );
+    const p = e.forening.underhallsplan!;
+    expect(p.investeringsbehovPerM2?.value).toBe(310);
+    expect(p.rekommenderadAvsattning?.value).toBe(1_100_000);
+    expect(p.planTotal).toMatchObject({ ar: 30 });
+    expect(p.planTotal!.belopp.value).toBe(45_000_000);
+  });
+
+  it("icke-positiva värden och plantotal med ar <= 0 eller utan belopp tas bort", () => {
+    const planer = [
+      {
+        investeringsbehovPerM2: fig(0, "kr/m2", 8, "x"),
+        rekommenderadAvsattning: fig(-5, "kr", 6, "x"),
+        planTotal: { belopp: fig(45_000_000, "kr", 6, "x"), ar: 0 },
+      },
+      {
+        investeringsbehovPerM2: fig(null, "kr/m2", 8, "x"),
+        planTotal: { belopp: fig(null, "kr", 6, "x"), ar: 30 },
+      },
+      { planTotal: { belopp: fig(45_000_000, "kr", 6, "x"), ar: 29.5 } },
+      { planTotal: "45 Mkr" },
+    ];
+    for (const p of planer) {
+      const e = ok(med({ underhallsplan: { finns: "ja", ...p } })).forening.underhallsplan!;
+      expect(e.investeringsbehovPerM2).toBeUndefined();
+      expect(e.rekommenderadAvsattning).toBeUndefined();
+      expect(e.planTotal).toBeUndefined();
+    }
+  });
+
+  it("ett orimligt men positivt investeringsbehov markeras osäkert (inte borttaget) av rimlighetskontrollen", () => {
+    const r = slutforExtraktion(
+      med({
+        underhallsplan: {
+          finns: "ja",
+          investeringsbehovPerM2: fig(310_000, "kr/m2", 8, "Investeringsbehov 310 000"),
+        },
+      }),
+      ctx,
+    );
+    if (!r.ok) throw new Error(r.zodError.message);
+    const f = r.value.extraction.forening.underhallsplan!.investeringsbehovPerM2!;
+    expect(f.value).toBe(310_000);
+    expect(f.osaker).toMatch(/rimliga intervallet/);
+  });
+});

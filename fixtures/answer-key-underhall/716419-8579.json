@@ -1,0 +1,43 @@
+{
+  "orgnr": "716419-8579",
+  "namn": "Bostadsrättsföreningen Torsborgen 3",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Årsredovisning 2025.pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren"
+  },
+  "anmarkning": "Tabellen 'Sedan 2018 har följande större åtgärder genomförts' (sida 4). Byggår 1946. Intervall räknas med sista året. Rapporten har inget investeringsbehov per m², ingen rekommenderad avsättning och ingen plantotal.",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "hiss",
+      "ar": 2020,
+      "sida": 4,
+      "tryckt": "2020-2019 Modernisering av hissar i samtliga hus"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2000,
+      "sida": 4,
+      "tryckt": "1999-2000 Stambyte och renovering av badrum"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "el",
+      "ar": 2002,
+      "sida": 4,
+      "tryckt": "2000-2002 Nya elledningar till samtliga lägenheter, trapphus och allmänna utrymmen"
+    },
+    {
+      "byggdel": "ventilation",
+      "ar": 2018,
+      "sida": 4,
+      "tryckt": "2018 Byte av frånluftsfläktar på vindarna"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

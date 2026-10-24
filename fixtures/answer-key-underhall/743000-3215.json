@@ -1,0 +1,59 @@
+{
+  "orgnr": "743000-3215",
+  "namn": "Riksbyggen Brf Helsingborgshus nr 17",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Årsredovisning_2025_Riksbyggen.pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren"
+  },
+  "anmarkning": "Tabellen 'Tidigare utfört underhåll' (sida 6). Sida 5: 'underhållsplan ... visar på ett underhållsbehov på 777 tkr per år för de närmaste 50 åren. Avsättning ... 762 tkr'. 777 tkr/år läses som planens rekommenderade avsättning (kan diskuteras: rapporten säger 'underhållsbehov', inte 'bör avsättas'); ingen plantotal och inget investeringsbehov per m² står i rapporten. 'Fönsterrenovering 2023–2024' och 'Tak, hängrännor och garageportar 2023' är gränsfall (renovering, inte byte) och får finnas med utan poängavdrag.",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "fonster",
+      "ar": 2008,
+      "sida": 6,
+      "tryckt": "Fönsterbyte 2008 Delar av beståndet"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2016,
+      "sida": 6,
+      "tryckt": "Takrenovering 2015–2016"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2022,
+      "sida": 6,
+      "tryckt": "Fönsterbyte servicehus 2022"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "fonster",
+      "ar": 2024,
+      "sida": 6,
+      "tryckt": "Fönsterrenovering 2023–2024"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2023,
+      "sida": 6,
+      "tryckt": "Tak, hängrännor och garageportar 2023"
+    },
+    {
+      "byggdel": "ventilation",
+      "ar": 2015,
+      "sida": 6,
+      "tryckt": "Tilläggsisolering vindar samt byte av takfläktar 2015"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": {
+    "belopp": 777000,
+    "sida": 5,
+    "tryckt": "visar på ett underhållsbehov på 777 tkr per år för de närmaste 50 åren"
+  },
+  "planTotal": null
+}

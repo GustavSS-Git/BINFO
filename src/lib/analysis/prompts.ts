@@ -9,7 +9,7 @@ import { beraknaFastaVarden, formateraFastaVarden, type FastaVarden } from "./fa
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "9";
+export const PROMPT_VERSION = "10";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -68,6 +68,8 @@ Individuell mätning (IMD): letar rapporten uttryckligen nämna att el, vatten e
 Föreningens fastighet(er) och adress(er): fastighetsbeteckning(ar) (t.ex. "Pontonjären 3") och gatuadress(er) till föreningens egna byggnader, med postnummer och ort när rapporten anger dem (t.ex. "Föreningen äger fastigheten Pontonjären 3 på Baltzar von Platens gata 6 i Stockholm"). Det är föreningens EGNA fastighet som avses — inte förvaltarens, revisorns, styrelseledamöternas eller en banks adress, och inte en c/o-adress för post. Anger rapporten ingen: säg det, gissa aldrig.
 
 Till sist, underlag för kommande avgiftsändringar (citera bara det som faktiskt står): planerade underhållskostnader som har ett BELOPP och hur de ska finansieras (nytt lån, fonden eller ett beslut), fondens saldo vid årets slut ("Fond för yttre underhåll") och den planerade årliga avsättningen; om ett negativt resultat eller uttag ur fonden är planerat och hur det finansieras; hyresintäkter från lokaler under året och hyresavtal för lokaler med slutdatum (och årshyra om den anges); namngivna energiprojekt (t.ex. solceller, bergvärme) med belopp och finansiering.
+
+Underhåll och investeringsbehov, allra sist: (a) rapportens "investeringsbehov per kvm" / "genomsnittligt investeringsbehov" i kr per kvm och år (HSB-rapporter redovisar det ofta som ett nyckeltal), (b) vad underhållsplanen säger att föreningen BÖR avsätta per år (rekommenderad avsättning, skild från den faktiska avsättningen enligt stadgarna), (c) en uttalad total för underhållsplanen över ett antal år (t.ex. "underhållsplanen omfattar 45 Mkr under 30 år"), och (d) större åtgärder som REDAN är genomförda, med årtal — stambyte (även relining), takomläggning/takbyte, fasadrenovering/omputsning, fönsterbyte, ventilation (ny FTX/ventilationsaggregat), elstigare/elcentraler och hissbyte/hissmodernisering. Leta i förvaltningsberättelsen, i tabeller över "tidigare genomförda åtgärder"/"utfört underhåll" och i noterna; citera varje åtgärd för sig med dess årtal. Ta inte med planerade åtgärder, och inte enbart OVK (obligatorisk ventilationskontroll).
 
 För varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.`;
 }
@@ -266,8 +268,15 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
         }
       ],
       "underhallsfond": { "value": 850000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 11, "excerpt": "Fond för yttre underhåll 850 000" } },
-      "arligAvsattning": { "value": 300000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 4, "excerpt": "Avsättning till underhållsfonden 300 000 kr per år" } }
+      "arligAvsattning": { "value": 300000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 4, "excerpt": "Avsättning till underhållsfonden 300 000 kr per år" } },
+      "investeringsbehovPerM2": { "value": 310, "unit": "kr/m2", "source": "arsredovisning", "ref": { "page": 8, "excerpt": "Genomsnittligt investeringsbehov kr/kvm 310" } },
+      "rekommenderadAvsattning": { "value": 1100000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 6, "excerpt": "Enligt underhållsplanen bör 1 100 000 kr avsättas per år" } },
+      "planTotal": { "belopp": { "value": 45000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 6, "excerpt": "Underhållsplanen omfattar 45 Mkr under 30 år" } }, "ar": 30 }
     },
+    "genomfordaAtgarder": [
+      { "byggdel": "tak", "ar": 2019, "text": "Takomläggning", "ref": { "page": 5, "excerpt": "2019 takomläggning" } },
+      { "byggdel": "fonster", "ar": 2022, "text": "Byte av fönster", "ref": { "page": 5, "excerpt": "Fönsterbyte genomfördes 2021–2022" } }
+    ],
     "sparandeUttag": { "planerat": "ja", "finansierat": "ja", "text": "Underskottet täcks av uttag ur underhållsfonden.", "ref": { "page": 4, "excerpt": "Årets underskott täcks genom uttag ur fonden för yttre underhåll" } },
     "lokaler": {
       "hyresintakter": { "value": 480000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 9, "excerpt": "Hyresintäkter lokaler 480 000" } },
@@ -304,7 +313,7 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
 
 Skarpa regler mot exakt de misstag som brukar uppstå:
 - keyFigures är en ARRAY med exakt sju objekt — aldrig ett objekt nycklat på id. Alla sju id:n måste finnas, även när figure.value är null.
-- Varje tal (byggar, antalLagenheter, totalyta, bostadsrattsyta, figure inuti keyFigures, totalSkuld, belopp, ranta, snittranta, rantekostnader, underhallsfond, arligAvsattning, hyresintakter, arshyra) är ALLTID ett objekt med "value", "unit", "source" — ALDRIG ett bart nummer.
+- Varje tal (byggar, antalLagenheter, totalyta, bostadsrattsyta, figure inuti keyFigures, totalSkuld, belopp, ranta, snittranta, rantekostnader, underhallsfond, arligAvsattning, investeringsbehovPerM2, rekommenderadAvsattning, planTotal.belopp, hyresintakter, arshyra) är ALLTID ett objekt med "value", "unit", "source" — ALDRIG ett bart nummer.
 - En ref-objekt har ENDAST fälten "page" och "excerpt" — aldrig "quote", "citat" eller andra namn. Sätt ALLTID "excerpt" när source är "arsredovisning": kopiera citatet ordagrant från fyndlistan (korta ner det till den relevanta delen, max ~15 ord). En sidhänvisning utan excerpt bevisar ingenting för köparen — citatet är beviset.
 - kommandeAtgarder är en ARRAY av objekt { "text", "ref"? } — aldrig en platt sträng-array. Varje planerad åtgärd citeras för sig, eftersom olika åtgärder ofta nämns på olika sidor. Om du inte kan hitta en exakt sida för en specifik åtgärd: utelämna "ref" för just den posten (skriv inte in "page": null) — åtgärden tas ändå med, bara utan citat.
 - Samma sak gäller vasentligaHandelser: "ref" är valfritt per händelse. Utelämna det om ingen exakt sida kan anges — händelsen ska ändå finnas med, aldrig hittas på en sida eller strykas för att den saknar exakt citat.
@@ -324,6 +333,8 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - underhallsplan.planeradeKostnader: ENDAST planerade kostnader där rapporten anger ett belopp (kr; mkr/tkr räknas om). En åtgärd utan belopp hör bara hemma i kommandeAtgarder. finansiering: "lan" om rapporten säger nytt lån, "fond" om den tas ur underhållsfonden, "beslutad" om den är beslutad/finansierad utan att säga hur, "ofinansierad" om rapporten uttryckligen säger att finansiering saknas, annars "okant". fran/till är år när rapporten anger dem. underhallsfond är fonden för yttre underhåll vid årets slut (kr); arligAvsattning är den PLANERADE årliga avsättningen (kr/år), inte årets uttag.
 - sparandeUttag: ENDAST när rapporten uttryckligen säger att ett negativt sparande/resultat är ett planerat uttag (t.ex. ur fonden) eller hur underskottet finansieras. planerat/finansierat är "ja"/"nej"/"okant" och ref.excerpt är obligatoriskt; utelämna fältet annars.
 - lokaler: hyresintakter är årets hyresintäkter från lokaler (kr). kontrakt: ENDAST hyresavtal för lokaler med angivet slutdatum (YYYY-MM-DD), arshyra om hyran anges; ref med excerpt obligatoriskt. Utelämna lokaler helt om rapporten inte säger något.
+- underhallsplan.investeringsbehovPerM2: rapportens "investeringsbehov per kvm"/"genomsnittligt investeringsbehov" i kr per m² och år (unit "kr/m2"), ENDAST när rapporten uttryckligen anger det. rekommenderadAvsattning: vad underhållsplanen säger att föreningen bör avsätta per år (kr/år, unit "kr"), ENDAST när rapporten anger det separat från den faktiska avsättningen — sätt den aldrig lika med arligAvsattning bara för att den saknas. planTotal: en uttalad total för underhållsplanen { "belopp": Figure (kr; mkr/tkr räknas om), "ar": antal år planen omfattar }, ENDAST när både belopp och antal år står i rapporten. Utelämna fälten annars.
+- genomfordaAtgarder: större åtgärder som REDAN är genomförda, en post per åtgärd { "byggdel", "ar", "text", "ref" } med ref och excerpt obligatoriskt. byggdel är exakt en av "stambyte" (även relining), "tak" (takomläggning/takbyte), "fasad" (fasadrenovering, omputsning), "fonster" (fönsterbyte), "ventilation" (ny FTX/ventilationsaggregat), "el" (elstigare/elcentraler), "hiss" (hissbyte/hissmodernisering) — inga andra byggdelar, och enbart OVK är INTE en renovering. "ar" är året arbetet utfördes (ett intervall → det sista året). Ta aldrig med en planerad eller pågående åtgärd, och hitta aldrig på ett årtal. Utelämna fältet om fynden inte nämner någon.
 - energiprojekt: ENDAST namngivna projekt (solceller, bergvärme, fönsterbyte för energi m.m.); belopp om det anges; finansierat "ja"/"nej" bara när rapporten säger det, annars "okant".
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
 - Skuldsättning per kvm med otydlig bas: finns bara ett skuldtal per kvm och det framgår inte om det avser totalyta eller bostadsrättsyta (t.ex. "Lån per kvm bostadsyta" eller "Skuldsättningsgrad kr/kvm" — säger etiketten inte uttryckligen "totalyta" är basen oklar), lägg det under skuldsattning_per_m2_brf_yta med sitt citat och låt skuldsattning_per_m2_totalyta vara null. Ett tal är bättre än inget här — de två brukar ligga nära varandra.

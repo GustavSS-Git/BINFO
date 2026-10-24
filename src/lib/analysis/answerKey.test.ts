@@ -4,7 +4,9 @@ import {
   jamforTristate,
   jamforVarde,
   poangsattLan,
+  poangsattUnderhall,
   type LanFacitFil,
+  type UnderhallFacitFil,
 } from "./answerKey";
 
 describe("jamforVarde", () => {
@@ -168,5 +170,69 @@ describe("poangsattLan", () => {
     expect(bra.every((p) => p.godkand)).toBe(true);
     const enda = poangsattLan(tva, { lan: [lan(500, 1, "2026-01-01")] });
     expect(enda.filter((p) => !p.godkand).length).toBeGreaterThan(0);
+  });
+});
+
+describe("poangsattUnderhall", () => {
+  const facit: UnderhallFacitFil = {
+    genomfordaAtgarder: [
+      { byggdel: "tak", ar: 2016 },
+      { byggdel: "fonster", ar: 2008 },
+    ],
+    tillatnaExtra: [{ byggdel: "fonster", ar: 2024 }],
+    investeringsbehovPerM2: null,
+    rekommenderadAvsattning: { belopp: 777000 },
+    planTotal: null,
+  };
+  const underAlla = (poang: ReturnType<typeof poangsattUnderhall>) =>
+    poang.filter((p) => !p.godkand).map((p) => p.falt);
+
+  it("godkänner när allt väntat finns, tillåtna extra släpps igenom och inget påhittat finns", () => {
+    const poang = poangsattUnderhall(facit, {
+      genomfordaAtgarder: [
+        { byggdel: "tak", ar: 2016 },
+        { byggdel: "fonster", ar: 2008 },
+        { byggdel: "fonster", ar: 2024 },
+      ],
+      underhallsplan: { rekommenderadAvsattning: { value: 777000 } },
+    });
+    expect(underAlla(poang)).toEqual([]);
+    expect(poang.map((p) => p.falt)).toEqual([
+      "atgard tak 2016",
+      "atgard fonster 2008",
+      "atgarder.ovriga",
+      "investeringsbehovPerM2",
+      "rekommenderadAvsattning",
+      "planTotal",
+    ]);
+  });
+
+  it("underkänner en saknad åtgärd, fel år, en övrig åtgärd och påhittade belopp", () => {
+    const poang = poangsattUnderhall(facit, {
+      genomfordaAtgarder: [
+        { byggdel: "tak", ar: 2015 }, // fel år: tak 2016 saknas + 2015 är övrig
+        { byggdel: "fonster", ar: 2008 },
+      ],
+      underhallsplan: {
+        investeringsbehovPerM2: { value: 310 },
+        planTotal: { belopp: { value: 1 }, ar: 30 },
+      },
+    });
+    expect(underAlla(poang)).toEqual([
+      "atgard tak 2016",
+      "atgarder.ovriga",
+      "investeringsbehovPerM2",
+      "rekommenderadAvsattning",
+      "planTotal",
+    ]);
+    expect(poang.find((p) => p.falt === "atgarder.ovriga")!.faktiskt).toBe("tak 2015");
+  });
+
+  it("kräver exakt belopp och år på en plantotal", () => {
+    const f: UnderhallFacitFil = { genomfordaAtgarder: [], planTotal: { belopp: 45e6, ar: 30 } };
+    const ok = { underhallsplan: { planTotal: { belopp: { value: 45e6 }, ar: 30 } } };
+    const fel = { underhallsplan: { planTotal: { belopp: { value: 45e6 }, ar: 50 } } };
+    expect(underAlla(poangsattUnderhall(f, ok))).toEqual([]);
+    expect(underAlla(poangsattUnderhall(f, fel))).toEqual(["planTotal"]);
   });
 });

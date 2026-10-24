@@ -212,3 +212,109 @@ export function poangsattLan(facit: LanFacitFil, faktiskt: LanFaktiskt): LanPoan
   }
   return poang;
 }
+
+// ---------------------------------------------------------------------------
+// Maintenance answer keys (fixtures/answer-key-underhall/<orgnr>.json, round
+// 2026-10-24c): renovations already done + the plan's investment need
+// ---------------------------------------------------------------------------
+
+export interface UnderhallAtgardFacit {
+  byggdel: string;
+  ar: number;
+  sida?: number;
+  tryckt?: string;
+}
+
+export interface UnderhallFacitFil {
+  /** "UTKAST" until the owner has checked the key against the PDF. */
+  status?: string;
+  /** Renovations the extraction must find (byggdel + year). */
+  genomfordaAtgarder: UnderhallAtgardFacit[];
+  /** Borderline items that may be extracted without penalty (not required). */
+  tillatnaExtra?: UnderhallAtgardFacit[];
+  /** null = the report states none: the extraction must not produce one. */
+  investeringsbehovPerM2?: { belopp: number } | null;
+  rekommenderadAvsattning?: { belopp: number } | null;
+  planTotal?: { belopp: number; ar: number } | null;
+}
+
+/** The extraction's maintenance data, structurally (a subset of `Forening`). */
+export interface UnderhallFaktiskt {
+  genomfordaAtgarder?: Array<{ byggdel: string; ar: number }> | undefined;
+  underhallsplan?:
+    | {
+        investeringsbehovPerM2?: { value: number | null } | undefined;
+        rekommenderadAvsattning?: { value: number | null } | undefined;
+        planTotal?: { belopp: { value: number | null }; ar: number } | undefined;
+      }
+    | undefined;
+}
+
+/**
+ * Scores the maintenance fields: every expected renovation found (byggdel +
+ * year, exact), no extracted renovation outside expected + tillatnaExtra
+ * (precision), and per stated figure its value, or null when the key says the
+ * report states none (a hallucinated figure fails). Missing = fail.
+ */
+export function poangsattUnderhall(
+  facit: UnderhallFacitFil,
+  faktiskt: UnderhallFaktiskt,
+): LanPoang[] {
+  const poang: LanPoang[] = [];
+  const ut = faktiskt.genomfordaAtgarder ?? [];
+  const nyckel = (a: { byggdel: string; ar: number }): string => `${a.byggdel} ${a.ar}`;
+  const forvantade = new Set(facit.genomfordaAtgarder.map(nyckel));
+  const tillatna = new Set([...forvantade, ...(facit.tillatnaExtra ?? []).map(nyckel)]);
+  const funna = new Set(ut.map(nyckel));
+
+  for (const a of facit.genomfordaAtgarder) {
+    poang.push({
+      falt: `atgard ${nyckel(a)}`,
+      godkand: funna.has(nyckel(a)),
+      forvantat: nyckel(a),
+      faktiskt: funna.has(nyckel(a)) ? nyckel(a) : "saknas",
+    });
+  }
+  const overskott = [...funna].filter((n) => !tillatna.has(n));
+  poang.push({
+    falt: "atgarder.ovriga",
+    godkand: overskott.length === 0,
+    forvantat: "inga andra än facit",
+    faktiskt: overskott.length === 0 ? "inga" : overskott.join(", "),
+  });
+
+  const plan = faktiskt.underhallsplan;
+  const figurer: Array<[string, { belopp: number } | null | undefined, number | null | undefined]> =
+    [
+      ["investeringsbehovPerM2", facit.investeringsbehovPerM2, plan?.investeringsbehovPerM2?.value],
+      [
+        "rekommenderadAvsattning",
+        facit.rekommenderadAvsattning,
+        plan?.rekommenderadAvsattning?.value,
+      ],
+    ];
+  for (const [namn, forvantat, fick] of figurer) {
+    if (forvantat === undefined) continue;
+    const faktisktVarde = fick ?? null;
+    poang.push({
+      falt: namn,
+      godkand: forvantat === null ? faktisktVarde === null : faktisktVarde === forvantat.belopp,
+      forvantat: forvantat === null ? "ingen" : String(forvantat.belopp),
+      faktiskt: visa(faktisktVarde ?? undefined),
+    });
+  }
+  if (facit.planTotal !== undefined) {
+    const f = plan?.planTotal;
+    const forvantat = facit.planTotal;
+    poang.push({
+      falt: "planTotal",
+      godkand:
+        forvantat === null
+          ? f === undefined
+          : f !== undefined && f.belopp.value === forvantat.belopp && f.ar === forvantat.ar,
+      forvantat: forvantat === null ? "ingen" : `${forvantat.belopp} kr / ${forvantat.ar} år`,
+      faktiskt: f === undefined ? "saknas" : `${visa(f.belopp.value)} kr / ${f.ar} år`,
+    });
+  }
+  return poang;
+}

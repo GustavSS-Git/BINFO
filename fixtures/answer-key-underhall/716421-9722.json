@@ -1,0 +1,55 @@
+{
+  "orgnr": "716421-9722",
+  "namn": "Bostadsrättsföreningen Beckasinen 14",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "_F_ORG_T816_7800.pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren"
+  },
+  "anmarkning": "Tabellen 'Sedan föreningen startade har följande större åtgärder genomförts' (sida 4). Byggår 1960. 2018-raden innehåller tak, fasad och dagvattenrelining; relining av dagvattenkanaler räknas inte som stambyte. Rapporten har inget investeringsbehov per m², ingen rekommenderad avsättning och ingen plantotal.",
+  "balansdag": "2024-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "stambyte",
+      "ar": 2009,
+      "sida": 4,
+      "tryckt": "2009 Relining av avloppsstommar"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2018,
+      "sida": 4,
+      "tryckt": "2018 Ny takbeläggning och byte av de underliggande bjälkar som vattenskadats."
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2018,
+      "sida": 4,
+      "tryckt": "Fasadrenovering av samtliga putsade sektioner mot gatusidor och innergård."
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "ventilation",
+      "ar": 2016,
+      "sida": 4,
+      "tryckt": "2016 ... Nya fläktar på vinden för ventilationen av plan 2-6"
+    },
+    {
+      "byggdel": "ventilation",
+      "ar": 2019,
+      "sida": 4,
+      "tryckt": "2019 Ny samt kompletterande inluftsventilation i samtliga lägenheter på plan 2-6."
+    },
+    {
+      "byggdel": "hiss",
+      "ar": 2023,
+      "sida": 4,
+      "tryckt": "2023 Byte av styrskor för hiss."
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

@@ -31,6 +31,10 @@ import { TOM_SIDA_TECKEN } from "./textlager";
  * Figures (marked by their refs, which cite the same row) rather than vanishing
  * from the debt picture; a lease, an energy project or the planned-withdrawal
  * claim has no figure to carry the mark, so it is removed (`kontrolleraNyaPoster`).
+ * PROMPT_VERSION 10 adds underhallsplan.investeringsbehovPerM2 /
+ * rekommenderadAvsattning / planTotal.belopp (Figures: corrected / `osaker` by
+ * the generic walk) and forening.genomfordaAtgarder (no figure: an item whose
+ * citation holds nowhere is removed, like an energy project).
  *
  * Addresses and fastighetsbeteckningar are not Figures and have no `osaker`
  * slot. They feed the public register's area assignment, so an item whose
@@ -285,6 +289,7 @@ const SARBEHANDLADE = new Set([
   "forening.sparandeUttag",
   "forening.energiprojekt",
   "forening.lokaler.kontrakt",
+  "forening.genomfordaAtgarder",
 ]);
 
 function verifieraNod(nod: unknown, sokvag: string, k: Kontext): unknown {
@@ -479,6 +484,22 @@ function kontrolleraNyaPoster(
       .filter((p) => p !== undefined);
     if (kvar.length > 0) ut["energiprojekt"] = kvar;
     else delete ut["energiprojekt"];
+  }
+
+  const atgarder = forening["genomfordaAtgarder"];
+  if (Array.isArray(atgarder)) {
+    const kvar = atgarder
+      .map((a, i) =>
+        kontrolleraPost(
+          a,
+          `forening.genomfordaAtgarder[${i}]`,
+          `Den genomförda åtgärden "${arObjekt(a) && typeof a["text"] === "string" ? kortaNer(a["text"], 50) : ""}"`,
+          k,
+        ),
+      )
+      .filter((a) => a !== undefined);
+    if (kvar.length > 0) ut["genomfordaAtgarder"] = kvar;
+    else delete ut["genomfordaAtgarder"];
   }
 
   const lokaler = forening["lokaler"];

@@ -120,6 +120,9 @@ Sonnet 5 / Sonnet 5.5: $2 in / $10 out per MTok; cache write 1.25×, cache read 
 | 112 | 2026-10-24 | Fee prognosis (PROMPT_VERSION 9) | `verify-extraction` Granen + Hökensgata after moving the new grounding paragraphs to the end: 54/54, loans 19/19 (4 calls) | claude-sonnet-5-5 | — | — | 0 | 0 | 7.57 | ≈333.1 |
 | 113 | 2026-10-24 | Fee prognosis (PROMPT_VERSION 9) | `verify-extraction` Albohem + Torsborgen, same wording: Albohem lost all 7 nyckeltal (flake), Torsborgen + loans 10/10 OK (4 calls) | claude-sonnet-5-5 | — | — | 0 | 0 | 5.35 | ≈338.4 |
 | 114 | 2026-10-24 | Fee prognosis (PROMPT_VERSION 9) | `verify-extraction` on the SHIPPED wording (nyckeltal first in the grounding prompt): Albohem ×2 24/24 each, Granen 27/27 + loans 19/19 (6 calls, two parallel runs: 6.99 + 3.30 kr) | claude-sonnet-5-5 | — | — | 0 | 0 | 10.29 | ≈348.7 |
+| 115 | 2026-10-24 | Maintenance extraction (PROMPT_VERSION 10, T1) | `verify-extraction` (`VERIFY_ONLY`, `VERIFY_SAVE_RESULTS`) Beckasinen 14: 7 nyckeltal 14/14, loans 7/7 (UTKAST key), genomförda åtgärder 2 of 3 (missed fasad 2018 in the long 2018 row), no hallucinated investeringsbehov/plantotal (2 calls: grundning 1.714, extraktion 0.970 kr; 58.3 s) | claude-sonnet-5-5 | 87413 | 10184 | 0 | 0 | 2.68 | ≈351.4 |
+| 116 | 2026-10-24 | Maintenance extraction (PROMPT_VERSION 10, T1) | same run, Torsborgen 3: 7 nyckeltal 14/14, loans OK, åtgärder 2/2 (hiss 2020, stambyte 2000) + 2 allowed extras, nothing invented (2 calls: grundning 1.808, extraktion 1.280 kr; 69.1 s) | claude-sonnet-5-5 | 104769 | 10885 | 0 | 0 | 3.09 | ≈354.5 |
+| 117 | 2026-10-24 | Maintenance extraction (PROMPT_VERSION 10, T1) | same run, Helsingborgshus 17: 7 nyckeltal 14/14, loans OK; åtgärder 2/3 (missed fönster 2008 "Delar av beståndet"), rekommenderadAvsattning (777 tkr/år "underhållsbehov") not extracted; `lanebok.snittranta` null vs key 2.6757 (2 calls: grundning 2.058, extraktion 1.602 kr; 78.1 s) | claude-sonnet-5-5 | 121545 | 13432 | 0 | 0 | 3.66 | ≈358.1 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
@@ -127,4 +130,4 @@ Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs
 
 Per-call raw records for entry 96 (W3 full run): `docs/api-runs/2026-10-13-w3-v7-verify-calls.jsonl`. Entries 97-100 are single `npm run extract` runs (extraction only); only the CLI cost line was kept.
 
-**Running total: ≈348.7 SEK** (rows 102, 104 estimated). Round 2026-10-24b (rows 109–114): 54.28 kr of the 60 kr budget.
+**Running total: ≈358.1 SEK** (rows 102, 104 estimated). Round 2026-10-24b (rows 109–114): 54.28 kr of the 60 kr budget. Round 2026-10-24c T1 (rows 115–117): 9.43 kr of the 12 kr T1 budget.

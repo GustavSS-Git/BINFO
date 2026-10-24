@@ -125,3 +125,54 @@ describe("fixtures/answer-key-lan", () => {
     }
   });
 });
+
+describe("fixtures/answer-key-underhall", () => {
+  const dir = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../fixtures/answer-key-underhall",
+  );
+  interface UnderhallNyckel {
+    orgnr: string;
+    status: string;
+    kalla: { fil: string };
+    genomfordaAtgarder: Array<{ byggdel: string; ar: number; sida: number }>;
+    tillatnaExtra?: Array<{ byggdel: string; ar: number }>;
+  }
+  const BYGGDELAR = ["stambyte", "tak", "fasad", "fonster", "ventilation", "el", "hiss"];
+  const nycklar = readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => ({
+      fil: f,
+      data: JSON.parse(readFileSync(path.join(dir, f), "utf-8")) as UnderhallNyckel,
+    }));
+
+  it("finns för fyra rapporter, heter som sitt orgnr och är markerade UTKAST", () => {
+    expect(nycklar).toHaveLength(4);
+    for (const { fil, data } of nycklar) {
+      expect(fil, fil).toBe(`${data.orgnr}.json`);
+      expect(data.status, fil).toBe("UTKAST");
+    }
+  });
+
+  it("åtgärderna har en av de sju byggdelarna, ett rimligt år och en sida, utan dubbletter", () => {
+    for (const { fil, data } of nycklar) {
+      const sett = new Set<string>();
+      for (const a of [...data.genomfordaAtgarder, ...(data.tillatnaExtra ?? [])]) {
+        expect(BYGGDELAR, fil).toContain(a.byggdel);
+        expect(a.ar, fil).toBeGreaterThan(1900);
+        expect(a.ar, fil).toBeLessThanOrEqual(2025);
+        const k = `${a.byggdel} ${a.ar}`;
+        expect(sett.has(k), `${fil}: ${k}`).toBe(false);
+        sett.add(k);
+      }
+      for (const a of data.genomfordaAtgarder) expect(a.sida, fil).toBeGreaterThan(0);
+    }
+  });
+
+  it("pekar på samma PDF som nyckeltals- och lånenyckeln för samma orgnr", () => {
+    for (const { data } of nycklar) {
+      const n = fixtures.find((f) => f.data.orgnr === data.orgnr);
+      if (n) expect(n.data.kalla.fil).toBe(data.kalla.fil);
+    }
+  });
+});

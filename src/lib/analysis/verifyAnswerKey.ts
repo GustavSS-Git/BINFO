@@ -6,7 +6,9 @@ import {
   jamforTristate,
   jamforVarde,
   poangsattLan,
+  poangsattUnderhall,
   type LanFacitFil,
+  type UnderhallFacitFil,
 } from "./answerKey";
 import { bedomStatus } from "./benchmarks";
 import { type runStructuredExtraction, type ModelEffort } from "./runExtraction";
@@ -113,6 +115,8 @@ interface AnswerKeyFixture {
   kontrollsummor?: Record<string, number>;
   /** Loan answer key from fixtures/answer-key-lan/<orgnr>.json, when one exists. */
   lanFacit?: LanFacitFil;
+  /** Maintenance answer key from fixtures/answer-key-underhall/<orgnr>.json, when one exists. */
+  underhallFacit?: UnderhallFacitFil;
   /** See `OvrigInfoForvantat` above. */
   ovrigInfo?: OvrigInfoForvantat;
   /** Per-field page + printed text for the human verifier — same shape and
@@ -153,6 +157,7 @@ try {
 
 const ANSWER_KEY_DIR = "fixtures/answer-key";
 const ANSWER_KEY_LAN_DIR = "fixtures/answer-key-lan";
+const ANSWER_KEY_UNDERHALL_DIR = "fixtures/answer-key-underhall";
 
 const GILTIGA_EFFORT: ModelEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
@@ -240,6 +245,31 @@ async function loadFixtures(): Promise<AnswerKeyFixture[]> {
         kalla: lan.kalla,
         nyckeltal: {},
         lanFacit: lan,
+      });
+    }
+  }
+  // Maintenance keys (round 2026-10-24c): same pattern as the loan keys.
+  let underhallFiler: string[] = [];
+  try {
+    underhallFiler = (await readdir(ANSWER_KEY_UNDERHALL_DIR))
+      .filter((f) => f.endsWith(".json"))
+      .sort();
+  } catch {
+    // No maintenance keys — fine.
+  }
+  for (const f of underhallFiler) {
+    const facit = JSON.parse(
+      await readFile(path.join(ANSWER_KEY_UNDERHALL_DIR, f), "utf-8"),
+    ) as UnderhallFacitFil & Pick<AnswerKeyFixture, "orgnr" | "namn" | "kalla">;
+    const fixture = aktiva.find((a) => a.orgnr === facit.orgnr);
+    if (fixture) fixture.underhallFacit = facit;
+    else {
+      aktiva.push({
+        orgnr: facit.orgnr,
+        namn: facit.namn,
+        kalla: facit.kalla,
+        nyckeltal: {},
+        underhallFacit: facit,
       });
     }
   }
@@ -618,6 +648,40 @@ async function main() {
       }
       if (!utkastRapporter.includes(fixture.namn) && rakningLan === utkast) {
         utkastRapporter.push(`${fixture.namn} (endast lån)`);
+      }
+    }
+
+    // Maintenance (fixtures/answer-key-underhall): draft keys score into the
+    // draft tally, like the loan keys.
+    if (fixture.underhallFacit) {
+      const rakningUnderhall =
+        fixture.underhallFacit.status?.toUpperCase() === "UTKAST" || arUtkast(fixture)
+          ? utkast
+          : verifierad;
+      const forening = extraction.forening;
+      const poang = poangsattUnderhall(fixture.underhallFacit, {
+        genomfordaAtgarder: forening.genomfordaAtgarder,
+        underhallsplan: forening.underhallsplan,
+      });
+      console.log(
+        `  Underhåll (facit ${fixture.underhallFacit.status ?? "verifierad"}): ${forening.genomfordaAtgarder?.length ?? 0} genomförda åtgärder extraherade, ${fixture.underhallFacit.genomfordaAtgarder.length} i facit`,
+      );
+      for (const p of poang) {
+        rakningUnderhall.totalFalt++;
+        if (p.godkand) rakningUnderhall.godkanda++;
+        console.log(
+          `  ${p.godkand ? "✓" : "✗"} ${p.falt}: förväntat ${p.forvantat}, fick ${p.faktiskt}`,
+        );
+      }
+      for (const a of forening.genomfordaAtgarder ?? []) {
+        console.log(`  · åtgärd ${a.byggdel} ${a.ar} (sida ${a.ref.page}): ${a.text}`);
+      }
+      const up = forening.underhallsplan;
+      console.log(
+        `  · investeringsbehov/m² ${up?.investeringsbehovPerM2?.value ?? "ingen"}, rekommenderad avsättning ${up?.rekommenderadAvsattning?.value ?? "ingen"}, plantotal ${up?.planTotal ? `${up.planTotal.belopp.value} kr / ${up.planTotal.ar} år` : "ingen"}`,
+      );
+      if (!utkastRapporter.includes(fixture.namn) && rakningUnderhall === utkast) {
+        utkastRapporter.push(`${fixture.namn} (endast underhåll)`);
       }
     }
 

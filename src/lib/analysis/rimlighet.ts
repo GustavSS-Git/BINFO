@@ -42,6 +42,10 @@ const LANESUMMA_TOLERANS = 0.02;
 // column): räntekostnader / räntebärande skuld, and one loan's ränta in percent.
 const RANTEKOSTNAD_ANDEL_INTERVALL = [0, 0.1] as const;
 const LANERANTA_INTERVALL = [0, 15] as const;
+// Plausibility guard (round 2026-10-24c), not a benchmark: the report's
+// "investeringsbehov per m²" (kr/m² totalyta/year). Only catches a misread
+// (tkr/kr, a total instead of a per-m² figure).
+export const INVESTERINGSBEHOV_INTERVALL = [20, 2_000] as const;
 
 /**
  * Plausible range per nyckeltal [low, high], inclusive. Only meant to catch a
@@ -110,6 +114,7 @@ interface Fynd {
     | { typ: "totalSkuld"; text: string }
     | { typ: "rantekostnader"; text: string }
     | { typ: "lanranta"; index: number; text: string }
+    | { typ: "investeringsbehov"; text: string }
   >;
 }
 
@@ -266,6 +271,18 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
     }
   });
 
+  // 7. Investeringsbehov per m² (PROMPT_VERSION 10): plausible magnitude.
+  const investeringsbehov = varde(extraction.forening.underhallsplan?.investeringsbehovPerM2);
+  if (investeringsbehov !== null) {
+    const [lag, hog] = INVESTERINGSBEHOV_INTERVALL;
+    if (investeringsbehov < lag || investeringsbehov > hog) {
+      const text =
+        `Investeringsbehovet ${fmt(investeringsbehov)} kr/m² ligger utanför det rimliga intervallet ` +
+        `${fmt(lag)}–${fmt(hog)} kr/m². Det kan vara fel enhet eller en felläst siffra.`;
+      fynd.push({ anmarkning: text, markera: [{ typ: "investeringsbehov", text }] });
+    }
+  }
+
   if (fynd.length === 0) return { extraction, anmarkningar: [] };
 
   const anmarkningar = fynd.map((f) => f.anmarkning);
@@ -276,6 +293,7 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
   let totalSkuldOsaker: string | undefined;
   let rantekostnaderOsaker: string | undefined;
   const lanrantaOsaker = new Map<number, string>();
+  let investeringsbehovOsaker: string | undefined;
   for (const f of fynd) {
     for (const m of f.markera) {
       if (m.typ === "nyckeltal") {
@@ -286,6 +304,8 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
         totalSkuldOsaker ??= m.text;
       } else if (m.typ === "rantekostnader") {
         rantekostnaderOsaker ??= m.text;
+      } else if (m.typ === "investeringsbehov") {
+        investeringsbehovOsaker ??= m.text;
       } else if (!lanrantaOsaker.has(m.index)) {
         lanrantaOsaker.set(m.index, m.text);
       }
@@ -323,6 +343,21 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
     }
   }
 
+  let nyUnderhallsplan = extraction.forening.underhallsplan;
+  if (
+    investeringsbehovOsaker !== undefined &&
+    nyUnderhallsplan &&
+    nyUnderhallsplan.investeringsbehovPerM2
+  ) {
+    nyUnderhallsplan = {
+      ...nyUnderhallsplan,
+      investeringsbehovPerM2: {
+        ...nyUnderhallsplan.investeringsbehovPerM2,
+        osaker: investeringsbehovOsaker,
+      },
+    };
+  }
+
   const konfidens = extraction.datakvalitet.extraktionKonfidens;
   const nedsatt = {
     niva: konfidens.niva === "hog" ? ("medel" as const) : ("lag" as const),
@@ -336,6 +371,7 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
         ...extraction.forening,
         keyFigures,
         ...(nyLanebok ? { lanebok: nyLanebok } : {}),
+        ...(nyUnderhallsplan ? { underhallsplan: nyUnderhallsplan } : {}),
       },
       datakvalitet: { ...extraction.datakvalitet, extraktionKonfidens: nedsatt },
       ...(nyaSummor ? { kontrollsummor: nyaSummor } : {}),

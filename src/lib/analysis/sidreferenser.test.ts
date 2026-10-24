@@ -334,6 +334,62 @@ describe("verifieraSidreferenser: nya poster (PROMPT_VERSION 9)", () => {
     expect(f.underhallsplan!.arligAvsattning!.osaker).toMatch(/kunde inte styrkas/);
   });
 
+  describe("PROMPT_VERSION 10: underhåll och genomförda åtgärder", () => {
+    const atgard = (byggdel: "tak" | "stambyte", ar: number, page: number, excerpt: string) => ({
+      byggdel,
+      ar,
+      text: `Åtgärd ${byggdel}`,
+      ref: ref(page, excerpt),
+    });
+    const t = sidor(FYLL, "Tidigare åtgärder\n2019 takomläggning\n2021 stambyte relining", FYLL);
+
+    it("godtar en åtgärd på rätt sida, rättar fel sida och släpper en vars citat inte finns", () => {
+      const e = medNytt({
+        genomfordaAtgarder: [
+          atgard("tak", 2019, 2, "2019 takomläggning"),
+          atgard("stambyte", 2021, 3, "2021 stambyte relining"), // fel sida
+          atgard("tak", 2005, 2, "2005 tak byttes av grannen"), // finns ingenstans
+        ],
+      });
+      const r = verifieraSidreferenser(e, t);
+      expect(
+        r.extraction.forening.genomfordaAtgarder!.map((a) => [a.byggdel, a.ar, a.ref.page]),
+      ).toEqual([
+        ["tak", 2019, 2],
+        ["stambyte", 2021, 2],
+      ]);
+      expect(r.extraction.datakvalitet.extraktionKonfidens.skal?.join(" ")).toMatch(
+        /genomförda åtgärden/,
+      );
+    });
+
+    it("alla åtgärder släppta -> fältet försvinner", () => {
+      const e = medNytt({ genomfordaAtgarder: [atgard("tak", 2005, 2, "finns inte alls här")] });
+      expect(verifieraSidreferenser(e, t).extraction.forening.genomfordaAtgarder).toBeUndefined();
+    });
+
+    it("investeringsbehov och plantotal: sidan rättas, saknat citat markerar osäkert", () => {
+      const e = medNytt({
+        underhallsplan: {
+          finns: "ja",
+          investeringsbehovPerM2: {
+            value: 310,
+            unit: "kr/m2",
+            source: "arsredovisning",
+            ref: ref(1, "Tidigare åtgärder"),
+          },
+          rekommenderadAvsattning: fig(1_100_000, "kr", ref(2, "bör avsättas hittepå")),
+          planTotal: { belopp: fig(45_000_000, "kr", ref(2, "2019 takomläggning")), ar: 30 },
+        },
+      });
+      const p = verifieraSidreferenser(e, t).extraction.forening.underhallsplan!;
+      expect(p.investeringsbehovPerM2!.ref?.page).toBe(2);
+      expect(p.investeringsbehovPerM2!.osaker).toBeUndefined();
+      expect(p.rekommenderadAvsattning!.osaker).toMatch(/kunde inte styrkas/);
+      expect(p.planTotal!.belopp.ref?.page).toBe(2);
+    });
+  });
+
   it("markerar bostadsrattsyta osäker när citatet inte finns", () => {
     const e = medNytt({
       bostadsrattsyta: { ...fig(3750, "kr", ref(1, "Bostadsrättsarea 3 750 kvm")), unit: "m2" },
