@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { sampleAnalysis } from "@/data/sampleAnalysis";
+import { analysUtanPrognos } from "@/components/prognosTestdata";
+
+const sampleAnalysis = analysUtanPrognos();
 import { byggSammanfattning } from "./sammanfattning";
 import type { AnalysisResult } from "@/types/analysis";
 
@@ -65,7 +67,7 @@ describe("byggSammanfattning", () => {
         },
       }),
     );
-    expect(nbsp(s.avgift)).toContain("höjs med ca 350 kr i månaden under de närmaste 2 åren");
+    expect(nbsp(s.avgift)).toContain("höjs med ca 350 kr i månaden under de närmaste två åren");
     expect(s.avgift).toContain("Störst påverkan: lån som ska omsättas.");
     expect(s.avgift).toContain("För en del saknas underlag");
   });

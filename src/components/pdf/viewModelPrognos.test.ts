@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analysMedPrognos } from "@/components/prognosTestdata";
+import { analysMedPrognos, analysUtanPrognos } from "@/components/prognosTestdata";
 import { buildPdfViewModel } from "@/components/pdf/viewModel";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
 
@@ -35,7 +35,7 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
   });
 
   it("lämnar allt nytt tomt för gamla resultat", () => {
-    const gammal = buildPdfViewModel(sampleAnalysis);
+    const gammal = buildPdfViewModel(analysUtanPrognos());
     expect(gammal.prisanalys.justeradVardering).toBeUndefined();
     expect(gammal.rantestress.prognosTabell).toBeUndefined();
     expect(gammal.jamforelse).toEqual([]);

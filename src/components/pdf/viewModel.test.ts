@@ -15,7 +15,7 @@ describe("buildPdfViewModel — sample analysis", () => {
   it("includes every red flag, not just the top two, most severe first", () => {
     expect(vm.rodaFlaggor).toHaveLength(sampleAnalysis.rodaFlaggor.length);
     const severities = vm.rodaFlaggor.map((f) => f.severity);
-    expect(severities).toEqual(["medel", "medel", "lag", "lag"]);
+    expect(severities).toEqual(["medel", "medel", "medel", "lag"]);
   });
 
   it("keeps each red flag's page reference", () => {

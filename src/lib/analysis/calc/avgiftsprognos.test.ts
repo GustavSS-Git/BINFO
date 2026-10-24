@@ -562,3 +562,41 @@ describe("total, guard and counts", () => {
     }
   });
 });
+
+describe("lokaler with cited zero rent (Pontonjären 3: 'Hyresintäkter, lokaler 0 289 180')", () => {
+  it("is ej_aktuell, not saknar_underlag", async () => {
+    const { beraknaAvgiftsprognos } = await import("./avgiftsprognos");
+    const { extraktion } = await import("../__fixtures__/extraktion");
+    const r = beraknaAvgiftsprognos({
+      forening: {
+        ...extraktion.forening,
+        antalLokaler: {
+          value: 2,
+          unit: "antal",
+          source: "arsredovisning",
+          ref: { page: 4, excerpt: "2 lokaler" },
+        },
+        lokaler: {
+          hyresintakter: {
+            value: 0,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 15, excerpt: "Hyresintäkter, lokaler 0 289 180" },
+          },
+        },
+      },
+      manadsavgift: 3503,
+      boarea: 48,
+      referensranta: {
+        namn: "x",
+        serie: "x",
+        datum: "2026-10-23",
+        procent: 2.068,
+        kalla: "x",
+        reserv: false,
+      },
+      idag: "2026-10-24",
+    });
+    expect(r.prognos.komponenter.find((k) => k.id === "lokaler")?.status).toBe("ej_aktuell");
+  });
+});

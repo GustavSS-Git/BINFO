@@ -115,7 +115,8 @@ function avgiftText(r: Underlag): string {
   }
   const total = prognos.totalKrPerManad;
   const ar = Math.round(prognos.horisontManader / 12);
-  const period = ar === 1 ? "det närmaste året" : `de närmaste ${ar} åren`;
+  const ORD = ["", "ett", "två", "tre", "fyra", "fem"];
+  const period = ar === 1 ? "det närmaste året" : `de närmaste ${ORD[ar] ?? ar} åren`;
   const idag = r.input.manadsavgift;
   const delar: string[] = [];
   if (Math.abs(total) < 10) {
@@ -138,7 +139,7 @@ function avgiftText(r: Underlag): string {
   if (saknas > 0) {
     delar.push(
       `För ${saknas === 1 ? "en del" : `${saknas} delar`} saknas underlag i årsredovisningen, ` +
-        "så höjningen kan bli större.",
+        (total < 0 ? "så avgiften kan bli högre än så." : "så höjningen kan bli större."),
     );
   }
   if (prognos.osaker) delar.push(prognos.osaker);

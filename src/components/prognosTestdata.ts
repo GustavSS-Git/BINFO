@@ -1,8 +1,29 @@
 import { sampleAnalysis } from "@/data/sampleAnalysis";
 import type { AnalysisResult } from "@/types/analysis";
 
+/** Testdata only: the sample analysis as a result made BEFORE round
+ *  2026-10-24b (every new field stripped) — "old stored results". */
+export function analysUtanPrognos(): AnalysisResult {
+  const {
+    avgiftsprognos: _a,
+    uppgiftsjamforelse: _u,
+    sammanfattning: _s,
+    ...resten
+  } = sampleAnalysis;
+  const {
+    justeringar: _j,
+    justeradVardering: _jv,
+    avvikelseMotJusteradVardering: _ajv,
+    breddningsskal: _b,
+    ...prisanalys
+  } = sampleAnalysis.prisanalys;
+  const { prognosTabell: _p, ...rantestress } = sampleAnalysis.rantestress;
+  return { ...resten, prisanalys, rantestress };
+}
+
 /** Testdata only: the sample analysis plus every round-2026-10-24b field. */
 export function analysMedPrognos(): AnalysisResult {
+  const sampleAnalysis = analysUtanPrognos();
   const bas = sampleAnalysis.prisanalys.externVardering;
   if (!bas) throw new Error("sampleAnalysis saknar externVardering");
   return {

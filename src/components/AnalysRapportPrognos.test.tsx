@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
-import { analysMedPrognos } from "@/components/prognosTestdata";
+import { analysMedPrognos, analysUtanPrognos } from "@/components/prognosTestdata";
 
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => () => undefined }));
 
@@ -90,7 +90,7 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
   });
 
   it("renderar som förut när de nya fälten saknas (gamla resultat)", () => {
-    const html = rita(sampleAnalysis);
+    const html = rita(analysUtanPrognos());
     for (const t of [
       "Binfos värdering (modell)",
       "Justerat för väntad",

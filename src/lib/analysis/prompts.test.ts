@@ -246,9 +246,9 @@ describe("PROMPT_VERSION 9: lån, ytor, byggår och nya fält", () => {
   it("grundningen letar efter underhållsbelopp, fond, avsättning, uttag, lokaler och energiprojekt", () => {
     expect(grund).toMatch(/BELOPP/);
     expect(grund).toMatch(/Fond för yttre underhåll/);
-    expect(grund).toMatch(/Negativt sparande/);
-    expect(grund).toMatch(/Lokaler:/);
-    expect(grund).toMatch(/Energiprojekt/);
+    expect(grund).toMatch(/negativt resultat eller uttag ur fonden/);
+    expect(grund).toMatch(/hyresintäkter från lokaler/);
+    expect(grund).toMatch(/energiprojekt/);
   });
 
   it("extraktionen: lan ersätter forfalloprofil i exemplet och koden härleder profilen", () => {
@@ -769,7 +769,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("015765ab5ef3f04b2ba3e1753eddd32c6afa68dfa6214ba795d40e17cca21326");
+    expect(hash).toBe("bbf96e197f2f3ab4ee027e03dd943ce3fe5349a5080cd6c61e62a1ac51f5fc2a");
   });
 });
 

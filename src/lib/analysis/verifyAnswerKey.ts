@@ -243,7 +243,13 @@ async function loadFixtures(): Promise<AnswerKeyFixture[]> {
       });
     }
   }
-  return aktiva;
+  // VERIFY_ONLY=<orgnr>,<orgnr>: score only these reports (saves spend when a
+  // change only needs a subset re-checked).
+  const bara = (process.env["VERIFY_ONLY"] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return bara.length > 0 ? aktiva.filter((a) => bara.includes(a.orgnr)) : aktiva;
 }
 
 /** Running tally kept separately for verified vs. draft ("UTKAST") fixtures

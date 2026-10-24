@@ -68,12 +68,11 @@ describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () =
     expect(extractedText).toContain("Räntekänslighet");
   });
 
-  it("includes the räntestress section with every scenario", () => {
+  it("includes the räntekänslighet section as the fee table (sample has prognosTabell)", () => {
     expect(extractedText).toContain("Räntekänslighet");
-    expect(extractedText).toContain("+0 p.e.");
-    expect(extractedText).toContain("+1 p.e.");
-    expect(extractedText).toContain("+2 p.e.");
-    expect(extractedText).toContain("+3 p.e.");
+    expect(extractedText).toContain("Dagens avgift");
+    expect(extractedText).toContain("+1 procentenhet");
+    expect(extractedText).toContain("+2 procentenheter");
   });
 
   it("includes the frågor att ställa section with every analysis-derived question", () => {

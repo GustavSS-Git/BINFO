@@ -554,6 +554,22 @@ function lokaler(
     );
   }
   const ref = lk?.hyresintakter?.ref ?? kontrakt[0]?.ref;
+  // Cited zero lokal rent for the year: nothing left that can fall away (the
+  // loss, if any, is already in today's accounts and fee).
+  if (hyra === 0 && !kontrakt.some((k) => (varde(k.arshyra) ?? 0) > 0)) {
+    return komponent(
+      {
+        id: "lokaler",
+        label,
+        status: "ej_aktuell",
+        foreningKrPerAr: 0,
+        forklaring:
+          "Lokalerna gav inga hyresintäkter under året, så det finns ingen lokalhyra som kan falla bort.",
+      },
+      andel,
+      ref,
+    );
+  }
   if (!kontrakt.some((k) => k.slutdatum !== undefined)) {
     return komponent(
       {
