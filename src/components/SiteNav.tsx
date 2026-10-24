@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { useSession } from "@/lib/session";
 
 const links = [
-  { to: "/", label: "Hem" },
   { to: "/analysera", label: "Analysera" },
   { to: "/brf", label: "BRF-register" },
   { to: "/bolanekalkyl", label: "Bolånekalkyl" },
