@@ -14,7 +14,7 @@ import {
   validateraAnalyseraForm,
   type AnalyseraFormFields,
 } from "./analyseraForm";
-import type { FeeInclusion } from "@/types/analysis";
+import type { AnnonsKalla, FeeInclusion } from "@/types/analysis";
 
 function tomtFormulär(overrides: Partial<AnalyseraFormFields> = {}): AnalyseraFormFields {
   return {
@@ -304,6 +304,31 @@ describe("buildPropertyInput", () => {
       uppgifter,
     );
     expect(med.utgangspris).toBe(4_950_000);
+  });
+
+  it("tar med kalla när den ges och utelämnar nyckeln helt annars", () => {
+    const form = tomtFormulär({
+      boarea: "58",
+      manadsavgift: "3240",
+      antalRum: "3",
+      adress: "Kapellgränd 12",
+      postnummer: "116 25",
+      ort: "Stockholm",
+    });
+    const kalla: AnnonsKalla = {
+      typ: "booli",
+      url: "https://www.booli.se/annons/123",
+      forening: "Brf Exempel",
+      hamtad: "2026-10-24T10:00:00.000Z",
+      oandradeFalt: ["boarea", "adress"],
+    };
+    const med = buildPropertyInput("brf", form, uppgifter, kalla);
+    expect(med.kalla).toEqual(kalla);
+    const utan = buildPropertyInput("brf", form, uppgifter);
+    expect("kalla" in utan).toBe(false);
+    // Samma övriga innehåll oavsett kalla.
+    const { kalla: _bort, ...resten } = med;
+    expect(resten).toEqual(utan);
   });
 
   it("mappar hus till PropertyKind hus", () => {

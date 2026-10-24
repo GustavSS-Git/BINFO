@@ -1,4 +1,10 @@
-import type { FeeInclusion, PropertyInput, PropertyKind, Tristate } from "@/types/analysis";
+import type {
+  AnnonsKalla,
+  FeeInclusion,
+  PropertyInput,
+  PropertyKind,
+  Tristate,
+} from "@/types/analysis";
 import type { PropertyType } from "@/data/mockData";
 
 /**
@@ -198,11 +204,15 @@ export interface AnalyseraFormUppgifter {
  * utelämnat fält är dessutom den semantik kontraktet vill ha. `vaning` är
  * numera obligatoriskt i formuläret, så där är utelämnandet bara ett
  * säkerhetsnät; `byggar` kan fortfarande vara riktigt tomt.
+ *
+ * `kalla` (valfri) finns bara när uppgifterna hämtats från en annons; utan den
+ * utelämnas nyckeln helt.
  */
 export function buildPropertyInput(
   typ: PropertyType,
   form: AnalyseraFormFields,
   uppgifter: AnalyseraFormUppgifter,
+  kalla?: AnnonsKalla,
 ): PropertyInput {
   const vaning = parseVaning(form.vaning) ?? undefined;
   const byggar = parseValfrittHeltal(form.byggar);
@@ -227,5 +237,6 @@ export function buildPropertyInput(
     balkong: uppgifter.balkong,
     avgiftInkluderar: uppgifter.avgiftInkluderar,
     antalPersoner: uppgifter.antalPersoner,
+    ...(kalla !== undefined ? { kalla } : {}),
   };
 }

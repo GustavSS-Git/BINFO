@@ -14,6 +14,7 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => () => Promise.resolve(),
 }));
 vi.mock("@/server/analysFn", () => ({
+  hamtaAnnonsFn: vi.fn(),
   hamtaPrisuppskattningFn: vi.fn(),
   hamtaRegisterForeningFn: vi.fn(),
   hamtaSparadVarderingFn: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/server/analysFn", () => ({
   sparaVarderingFn: vi.fn(),
 }));
 
+const servern = await import("@/server/analysFn");
 const { Route } = await import("@/routes/analysera");
 const Sida = (Route as unknown as { component: () => React.ReactElement }).component;
 const { Route: VarderingRoute } = await import("@/routes/vardering");
@@ -50,6 +52,24 @@ describe("/analysera: priskoll och BRF-analys på en sida", () => {
     expect(html.match(/placeholder="116 25"/g)).toHaveLength(1);
     expect(html.match(/placeholder="58"/g)).toHaveLength(1);
     expect(html).toContain('id="vet-ej"');
+  });
+
+  it("har Booli-länkfältet och knappen före Steg 1, och rendering anropar ingen serverfunktion", () => {
+    sokning.current = {};
+    const html = rita();
+    const lank = html.indexOf("Klistra in länk från Booli");
+    expect(lank).toBeGreaterThan(-1);
+    expect(html).toContain("Hämta uppgifter");
+    expect(html).toContain('placeholder="https://www.booli.se/annons/…"');
+    expect(html.indexOf("Hämta uppgifter")).toBeLessThan(html.indexOf("Steg 1: Priskoll"));
+    expect(lank).toBeLessThan(html.indexOf("Steg 1: Priskoll"));
+    // Ingen hämtning har gjorts: inga hint eller markeringar på fälten.
+    expect(html).not.toContain("Hämtat från Booli");
+    expect(html).not.toContain("Fanns inte i annonsen");
+    expect(html).not.toContain("Booli anger föreningen");
+    for (const fn of Object.values(servern)) {
+      expect(fn).not.toHaveBeenCalled();
+    }
   });
 
   it("länkar inte längre till den gamla priskollssidan", () => {

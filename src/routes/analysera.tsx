@@ -27,12 +27,25 @@ import {
   type VarderingFormFields,
 } from "@/lib/varderingForm";
 import {
+  hamtaAnnonsFn,
   hamtaPrisuppskattningFn,
   hamtaRegisterForeningFn,
   sparaVarderingFn,
   skapaAnalysFn,
   skapaAnalysFranRegisterFn,
 } from "@/server/analysFn";
+import { kontrolleraAnnonsUrl } from "@/lib/annons/url";
+import {
+  annonsFaltVisning,
+  annonsTristateText,
+  boareaTillTal,
+  foreningsHint,
+  hamtaAnnonsUppgifter,
+  markeraAndrad,
+  tillAnnonsKalla,
+  tillampaAnnons,
+  type AnnonsFormLage,
+} from "@/lib/annons/formular";
 import { formatSkapadDatum } from "@/lib/analysisView";
 import { MAX_ETIKETT_TECKEN } from "@/lib/kontoTyper";
 import { inloggningsSok, parseSparaSok, type SparaSok } from "@/lib/till";
@@ -189,6 +202,12 @@ function Analysera() {
   const [varderar, setVarderar] = useState(false);
   const [prisUtfall, setPrisUtfall] = useState<PrisUtfall | null>(null);
   const [etikett, setEtikett] = useState("");
+  // Hämta uppgifter från en annons: länktext, pågående hämtning, fel under fältet och
+  // varifrån varje fält kommer (null = ingen hämtning gjord).
+  const [annonsLank, setAnnonsLank] = useState("");
+  const [hamtarAnnons, setHamtarAnnons] = useState(false);
+  const [annonsFel, setAnnonsFel] = useState<string | null>(null);
+  const [annonsLage, setAnnonsLage] = useState<AnnonsFormLage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const foreningLage = useRegisterForening(prefill.forening);
@@ -214,7 +233,46 @@ function Analysera() {
     }
   }, []);
 
-  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof typeof form) => (v: string) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    // Ett ändrat annonsfält är inte längre "hämtat från Booli".
+    setAnnonsLage((l) => (l ? markeraAndrad(l, k) : l));
+  };
+  const annonsVisning = (falt: Parameters<typeof annonsFaltVisning>[1], varde: string) =>
+    annonsFaltVisning(annonsLage, falt, varde);
+
+  /** Hämtar annonsen och fyller i formuläret. Startar ALDRIG en värdering eller analys. */
+  const hamtaFranAnnons = async () => {
+    if (hamtarAnnons) return; // förhindra dubbelhämtning
+    setHamtarAnnons(true);
+    setAnnonsFel(null);
+    try {
+      const utfall = await hamtaAnnonsUppgifter(annonsLank, {
+        kontrollera: kontrolleraAnnonsUrl,
+        hamta: (url) => hamtaAnnonsFn({ data: { url } }),
+      });
+      if (utfall.typ === "fel") {
+        setAnnonsFel(utfall.meddelande);
+        return;
+      }
+      const ny = tillampaAnnons(
+        form,
+        { hiss: uppgifter.hiss, balkong: uppgifter.balkong },
+        utfall.svar,
+      );
+      setForm(ny.form);
+      setUppgifter({
+        hiss: ny.hiss,
+        balkong: ny.balkong,
+        ...(utfall.svar.uppgifter.boarea !== undefined
+          ? { boarea: boareaTillTal(ny.form.boarea) }
+          : {}),
+      });
+      setAnnonsLage(ny.lage);
+    } finally {
+      setHamtarAnnons(false);
+    }
+  };
 
   // Steg 1 (priskoll) och hela formuläret (steg 2) delar fältreglerna.
   const fel1 = validateraVarderingForm(tillVarderingForm(form));
@@ -314,12 +372,17 @@ function Analysera() {
     }
 
     // fil är garanterat non-null här: kontrolleraPdfFil(null) returnerar alltid ett fel.
-    const propertyInput = buildPropertyInput(typ, form, {
-      hiss: uppgifter.hiss,
-      balkong: uppgifter.balkong,
-      avgiftInkluderar: uppgifter.ingar,
-      antalPersoner: uppgifter.antalPersoner,
-    });
+    const propertyInput = buildPropertyInput(
+      typ,
+      form,
+      {
+        hiss: uppgifter.hiss,
+        balkong: uppgifter.balkong,
+        avgiftInkluderar: uppgifter.ingar,
+        antalPersoner: uppgifter.antalPersoner,
+      },
+      annonsLage ? tillAnnonsKalla(annonsLage) : undefined,
+    );
 
     setSkickar(true);
     setSkickaFel(null);
@@ -430,6 +493,42 @@ function Analysera() {
       ) : null}
 
       {/* ---------------------------------------------------------------- */}
+      {/* Hämta uppgifter från en Booli-annons (fyller bara i formuläret)    */}
+      {/* ---------------------------------------------------------------- */}
+      <Card className="mb-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void hamtaFranAnnons();
+          }}
+        >
+          <Field
+            id="booli-lank"
+            label="Klistra in länk från Booli"
+            optional
+            type="text"
+            placeholder="https://www.booli.se/annons/…"
+            value={annonsLank}
+            onChange={(v) => {
+              setAnnonsLank(v);
+              setAnnonsFel(null);
+            }}
+            hint={
+              annonsLage
+                ? "Uppgifterna är ifyllda nedan. Kontrollera dem innan du går vidare."
+                : "Vi fyller i uppgifterna från annonsen. Kontrollera dem innan du går vidare."
+            }
+            error={annonsFel}
+          />
+          <div className="mt-4">
+            <Button type="submit" disabled={hamtarAnnons}>
+              {hamtarAnnons ? "Hämtar…" : "Hämta uppgifter"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* ---------------------------------------------------------------- */}
       {/* Steg 1: Priskoll (gratis, ingen uppladdning)                      */}
       {/* ---------------------------------------------------------------- */}
       <Card>
@@ -440,6 +539,7 @@ function Analysera() {
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field
+            id="falt-boarea"
             label="Boarea"
             type="text"
             suffix="m²"
@@ -447,19 +547,23 @@ function Analysera() {
             value={form.boarea}
             onChange={(v) => {
               set("boarea")(v);
-              setUppgifter({ boarea: Number(v.replace(",", ".")) || 0 });
+              setUppgifter({ boarea: boareaTillTal(v) });
             }}
             error={visaFelSteg1 ? fel1.boarea : null}
+            {...annonsVisning("boarea", form.boarea)}
           />
           <Field
+            id="falt-antalRum"
             label="Antal rum"
             type="text"
             placeholder="3"
             value={form.antalRum}
             onChange={set("antalRum")}
             error={visaFelSteg1 ? fel1.antalRum : null}
+            {...annonsVisning("antalRum", form.antalRum)}
           />
           <Field
+            id="falt-manadsavgift"
             label="Månadsavgift"
             type="text"
             suffix="kr/mån"
@@ -467,30 +571,38 @@ function Analysera() {
             value={form.manadsavgift}
             onChange={set("manadsavgift")}
             error={visaFelSteg1 ? fel1.manadsavgift : null}
+            {...annonsVisning("manadsavgift", form.manadsavgift)}
           />
           <Field
+            id="falt-postnummer"
             label="Postnummer"
             type="text"
             placeholder="116 25"
             value={form.postnummer}
             onChange={set("postnummer")}
             error={visaFelSteg1 ? fel1.postnummer : null}
+            {...annonsVisning("postnummer", form.postnummer)}
           />
           <Field
+            id="falt-vaning"
             label="Våning"
             placeholder="4"
             value={form.vaning}
             onChange={set("vaning")}
             error={visaFelSteg1 ? fel1.vaning : null}
+            {...annonsVisning("vaning", form.vaning)}
           />
           <Field
+            id="falt-byggar"
             label="Byggår"
             optional
             placeholder="1931"
             value={form.byggar}
             onChange={set("byggar")}
+            {...annonsVisning("byggar", form.byggar)}
           />
           <Field
+            id="falt-utgangspris"
             label="Utgångspris"
             optional
             type="text"
@@ -499,6 +611,7 @@ function Analysera() {
             value={form.utgangspris}
             onChange={set("utgangspris")}
             error={visaFelSteg1 ? fel1.utgangspris : null}
+            {...annonsVisning("utgangspris", form.utgangspris)}
           />
         </div>
 
@@ -507,17 +620,36 @@ function Analysera() {
             <span className="mb-2 block text-sm font-medium text-foreground">
               Hiss{" "}
               <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+              {annonsTristateText(annonsLage, "hiss", uppgifter.hiss) ? (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {annonsTristateText(annonsLage, "hiss", uppgifter.hiss)}
+                </span>
+              ) : null}
             </span>
-            <TristateChoice value={uppgifter.hiss} onChange={(v) => setUppgifter({ hiss: v })} />
+            <TristateChoice
+              value={uppgifter.hiss}
+              onChange={(v) => {
+                setUppgifter({ hiss: v });
+                setAnnonsLage((l) => (l ? markeraAndrad(l, "hiss") : l));
+              }}
+            />
           </div>
           <div>
             <span className="mb-2 block text-sm font-medium text-foreground">
               Balkong{" "}
               <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
+              {annonsTristateText(annonsLage, "balkong", uppgifter.balkong) ? (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {annonsTristateText(annonsLage, "balkong", uppgifter.balkong)}
+                </span>
+              ) : null}
             </span>
             <TristateChoice
               value={uppgifter.balkong}
-              onChange={(v) => setUppgifter({ balkong: v })}
+              onChange={(v) => {
+                setUppgifter({ balkong: v });
+                setAnnonsLage((l) => (l ? markeraAndrad(l, "balkong") : l));
+              }}
             />
           </div>
         </div>
@@ -724,6 +856,9 @@ function Analysera() {
             {(visaFelSteg2 || visaFilFel) && filFel ? (
               <p className="mt-3 text-sm text-danger">{filFel}</p>
             ) : null}
+            {foreningsHint(annonsLage) ? (
+              <p className="mt-3 text-sm text-muted-foreground">{foreningsHint(annonsLage)}</p>
+            ) : null}
           </Card>
         </>
       )}
@@ -735,20 +870,24 @@ function Analysera() {
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           <Field
+            id="falt-adress"
             label="Adress"
             type="text"
             placeholder="Kapellgränd 12"
             value={form.adress}
             onChange={set("adress")}
             error={visaFelSteg2 ? fel.adress : null}
+            {...annonsVisning("adress", form.adress)}
           />
           <Field
+            id="falt-ort"
             label="Ort"
             type="text"
             placeholder="Stockholm"
             value={form.ort}
             onChange={set("ort")}
             error={visaFelSteg2 ? fel.ort : null}
+            {...annonsVisning("ort", form.ort)}
           />
         </div>
 

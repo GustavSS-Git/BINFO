@@ -219,6 +219,7 @@ export function Field({
   error,
   id,
   inputMode,
+  framhav,
 }: {
   label: string;
   suffix?: string;
@@ -232,6 +233,8 @@ export function Field({
   /** Gives the input an id; hint/error text is then linked via aria-describedby. */
   id?: string;
   inputMode?: "text" | "decimal" | "numeric";
+  /** Highlights the border (warning token) when there is no error, e.g. a field the source lacked. */
+  framhav?: boolean;
 }) {
   const beskrivningsId = id !== undefined && (error || hint) ? `${id}-beskrivning` : undefined;
   return (
@@ -245,7 +248,7 @@ export function Field({
       <div
         className={cn(
           "flex items-center rounded-lg border bg-background focus-within:border-primary",
-          error ? "border-danger" : "border-input",
+          error ? "border-danger" : framhav ? "border-warning" : "border-input",
         )}
       >
         <input
