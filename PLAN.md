@@ -1,10 +1,151 @@
 # Binfo — current plan
 
-**Latest: report → price via the expected fee rise (2026-10-24b), below. Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: sustainable fee + longer refinancing horizon (2026-10-24c, in progress), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Plan: sustainable fee (A) + longer refinancing horizon (B) (round 2026-10-24c)
+
+Status: **APPROVED 2026-10-24, in progress.** Budget max 40 kr API. No deploy without the
+owner's OK. One commit per task. Follows point 4 ("the förening's finances barely move the
+price"). Owner decision: build A and B; C (räntekänslighet) stays out of the price.
+
+## Step zero (done)
+
+- `docs/underhall-referens.md` (research subagent, shown to the owner 2026-10-24, approved "A ok"):
+  - 300 kr/m² totalyta/year as the no-plan default is sourced: HSB Bostadsrättsbarometern 2026
+    ("schabloniserat sparande på 300 kr/kvm/år" when a plan is missing) and Riksbyggen 2025
+    (305). Range across sources 250–350.
+  - No source gives savings need by building age. Component lifetimes are medium-sourced (FAR
+    2025, SIB M84:10). Per-component costs per m² are weak or missing. So the default is NOT
+    built from component costs; components only move it within 250–350.
+  - HSB-style reports state "investeringsbehov per m²" (50-year plan average): the best target
+    when present.
+  - Side finding, not changed: BENCHMARKS.md grades sparande "God" above 0, far more lenient
+    than every external scale (HSB: < 120 mycket lågt).
+
+## Owner answers (2026-10-24)
+
+1. Colours apply in the summary, "Så har vi räknat" and the price section of the full report.
+2. Fee pressure: green < 2 %, yellow 2–10 %, red > 10 % of today's fee (per step and total).
+3. The range isn't shown any more (best guess only). A schablon-based target counts 50 % of the
+   gap.
+4. A surplus may RAISE the price (good economy, saves more than needed).
+5. B weights: months 25–36 × 0.75, 37–48 × 0.5, 49–60 × 0.25; ≤ 24 months × 1.
+6. PROMPT_VERSION 10 (deploys together with the undeployed v9); `/exempel` may be regenerated.
+7. Savings = the statutory sparande per m² totalyta; the target is per m² totalyta too.
+8. Labels: baseline "Vad jämförbara lägenheter säljs för"; adjusted "Värde med hänsyn till
+   föreningens ekonomi". Charts in plain HTML/CSS (no recharts: Worker bundle).
+
+## Design
+
+### A. Sparandegap (replaces `spargap`)
+
+Gap (kr/m² totalyta/year) = target − sparande; BRF kr/year = gap × totalyta; flat kr/month =
+× andel ÷ 12 as today. Negative gap (surplus) lowers the expected fee and raises the price.
+
+Target, first available:
+
+1. `underhallsplan.investeringsbehovPerM2` (report's nyckeltal) — källa "underhållsplan".
+2. `underhallsplan.rekommenderadAvsattning` (kr/year the plan says should be set aside) ÷ totalyta.
+3. Planned costs with amounts over the plan period ÷ years ÷ totalyta (`planeradeKostnader` with
+   fran/till, or a stated plan total over N years), EXCLUDING projects already counted by the
+   remaining `underhall` component (avoids double counting).
+4. Schablon 300 kr/m² (config, cited), moved by the building parts within [250, 350]:
+   - For each tracked part (stambyte, tak, fasad, fönster, ventilation, el, hiss — config with
+     lifetime ranges from the reference doc): `nyligen` (done less than half its lower lifetime
+     ago), `ok`, `eftersatt` (last done, or byggår if never mentioned, longer ago than its upper
+     lifetime) or `okant` (no byggår and no renovation year).
+   - score = (#eftersatt − #nyligen) ÷ #assessed (okant excluded) ∈ [−1, 1];
+     target = 300 + 50 × score.
+   - Only 50 % of the gap counts (owner); `beraknad` with `dampning: 0.5`.
+
+Debt from recent work is not penalised (debt only enters via refinancing). Missing sparande →
+`saknar_underlag` as today. A planned, financed withdrawal keeps today's exception only when
+the target comes from the plan (the plan already contains the withdrawal).
+
+**`underhall` component**: when the target comes from the plan (1–3), it keeps only projects
+within the 24-month horizon not covered by the fund (spread over 10 years as today); with the
+schablon target there are no plan amounts, so it stays `saknar_underlag` as today.
+
+### B. Refinancing, two phases
+
+- ≤ 24 months: as today, both directions (weight 1).
+- 25–60 months (`HORISONT_LANG_MANADER` 60): only loans whose current rate < the assumed new rate
+  (SSVX + 0.58); every cheaper loan counts; weight by maturity band (0.75 / 0.5 / 0.25). Never
+  prices a cut that far ahead.
+- Today's rate level throughout. Per-loan rows in the result (date, amount, rate → new rate,
+  weight, kr/year) for the UI. The 50 % assumption for undated debt applies to the 24-month
+  phase only (no assumed later phase).
+
+### C. Räntekänslighet
+
+Not in the price. The rate table stays; one line in "Så har vi räknat".
+
+### Fee pressure colour
+
+`tryck: 'gron' | 'gul' | 'rod'` per component and total from |kr/month| ÷ today's fee: green
+< 2 % (or any decrease), yellow 2–10 %, red > 10 %. Mapped to the existing status tones
+(god/svag/kritisk) in web, summary and PDF.
+
+### Contract (optional additions only; old data parses)
+
+- `Forening.genomfordaAtgarder?: Array<{ byggdel: Byggdel; ar: number; text; ref }>` (cited).
+- `underhallsplan.investeringsbehovPerM2?: Figure`, `rekommenderadAvsattning?: Figure`,
+  `planTotal?: { belopp: Figure; ar: number }` (stated total over N years).
+- `AvgiftsKomponentId` gains `sparandegap` (replaces `spargap`; prognoses are assembled per read,
+  only the `/exempel` snapshot changes).
+- `AvgiftsKomponent.tryck?`, `Avgiftsprognos.tryck?`, `sparbehov?` (target, källa, sparande,
+  gap, dampning, building parts with status/last year/lifetime/ref) and
+  `refinansiering.lan?` (per-loan rows with phase and weight).
+
+## Tasks
+
+- **T0 (supervisor):** commit `docs/underhall-referens.md`; config in `prognosantaganden.ts`
+  (schablon 300 + range + source, 50 % dampening, part lifetimes with sources, long horizon +
+  weights, pressure thresholds); contract + Zod + schema tests.
+- **T1 extraction v10 (agent pdf-pipeline):** `prompts.ts`, `slutfor.ts`, `sidreferenser.ts`,
+  goldens, `__fixtures__`: genomförda åtgärder with year (förvaltningsberättelse, notes,
+  "tidigare åtgärder" tables), investeringsbehov per m², the plan's recommended allocation, plan
+  total; PROMPT_VERSION 10; drafted answer keys (UTKAST) for ~4 reports.
+- **T2 calc (agent pdf-pipeline #2, tests first):** new `calc/sparbehov.ts` (target selection,
+  building-part status, score), `avgiftsprognos.ts` (sparandegap, two-phase refinancing,
+  narrowed underhåll, pressure colour). Hand-computed unit tests: each target source, surplus,
+  dampening, part statuses incl. never-mentioned + old byggår, the 250/350 clamp, weights per
+  band, cheaper-only rule, both directions within 24 months, old p8/p9 extractions.
+- **T3 assembly (supervisor):** `prisjustering.ts` (positive adjustments, no range talk),
+  `sammanfattning.ts` (colour word + shorter text), `assemble.ts`.
+- **T4 UI + PDF (agent frontend-state, after T0 types):** `AnalysRapport.tsx`,
+  `analysisView.ts`, PDF. Price section: the two labelled prices + a small waterfall bar
+  (baseline → each component's contribution → adjusted). "Så har vi räknat" rebuilt visual-first:
+  per step a headline, one large number, one line, a small source tag ("Årsredovisning s. 5",
+  "Underhållsplan", "Schablon"/"Uppskattning"), and "Visa mer" for details. Chains:
+  behov → sparande → glapp → avgift → pris; loans list (maturity, amount, rate → new rate,
+  weight, effect); building parts table ("Stambyte · senast 1978 · normalt 40–60 år · eftersatt").
+  The C line. Colours from `tryck`. Existing kit only; "For Lovable to polish" list.
+- **T5 verification (supervisor + reviewer):** `verify-extraction` on ~5 reports (≈ 18 kr),
+  one fix iteration (≈ 7 kr), regenerate `/exempel` (≈ 3.5 kr); worked examples: the fictional
+  cases + two real reports; screenshots of "Så har vi räknat" (Playwright on the cached
+  Chromium, SSR of the report with the built CSS); reviewer pass; typecheck/test/lint/build;
+  CLAUDE.md, PLAN.md, `docs/avgiftsprognos.md`, DECISIONS.
+
+T1 ∥ T2 after T0; T3 after T2; T4 can start after T0 on fixture data; T5 last.
+
+## Risks
+
+- One year's sparande can be unusually high or low; a surplus now raises the price. Mitigation:
+  the 30 % guard works both ways (marked osäker), and a schablon target counts only 50 %.
+- Many reports don't mention past renovations; "never mentioned + old byggår" then reads as
+  eftersatt and pulls the target to 350. Bounded by the range and the 50 % dampening.
+- The plan-based target depends on correctly reading plan totals (30- vs 50-year totals,
+  inflation-indexed plans). Per-item citations + the guard.
+- PROMPT_VERSION 10: the web app and Edge must deploy together (with v9 and both migrations).
+- Overlap between sparandegap and underhåll remains for horizon projects (owner spec);
+  documented.
 
 ---
 
