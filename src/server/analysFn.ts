@@ -38,6 +38,7 @@ import {
   hamtaResultat as hamtaResultatImpl,
   type SkapaAnalysArgs,
 } from "./analys";
+import { hamtaReferensranta } from "./referensranta";
 import {
   begarAterstallning,
   bekraftaEpost,
@@ -213,7 +214,9 @@ export const hamtaResultatFn = createServerFn({ method: "GET" })
     try {
       const env = envFromProcess();
       const anropare = await anropareFor(env);
-      return await hamtaResultatImpl(skapaLager(env), data.analysisId, anropare);
+      return await hamtaResultatImpl(skapaLager(env), data.analysisId, anropare, {
+        referensranta: () => hamtaReferensranta(anropare.konto),
+      });
     } catch (fel) {
       throw sakertFel("hamtaResultatFn", fel);
     }

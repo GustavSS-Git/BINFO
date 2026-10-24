@@ -869,7 +869,16 @@ describe("andelAvForeningensSkuld — lägenhetens andel av föreningens lån (b
     const utanBrf = await byggPrisanalys(inputKomplett, new ModellPrisdatakalla());
 
     expect(resultat.prisanalys.andelAvForeningensSkuld?.value).toBe(694_400);
-    const { andelAvForeningensSkuld: _skuld, ...rest } = resultat.prisanalys;
+    // The BRF layer (debt share comment, fee-rise adjustment) is added on top
+    // as separate fields; the shared core's own fields stay identical.
+    const {
+      andelAvForeningensSkuld: _skuld,
+      justeringar: _j,
+      justeradVardering: _jv,
+      avvikelseMotJusteradVardering: _ajv,
+      breddningsskal: _b,
+      ...rest
+    } = resultat.prisanalys;
     expect(rest).toEqual(utanBrf);
   });
 });

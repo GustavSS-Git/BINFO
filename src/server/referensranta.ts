@@ -12,27 +12,19 @@
  * last cached value, however old → the configured fallback (`reserv: true`).
  * Never throws: a missing rate must not break a report read.
  */
-import { z } from "zod";
 import type { Referensranta } from "@/types/analysis";
 import {
   REFERENSRANTA_KALLA,
   REFERENSRANTA_NAMN,
-  REFERENSRANTA_RESERV,
   REFERENSRANTA_SERIE,
+  reservReferensranta,
 } from "@/lib/analysis/calc/prognosantaganden";
+import { hamtaFranRiksbanken } from "@/lib/analysis/referensrantaHamtning";
 import type { KontoDatabas } from "./kontoPortar";
 
+export { hamtaFranRiksbanken };
+
 export type ReferensrantaCache = Pick<KontoDatabas, "lasReferensranta" | "skrivReferensranta">;
-
-const RIKSBANK_SENASTE = (serie: string) =>
-  `https://api.riksbank.se/swea/v1/Observations/Latest/${encodeURIComponent(serie)}`;
-
-const TIMEOUT_MS = 5000;
-
-const ObservationSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  value: z.number().finite().min(-5).max(25),
-});
 
 /** YYYY-MM-DD in Stockholm time. */
 export function stockholmsDatum(nu: Date): string {
@@ -55,41 +47,7 @@ function tillReferensranta(datum: string, procent: number, reserv: boolean): Ref
   };
 }
 
-/** The configured fallback, labelled as such. */
-export function reservReferensranta(): Referensranta {
-  return tillReferensranta(REFERENSRANTA_RESERV.datum, REFERENSRANTA_RESERV.procent, true);
-}
-
-/** One request to the Riksbank API; null on any failure (logged). */
-export async function hamtaFranRiksbanken(
-  fetchFn: typeof fetch = fetch,
-): Promise<{ datum: string; procent: number } | null> {
-  const avbryt = new AbortController();
-  const timer = setTimeout(() => avbryt.abort(), TIMEOUT_MS);
-  try {
-    const svar = await fetchFn(RIKSBANK_SENASTE(REFERENSRANTA_SERIE), {
-      headers: { accept: "application/json" },
-      signal: avbryt.signal,
-    });
-    if (!svar.ok) {
-      console.warn("[referensranta] Riksbanken svarade", { status: svar.status });
-      return null;
-    }
-    const tolkad = ObservationSchema.safeParse(await svar.json());
-    if (!tolkad.success) {
-      console.warn("[referensranta] oväntat svar från Riksbanken");
-      return null;
-    }
-    return { datum: tolkad.data.date, procent: tolkad.data.value };
-  } catch (fel) {
-    console.warn("[referensranta] hämtning misslyckades", {
-      orsak: fel instanceof Error ? fel.name : "okänt",
-    });
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
+export { reservReferensranta };
 
 /**
  * The reference rate for a read. `cache` null = no database (CLI): fetch

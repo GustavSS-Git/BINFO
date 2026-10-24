@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { hamtaFranRiksbanken } from "./referensrantaHamtning";
+import { reservReferensranta } from "./calc/prognosantaganden";
 import { ExtractionValidationError, ModelTruncatedError } from "./extract";
 import { KostnadsgransOverskriden, STANDARD_MODELL } from "./costGuard";
 import {
@@ -223,11 +225,24 @@ async function main() {
   });
   allCalls.push(...analysCalls);
 
+  // Optional: keep the paid raw outputs so the assembly (fee prognosis, price,
+  // summary) can be re-run for free with scripts/monteraOm.ts.
+  const sparaUnderlag = process.env["EXTRACT_SPARA_UNDERLAG"];
+  if (sparaUnderlag) {
+    await writeFile(sparaUnderlag, JSON.stringify({ extraction, analys, input }, null, 2));
+    console.error(`Rå extraktion och bedömning sparade i ${sparaUnderlag}.`);
+  }
+
+  const referensranta = await hamtaFranRiksbanken();
+  if (!referensranta) console.error("Referensräntan kunde inte hämtas — reservvärdet används.");
   const resultat = await assembleraAnalys({
     extraction,
     input,
     prisdatakalla: valjPrisdatakalla(input),
     analys,
+    ...(referensranta
+      ? { referensranta: { ...reservReferensranta(), ...referensranta, reserv: false } }
+      : {}),
   });
 
   const wallClockS = (performance.now() - wallClockStart) / 1000;

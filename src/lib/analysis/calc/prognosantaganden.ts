@@ -4,6 +4,7 @@
  * nowhere else. Values marked "TODO: unverified placeholder" are owner-chosen
  * product assumptions (the "moderate set", 2026-10-24), not market facts.
  */
+import type { Referensranta } from "@/types/analysis";
 
 /** How far ahead the prognosis looks, months. */
 // TODO: unverified placeholder (owner default 2026-10-24)
@@ -70,3 +71,16 @@ export const REFERENSRANTA_RESERV = { procent: 2.068, datum: "2026-10-23" } as c
  * sync with the artifact.
  */
 export const AVGIFT_BETA_LOG_PER_KR_M2 = -0.0024470683054306232;
+
+/** The configured fallback rate as a contract value, labelled `reserv: true`.
+ *  Used when no fetched value exists (and by callers without a database). */
+export function reservReferensranta(): Referensranta {
+  return {
+    namn: REFERENSRANTA_NAMN,
+    serie: REFERENSRANTA_SERIE,
+    datum: REFERENSRANTA_RESERV.datum,
+    procent: REFERENSRANTA_RESERV.procent,
+    kalla: REFERENSRANTA_KALLA,
+    reserv: true,
+  };
+}

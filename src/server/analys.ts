@@ -36,7 +36,12 @@
  * switch, spend-tak och den strikta kvoten.
  */
 
-import type { AnalysisResult, ExtractionResult, PropertyInput } from "@/types/analysis";
+import type {
+  AnalysisResult,
+  ExtractionResult,
+  PropertyInput,
+  Referensranta,
+} from "@/types/analysis";
 import { PropertyInputSchema } from "@/lib/analysis/schema";
 import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { extractPdfText } from "@/lib/analysis/pdf";
@@ -801,6 +806,7 @@ async function monteraResultat(
   lager: Lager,
   analysisId: string,
   kontrolleraRad?: (rad: AnalysRad) => Promise<void>,
+  lasning: ResultatLasning = {},
 ): Promise<AnalysisResult> {
   const rad = await lager.db.hamtaAnalys(analysisId);
   if (!rad) {
@@ -814,11 +820,16 @@ async function monteraResultat(
 
   const input = lasPropertyInputFranRad(rad);
   const prisdatakalla = new ModellPrisdatakalla();
+  // The fee prognosis prices refinancing with today's reference rate. A read
+  // never fails on it: without a getter (tests, legacy callers) assembly uses
+  // the configured fallback, and the getter itself never throws.
+  const referensranta = lasning.referensranta ? await lasning.referensranta() : undefined;
 
   const resultat = await assembleraAnalys({
     extraction: underlag.extraction,
     input,
     prisdatakalla,
+    ...(referensranta ? { referensranta } : {}),
     analys: underlag.judgement,
     analysisId: rad.id,
     skapad: rad.createdAt,
@@ -857,13 +868,24 @@ export async function hamtaResultat(
   lager: Lager,
   analysisId: string,
   anropare?: Anropare,
+  lasning: ResultatLasning = {},
 ): Promise<AnalysisResult> {
-  if (!anropare) return monteraResultat(lager, analysisId);
-  return monteraResultat(lager, analysisId, (rad) =>
-    anropare.behorighet.kravBehorighet(
-      anropare.kontext,
-      "full_rapport",
-      rad.rapportId !== null ? { rapportId: rad.rapportId } : {},
-    ),
+  if (!anropare) return monteraResultat(lager, analysisId, undefined, lasning);
+  return monteraResultat(
+    lager,
+    analysisId,
+    (rad) =>
+      anropare.behorighet.kravBehorighet(
+        anropare.kontext,
+        "full_rapport",
+        rad.rapportId !== null ? { rapportId: rad.rapportId } : {},
+      ),
+    lasning,
   );
+}
+
+/** Read-time inputs that come from outside the stored analysis. */
+export interface ResultatLasning {
+  /** Today's reference rate (src/server/referensranta.ts). Must not throw. */
+  referensranta?: () => Promise<Referensranta>;
 }

@@ -14,13 +14,19 @@ import type {
   PrisInput,
   PropertyInput,
   Rantestress,
+  Referensranta,
   Varderingsunderlag,
 } from "@/types/analysis";
 import { formatDataperiod } from "@/lib/analysisView";
 import { AnalysisResultSchema } from "./schema";
 import { ALLA_NYCKELTAL } from "./prompts";
 import type { AnalysJudgement } from "./analyze";
-import { beraknaRantestress } from "./calc/rantestress";
+import { beraknaRantestress, byggPrognosTabell } from "./calc/rantestress";
+import { beraknaAvgiftsprognos } from "./calc/avgiftsprognos";
+import { reservReferensranta } from "./calc/prognosantaganden";
+import { byggPrisjustering } from "./prisjustering";
+import { jamforUppgifter } from "./uppgiftsjamforelse";
+import { byggSammanfattning } from "./sammanfattning";
 import {
   konfidensUtanPrisdata,
   konfidensUtanPostnummer,
@@ -71,6 +77,12 @@ export interface AssembleraAnalysInput {
    *  JSON ut. Utelämnas i normalfallet, då genereras båda internt. */
   analysisId?: string;
   skapad?: string;
+  /** Today's reference rate for the fee prognosis; absent → the configured
+   *  fallback (labelled `reserv`). The Edge dry assembly never fetches. */
+  referensranta?: Referensranta;
+  /** The day the prognosis horizon starts, YYYY-MM-DD; defaults to today
+   *  (Stockholm). Injected by tests for determinism. */
+  idag?: string;
 }
 
 const AVGIFTSPOSTER: ReadonlyArray<{ id: keyof FeeInclusion; label: string }> = [
@@ -239,6 +251,32 @@ export function osakerhetsfragor(forening: Forening, befintliga: readonly Fraga[
     });
   }
   return fragor;
+}
+
+/**
+ * Model-written text that says byggår is missing. The extraction and the
+ * judging never see the buyer's input, so they can write "byggår saknas" even
+ * when the buyer typed it (or, for the judging, when only the report lacks
+ * it). Matched per sentence/line: a byggår word and a "missing" phrase in the
+ * same sentence.
+ */
+const BYGGAR_ORD = /bygg(?:nads)?år|byggnadsåret|byggåret|uppförandeår/i;
+const SAKNAS_ORD =
+  /saknas|framgår inte|anges inte|inte anges|inte angivet|ej angivet|okänt|uppges inte|redovisas inte/i;
+
+export function sagerAttByggarSaknas(text: string): boolean {
+  return text
+    .split(/(?<=[.!?])\s+|\n/)
+    .some((mening) => BYGGAR_ORD.test(mening) && SAKNAS_ORD.test(mening));
+}
+
+/** A question that only asks which year the house was built. */
+const FRAGAR_OM_BYGGAR =
+  /(vilket år|när)\b[^?]*\b(byggdes|uppfördes|är huset byggt|byggt)\b|\bbyggår(et)?\b/i;
+const ANNAT_AMNE = /\b(om|stam|stammar|renover|tak|fasad|fönster|hiss)\w*/i;
+
+export function fragarBaraOmByggar(fraga: Pick<Fraga, "fraga">): boolean {
+  return FRAGAR_OM_BYGGAR.test(fraga.fraga) && !ANNAT_AMNE.test(fraga.fraga);
 }
 
 // ---------------------------------------------------------------------------
@@ -911,6 +949,34 @@ export function utanNyckeltalsantal(text: string): string {
   );
 }
 
+/** YYYY-MM-DD in Stockholm time — the day the fee prognosis horizon starts. */
+function idagStockholm(): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** Deterministic question when the expected fee rise trips the sanity guard. */
+function avgiftsprognosFraga(orsak: string): Fraga {
+  return {
+    id: "avgiftsprognos-osaker",
+    fraga:
+      "Planerar styrelsen avgiftshöjningar de närmaste åren, och i så fall hur stora — och " +
+      "stämmer de kostnader och lån vi läst ut ur årsredovisningen?",
+    ursprung: "analys",
+    riktadTill: "styrelsen",
+    varfor:
+      `${orsak}${/[.!?]$/.test(orsak.trim()) ? "" : "."} Ett så stort belopp kan bero på att ` +
+      "vi läst en siffra fel, så det är värt att få bekräftat innan du bestämmer budnivå.",
+    svarssignal:
+      "Bra svar: en konkret plan med belopp och tidpunkt. Varningssignal: att ingen vet eller " +
+      "att höjningen ska skjutas upp utan finansiering.",
+  };
+}
+
 export async function assembleraAnalys({
   extraction,
   input,
@@ -918,22 +984,106 @@ export async function assembleraAnalys({
   analys,
   analysisId,
   skapad,
+  referensranta,
+  idag,
 }: AssembleraAnalysInput): Promise<AnalysisResult> {
+  // Report vs the buyer's input (round 2026-10-24b). Förening-level byggår
+  // from the report wins at high confidence and feeds the valuation; the
+  // stored input itself is never changed.
+  const jamforelse = jamforUppgifter({
+    input,
+    forening: extraction.forening,
+    datakvalitet: extraction.datakvalitet,
+  });
+  const { byggar: _anvandarensByggar, ...utanByggar } = input;
+  const varderingsInput: PropertyInput =
+    jamforelse.byggarForVardering !== undefined
+      ? { ...utanByggar, byggar: jamforelse.byggarForVardering }
+      : utanByggar;
+
   // Degraderar numera i stället för att kasta — se filkommentaren ovan.
-  const rantestress: Rantestress = beraknaRantestress(extraction.forening, input.manadsavgift);
-  const rantekanslighetSaknas = rantestress.rantekanslighetProcent === null;
+  const rantestressBas: Rantestress = beraknaRantestress(extraction.forening, input.manadsavgift);
+  const rantekanslighetSaknas = rantestressBas.rantekanslighetProcent === null;
   const andelAvForeningensSkuld = beraknaAndelAvForeningensSkuld(extraction.forening, input.boarea);
+  const basPrisanalys = await byggPrisanalys(varderingsInput, prisdatakalla);
+
+  // The ONE channel from the report to the price: the expected fee rise
+  // (docs/avgiftsprognos.md). The grade never enters here.
+  const prognos = beraknaAvgiftsprognos({
+    forening: extraction.forening,
+    ...(extraction.kontrollsummor ? { kontrollsummor: extraction.kontrollsummor } : {}),
+    manadsavgift: input.manadsavgift,
+    boarea: input.boarea,
+    referensranta: referensranta ?? reservReferensranta(),
+    idag: idag ?? idagStockholm(),
+  });
+
+  // Only Binfo's own model is adjusted (a real external valuation would
+  // already be a market view of this flat).
+  const modellBaslinje =
+    basPrisanalys.varderingsunderlag &&
+    basPrisanalys.externVardering &&
+    basPrisanalys.externVardering.value !== null
+      ? {
+          value: basPrisanalys.externVardering.value,
+          ...(basPrisanalys.externVardering.range
+            ? { range: basPrisanalys.externVardering.range }
+            : {}),
+        }
+      : null;
+  const alternativa: Array<{ skal: string; pris: number }> = [];
+  if (modellBaslinje && jamforelse.byggarAlternativ !== undefined) {
+    const alternativ = korBinfoVarderingsmodell(
+      tillPrisInput({ ...varderingsInput, byggar: jamforelse.byggarAlternativ }),
+    );
+    if (alternativ) {
+      alternativa.push({
+        skal:
+          `Byggåret är osäkert (du angav ${input.byggar ?? "inget"}, årsredovisningen anger ` +
+          `${jamforelse.byggarAlternativ}), så spannet täcker värderingen med båda åren.`,
+        pris: alternativ.resultat.varde,
+      });
+    }
+  }
+  const justering = byggPrisjustering({
+    baseline: modellBaslinje,
+    boarea: input.boarea,
+    prognos,
+    ...(alternativa.length > 0 ? { alternativa } : {}),
+    ...(input.utgangspris !== undefined ? { utgangspris: input.utgangspris } : {}),
+  });
+
   // BRF-lagret läggs på EFTER den delade värderingskärnan och rör inga av
   // dess fält — skuldandelen är en kommentar, ingen prisjustering.
   const prisanalys: Prisanalys = {
-    ...(await byggPrisanalys(input, prisdatakalla)),
+    ...basPrisanalys,
     ...(andelAvForeningensSkuld ? { andelAvForeningensSkuld } : {}),
+    ...(justering ?? {}),
   };
+  const prognosTabell = byggPrognosTabell(input.manadsavgift, prognos);
+  const rantestress: Rantestress = prognosTabell
+    ? { ...rantestressBas, prognosTabell }
+    : rantestressBas;
+
+  // Model-written text claiming byggår is missing, when the buyer or the
+  // report has it (neither model sees the buyer's input).
+  const byggarKant = input.byggar !== undefined || extraction.forening.byggar?.value != null;
+  const modellSkal = extraction.datakvalitet.extraktionKonfidens.skal;
+  const extraktionKonfidensRensad =
+    byggarKant && modellSkal
+      ? {
+          ...extraction.datakvalitet.extraktionKonfidens,
+          skal: modellSkal.filter((rad) => !sagerAttByggarSaknas(rad)),
+        }
+      : extraction.datakvalitet.extraktionKonfidens;
+  const analysFragor = byggarKant
+    ? analys.fragor.filter((f) => !(fragarBaraOmByggar(f) || sagerAttByggarSaknas(f.fraga)))
+    : analys.fragor;
 
   const uppgiftsstatus = berakUppgiftsstatus(input);
   const extraktionKonfidens = rantekanslighetSaknas
-    ? sankKonfidensForSaknadRantekanslighet(extraction.datakvalitet.extraktionKonfidens)
-    : extraction.datakvalitet.extraktionKonfidens;
+    ? sankKonfidensForSaknadRantekanslighet(extraktionKonfidensRensad)
+    : extraktionKonfidensRensad;
   const datakvalitet: AnalysisResult["datakvalitet"] = {
     pdfSaknarTextlager: extraction.datakvalitet.pdfSaknarTextlager,
     extraktionKonfidens,
@@ -953,15 +1103,18 @@ export async function assembleraAnalys({
       ? [SAKNAR_SKULD_PER_M2_FRAGA]
       : [];
   const avgiftFraga = avgiftsavvikelseFraga(input, extraction.forening);
+  const prognosFraga: Fraga[] = prognos.prognos.osaker
+    ? [avgiftsprognosFraga(prognos.prognos.osaker)]
+    : [];
   const osakerFragor = osakerhetsfragor(extraction.forening, [
-    ...analys.fragor,
+    ...analysFragor,
     ...saknadUppgiftFragor,
     ...rantekanslighetFraga,
     ...skuldFraga,
     ...(avgiftFraga ? [avgiftFraga] : []),
   ]);
 
-  const resultat: AnalysisResult = {
+  const utanSammanfattning: Omit<AnalysisResult, "sammanfattning"> = {
     schemaVersion: "1.0.0",
     // Globala crypto.randomUUID(), inte node:crypto — samma API finns i
     // Cloudflare Workers (dit appen byggs), i Node 19+ och i webbläsaren,
@@ -982,17 +1135,25 @@ export async function assembleraAnalys({
     prisanalys,
     rantestress,
     fragor: [
-      ...analys.fragor,
+      ...analysFragor,
       ...saknadUppgiftFragor,
       ...rantekanslighetFraga,
       ...skuldFraga,
       ...(avgiftFraga ? [avgiftFraga] : []),
+      ...prognosFraga,
       ...osakerFragor,
     ],
 
     datakvalitet,
 
+    avgiftsprognos: prognos.prognos,
+    ...(jamforelse.rader.length > 0 ? { uppgiftsjamforelse: jamforelse.rader } : {}),
+
     gratisSektioner: ["betyg", "rodaFlaggor_topp2", "datakvalitet"],
+  };
+  const resultat: AnalysisResult = {
+    ...utanSammanfattning,
+    sammanfattning: byggSammanfattning(utanSammanfattning),
   };
 
   const parsed = AnalysisResultSchema.safeParse(resultat);
