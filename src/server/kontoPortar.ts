@@ -8,7 +8,8 @@
  * talks to `./supabaseKonto.ts`; tests talk to `./__fakes__/konto.ts`. Both
  * implement this interface and mirror the SQL in
  * `supabase/migrations/20261009120100_konto.sql` and
- * `supabase/migrations/20261013120000_konto_v3.sql`.
+ * `supabase/migrations/20261013120000_konto_v3.sql` (and
+ * `supabase/migrations/20261024120000_annons.sql` for the listing cache).
  *
  * Also holds the `AuthPort` (Supabase Auth, server-side only): the interface
  * `./auth.ts` and `./kontext.ts` are written against, implemented by
@@ -267,6 +268,20 @@ export interface KontoDatabas {
    *  that is gone or already moved elsewhere changes nothing. No rapport, PDF
    *  or register row is touched. */
   flyttaAnalys(analysId: string, fran: string, till: string): Promise<boolean>;
+
+  // -------------------------------------------------------------------------
+  // Listing fetch cache (supabase/migrations/20261024120000_annons.sql)
+  // -------------------------------------------------------------------------
+
+  /** `select svar, hamtad from annons_cache where url = $1`. `url` is the
+   *  canonical listing URL. Null when there is no row. `svar` is `unknown`:
+   *  the service layer parses it with its own schema before serving, and
+   *  decides freshness from `hamtad` (rows are purged after 2 days). */
+  lasAnnonsCache(url: string): Promise<{ svar: unknown; hamtad: string } | null>;
+
+  /** `insert into annons_cache (url, svar, hamtad) values ($1, $2, now())
+   *  on conflict (url) do update set svar = excluded.svar, hamtad = now()`. */
+  skrivAnnonsCache(url: string, svar: unknown): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

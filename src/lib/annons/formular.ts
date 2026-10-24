@@ -32,7 +32,7 @@ export interface AnnonsBeroenden {
 export const TOM_LANK_MEDDELANDE = "Klistra in en länk från Booli först.";
 
 /** Server error codes whose own (buyer-safe) message is shown verbatim. */
-const VISA_SERVERNS_TEXT = new Set(["kvot", "avstangd", "ogiltig_url", "fel_doman"]);
+const VISA_SERVERNS_TEXT = new Set(["kvot", "avstangd", "behorighet", "ogiltig_url", "fel_doman"]);
 
 /**
  * Checks the pasted text, fetches once, and returns either the listing answer
@@ -79,6 +79,8 @@ export interface AnnonsFormLage {
     stadsdel?: string;
   };
   ursprung: Record<AnnonsFalt, Ursprung>;
+  /** The postcode came from geocoding the address (OpenStreetMap), not from the listing. */
+  postnummerGeokodat: boolean;
 }
 
 export interface AnnonsTristates {
@@ -175,7 +177,7 @@ export function tillampaAnnons(
     form: nyForm,
     hiss: u.hiss === "ja" ? "ja" : tristates.hiss,
     balkong: u.balkong === "ja" ? "ja" : tristates.balkong,
-    lage: { kalla, ursprung },
+    lage: { kalla, ursprung, postnummerGeokodat: svar.postnummerKalla === "geokodning" },
   };
 }
 
@@ -208,6 +210,8 @@ export function tillAnnonsKalla(lage: AnnonsFormLage): AnnonsKalla {
 // ---------------------------------------------------------------------------
 
 export const HINT_BOOLI = "Hämtat från Booli";
+/** ODbL attribution: the postcode was looked up in OpenStreetMap data. */
+export const HINT_GEOKODAT = "Uppslaget från adressen (© OpenStreetMap-bidragsgivare)";
 export const HINT_MANUELLT = "Ändrat manuellt";
 export const HINT_SAKNAS = "Fanns inte i annonsen, fyll i själv";
 export const HINT_SAKNAS_VALFRITT = "Framgår inte av annonsen";
@@ -221,7 +225,9 @@ export function annonsFaltVisning(
   if (lage === null) return {};
   switch (lage.ursprung[falt]) {
     case "booli":
-      return { hint: HINT_BOOLI };
+      return {
+        hint: falt === "postnummer" && lage.postnummerGeokodat ? HINT_GEOKODAT : HINT_BOOLI,
+      };
     case "manuellt":
       return { hint: HINT_MANUELLT };
     case "saknas":

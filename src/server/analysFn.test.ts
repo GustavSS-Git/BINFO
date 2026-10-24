@@ -26,6 +26,9 @@ const tillstand = vi.hoisted(() => ({
   konto: null as unknown,
   /** Overrides of the standard policy for one test (deny policy). */
   policy: {} as Record<string, () => boolean>,
+  /** Calls to the (mocked) `hamtaAnnons` and what it answers. */
+  annonsAnrop: [] as Array<{ data: unknown; beroenden: unknown }>,
+  annonsSvar: (() => ({ ok: false, errorCode: "natverk", errorMessage: "x" })) as () => unknown,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -75,6 +78,13 @@ vi.mock("./behorighet", async (importOriginal) => {
   };
 });
 vi.mock("./supabaseKonto", () => ({ skapaKontoDatabas: () => tillstand.konto }));
+// The listing fetch itself is tested in annons/hamta*.test.ts; here only the binding.
+vi.mock("./annons/hamta", () => ({
+  hamtaAnnons: async (data: unknown, beroenden: unknown) => {
+    tillstand.annonsAnrop.push({ data, beroenden });
+    return tillstand.annonsSvar();
+  },
+}));
 
 const { skapaFakeLager } = await import("./__fakes__/lager");
 const { skapaFakeKontoDatabas } = await import("./__fakes__/konto");
@@ -84,6 +94,7 @@ const { extraktion } = await import("@/lib/analysis/__fixtures__/extraktion");
 const { uppdateraRegisterForOrgnr } = await import("./register");
 const { REGISTERANALYS_NEKAD_MEDDELANDE } = await import("./registerPublik");
 const {
+  hamtaAnnonsFn,
   hamtaPrisuppskattningFn,
   hamtaRegisterAnalysFn,
   hamtaResultatFn,
@@ -141,6 +152,8 @@ beforeEach(() => {
   tillstand.headers.clear();
   tillstand.headers.set("cf-connecting-ip", IP);
   tillstand.policy = {};
+  tillstand.annonsAnrop.length = 0;
+  tillstand.annonsSvar = () => ({ ok: false, errorCode: "natverk", errorMessage: "x" });
   const ny = skapaFakeLager();
   tillstand.lager = ny;
   tillstand.konto = skapaFakeKontoDatabas({ analyser: ny.db._analysTabell() });
@@ -206,6 +219,64 @@ describe("analysFn — kontext först i varje handler", () => {
     expect([...konto().kvot.values()]).toEqual([
       expect.objectContaining({ nyckel: kvotNyckel("prisuppskattning", "ip", ipHash), antal: 1 }),
     ]);
+  });
+});
+
+describe("analysFn — hamtaAnnonsFn", () => {
+  it("skickar indatat oförändrat vidare till hamtaAnnons med { anropare, env } och returnerar svaret orört", async () => {
+    tillstand.cookies.set(ENHET_COOKIE, ENHET);
+    const svar = {
+      ok: false,
+      errorCode: "fel_doman",
+      errorMessage: "Endast Booli-länkar stöds just nu.",
+    };
+    tillstand.annonsSvar = () => svar;
+    const data = { url: "https://www.booli.se/bostad/720821", oväntad: [1, 2] };
+
+    const ut = await hamtaAnnonsFn({ data });
+
+    expect(ut).toBe(svar);
+    expect(tillstand.annonsAnrop).toHaveLength(1);
+    const { data: sedd, beroenden } = tillstand.annonsAnrop[0]!;
+    expect(sedd).toBe(data);
+    const b = beroenden as { anropare: Record<string, unknown>; env: Env } & Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(b).sort()).toEqual(["anropare", "env"]);
+    expect(b.env.supabaseUrl).toBe("https://example.supabase.co");
+    expect(b.anropare["konto"]).toBe(tillstand.konto);
+    expect((b.anropare["kontext"] as { enhetId: string }).enhetId).toBe(ENHET);
+    expect(typeof (b.anropare["behorighet"] as { kravBehorighet: unknown }).kravBehorighet).toBe(
+      "function",
+    );
+  });
+
+  it("anroparens behörighetspolicy är den riktiga: en nekande policy för hamta_annons syns i anropet", async () => {
+    tillstand.policy = { hamta_annons: () => false };
+    await hamtaAnnonsFn({ data: { url: "x" } });
+    const { anropare } = tillstand.annonsAnrop[0]!.beroenden as {
+      anropare: import("./portar").Anropare;
+    };
+    await expect(
+      anropare.behorighet.kravBehorighet(anropare.kontext, "hamta_annons"),
+    ).rejects.toThrow();
+  });
+
+  it("själva bindningen tar ingen kvot (den tas i hamtaAnnons, efter cachen)", async () => {
+    await hamtaAnnonsFn({ data: { url: "https://www.booli.se/bostad/720821" } });
+    expect(kvotTotalt()).toBe(0);
+  });
+
+  it("ett oväntat kast i hamtaAnnons blir inget internt fel hos klienten (sakertFel)", async () => {
+    const logg = vi.spyOn(console, "error").mockImplementation(() => {});
+    tillstand.annonsSvar = () => {
+      throw new Error("StorageApiError hemlig-intern-detalj");
+    };
+    const fel = await hamtaAnnonsFn({ data: { url: "x" } }).catch((e: unknown) => e);
+    expect(fel).toBeInstanceOf(Error);
+    expect(String((fel as Error).message)).not.toContain("hemlig-intern-detalj");
+    logg.mockRestore();
   });
 });
 

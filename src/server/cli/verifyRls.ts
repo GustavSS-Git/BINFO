@@ -11,7 +11,7 @@
  *     datum långt bak i tiden (1999) som aldrig kan krocka med riktig data.
  *  2. v2-tabellerna (register: forening, rapport, rapport_fil, sidtext,
  *     forening_adress; konto: principal, behorighet, kvot; v3: sparad_vardering,
- *     sparad_kalkyl, plus RPC:erna sakerstall_konto_principal,
+ *     sparad_kalkyl; annons_cache; plus RPC:erna sakerstall_konto_principal,
  *     lista_mina_analyser, radera_min_analys). Secret-nyckeln
  *     skriver en probe-rad i varje (så att "publishable ser 0 rader" betyder
  *     något), publishable ska varken se, skriva, ändra eller radera dem.
@@ -56,6 +56,9 @@ const PROBE_KVOT_PUBLISHABLE = "verify-rls:probe-publishable";
 // v3 saved items: both tables are probed through their `etikett`.
 const PROBE_ETIKETT = "verify-rls-probe";
 const PROBE_ETIKETT_PUBLISHABLE = "verify-rls-probe-publishable";
+// Listing-fetch cache (20261024120000_annons.sql): probed through its url.
+const PROBE_ANNONS_URL = "verify-rls-probe";
+const PROBE_ANNONS_URL_PUBLISHABLE = "verify-rls-probe-publishable";
 
 interface Utfall {
   namn: string;
@@ -330,6 +333,10 @@ async function skrivProbeRader(
             regelversion: "verify-rls",
           }),
       ],
+      [
+        "annons_cache",
+        () => secretClient.from("annons_cache").insert({ url: PROBE_ANNONS_URL, svar: {} }),
+      ],
     );
     for (const [tabell, gor] of steg) {
       const { error } = await gor();
@@ -483,6 +490,13 @@ async function provaV2Tabeller(secretClient: Klient, publishableClient: Klient, 
       },
       publishableNyckel: ["etikett", PROBE_ETIKETT_PUBLISHABLE],
       uppdatering: { regelversion: "verify-rls hijack" },
+    },
+    {
+      tabell: "annons_cache",
+      nyckel: ["url", PROBE_ANNONS_URL],
+      publishableRad: { url: PROBE_ANNONS_URL_PUBLISHABLE, svar: {} },
+      publishableNyckel: ["url", PROBE_ANNONS_URL_PUBLISHABLE],
+      uppdatering: { svar: { hijack: true } },
     },
   ];
 
@@ -863,6 +877,15 @@ async function stada(secretClient: Klient): Promise<void> {
     "kvot",
     (await secretClient.from("kvot").delete().in("nyckel", [PROBE_KVOT, PROBE_KVOT_PUBLISHABLE]))
       .error,
+  );
+  notera(
+    "annons_cache",
+    (
+      await secretClient
+        .from("annons_cache")
+        .delete()
+        .in("url", [PROBE_ANNONS_URL, PROBE_ANNONS_URL_PUBLISHABLE])
+    ).error,
   );
 
   if (fel.length > 0) {

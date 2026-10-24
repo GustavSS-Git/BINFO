@@ -32,7 +32,12 @@
 import type { Kontext } from "./kontext";
 
 export type Formaga =
-  "prisuppskattning" | "ladda_upp_analys" | "full_rapport" | "pdf_export" | "se_registeranalys";
+  | "prisuppskattning"
+  | "ladda_upp_analys"
+  | "full_rapport"
+  | "pdf_export"
+  | "se_registeranalys"
+  | "hamta_annons";
 
 export const ALLA_FORMAGOR: readonly Formaga[] = [
   "prisuppskattning",
@@ -40,6 +45,7 @@ export const ALLA_FORMAGOR: readonly Formaga[] = [
   "full_rapport",
   "pdf_export",
   "se_registeranalys",
+  "hamta_annons",
 ];
 
 export interface BehorighetsFraga {
@@ -62,6 +68,9 @@ export const STANDARD_POLICY: Policy = {
   // The stored full register analysis: open to all today. An account or
   // payment requirement is a change of this one line (see the file comment).
   se_registeranalys: allaFar,
+  // "Hämta uppgifter" from a listing link (src/server/annons/hamta.ts): free
+  // for everyone today; the quota, not this line, is what limits it.
+  hamta_annons: allaFar,
 };
 
 /** Buyer-safe Swedish copy for a refused capability. */

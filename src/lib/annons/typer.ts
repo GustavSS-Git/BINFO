@@ -63,7 +63,8 @@ export type AnnonsFelkod =
   | "tolkning"
   | "natverk"
   | "kvot"
-  | "avstangd";
+  | "avstangd"
+  | "behorighet";
 
 export type AnnonsSvar =
   | {

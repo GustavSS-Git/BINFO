@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fonsterStart, skapaFakeKontoDatabas } from "./__fakes__/konto";
 import type { Kontext } from "./kontext";
+import { ANNONS_MEDDELANDE } from "@/lib/annons/typer";
 import {
+  ANNONSHAMTNINGAR_PER_ENHET_OCH_TIMME,
+  ANNONSHAMTNINGAR_PER_IP_OCH_TIMME,
   DAG_SEK,
   KVOT_MEDDELANDE,
   PRISUPPSKATTNINGAR_PER_IP_OCH_TIMME,
@@ -11,6 +14,7 @@ import {
   UPPLADDNINGAR_PER_ENHET_OCH_DAG,
   UPPLADDNINGAR_PER_IP_OCH_DAG,
   aterlamnaUppladdningskvot,
+  kontrolleraAnnonskvot,
   kontrolleraPrisuppskattningskvot,
   kontrolleraUppladdningskvot,
   kvotNyckel,
@@ -286,5 +290,58 @@ describe("den lösa kvoten på uppladdningar (aldrig återlämnad)", () => {
     await kontrolleraUppladdningskvot(db, kontext("e1", null));
     expect([...db.kvot.values()].every((r) => r.nyckel.includes(":enhet:"))).toBe(true);
     expect(db.kvot.size).toBe(2);
+  });
+});
+
+describe("kontrolleraAnnonskvot", () => {
+  it("gränserna är 20 per enhet och 60 per IP och timme, meddelandet är annonstjänstens", () => {
+    expect(ANNONSHAMTNINGAR_PER_ENHET_OCH_TIMME).toBe(20);
+    expect(ANNONSHAMTNINGAR_PER_IP_OCH_TIMME).toBe(60);
+    expect(KVOT_MEDDELANDE.annonshamtning).toBe(ANNONS_MEDDELANDE.kvot);
+  });
+
+  it("21:a hämtningen från samma enhet nekas, nästa timme ok", async () => {
+    const k = klocka("2026-10-24T12:30:00Z");
+    const db = skapaFakeKontoDatabas({ nu: k.nu });
+    for (let i = 0; i < 20; i++) {
+      expect((await kontrolleraAnnonskvot(db, kontext("e1", `ip${i}`))).ok).toBe(true);
+    }
+    expect(await kontrolleraAnnonskvot(db, kontext("e1", "ip-ny"))).toEqual({
+      ok: false,
+      errorCode: "kvot",
+      message: ANNONS_MEDDELANDE.kvot,
+    });
+    k.satt("2026-10-24T13:00:00Z");
+    expect((await kontrolleraAnnonskvot(db, kontext("e1", "ip-ny"))).ok).toBe(true);
+  });
+
+  it("61:a hämtningen från samma IP nekas även från nya enheter, och nekningen ger tillbaka enhetens användning", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    for (let i = 0; i < 60; i++) {
+      expect((await kontrolleraAnnonskvot(db, kontext(`e${i}`, "ip"))).ok).toBe(true);
+    }
+    const nekad = await kontrolleraAnnonskvot(db, kontext("helt-ny", "ip"));
+    expect(nekad.ok).toBe(false);
+    const enhet = [...db.kvot.values()].find(
+      (r) => r.nyckel === kvotNyckel("annonshamtning", "enhet", "helt-ny"),
+    );
+    expect(enhet?.antal ?? 0).toBe(0);
+    // Another IP with the same new device still has its full device allowance.
+    expect((await kontrolleraAnnonskvot(db, kontext("helt-ny", "annan-ip"))).ok).toBe(true);
+  });
+
+  it("utan IP gäller bara enhetsgränsen", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    for (let i = 0; i < 20; i++)
+      expect((await kontrolleraAnnonskvot(db, kontext("e1", null))).ok).toBe(true);
+    expect((await kontrolleraAnnonskvot(db, kontext("e1", null))).ok).toBe(false);
+    expect((await kontrolleraAnnonskvot(db, kontext("e2", null))).ok).toBe(true);
+  });
+
+  it("delar inte kvot med priskollen eller uppladdningar", async () => {
+    const db = skapaFakeKontoDatabas({ nu: () => FAST_NU });
+    for (let i = 0; i < 20; i++) await kontrolleraAnnonskvot(db, kontext("e1", "ip"));
+    expect((await kontrolleraPrisuppskattningskvot(db, kontext("e1", "ip"))).ok).toBe(true);
+    expect((await kontrolleraUppladdningskvot(db, kontext("e1", "ip"))).ok).toBe(true);
   });
 });

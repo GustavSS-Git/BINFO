@@ -21,8 +21,17 @@ describe("behörighet", () => {
     }
   });
 
-  it("policytabellen täcker exakt de fyra förmågorna", () => {
+  it("policytabellen täcker exakt förmågorna i ALLA_FORMAGOR", () => {
     expect(Object.keys(STANDARD_POLICY).sort()).toEqual([...ALLA_FORMAGOR].sort());
+  });
+
+  it("hamta_annons är en förmåga, beviljad till alla i dag och nekas av en nekande policy", async () => {
+    expect(ALLA_FORMAGOR).toContain("hamta_annons");
+    expect(await harBehorighet(kontext, "hamta_annons")).toBe(true);
+    const b = skapaBehorighet({ ...STANDARD_POLICY, hamta_annons: () => false });
+    await expect(b.kravBehorighet(kontext, "hamta_annons")).rejects.toBeInstanceOf(
+      SaknarBehorighetError,
+    );
   });
 
   it("en injicerad nekande policy får kravBehorighet att kasta SaknarBehorighetError", async () => {

@@ -487,6 +487,25 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
       if (error) throw new Error(`flyttaAnalys misslyckades: ${error.message}`);
       return (data ?? []).length > 0;
     },
+
+    async lasAnnonsCache(url: string): Promise<{ svar: unknown; hamtad: string } | null> {
+      const { data, error } = await sb
+        .from("annons_cache")
+        .select("svar, hamtad")
+        .eq("url", url)
+        .maybeSingle();
+      if (error) throw new Error(`lasAnnonsCache misslyckades: ${error.message}`);
+      if (!data) return null;
+      const rad = data as { svar: unknown; hamtad: string };
+      return { svar: rad.svar, hamtad: rad.hamtad };
+    },
+
+    async skrivAnnonsCache(url: string, svar: unknown): Promise<void> {
+      const { error } = await sb
+        .from("annons_cache")
+        .upsert({ url, svar, hamtad: new Date().toISOString() }, { onConflict: "url" });
+      if (error) throw new Error(`skrivAnnonsCache misslyckades: ${error.message}`);
+    },
   };
 }
 

@@ -16,6 +16,7 @@
  * the same 60/hour.
  */
 
+import { ANNONS_MEDDELANDE } from "@/lib/annons/typer";
 import type { Kontext } from "./kontext";
 import type { KontoDatabas } from "./kontoPortar";
 
@@ -51,10 +52,20 @@ export const REGISTRERINGAR_PER_IP_OCH_TIMME = 5;
 export const ATERSTALLNINGAR_PER_EPOST_OCH_TIMME = 3;
 export const ATERSTALLNINGAR_PER_IP_OCH_TIMME = 10;
 
+/**
+ * Listing fetch ("Hämta uppgifter", src/server/annons/hamta.ts): 20 per device
+ * and 60 per IP per hour. Product limits (supervisor, Booli prefill round
+ * 2026-10-24), not measured facts. A fetch costs no API money, but it is an
+ * outgoing request to a third party, so it is capped per hour.
+ */
+export const ANNONSHAMTNINGAR_PER_ENHET_OCH_TIMME = 20;
+export const ANNONSHAMTNINGAR_PER_IP_OCH_TIMME = 60;
+
 export type KvotHandling =
   | "uppladdning"
   | "uppladdning_los"
   | "prisuppskattning"
+  | "annonshamtning"
   | "inloggning"
   | "registrering"
   | "aterstallning";
@@ -78,6 +89,8 @@ export const KVOT_MEDDELANDE = {
     "Många uppladdningar har gjorts från ditt nätverk idag, även av rapporter som redan var analyserade. Försök igen i morgon.",
   prisuppskattning:
     "Du har gjort många prisuppskattningar på kort tid. Vänta en stund och försök igen.",
+  /** Listing fetch: the same text the buyer sees from the fetch service. */
+  annonshamtning: ANNONS_MEDDELANDE.kvot,
   /** Login, sign-up and password reset. One text for every limit so it never
    *  says which key (address, network) ran out. */
   konto: "För många försök, vänta en stund.",
@@ -242,6 +255,30 @@ export async function kontrolleraPrisuppskattningskvot(
   return { ok: true };
 }
 
+/**
+ * Listing-fetch limit: 20 per device then 60 per IP per hour (the IP step is
+ * skipped when there is no IP header: local dev/CLI). The first refusal gives
+ * back what this call already took, so a refused fetch costs nothing.
+ */
+export async function kontrolleraAnnonskvot(
+  db: KontoDatabas,
+  kontext: Kontext,
+): Promise<KvotUtfall> {
+  const steg: KontoKvotSteg[] = [
+    {
+      nyckel: kvotNyckel("annonshamtning", "enhet", kontext.enhetId),
+      max: ANNONSHAMTNINGAR_PER_ENHET_OCH_TIMME,
+    },
+  ];
+  if (kontext.ipHash !== null) {
+    steg.push({
+      nyckel: kvotNyckel("annonshamtning", "ip", kontext.ipHash),
+      max: ANNONSHAMTNINGAR_PER_IP_OCH_TIMME,
+    });
+  }
+  return taAlla(db, steg, TIMME_SEK, KVOT_MEDDELANDE.annonshamtning);
+}
+
 // ---------------------------------------------------------------------------
 // Accounts: login, sign-up, password reset
 // ---------------------------------------------------------------------------
@@ -265,6 +302,7 @@ async function taAlla(
   db: KontoDatabas,
   steg: readonly KontoKvotSteg[],
   fonsterSek: number,
+  meddelande: string = KVOT_MEDDELANDE.konto,
 ): Promise<KvotUtfall> {
   const tagna: string[] = [];
   for (const s of steg) {
@@ -273,7 +311,7 @@ async function taAlla(
       continue;
     }
     for (const t of tagna) await db.aterlamnaKvot(t, fonsterSek);
-    return nekad(KVOT_MEDDELANDE.konto);
+    return nekad(meddelande);
   }
   return { ok: true };
 }

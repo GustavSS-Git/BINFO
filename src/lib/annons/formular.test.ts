@@ -5,6 +5,8 @@ import {
   boareaTillTal,
   foreningsHint,
   hamtaAnnonsUppgifter,
+  HINT_BOOLI,
+  HINT_GEOKODAT,
   markeraAndrad,
   tillAnnonsKalla,
   tillampaAnnons,
@@ -464,5 +466,48 @@ describe("visning per fält", () => {
       svar({ adress: "A 1" }),
     ).lage;
     expect(foreningsHint(utan)).toBeNull();
+  });
+});
+
+describe("geokodat postnummer (OpenStreetMap)", () => {
+  const tom = { hiss: "okant", balkong: "okant" } as const;
+
+  it("märks med OSM-attribution i stället för 'Hämtat från Booli'", () => {
+    const { lage } = tillampaAnnons(
+      { ...TOM_FORM },
+      tom,
+      svar(
+        { postnummer: "112 39", adress: "Sankt Eriksgatan 31A" },
+        { postnummerKalla: "geokodning" },
+      ),
+    );
+    expect(lage.postnummerGeokodat).toBe(true);
+    expect(annonsFaltVisning(lage, "postnummer", "112 39")).toEqual({ hint: HINT_GEOKODAT });
+    expect(annonsFaltVisning(lage, "adress", "Sankt Eriksgatan 31A")).toEqual({ hint: HINT_BOOLI });
+  });
+
+  it("postnummer från annonsen märks som vanligt", () => {
+    const { lage } = tillampaAnnons(
+      { ...TOM_FORM },
+      tom,
+      svar({ postnummer: "112 39" }, { postnummerKalla: "annons" }),
+    );
+    expect(lage.postnummerGeokodat).toBe(false);
+    expect(annonsFaltVisning(lage, "postnummer", "112 39")).toEqual({ hint: HINT_BOOLI });
+  });
+});
+
+describe("behörighetsfel från servern", () => {
+  it("visar serverns text", async () => {
+    const r = await hamtaAnnonsUppgifter("https://www.booli.se/annons/1", {
+      kontrollera: () => ({
+        ok: true,
+        url: "https://www.booli.se/annons/1",
+        typ: "annons",
+        id: "1",
+      }),
+      hamta: async () => ({ ok: false, errorCode: "behorighet", errorMessage: "Nej." }),
+    });
+    expect(r).toEqual({ typ: "fel", meddelande: "Nej." });
   });
 });

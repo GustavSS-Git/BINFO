@@ -58,6 +58,19 @@ export interface Env {
   effortGrounding: ModelEffort;
   effortExtraction: ModelEffort;
   effortJudging: ModelEffort;
+  /**
+   * Kill switch for "Hämta uppgifter" (src/server/annons/hamta.ts): `true`
+   * only when `ANNONS_HAMTNING=off`. Unset/anything else = fetching is on.
+   * Optional so existing Env literals (tests, the Edge Function's own reader)
+   * stay valid; `undefined` = on.
+   */
+  annonsHamtningAvstangd?: boolean;
+  /**
+   * Optional model fallback for listing pages the structured parser can't
+   * read: `true` only when `ANNONS_LLM_FALLBACK=on`. Default off (spends API
+   * money, Haiku 4.5, a few öre per page).
+   */
+  annonsLlmFallback?: boolean;
 }
 
 /** Shipped default for all three `ANTHROPIC_EFFORT_*` env vars — see
@@ -139,6 +152,9 @@ const RawEnvSchema = z.object({
   ANTHROPIC_EFFORT_GROUNDING: EffortSchema,
   ANTHROPIC_EFFORT_EXTRACTION: EffortSchema,
   ANTHROPIC_EFFORT_JUDGING: EffortSchema,
+  // Listing fetch flags: `off` / `on`, any other value (or unset) = default.
+  ANNONS_HAMTNING: z.string().optional(),
+  ANNONS_LLM_FALLBACK: z.string().optional(),
 });
 
 /**
@@ -175,6 +191,8 @@ export function lasEnv(record: Record<string, string | undefined>): Env {
     effortGrounding: data.ANTHROPIC_EFFORT_GROUNDING ?? STANDARD_EFFORT,
     effortExtraction: data.ANTHROPIC_EFFORT_EXTRACTION ?? STANDARD_EFFORT,
     effortJudging: data.ANTHROPIC_EFFORT_JUDGING ?? STANDARD_EFFORT,
+    annonsHamtningAvstangd: data.ANNONS_HAMTNING?.trim().toLowerCase() === "off",
+    annonsLlmFallback: data.ANNONS_LLM_FALLBACK?.trim().toLowerCase() === "on",
   };
   // exactOptionalPropertyTypes: tilldela fältet bara när det faktiskt finns,
   // aldrig `undefined` explicit — annars är "fältet är frånvarande" och

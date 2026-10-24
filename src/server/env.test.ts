@@ -202,4 +202,22 @@ describe("lasEnv", () => {
       /ANTHROPIC_API_KEY/,
     );
   });
+
+  it("ANNONS_HAMTNING och ANNONS_LLM_FALLBACK är valfria: saknas de är hämtningen på och modellreserven av", () => {
+    const env = lasEnv(giltigRecord());
+    expect(env.annonsHamtningAvstangd).toBe(false);
+    expect(env.annonsLlmFallback).toBe(false);
+  });
+
+  it("ANNONS_HAMTNING=off stänger av hämtningen; andra värden gör det inte", () => {
+    expect(lasEnv({ ...giltigRecord(), ANNONS_HAMTNING: "off" }).annonsHamtningAvstangd).toBe(true);
+    expect(lasEnv({ ...giltigRecord(), ANNONS_HAMTNING: "on" }).annonsHamtningAvstangd).toBe(false);
+    expect(lasEnv({ ...giltigRecord(), ANNONS_HAMTNING: "" }).annonsHamtningAvstangd).toBe(false);
+  });
+
+  it("ANNONS_LLM_FALLBACK=on slår på modellreserven; allt annat lämnar den av", () => {
+    expect(lasEnv({ ...giltigRecord(), ANNONS_LLM_FALLBACK: "on" }).annonsLlmFallback).toBe(true);
+    expect(lasEnv({ ...giltigRecord(), ANNONS_LLM_FALLBACK: "off" }).annonsLlmFallback).toBe(false);
+    expect(lasEnv({ ...giltigRecord(), ANNONS_LLM_FALLBACK: "ja" }).annonsLlmFallback).toBe(false);
+  });
 });

@@ -6,7 +6,8 @@
  * (moves the saved items too), `ta_kvot` / `aterlamna_kvot` (UTC-aligned fixed
  * windows), `radera_principal` (with the FK cascade of the saved items), the
  * export query, `lista_mina_analyser`, `radera_min_analys`, and the plain
- * `analys` owner read / compare-and-set move behind "Spara analysen".
+ * `analys` owner read / compare-and-set move behind "Spara analysen", and the
+ * `annons_cache` read / upsert (`supabase/migrations/20261024120000_annons.sql`).
  *
  * By default it holds its own minimal `analys` table (only the columns this
  * layer touches) so merge/delete/export can be tested without the job fake.
@@ -85,6 +86,8 @@ export interface FakeKontoDatabas extends KontoDatabas {
   readonly sparadeVarderingar: Map<string, SparadVarderingRad>;
   readonly sparadeKalkyler: Map<string, SparadKalkylRad>;
   readonly rapporter: Map<string, FakeRapportRad>;
+  /** `annons_cache`, keyed by the canonical listing URL. */
+  readonly annonsCache: Map<string, { svar: unknown; hamtad: string }>;
   /** Keyed `${nyckel}|${fonsterStart}`. */
   readonly kvot: Map<string, FakeKvotRad>;
   /** Calls to `radera_analys` made by `raderaAnalysFranLista` (analysId). */
@@ -122,6 +125,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
   const sparadeKalkyler = new Map<string, SparadKalkylRad>();
   const rapporter = new Map<string, FakeRapportRad>();
   const kvot = new Map<string, FakeKvotRad>();
+  const annonsCache = new Map<string, { svar: unknown; hamtad: string }>();
   const raderadeAnalyser: string[] = [];
   let nastaId = 1;
 
@@ -173,6 +177,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
     sparadeKalkyler,
     rapporter,
     kvot,
+    annonsCache,
     raderadeAnalyser,
 
     laggTillAnalys(rad) {
@@ -545,6 +550,18 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
       if (!a || a.principalId !== fran) return false;
       a.principalId = till;
       return true;
+    },
+
+    // select svar, hamtad from annons_cache where url = $1
+    async lasAnnonsCache(url) {
+      const rad = annonsCache.get(url);
+      return rad ? { svar: structuredClone(rad.svar), hamtad: rad.hamtad } : null;
+    },
+
+    // insert into annons_cache (url, svar, hamtad) values ($1, $2, now())
+    //   on conflict (url) do update set svar = excluded.svar, hamtad = now()
+    async skrivAnnonsCache(url, svar) {
+      annonsCache.set(url, { svar: structuredClone(svar), hamtad: nu().toISOString() });
     },
   };
 }
