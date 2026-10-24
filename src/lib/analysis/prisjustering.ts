@@ -131,7 +131,7 @@ export function byggPrisjustering(input: PrisjusteringInput): Resultat | null {
       : [
           {
             id: "forvantad_avgiftshojning",
-            label: "Väntad avgiftshöjning",
+            label: "Föreningens ekonomi",
             belopp: { value: belopp, unit: "kr", source: "berakning" },
             krPerKrManad: avrunda(krPerKrManadExakt),
             forklaring,

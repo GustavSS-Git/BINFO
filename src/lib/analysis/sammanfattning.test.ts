@@ -34,8 +34,8 @@ describe("byggSammanfattning", () => {
         },
       }),
     );
-    expect(nbsp(s.pris)).toContain("ca 5 500 000 kr efter justering");
-    expect(nbsp(s.pris)).toContain("(ca 5 680 000 kr före justering)");
+    expect(nbsp(s.pris)).toContain("föreningens ekonomi är ca 5 500 000 kr");
+    expect(nbsp(s.pris)).toContain("Jämförbara lägenheter säljs för ca 5 680 000 kr.");
   });
 
   it("a tiny adjustment is not shown as two identical rounded prices", () => {
@@ -53,8 +53,8 @@ describe("byggSammanfattning", () => {
         },
       }),
     );
-    expect(nbsp(s.pris)).toContain("flyttar den bara 1 847 kr");
-    expect(s.pris).not.toContain("före justering");
+    expect(nbsp(s.pris)).toContain("(skillnad 1 847 kr)");
+    expect(s.pris).not.toContain("Jämförbara lägenheter säljs för");
   });
 
   it("fee rise text with direction, rounded, and the missing-data note", () => {

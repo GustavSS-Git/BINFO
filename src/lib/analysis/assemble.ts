@@ -1000,6 +1000,13 @@ export async function assembleraAnalys({
     ...(extraction.kontrollsummor ? { kontrollsummor: extraction.kontrollsummor } : {}),
     manadsavgift: input.manadsavgift,
     boarea: input.boarea,
+    // Building age for the schablon savings target: the byggår the valuation
+    // uses (report at high confidence, else the buyer's), else the report's.
+    ...(() => {
+      const byggar = varderingsInput.byggar ?? extraction.forening.byggar?.value ?? undefined;
+      return byggar !== undefined && byggar !== null ? { byggar } : {};
+    })(),
+    hiss: input.hiss,
     referensranta: referensranta ?? reservReferensranta(),
     idag: idag ?? idagStockholm(),
   });
