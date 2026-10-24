@@ -25,15 +25,34 @@ import {
   toppRodaFlaggor,
   type AndelAvSkuldRad,
   VARDERINGSDRIVARE_CAVEAT,
+  antagenAndelText,
+  avgiftsprognosRubrik,
+  avvikelseJusteradText,
+  ENERGI_TEXT,
+  formatForandringKr,
+  JAMFORELSE_RUBRIK,
+  JAMFORELSE_STATUS_LABEL,
+  komponentRader,
+  prisEffektTexter,
+  PRISEFFEKT_CAVEAT,
+  RAKNA_FAKTORER,
+  RAKNA_PROGNOS_RUBRIK,
+  RAKNA_REFINANSIERING_RUBRIK,
+  RAKNA_UTGANGSLAGE_INTRO,
+  RAKNA_UTGANGSLAGE_RUBRIK,
+  refinansieringRader,
 } from "@/lib/analysisView";
 import { veljRantekanslighetForSok, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import type {
   AnalysisResult,
+  Avgiftsprognos,
   FeeInclusion,
+  Faltjamforelse,
   Figure,
   Fraga,
   PrisanalysUtanForening,
   RantestressScenario,
+  Sammanfattning,
   Severity,
   Tristate,
 } from "@/types/analysis";
@@ -106,6 +125,8 @@ export function AnalysRapport({
         skapad={analys.skapad}
       />
 
+      <Uppgiftsjamforelse rader={analys.uppgiftsjamforelse} />
+
       <Betygskort betyg={analys.betyg} motivering={analys.betygMotivering} />
 
       {sparaSlot}
@@ -114,9 +135,14 @@ export function AnalysRapport({
 
       <Foreningsekonomi analys={analys} />
       <OvrigInfo analys={analys} />
-      <Prisrimlighet prisanalys={analys.prisanalys} skuldrad={andelAvSkuldRad(analys)} />
+      <Prisrimlighet
+        prisanalys={analys.prisanalys}
+        skuldrad={andelAvSkuldRad(analys)}
+        avgiftsprognos={analys.avgiftsprognos}
+      />
       <Rantestress analys={analys} />
       <Fragor analys={analys} />
+      <SammanfattningSektion sammanfattning={analys.sammanfattning} />
 
       <div className="mt-10 flex flex-wrap items-center gap-4">
         <Button
@@ -450,9 +476,12 @@ function OsakerMarkering({ figure }: { figure: Pick<Figure, "osaker"> }) {
 export function Prisrimlighet({
   prisanalys: p,
   skuldrad,
+  avgiftsprognos,
 }: {
   prisanalys: PrisanalysUtanForening;
   skuldrad?: AndelAvSkuldRad | undefined;
+  /** Bara i den fullständiga analysen (och bara när servern räknat fram den). */
+  avgiftsprognos?: Avgiftsprognos | undefined;
 }) {
   const u = p.varderingsunderlag;
   const tackningText = u ? varderingsTackningText(u) : null;
@@ -499,7 +528,7 @@ export function Prisrimlighet({
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <div>
                 <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  {varderingslabel}
+                  {p.justeradVardering ? `${varderingslabel} (modell)` : varderingslabel}
                   {p.externVardering.source === "schablon" ? <Tag>Estimat</Tag> : null}
                 </p>
                 {/* Dold rad (ägarens beslut 2026-10-09): leverantören av
@@ -524,7 +553,7 @@ export function Prisrimlighet({
                     %)
                   </p>
                 ) : null}
-                {p.avvikelseMotVardering !== undefined ? (
+                {p.avvikelseMotVardering !== undefined && p.justeradVardering === undefined ? (
                   <p
                     className={`text-xs ${p.avvikelseMotVardering > 0 ? "text-danger" : "text-success"}`}
                   >
@@ -545,6 +574,27 @@ export function Prisrimlighet({
               </p>
             </div>
           )}
+
+          {p.justeradVardering ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
+              <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                Justerat för väntad avgiftshöjning
+                <Tag>Estimat</Tag>
+              </p>
+              <div className="text-right">
+                <p className="font-display text-xl text-foreground">
+                  {formatFigureVarde(p.justeradVardering)}
+                </p>
+                {p.avvikelseMotJusteradVardering !== undefined ? (
+                  <p
+                    className={`text-xs ${p.avvikelseMotJusteradVardering > 0 ? "text-danger" : "text-success"}`}
+                  >
+                    {avvikelseJusteradText(p.avvikelseMotJusteradVardering)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           {skuldrad ? (
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
@@ -574,32 +624,6 @@ export function Prisrimlighet({
                   ? (u.kommun ?? u.prisniva?.region ?? "Okänt")
                   : "Stockholm (postnumret saknas i vår områdesindelning)")}
             </p>
-            {u.drivare.length > 0 ? (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Exempel på faktorer som påverkar värderingen utöver område:
-                </p>
-                <ul className="mt-1 space-y-1 text-sm text-foreground">
-                  {u.drivare.map((d) => (
-                    <li key={d.label} className="flex items-center justify-between gap-2">
-                      <span>{formatDrivareLabel(d, u.omrade)}</span>
-                      <span className={d.effektProcent >= 0 ? "text-success" : "text-danger"}>
-                        {d.effektProcent >= 0 ? "+" : ""}
-                        {d.effektProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                {/* Driveförklaringens förbehållsrad är dold på ägarbegäran
-                    2026-10-08. Texten ligger kvar i VARDERINGSDRIVARE_CAVEAT
-                    (och i PDF-exporten) och tas fram genom ta bort div:en. */}
-                <div className="hidden">
-                  <p className="mt-1 text-xs text-muted-foreground">{VARDERINGSDRIVARE_CAVEAT}</p>
-                </div>
-              </div>
-            ) : null}
-            <p className="text-xs text-muted-foreground">{varderingsKallaText(u.dataperiod)}</p>
-
             {tackningText?.typ === "lan" ? (
               <p className="text-xs text-muted-foreground">{tackningText.text}</p>
             ) : null}
@@ -618,6 +642,190 @@ export function Prisrimlighet({
           </p>
         ) : null}
       </Card>
+
+      {u || avgiftsprognos ? (
+        <details className="mt-4 rounded-lg border border-border bg-secondary/40">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+            Så har vi räknat
+          </summary>
+          <div className="space-y-6 border-t border-border px-4 pb-4 pt-3">
+            {u ? (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {RAKNA_UTGANGSLAGE_RUBRIK}
+                </h3>
+                <p className="text-sm text-muted-foreground">{RAKNA_UTGANGSLAGE_INTRO}</p>
+                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                  {RAKNA_FAKTORER.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+                {u.drivare.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Exempel på faktorer som påverkar värderingen utöver område:
+                    </p>
+                    <ul className="mt-1 space-y-1 text-sm text-foreground">
+                      {u.drivare.map((d) => (
+                        <li key={d.label} className="flex items-center justify-between gap-2">
+                          <span>{formatDrivareLabel(d, u.omrade)}</span>
+                          <span className={d.effektProcent >= 0 ? "text-success" : "text-danger"}>
+                            {d.effektProcent >= 0 ? "+" : ""}
+                            {d.effektProcent.toLocaleString("sv-SE", {
+                              maximumFractionDigits: 1,
+                            })}{" "}
+                            %
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* Driveförklaringens förbehållsrad är dold på ägarbegäran
+                      2026-10-08. Texten ligger kvar i VARDERINGSDRIVARE_CAVEAT
+                      (och i PDF-exporten) och tas fram genom ta bort div:en. */}
+                    <div className="hidden">
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {VARDERINGSDRIVARE_CAVEAT}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">{varderingsKallaText(u.dataperiod)}</p>
+              </div>
+            ) : null}
+            {avgiftsprognos ? <RaknaPrognos prognos={avgiftsprognos} prisanalys={p} /> : null}
+          </div>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+/** Del 2 och 3 i "Så har vi räknat": den väntade avgiftshöjningen och lånen bakom den. */
+function RaknaPrognos({
+  prognos,
+  prisanalys,
+}: {
+  prognos: Avgiftsprognos;
+  prisanalys: PrisanalysUtanForening;
+}) {
+  const komponenter = komponentRader(prognos);
+  const prisTexter = prisEffektTexter(prisanalys);
+  const antagen = prognos.refinansiering ? antagenAndelText(prognos.refinansiering) : undefined;
+  return (
+    <>
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-foreground">{RAKNA_PROGNOS_RUBRIK}</h3>
+        <p className="text-sm text-foreground">{avgiftsprognosRubrik(prognos)}</p>
+        {komponenter.length > 0 ? (
+          <ul className="divide-y divide-border">
+            {komponenter.map((k) => (
+              <li key={k.id} className="py-2 first:pt-0 last:pb-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-sm font-medium text-foreground">{k.label}</span>
+                  <span
+                    className={`text-sm ${k.dimmad ? "text-muted-foreground" : "text-foreground"}`}
+                  >
+                    {k.vardeText}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {k.forklaring}{" "}
+                  {k.ref ? (
+                    <span title={k.ref.excerpt}>
+                      <Tag>s. {k.ref.page}</Tag>
+                    </span>
+                  ) : null}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {prognos.osaker ? <p className="text-xs text-muted-foreground">{prognos.osaker}</p> : null}
+        <p className="text-xs text-muted-foreground">{ENERGI_TEXT}</p>
+        {prisTexter.length > 0 ? (
+          <div className="space-y-1">
+            {prisTexter.map((t) => (
+              <p key={t} className="text-sm text-foreground">
+                {t}
+              </p>
+            ))}
+            <p className="text-xs text-muted-foreground">{PRISEFFEKT_CAVEAT}</p>
+          </div>
+        ) : null}
+      </div>
+      {prognos.refinansiering ? (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">{RAKNA_REFINANSIERING_RUBRIK}</h3>
+          <ul className="space-y-1 text-sm text-foreground">
+            {refinansieringRader(prognos.refinansiering).map((r) => (
+              <li key={r.label}>
+                <span className="text-muted-foreground">{r.label}:</span> {r.value}
+              </li>
+            ))}
+          </ul>
+          {antagen ? <p className="text-xs text-muted-foreground">{antagen}</p> : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+const JAMFORELSE_TON: Record<Faltjamforelse["status"], "teal" | "warning" | "neutral" | "success"> =
+  {
+    bekraftat: "success",
+    avviker: "warning",
+    manuellt: "neutral",
+    osakert: "warning",
+    endast_rapport: "teal",
+  };
+
+/** "Dina uppgifter mot årsredovisningen" — köparens fält mot det rapporten anger. */
+function Uppgiftsjamforelse({ rader }: { rader: Faltjamforelse[] | undefined }) {
+  if (!rader || rader.length === 0) return null;
+  return (
+    <section className="mb-6">
+      <SectionTitle>{JAMFORELSE_RUBRIK}</SectionTitle>
+      <Card>
+        <ul className="divide-y divide-border">
+          {rader.map((r) => (
+            <li
+              key={r.falt}
+              className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0 last:pb-0"
+            >
+              <div className="max-w-xl">
+                <p className="text-sm font-medium text-foreground">{r.label}</p>
+                <p className="text-sm text-muted-foreground">{r.text}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {r.ref ? (
+                  <span title={r.ref.excerpt}>
+                    <Tag>s. {r.ref.page}</Tag>
+                  </span>
+                ) : null}
+                <Badge tone={JAMFORELSE_TON[r.status]}>{JAMFORELSE_STATUS_LABEL[r.status]}</Badge>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </section>
+  );
+}
+
+/** Slutsammanfattningen, sist i rapporten (före sparalternativen). */
+function SammanfattningSektion({ sammanfattning }: { sammanfattning: Sammanfattning | undefined }) {
+  if (!sammanfattning) return null;
+  return (
+    <section className="mt-10">
+      <SectionTitle>Sammanfattning</SectionTitle>
+      <Card>
+        <div className="space-y-3 text-sm text-foreground">
+          <p>{sammanfattning.betyg}</p>
+          <p>{sammanfattning.pris}</p>
+          <p>{sammanfattning.avgift}</p>
+          <p>{sammanfattning.slutsats}</p>
+        </div>
+      </Card>
     </section>
   );
 }
@@ -635,6 +843,43 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
   const scenario: RantestressScenario | undefined = r.scenarier.find(
     (s) => s.okningPe === visadDelta,
   );
+
+  // Ny rapport: tabell med väntad avgift och räntescenarier istället för reglaget.
+  // Gamla lagrade resultat saknar prognosTabell och behåller reglaget nedan.
+  if (r.prognosTabell) {
+    return (
+      <section className="mb-10">
+        <SectionTitle hint="Dagens avgift, den väntade avgiften och två räntescenarier för lånen som omsätts.">
+          Vad händer om räntan stiger?
+        </SectionTitle>
+        <Card>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="pb-2 font-medium" />
+                <th className="pb-2 text-right font-medium">Månadsavgift kr/mån</th>
+                <th className="pb-2 text-right font-medium">Förändring mot i dag kr/mån</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {r.prognosTabell.rader.map((rad) => (
+                <tr key={rad.id}>
+                  <td className="py-2 text-foreground">{rad.label}</td>
+                  <td className="py-2 text-right text-foreground">
+                    {Math.round(rad.manadsavgift).toLocaleString("sv-SE")}
+                  </td>
+                  <td className="py-2 text-right text-foreground">
+                    {rad.id === "idag" ? "–" : formatForandringKr(rad.forandringKr)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-5 text-sm text-muted-foreground">{r.prognosTabell.kommentar}</p>
+        </Card>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-10">

@@ -9,7 +9,19 @@
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   andelAvSkuldRad,
+  antagenAndelText,
   arSkannad,
+  avgiftsprognosRubrik,
+  avvikelseJusteradText,
+  ENERGI_TEXT,
+  formatForandringKr,
+  JAMFORELSE_STATUS_LABEL,
+  komponentRader,
+  prisEffektTexter,
+  PRISEFFEKT_CAVEAT,
+  RAKNA_FAKTORER,
+  RAKNA_UTGANGSLAGE_INTRO,
+  refinansieringRader,
   formatDrivareLabel,
   formatBudpremieText,
   formatFigureVarde,
@@ -127,6 +139,8 @@ export interface PdfPrisanalys {
       }
     | undefined;
   avvikelseText: string | undefined;
+  /** Second price row; when present, avvikelseText is moved to it. */
+  justeradVardering: PdfJusteradVardering | undefined;
   /** Present only when externVardering kom från Binfos värderingsmodell —
    *  se Prisanalys.varderingsunderlag i src/types/analysis.ts. */
   varderingsunderlag: PdfVarderingsunderlag | undefined;
@@ -138,6 +152,52 @@ export interface PdfPrisanalys {
   slutsats: string;
   konfidensNiva: string;
   konfidensSkal: string[];
+}
+
+/** Andra prisraden (bara när servern räknat fram en justerad värdering). */
+export interface PdfJusteradVardering {
+  label: string;
+  value: string;
+  avvikelseText: string | undefined;
+}
+
+/** "Så har vi räknat", alltid helt uppfälld i PDF:en. */
+export interface PdfRakning {
+  utgangslage: { intro: string; faktorer: string[] } | undefined;
+  prognos:
+    | {
+        rubrik: string;
+        komponenter: Array<{
+          label: string;
+          vardeText: string;
+          forklaring: string;
+          pageRef: string | undefined;
+        }>;
+        osaker: string | undefined;
+        energiText: string;
+        prisTexter: string[];
+        prisCaveat: string | undefined;
+        refinansiering:
+          | { rader: Array<{ label: string; value: string }>; antagenAndel: string | undefined }
+          | undefined;
+      }
+    | undefined;
+}
+
+export interface PdfPrognosTabell {
+  rader: Array<{ label: string; manadsavgift: string; forandring: string }>;
+  kommentar: string;
+}
+
+export interface PdfJamforelseRad {
+  label: string;
+  text: string;
+  statusLabel: string;
+  pageRef: string | undefined;
+}
+
+export interface PdfSammanfattning {
+  stycken: string[];
 }
 
 export interface PdfRantestressRad {
@@ -158,6 +218,8 @@ export interface PdfRantestress {
   /** True when rantekanslighetProcent is null. Drives the "not possible to
    *  compute" note instead of the scenario table. */
   ejBeraknbar: boolean;
+  /** Present for new reports: replaces the stress table (today / expected / +1 / +2 pp). */
+  prognosTabell: PdfPrognosTabell | undefined;
 }
 
 export interface PdfFraga {
@@ -227,6 +289,9 @@ export interface PdfViewModel {
   prisanalys: PdfPrisanalys;
   rantestress: PdfRantestress;
   fragor: PdfFraga[];
+  jamforelse: PdfJamforelseRad[];
+  rakning: PdfRakning | undefined;
+  sammanfattning: PdfSammanfattning | undefined;
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { hog: 0, medel: 1, lag: 2 };
@@ -331,7 +396,7 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
   const p = analys.prisanalys;
   const skuld = andelAvSkuldRad(analys);
   const avvikelseText =
-    p.avvikelseMotVardering !== undefined
+    p.avvikelseMotVardering !== undefined && p.justeradVardering === undefined
       ? `Utgångspriset ligger ${Math.abs(p.avvikelseMotVardering).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % ${
           p.avvikelseMotVardering > 0 ? "över" : "under"
         } (jämfört per m²)`
@@ -352,6 +417,16 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
         }
       : undefined,
     avvikelseText,
+    justeradVardering: p.justeradVardering
+      ? {
+          label: "Justerat för väntad avgiftshöjning",
+          value: formatFigureVarde(p.justeradVardering),
+          avvikelseText:
+            p.avvikelseMotJusteradVardering !== undefined
+              ? avvikelseJusteradText(p.avvikelseMotJusteradVardering)
+              : undefined,
+        }
+      : undefined,
     varderingsunderlag: buildVarderingsunderlag(p),
     budpremieText: p.budpremie ? formatBudpremieText(p.budpremie) : undefined,
     slutsats: p.slutsats,
@@ -378,6 +453,16 @@ function buildRantestress(analys: AnalysisResult): PdfRantestress {
       })),
     kommentar: r.kommentar,
     ejBeraknbar: r.rantekanslighetProcent === null,
+    prognosTabell: r.prognosTabell
+      ? {
+          rader: r.prognosTabell.rader.map((rad) => ({
+            label: rad.label,
+            manadsavgift: Math.round(rad.manadsavgift).toLocaleString("sv-SE"),
+            forandring: rad.id === "idag" ? "–" : formatForandringKr(rad.forandringKr),
+          })),
+          kommentar: r.prognosTabell.kommentar,
+        }
+      : undefined,
   };
 }
 
@@ -480,6 +565,35 @@ function buildOvrigInfo(analys: AnalysisResult): PdfOvrigInfo | undefined {
   };
 }
 
+function buildRakning(analys: AnalysisResult): PdfRakning | undefined {
+  const u = analys.prisanalys.varderingsunderlag;
+  const pg = analys.avgiftsprognos;
+  if (!u && !pg) return undefined;
+  const refi = pg?.refinansiering;
+  return {
+    utgangslage: u ? { intro: RAKNA_UTGANGSLAGE_INTRO, faktorer: RAKNA_FAKTORER } : undefined,
+    prognos: pg
+      ? {
+          rubrik: avgiftsprognosRubrik(pg),
+          komponenter: komponentRader(pg).map((k) => ({
+            label: k.label,
+            vardeText: k.vardeText,
+            forklaring: k.forklaring,
+            pageRef: formatPageRef(k.ref),
+          })),
+          osaker: pg.osaker,
+          energiText: ENERGI_TEXT,
+          prisTexter: prisEffektTexter(analys.prisanalys),
+          prisCaveat:
+            (analys.prisanalys.justeringar ?? []).length > 0 ? PRISEFFEKT_CAVEAT : undefined,
+          refinansiering: refi
+            ? { rader: refinansieringRader(refi), antagenAndel: antagenAndelText(refi) }
+            : undefined,
+        }
+      : undefined,
+  };
+}
+
 export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
   return {
     foreningNamn: analys.forening.namn,
@@ -493,5 +607,22 @@ export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
     prisanalys: buildPrisanalys(analys),
     rantestress: buildRantestress(analys),
     fragor: buildFragor(analys),
+    jamforelse: (analys.uppgiftsjamforelse ?? []).map((j) => ({
+      label: j.label,
+      text: j.text,
+      statusLabel: JAMFORELSE_STATUS_LABEL[j.status],
+      pageRef: formatPageRef(j.ref),
+    })),
+    rakning: buildRakning(analys),
+    sammanfattning: analys.sammanfattning
+      ? {
+          stycken: [
+            analys.sammanfattning.betyg,
+            analys.sammanfattning.pris,
+            analys.sammanfattning.avgift,
+            analys.sammanfattning.slutsats,
+          ],
+        }
+      : undefined,
   };
 }

@@ -636,7 +636,7 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
           <View style={[styles.priceRow, u ? undefined : { borderBottomWidth: 0 }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.priceLabel}>
-                {varderingslabel}
+                {p.justeradVardering ? `${varderingslabel} (modell)` : varderingslabel}
                 {p.externVardering.isSchablon ? " (estimat)" : ""}
               </Text>
               <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
@@ -657,6 +657,17 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </Text>
           </View>
         )}
+        {p.justeradVardering ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>{p.justeradVardering.label} (estimat)</Text>
+            <View>
+              <Text style={styles.priceValue}>{p.justeradVardering.value}</Text>
+              {p.justeradVardering.avvikelseText ? (
+                <Text style={styles.summaryLabel}>{p.justeradVardering.avvikelseText}</Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
         {p.andelAvSkuld ? (
           <View style={{ marginTop: 8 }}>
             <Text style={styles.summaryLabel}>{p.andelAvSkuld.text}</Text>
@@ -671,8 +682,43 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
         {u ? (
           <View style={styles.varderingsunderlag}>
             <Text style={styles.priceLabel}>Område: {u.omradeText}</Text>
+            <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.metadataText}</Text>
+            {u.metodText ? <Text style={styles.confidenceNote}>{u.metodText}</Text> : null}
+          </View>
+        ) : null}
+        {p.budpremieText ? (
+          <Text style={[styles.priceLabel, { marginTop: 8 }]}>{p.budpremieText}</Text>
+        ) : null}
+        <Text style={styles.conclusionBox}>{p.slutsats}</Text>
+        {p.konfidensSkal.length > 0 ? (
+          <Text style={styles.confidenceNote}>
+            Låg tillförlitlighet ({p.konfidensNiva}): {p.konfidensSkal.join(" ")}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function Rakning({ vm }: { vm: PdfViewModel }) {
+  const r = vm.rakning;
+  const u = vm.prisanalys.varderingsunderlag;
+  if (!r) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Så har vi räknat</Text>
+      <View style={styles.card}>
+        {r.utgangslage && u ? (
+          <View>
+            <Text style={styles.priceLabel}>Utgångsläget: Binfos värderingsmodell</Text>
+            <Text style={[styles.summaryLabel, { marginTop: 4 }]}>{r.utgangslage.intro}</Text>
+            {r.utgangslage.faktorer.map((f) => (
+              <Text key={f} style={styles.summaryLabel}>
+                • {f}
+              </Text>
+            ))}
             {u.drivare.length > 0 ? (
-              <View style={{ marginTop: 4 }}>
+              <View style={{ marginTop: 6 }}>
                 <Text style={styles.summaryLabel}>
                   Exempel på faktorer som påverkar värderingen utöver område:
                 </Text>
@@ -694,20 +740,91 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
                 </Text>
               </View>
             ) : null}
-            <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.metadataText}</Text>
-            {u.metodText ? <Text style={styles.confidenceNote}>{u.metodText}</Text> : null}
             <Text style={styles.confidenceNote}>{u.kallaText}</Text>
           </View>
         ) : null}
-        {p.budpremieText ? (
-          <Text style={[styles.priceLabel, { marginTop: 8 }]}>{p.budpremieText}</Text>
+        {r.prognos ? (
+          <View style={r.utgangslage ? styles.varderingsunderlag : {}}>
+            <Text style={styles.priceLabel}>Väntad avgiftsutveckling enligt årsredovisningen</Text>
+            <Text style={{ marginTop: 4 }}>{r.prognos.rubrik}</Text>
+            {r.prognos.komponenter.map((k) => (
+              <View key={k.label} style={{ marginTop: 4 }} wrap={false}>
+                <View style={styles.driverRow}>
+                  <Text style={styles.priceLabel}>{k.label}</Text>
+                  <Text style={styles.summaryLabel}>{k.vardeText}</Text>
+                </View>
+                <Text style={styles.summaryLabel}>
+                  {k.forklaring}
+                  {k.pageRef ? ` (${k.pageRef})` : ""}
+                </Text>
+              </View>
+            ))}
+            {r.prognos.osaker ? (
+              <Text style={styles.osakerText}>Osäker: {r.prognos.osaker}</Text>
+            ) : null}
+            <Text style={styles.confidenceNote}>{r.prognos.energiText}</Text>
+            {r.prognos.prisTexter.map((t) => (
+              <Text key={t} style={{ marginTop: 4 }}>
+                {t}
+              </Text>
+            ))}
+            {r.prognos.prisCaveat ? (
+              <Text style={styles.confidenceNote}>{r.prognos.prisCaveat}</Text>
+            ) : null}
+            {r.prognos.refinansiering ? (
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.priceLabel}>Lån som omsätts inom horisonten</Text>
+                {r.prognos.refinansiering.rader.map((rad) => (
+                  <Text key={rad.label} style={styles.summaryLabel}>
+                    {rad.label}: {rad.value}
+                  </Text>
+                ))}
+                {r.prognos.refinansiering.antagenAndel ? (
+                  <Text style={styles.confidenceNote}>{r.prognos.refinansiering.antagenAndel}</Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
         ) : null}
-        <Text style={styles.conclusionBox}>{p.slutsats}</Text>
-        {p.konfidensSkal.length > 0 ? (
-          <Text style={styles.confidenceNote}>
-            Låg tillförlitlighet ({p.konfidensNiva}): {p.konfidensSkal.join(" ")}
+      </View>
+    </View>
+  );
+}
+
+function Jamforelse({ rader }: { rader: PdfViewModel["jamforelse"] }) {
+  if (rader.length === 0) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Dina uppgifter mot årsredovisningen</Text>
+      <View style={styles.card}>
+        {rader.map((rad) => (
+          <View key={rad.label} style={styles.priceRow} wrap={false}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.priceLabel}>{rad.label}</Text>
+              <Text style={styles.summaryLabel}>
+                {rad.text}
+                {rad.pageRef ? ` (${rad.pageRef})` : ""}
+              </Text>
+            </View>
+            <Text style={styles.summaryLabel}>{rad.statusLabel}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function Sammanfattning({ sammanfattning }: { sammanfattning: PdfViewModel["sammanfattning"] }) {
+  if (!sammanfattning) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Sammanfattning</Text>
+      <View style={styles.card} wrap={false}>
+        {sammanfattning.stycken.map((t) => (
+          <Text key={t} style={{ marginBottom: 6 }}>
+            {t}
           </Text>
-        ) : null}
+        ))}
       </View>
     </View>
   );
@@ -720,11 +837,28 @@ function Rantestress({ vm }: { vm: PdfViewModel }) {
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Vad händer om räntan stiger?</Text>
       <View style={styles.card} wrap={false}>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Dagens avgift</Text>
-          <Text style={styles.priceValue}>{r.nuvarandeManadsavgift}</Text>
-        </View>
-        {r.ejBeraknbar ? (
+        {r.prognosTabell ? null : (
+          <View style={styles.priceRow}>
+            <Text style={styles.priceLabel}>Dagens avgift</Text>
+            <Text style={styles.priceValue}>{r.nuvarandeManadsavgift}</Text>
+          </View>
+        )}
+        {r.prognosTabell ? (
+          <View style={styles.table}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={styles.tableCellHeader}> </Text>
+              <Text style={styles.tableCellHeader}>Månadsavgift kr/mån</Text>
+              <Text style={styles.tableCellHeader}>Förändring mot i dag kr/mån</Text>
+            </View>
+            {r.prognosTabell.rader.map((rad) => (
+              <View key={rad.label} style={styles.tableRow}>
+                <Text style={styles.tableCell}>{rad.label}</Text>
+                <Text style={styles.tableCell}>{rad.manadsavgift}</Text>
+                <Text style={styles.tableCell}>{rad.forandring}</Text>
+              </View>
+            ))}
+          </View>
+        ) : r.ejBeraknbar ? (
           <Text style={styles.emptyNote}>
             Inte möjligt att räkna då räntekänslighet saknas i rapporten.
           </Text>
@@ -748,7 +882,7 @@ function Rantestress({ vm }: { vm: PdfViewModel }) {
             ))}
           </View>
         )}
-        <Text style={styles.rantestressComment}>{r.kommentar}</Text>
+        <Text style={styles.rantestressComment}>{r.prognosTabell?.kommentar ?? r.kommentar}</Text>
       </View>
     </View>
   );
@@ -797,13 +931,16 @@ export function AnalysPdfDocument({ analys }: { analys: AnalysisResult }) {
       <Page size="A4" style={styles.page}>
         <Header foreningNamn={vm.foreningNamn} skapadLabel={vm.skapadLabel} />
         <Summary vm={vm} />
+        <Jamforelse rader={vm.jamforelse} />
         <Betyg vm={vm} />
         <RodaFlaggor flaggor={vm.rodaFlaggor} />
         <Foreningsekonomi keyFigures={vm.keyFigures} />
         {vm.ovrigInfo ? <OvrigInfo ovrigInfo={vm.ovrigInfo} /> : null}
         <Prisrimlighet vm={vm} />
+        <Rakning vm={vm} />
         <Rantestress vm={vm} />
         <Fragor fragor={vm.fragor} />
+        <Sammanfattning sammanfattning={vm.sammanfattning} />
         <Footer />
       </Page>
     </Document>

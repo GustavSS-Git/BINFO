@@ -8,13 +8,17 @@
 import { kr } from "@/data/mockData";
 import type {
   AnalysisResult,
+  Avgiftsprognos,
+  AvgiftsKomponent,
   Budpremie,
   CostItemId,
   Datakvalitet,
   Dataperiod,
   FeeInclusion,
+  Faltjamforelse,
   Figure,
   PageRef,
+  Prisanalys,
   RedFlag,
   Severity,
   Varderingsunderlag,
@@ -389,4 +393,168 @@ export const SKANNAD_NOTIS =
 
 export function arSkannad(analys: { datakvalitet: Pick<Datakvalitet, "kalla"> }): boolean {
   return analys.datakvalitet.kalla === "skannad";
+}
+
+// ---------------------------------------------------------------------------
+// Avgiftsprognos, "Så har vi räknat" och uppgiftsjämförelse (runda 2026-10-24b).
+// Rena textbyggare som delas av webben och PDF:en; inget här räknar om en
+// siffra — allt kommer färdigt från servern.
+// ---------------------------------------------------------------------------
+
+/** Heltal med svensk tusentalsavgränsare, utan tecken. */
+function heltal(v: number): string {
+  return Math.round(Math.abs(v)).toLocaleString("sv-SE");
+}
+
+/** "1 234 kr/mån" (absolutbelopp, riktningen står i texten runt omkring). */
+export function formatKrPerManad(v: number): string {
+  return `${heltal(v)} kr/mån`;
+}
+
+/** Procent med decimalkomma, upp till två decimaler: "2,53 %". */
+export function formatProcentTal(v: number): string {
+  return `${v.toLocaleString("sv-SE", { maximumFractionDigits: 2 })} %`;
+}
+
+/** Under det här (kr/mån, absolut) säger vi att prognosen inte pekar åt något håll. */
+const TYDLIG_FORANDRING_KR = 10;
+
+/** Raden överst i "Så har vi räknat", del 2. */
+export function avgiftsprognosRubrik(p: Avgiftsprognos): string {
+  const tid = `inom de närmaste ${p.horisontManader} månaderna`;
+  if (p.totalKrPerManad === null) {
+    return `Baserat på årsredovisningen kan vi inte uppskatta hur avgiften utvecklas ${tid}, eftersom lägenhetens andel av föreningens avgifter inte gick att fastställa.`;
+  }
+  if (Math.abs(p.totalKrPerManad) < TYDLIG_FORANDRING_KR) {
+    return `Baserat på årsredovisningen pekar inget på någon tydlig förändring av avgiften ${tid}.`;
+  }
+  const verb = p.totalKrPerManad > 0 ? "höjs" : "sänks";
+  return `Baserat på årsredovisningen väntar vi oss att avgiften ${verb} med ca ${heltal(p.totalKrPerManad)} kr/mån ${tid}.`;
+}
+
+export interface KomponentRad {
+  id: AvgiftsKomponent["id"];
+  label: string;
+  /** "+312 kr/mån", "Underlag saknas – spannet breddas" eller "Ej aktuellt". */
+  vardeText: string;
+  forklaring: string;
+  /** Visas nedtonad (ej aktuell / saknar underlag). */
+  dimmad: boolean;
+  ref?: PageRef;
+}
+
+export function komponentRader(p: Avgiftsprognos): KomponentRad[] {
+  return p.komponenter.map((k) => {
+    const bas = { id: k.id, label: k.label, forklaring: k.forklaring };
+    const ref = k.ref ? { ref: k.ref } : {};
+    if (k.status === "saknar_underlag") {
+      return {
+        ...bas,
+        vardeText: "Underlag saknas – spannet breddas",
+        dimmad: true,
+        ...ref,
+      };
+    }
+    if (k.status === "ej_aktuell" || k.krPerManad === null) {
+      return { ...bas, vardeText: "Ej aktuellt", dimmad: true, ...ref };
+    }
+    const tecken = k.krPerManad > 0 ? "+" : k.krPerManad < 0 ? "−" : "";
+    return {
+      ...bas,
+      vardeText: `${tecken}${heltal(k.krPerManad)} kr/mån`,
+      dimmad: false,
+      ...ref,
+    };
+  });
+}
+
+export const ENERGI_TEXT =
+  "Energikostnaden ingår redan i dagens avgift och därmed i värderingen. Bara energiprojekt som inte är finansierade räknas in i höjningen.";
+
+export const PRISEFFEKT_CAVEAT =
+  "Prisutslaget bygger på det statistiska sambandet mellan månadsavgift och pris i försäljningarna. Det är ett samband, inte en exakt uträkning av vad just den här lägenheten påverkas.";
+
+/** Text om prisutslaget (del 2), eller tom lista om inget justeringsunderlag finns. */
+export function prisEffektTexter(p: Pick<Prisanalys, "justeringar" | "breddningsskal">): string[] {
+  const rader: string[] = [];
+  for (const j of p.justeringar ?? []) {
+    rader.push(`${j.label}: ${formatFigureVarde(j.belopp)}. ${j.forklaring}`);
+    if (j.krPerKrManad !== undefined) {
+      rader.push(`≈ ${heltal(j.krPerKrManad)} kr i pris per krona i månadsavgift.`);
+    }
+  }
+  for (const skal of p.breddningsskal ?? []) rader.push(skal);
+  return rader;
+}
+
+/** Del 3: upplåningsunderlaget som rader (etikett, värde). */
+export function refinansieringRader(
+  r: NonNullable<Avgiftsprognos["refinansiering"]>,
+): Array<{ label: string; value: string }> {
+  const rf = r.referensranta;
+  const rader = [
+    { label: "Lån som omsätts inom horisonten", value: formatVarde(r.forfallandeBelopp, "kr") },
+    {
+      label: "Nuvarande ränta",
+      value:
+        r.nuvarandeRantaProcent === null
+          ? "Uppgift saknas"
+          : formatProcentTal(r.nuvarandeRantaProcent),
+    },
+    {
+      label: "Antagen ny ränta",
+      value:
+        `${formatProcentTal(r.nyRantaProcent)} = ${rf.namn} ${formatProcentTal(rf.procent)} ` +
+        `(${rf.datum}${rf.reserv ? ", reservvärde" : ""}) + föreningens marginal ` +
+        `${formatProcentTal(r.marginalProcent)}`,
+    },
+  ];
+  return rader;
+}
+
+/** Del 3: notis när förfallodagar saknades och en andel av skulden antagits. */
+export function antagenAndelText(
+  r: NonNullable<Avgiftsprognos["refinansiering"]>,
+): string | undefined {
+  return r.antagenAndelProcent !== undefined
+    ? `Förfallodagar saknades i årsredovisningen, så vi har antagit att ${r.antagenAndelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 0 })} % av skulden omsätts inom horisonten.`
+    : undefined;
+}
+
+export const RAKNA_UTGANGSLAGE_RUBRIK = "Utgångsläget: Binfos värderingsmodell";
+export const RAKNA_UTGANGSLAGE_INTRO =
+  "Utgångsläget är Binfos värderingsmodell, som bygger på tidigare försäljningar av bostadsrätter. Här är vad som i stora drag påverkar värderingen och åt vilket håll (det rör sig om samband i försäljningsdata, inte om orsaker):";
+export const RAKNA_FAKTORER: string[] = [
+  "Boarea: större yta ger högre pris totalt men lägre pris per kvadratmeter.",
+  "Postnummer och område: priset per kvadratmeter skiljer sig mycket mellan områden.",
+  "Våning: högre våning drar upp priset.",
+  "Balkong: balkong drar upp priset.",
+  "Hiss: saknad hiss drar ner priset.",
+  "Månadsavgift: högre avgift drar ner priset.",
+  "Byggår: påverkar priset, och hur mycket beror på området.",
+];
+export const RAKNA_PROGNOS_RUBRIK = "Väntad avgiftsutveckling enligt årsredovisningen";
+export const RAKNA_REFINANSIERING_RUBRIK = "Lån som omsätts inom horisonten";
+
+/** Etikett för jämförelsestatus (uppgift mot årsredovisningen). */
+export const JAMFORELSE_STATUS_LABEL: Record<Faltjamforelse["status"], string> = {
+  bekraftat: "Bekräftat",
+  avviker: "Avviker",
+  manuellt: "Ej i årsredovisningen",
+  osakert: "Osäkert",
+  endast_rapport: "Från årsredovisningen",
+};
+
+export const JAMFORELSE_RUBRIK = "Dina uppgifter mot årsredovisningen";
+
+/** Texten under det justerade värdet (jämförelse mot utgångspriset). */
+export function avvikelseJusteradText(avvikelse: number): string {
+  return `Utgångspriset ligger ${Math.abs(avvikelse).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % ${avvikelse > 0 ? "över" : "under"} den justerade värderingen`;
+}
+
+/** Signerad förändring i kr/mån för tabellen: "+312", "−45", "0". */
+export function formatForandringKr(v: number): string {
+  const r = Math.round(v);
+  if (r === 0) return "0";
+  return `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("sv-SE")}`;
 }
