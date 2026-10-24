@@ -827,7 +827,10 @@ function Rakning({ vm }: { vm: PdfViewModel }) {
                       <Text style={styles.tableCell}>{l.belopp}</Text>
                       <Text style={styles.tableCell}>{l.ranta}</Text>
                       <Text style={styles.tableCell}>{l.fas}</Text>
-                      <Text style={styles.tableCell}>{l.effekt}</Text>
+                      <Text style={styles.tableCell}>
+                        {l.effekt}
+                        {l.effektForening ? ` (${l.effektForening}, föreningen)` : ""}
+                      </Text>
                     </View>
                   ))}
                 </View>

@@ -993,13 +993,17 @@ export interface LanRad {
   ranta: string;
   fas: string;
   senare: boolean;
+  /** This flat's share in kr/mån, or the förening's kr/år when the share is unknown. */
   effekt: string;
+  /** The förening's kr/år, secondary; only when `effekt` is the flat's kr/mån. */
+  effektForening?: string;
   ref?: PageRef;
 }
 
 export function lanRader(
   r: NonNullable<Avgiftsprognos["refinansiering"]>,
   horisontManader: number,
+  andel?: number | null,
 ): LanRad[] {
   const senareAr = Math.round((r.senareHorisontManader ?? 60) / 12);
   return (r.lan ?? []).map((l: RefinansieringsLan, i) => {
@@ -1016,7 +1020,15 @@ export function lanRader(
         ? `År ${Math.floor(horisontManader / 12) + 1}–${senareAr} · väger ${Math.round(l.vikt * 100)} %`
         : `≤ ${horisontManader} mån`,
       senare,
-      effekt: l.foreningKrPerAr === null ? "–" : formatSigneratKr(l.foreningKrPerAr, "kr/år"),
+      effekt:
+        l.foreningKrPerAr === null
+          ? "–"
+          : andel != null
+            ? formatSigneratKr((l.foreningKrPerAr * andel) / 12, "kr/mån")
+            : formatSigneratKr(l.foreningKrPerAr, "kr/år"),
+      ...(l.foreningKrPerAr !== null && andel != null
+        ? { effektForening: formatSigneratKr(l.foreningKrPerAr, "kr/år") }
+        : {}),
       ...(l.ref ? { ref: l.ref } : {}),
     };
   });

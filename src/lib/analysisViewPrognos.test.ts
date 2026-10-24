@@ -74,6 +74,10 @@ describe("analysisView — visuell prognos", () => {
     const lan = lanRader(pg.refinansiering!, 24);
     expect(lan.map((l) => l.senare)).toEqual([false, false, true]);
     expect(lan[2]!.fas).toBe("År 3–5 · väger 50 %");
+    expect(lan[0]!.effekt.replace(/\s/g, " ")).toBe("+36 000 kr/år");
+    const flat = lanRader(pg.refinansiering!, 24, 0.01);
+    expect(flat[0]!.effekt).toBe("+30 kr/mån");
+    expect(flat[0]!.effektForening?.replace(/\s/g, " ")).toBe("+36 000 kr/år");
     expect(formatDag("2029-06-01")).toBe("1 juni 2029");
   });
 });

@@ -877,7 +877,7 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
   const r = prognos.refinansiering;
   const komp = refiKomponent(prognos);
   if (!r && !komp) return null;
-  const rader = r ? lanRader(r, prognos.horisontManader) : [];
+  const rader = r ? lanRader(r, prognos.horisontManader, prognos.andel?.varde) : [];
   const antagen = r ? antagenAndelText(r) : undefined;
   const vard = komp ? komponentRader({ ...prognos, komponenter: [komp] })[0] : undefined;
   return (
@@ -915,7 +915,14 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
                 <td className="py-1.5 text-right text-foreground">{l.belopp}</td>
                 <td className="py-1.5 text-right text-muted-foreground">{l.ranta}</td>
                 <td className="py-1.5 text-muted-foreground">{l.fas}</td>
-                <td className="py-1.5 text-right text-foreground">{l.effekt}</td>
+                <td className="py-1.5 text-right text-foreground">
+                  {l.effekt}
+                  {l.effektForening ? (
+                    <span className="block text-[11px] text-muted-foreground">
+                      {l.effektForening} (föreningen)
+                    </span>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>

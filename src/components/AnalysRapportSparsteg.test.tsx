@@ -71,7 +71,9 @@ describe("AnalysRapport — sparsteg, lån och färger (2026-10-24c)", () => {
     expect(html).toContain("≤ 24 mån");
     expect(html).toContain("År 3–5 · väger 50 %");
     expect(html).toContain('data-fas="senare"');
-    expect(html).toContain("+36 000 kr/år");
+    // andel 0,001: 36 000 × 0,001 ÷ 12 = 3
+    expect(html).toContain("+3 kr/mån");
+    expect(html).toContain("+36 000 kr/år (föreningen)");
     expect(html).toContain(
       "Lån som omsätts om 3–5 år räknas bara om de har lägre ränta än i dag, och väger mindre ju längre bort de ligger – ett medvetet försiktigt val.",
     );

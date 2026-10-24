@@ -218,6 +218,7 @@ export interface PdfRakning {
                 ranta: string;
                 fas: string;
                 effekt: string;
+                effektForening: string | undefined;
               }>;
               varde: string | undefined;
               ton: Ton;
@@ -675,16 +676,19 @@ function buildRakning(analys: AnalysisResult): PdfRakning | undefined {
             lan:
               refi && harLan
                 ? {
-                    rader: lanRader(refi, pg.horisontManader).map((l) => ({
+                    rader: lanRader(refi, pg.horisontManader, pg.andel?.varde).map((l) => ({
                       forfaller: l.forfaller,
                       belopp: l.belopp,
                       ranta: l.ranta,
                       fas: l.fas,
                       effekt: l.effekt,
+                      effektForening: l.effektForening,
                     })),
                     varde: refiRad?.vardeText,
                     ton: tonForTryck(refiK?.tryck),
-                    fastrad: lanRader(refi, pg.horisontManader).some((l) => l.senare)
+                    fastrad: lanRader(refi, pg.horisontManader, pg.andel?.varde).some(
+                      (l) => l.senare,
+                    )
                       ? REFI_FASTRAD
                       : undefined,
                     referens: referensrantaRad(refi),
