@@ -61,7 +61,13 @@ function prisText(r: Underlag): string {
   }
 
   const delar: string[] = [];
-  if (justerad !== null && bas !== null && justerad !== bas) {
+  const avrundat = (kr: number) => Math.round(kr / 10_000) * 10_000;
+  if (justerad !== null && bas !== null && avrundat(justerad) === avrundat(bas)) {
+    delar.push(
+      `Binfos värdering är ${caPris(justerad)}. Den väntade avgiftsförändringen flyttar den bara ` +
+        `${sv0(Math.abs(justerad - bas))} kr.`,
+    );
+  } else if (justerad !== null && bas !== null && justerad !== bas) {
     delar.push(
       `Binfos värdering är ${caPris(justerad)} efter justering för den väntade avgiftshöjningen ` +
         `(${caPris(bas)} före justering).`,

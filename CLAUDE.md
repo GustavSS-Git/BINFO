@@ -16,8 +16,9 @@ per-apartment cost in kronor, and what to do before bidding.
   `main` and **deployed to production on 2026-10-14** (both v3 migrations,
   `deploy:edge`, Lovable publish; the two pre-v3 register reports were re-run
   in production the same day, `docs/api-test-log.md` #104). Runbook:
-  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p8.i1.s1`
-  (2026-10-23, question context) — not deployed yet, see `PLAN.md`.
+  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p9.i1.s1`
+  (p8 2026-10-23 question context, p9 2026-10-24 loans/maintenance/lokaler) —
+  not deployed yet, see `PLAN.md`.
 - After v3 (on `main`, 2026-10-14): `/integritet` privacy page (controller
   "Binfo (binfo.slanesens.com)", no contact e-mail yet: `src/lib/kontakt.ts`),
   and analysing a flat from a register BRF without uploading
@@ -29,6 +30,13 @@ per-apartment cost in kronor, and what to do before bidding.
   data (no LLM). Findings, field map and the Cloudflare blocking:
   `docs/booli.md`. Earlier sales at the same address are NOT fetched (Booli's
   internal GraphQL; round 3).
+- **Fee prognosis → price** (2026-10-24b, on `main`, NOT deployed; needs the
+  `20261025120000_referensranta.sql` migration + `deploy:edge` together with
+  the Lovable publish because of PROMPT_VERSION 9): the report reaches the
+  price through ONE channel, the expected rise in månadsavgift (spargap,
+  refinansiering, ofinansierat underhåll, lokalhyror, energiprojekt), priced
+  with the valuation's OLS fee coefficient. Spec, formulas, margin table and
+  the STIBOR finding: `docs/avgiftsprognos.md`. The grade never moves the price.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -71,11 +79,12 @@ per-apartment cost in kronor, and what to do before bidding.
 | `src/server/`                                   | Server-only. `analysFn.ts` is the only client-importable file (server functions; **no module-scope values** — see Gotchas). `analys.ts` (create/status/result/preview), `register.ts` (register lookup, versioning, re-runs), `steg.ts` (job state machine on `rapport`), `prisuppskattning.ts` (price_estimate service), `kontext.ts` (device cookie + hashed IP + session → principal), `auth.ts` (Supabase Auth flows: register/login/logout/verify/reset/new password/delete account), `sessionCookies.ts` (`binfo_sa`/`binfo_sr`/`binfo_aterst`), `supabaseAuth.ts` (Auth adapter), `sparat.ts` (saved valuations/kalkyler, GDPR export; one ownership helper `kravAgare`), `registerPublik.ts` (public register reads: BRF-level only), `stegLogg.ts` (stage-failure logging), `lagratInput.ts`, `principal.ts`, `behorighet.ts` (entitlement policy), `kvot.ts` (rate limits), `spend.ts`, `cache.ts` (legacy caches), `fel.ts` (error → buyer-safe Swedish), `env.ts`, `portar.ts` (`Lager`/`Databas` port), `kontoPortar.ts`, `supabase.ts` / `supabaseKonto.ts` (adapters), `__fakes__/` (`lager.ts`, `konto.ts`: in-memory fakes mirroring the SQL), `cli/` (`registerCli.ts`, `kontoCli.ts`, `analysCli.ts`, `verifyRls.ts`), `edge/build.ts` (bundles `steg.ts` for Deno) |
 | `src/types/analysis.ts`                         | **The contract** for an analysis result and the price check (`PrisInput`, `PrisuppskattningResultat`), shared by client and server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `src/data/`                                     | `sampleAnalysis.ts` (static `AnalysisResult` on `/exempel`; see "Example analysis"), `mockData.ts` (calculator defaults + legacy demo `property` "Brf Lindgården", unrelated to `/exempel`). Cost schablons live in `src/lib/analysis/calc/schabloner.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `supabase/`                                     | `migrations/` (9; the first 8 applied in production, incl. v2 `register` + `konto` and v3 `20261013120000_konto_v3.sql` + `20261013120100_register_v3.sql`, 2026-10-14; `20261024120000_annons.sql` not yet), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored; also `reinvoke.ts`, `effort.ts` + their two vitest files, the only tests outside `src/`). `config.toml` references a `seed.sql` that doesn't exist (harmless). No SQL test files are committed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `supabase/`                                     | `migrations/` (10; the first 8 applied in production, incl. v2 `register` + `konto` and v3 `20261013120000_konto_v3.sql` + `20261013120100_register_v3.sql`, 2026-10-14; `20261024120000_annons.sql` not yet), `rollback/` (manual down-scripts, never auto-applied), Edge Function `analys-steg/` (`index.ts` is hand-written Deno glue mirroring `supabase.ts`; it imports the esbuild bundle `_bundle/steg.js`, gitignored; also `reinvoke.ts`, `effort.ts` + their two vitest files, the only tests outside `src/`). `config.toml` references a `seed.sql` that doesn't exist (harmless). No SQL test files are committed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `ml/`                                           | Training (`train_valuation_v31.py` + `valuation_v31_lib.py` on top of `train_valuation_v3.py` / `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3.1/` = shipped, delta card to `artifacts/valuation-v3/MODEL_CARD.md`; `valuation-v3.2/` exists only on the local branch `valuation-v3.2`, rejected), pytest suite                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `data/raw/`                                     | Svensk Mäklarstatistik transaction xlsx (committed, not confidential); `data/derived/` holds the mapping CSVs and price levels                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `src/lib/annons/`                               | Listing prefill, client-safe: `typer.ts` (`AnnonsSvar`, `AnnonsUppgifter`, `ANNONS_FALT`, `ANNONS_MEDDELANDE`), `url.ts` (`kontrolleraAnnonsUrl`: https + `booli.se`/`www.booli.se` + `/bostad                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | annons/<id>`only, canonicalised; shared by client and server),`formular.ts`(click flow, applying an answer, per-field provenance booli/manuellt/saknas,`tillAnnonsKalla`) |
 | `src/server/annons/`                            | `booli.ts` (pure parser: RSC `Listing` object + JSON-LD, never visible HTML), `hamta.ts` (`hamtaAnnons`: kill switch → URL check → 24 h cache → entitlement `hamta_annons` → quota → one fetch → parse → optional LLM fallback → Nominatim postcode fallback → cache), `geokod.ts` (Nominatim, only when the postcode is missing), `llmFallback.ts` (Haiku, off unless `ANNONS_LLM_FALLBACK=on`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Fee prognosis (2026-10-24b)                     | `src/lib/analysis/calc/prognosantaganden.ts` (EVERY assumption: horizon, refinancing share, margin 0.58 pp, maintenance years, lokal risk, 3 % widening, 30 % guard, OLS β synced to `metadata.json` by a test, reference-rate fallback), `calc/avgiftsprognos.ts` (`beraknaAvgiftsprognos`: five components → flat kr/month via andel = fee×12 ÷ årsavgifter), `prisjustering.ts` (`byggPrisjustering`: adjusted price = baseline + β × rise × kr/m²; missing data widens only the low end), `uppgiftsjamforelse.ts` (report vs input statuses; report byggår wins at high confidence and feeds the valuation), `sammanfattning.ts` (deterministic closing summary), `calc/rantestress.ts` `byggPrognosTabell`, `referensrantaHamtning.ts` (Riksbank SWEA fetch) + `src/server/referensranta.ts` (daily cache on `KontoDatabas`, never throws), `scripts/monteraOm.ts` (free re-assembly of a saved run), `fixtures/answer-key-lan/` (loan keys, UTKAST)                                                                                                                                                                                                                                                                                                                              |
 | `fixtures/booli/`                               | Raw Booli listing HTML (6 pages + a Cloudflare challenge page, fetched with curl 2026-10-24; prettier-ignored), recorded Nominatim responses, `booli_links.txt`. Parser tests assert every field of every page.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `fixtures/answer-key/`                          | Nyckeltal per test report (`<orgnr>.json`, 13 keys, all owner-verified as of 2026-10-10; "UTKAST" in `kalla.verifieradMot` would mark a draft). Pontonjären 3 has no key. `fixtures/property-input-example.json` is a sample `PropertyInput`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `annual reports examples/`                      | 14 real test PDFs (14 BRFs; only ~4–7 in Stockholms län, the rest Malmö/Helsingborg/Umeå etc.). Gitignored; never commit. `annual reports pdf as image example/` holds the two image-only reports; `SBC 2 årsredovnisng.pdf` is a raster scan; `test_rapport.pdf` has a garbled text layer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -166,6 +175,13 @@ per-apartment cost in kronor, and what to do before bidding.
 
 ## Where UI copy lives
 
+- **Price section additions (2026-10-24b)**: second price row "Justerat för
+  väntad avgiftshöjning", the collapsed "Så har vi räknat" `<details>` (part 1
+  factor list + model drivers, also on the Priskoll; part 2 fee rise; part 3
+  refinancing inputs), the fee table in `Rantestress`, "Dina uppgifter mot
+  årsredovisningen", the closing "Sammanfattning" — all in `AnalysRapport.tsx`
+  with text helpers in `src/lib/analysisView.ts`; component texts come from
+  `avgiftsprognos.ts`, summary texts from `sammanfattning.ts`. PDF mirrors it.
 - **Waiting screen** (`/forhandsvisning` while running): `Pagar` in
   `src/components/AnalysStatus.tsx` (heading "Din analys pågår", the time
   paragraph with a scan-only insert when `textlager === 'saknas'`, never for
@@ -212,8 +228,8 @@ per-apartment cost in kronor, and what to do before bidding.
 ## Example analysis (`/exempel`)
 
 - `src/data/sampleAnalysis.ts` is a pasted snapshot of real CLI output, not
-  regenerated automatically; there is no regeneration script. Current example
-  (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
+  regenerated automatically. Regenerated 2026-10-24 on PROMPT_VERSION 9 (fee
+  prognosis frozen at that day, SSVX 2.068 %). Earlier example (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
   `annual reports examples/exemple_analysis_report/`, gitignored) + the owner's
   real listing Baltzar von Platens gata 6, 112 42 (Kungsholmen: best training
   coverage, 644 sales, CV MAPE 7.6 %). Valuation v3.1.
@@ -223,7 +239,9 @@ per-apartment cost in kronor, and what to do before bidding.
   `Prisrimlighet.test.tsx` assert the sample's content and must follow it.
 - To regenerate: write `{ "input": PropertyInput }` (strict, unknown keys
   rejected), then
-  `ANTHROPIC_MODEL=claude-sonnet-5-5 npm run -s extract -- <pdf> input.json > out.json`
+  `EXTRACT_SPARA_UNDERLAG=underlag.json ANTHROPIC_MODEL=claude-sonnet-5-5 npm run -s extract -- <pdf> input.json > out.json`
+  (the saved underlag lets `node --import tsx scripts/monteraOm.ts underlag.json`
+  re-assemble for free after any assembly change)
   (`-s` keeps npm's banner out of the JSON; Anthropic key only, no Supabase),
   paste as `export const sampleAnalysis: AnalysisResult = …`, update the BRF
   name in `src/routes/exempel.tsx`, log the spend.
@@ -281,6 +299,14 @@ per-apartment cost in kronor, and what to do before bidding.
       `forening.adresser`/`fastighetsbeteckningar` (cited) and, when a rapport
       is done, writes `forening_adress kalla='rapport'`, assigns the register
       area (`losRegisteromrade`) + slug, and refreshes `register_sammanfattning`.
+   - **v9 (2026-10-24b):** also per-loan `lanebok.lan` (date, rate, rörlig by
+     label or reset ≤ 3 months after `balansdag`; `forfalloprofil` is derived
+     from it in code), `rantekostnader`, `bostadsrattsyta`, `balansdag`,
+     maintenance amounts/fund/allocation, `sparandeUttag`, `lokaler`,
+     `energiprojekt`. The grounding prompt lists the seven nyckeltal FIRST: the
+     longer v9 prompt otherwise sometimes skipped the whole flerårsöversikt
+     (Granen, Albohem; measured 2026-10-24). The judging input omits the
+     per-loan rows.
    5. `bedomning`: judging over the extraction only (never sees buyer data;
       page refs must be a subset of the extraction's pages); result stored on
       the rapport; dry assembly. The prompt gets Binfo's own "Fasta värden"
@@ -312,6 +338,12 @@ per-apartment cost in kronor, and what to do before bidding.
    (`skapaAnalysFranRegister`) when the report exists only at an older
    version — behind the spend cap and the strict quota; once done, every
    reader of that report (same orgnr + year or same bytes) gets the new one.
+   **2026-10-24b:** assembly also computes `avgiftsprognos` with TODAY's
+   reference rate (passed from `hamtaResultatFn`; fallback in config), the
+   adjusted price (`prisanalys.justeringar/justeradVardering`), the fee table,
+   `uppgiftsjamforelse` and `sammanfattning`, and drops model text claiming
+   byggår is missing when it is known. Old extractions get a degraded
+   prognosis (maturity year only → 1 July).
    The valuation uses only the buyer's input; the full analysis adds the
    apartment's debt share (`skuldsättning/m² bostadsrättsyta × boarea`) as a
    comment, never applied to the valuation.
@@ -358,6 +390,11 @@ citations and effort) is not used anywhere yet.
     `forening_slug` (renamed-slug history), `pg_trgm` index on `namn`,
     `register_sammanfattning` (one row per BRF, maintained by
     `uppdatera_register_sammanfattning`), `satt_forening_omrade`.
+- **Reference-rate migration (2026-10-24b, NOT applied in production yet):**
+  `20261025120000_referensranta.sql`: `referensranta` (serie pk, datum,
+  procent, hamtad; RLS on, zero policies), on `KontoDatabas`
+  (`lasReferensranta`/`skrivReferensranta`). Rollback in `supabase/rollback/`.
+  Without the table the read falls back to the configured rate.
 - **Booli migration (2026-10-24, NOT applied in production yet):**
   `20261024120000_annons.sql`: `annons_cache` (url pk, svar jsonb, hamtad; RLS
   on, zero policies) and the redefined `binfo-retention` (see Retention).
@@ -417,11 +454,11 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-24: 124 files, 2595 tests, all passing)
+npm test                    # vitest run (2026-10-24b: 136 files, ~2810 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
-npm run verify-extraction -- <dir>         # score against fixtures/answer-key (spend; VERIFY_FROM_RESULTS=<dir> = free)
+npm run verify-extraction -- <dir>         # score against fixtures/answer-key (+ answer-key-lan); spend; VERIFY_FROM_RESULTS=<dir> = free; VERIFY_ONLY=<orgnr,…> limits the reports
 npm run analys -- <pdf> <input.json>       # LIVE Supabase job + spend
 npm run register -- list|inspect|invalidate|backfill-legacy|rerun   # LIVE register admin
 npm run konto -- radera|exportera <principalId>                     # LIVE GDPR erasure/export

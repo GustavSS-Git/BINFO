@@ -38,6 +38,25 @@ describe("byggSammanfattning", () => {
     expect(nbsp(s.pris)).toContain("(ca 5 680 000 kr före justering)");
   });
 
+  it("a tiny adjustment is not shown as two identical rounded prices", () => {
+    const bas = sampleAnalysis.prisanalys.externVardering!.value!;
+    const s = byggSammanfattning(
+      med({
+        prisanalys: {
+          ...sampleAnalysis.prisanalys,
+          justeradVardering: {
+            value: bas + 1847,
+            unit: "kr",
+            source: "schablon",
+            schablonBasis: "x",
+          },
+        },
+      }),
+    );
+    expect(nbsp(s.pris)).toContain("flyttar den bara 1 847 kr");
+    expect(s.pris).not.toContain("före justering");
+  });
+
   it("fee rise text with direction, rounded, and the missing-data note", () => {
     const s = byggSammanfattning(
       med({
