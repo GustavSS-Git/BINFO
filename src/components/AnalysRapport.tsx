@@ -715,10 +715,10 @@ function Prick({ ton, etikett }: { ton: Ton; etikett?: string }) {
 }
 
 /** "Visa mer": inbyggd <details>, stängd från start (fungerar utan JS och i SSR). */
-function VisaMer({ children }: { children: ReactNode }) {
+function VisaMer({ children, etikett = "Visa mer" }: { children: ReactNode; etikett?: string }) {
   return (
     <details className="group">
-      <summary className="cursor-pointer text-xs font-medium text-primary">Visa mer</summary>
+      <summary className="cursor-pointer text-xs font-medium text-primary">{etikett}</summary>
       <div className="mt-2 space-y-2">{children}</div>
     </details>
   );
@@ -834,7 +834,7 @@ function SparSteg({
         </div>
       </div>
       {byggdelar.length > 0 ? (
-        <VisaMer>
+        <VisaMer etikett="Visa byggdelarna">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
@@ -903,8 +903,8 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
             <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
               <th className="pb-1 font-medium">Förfaller</th>
               <th className="pb-1 text-right font-medium">Belopp</th>
-              <th className="pb-1 text-right font-medium">Ränta</th>
-              <th className="pb-1 font-medium">Period</th>
+              <th className="pb-1 pr-3 text-right font-medium">Ränta</th>
+              <th className="pb-1 pl-3 font-medium">Period</th>
               <th className="pb-1 text-right font-medium">Effekt</th>
             </tr>
           </thead>
@@ -913,8 +913,8 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
               <tr key={l.key} data-fas={l.senare ? "senare" : "inom"}>
                 <td className="py-1.5 text-foreground">{l.forfaller}</td>
                 <td className="py-1.5 text-right text-foreground">{l.belopp}</td>
-                <td className="py-1.5 text-right text-muted-foreground">{l.ranta}</td>
-                <td className="py-1.5 text-muted-foreground">{l.fas}</td>
+                <td className="py-1.5 pr-3 text-right text-muted-foreground">{l.ranta}</td>
+                <td className="py-1.5 pl-3 text-muted-foreground">{l.fas}</td>
                 <td className="py-1.5 text-right text-foreground">
                   {l.effekt}
                   {l.effektForening ? (
@@ -937,7 +937,7 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
           <Tag>Årsredovisning s. {komp.ref.page}</Tag>
         </span>
       ) : null}
-      <VisaMer>
+      <VisaMer etikett="Visa hela uträkningen">
         {komp ? <p className="text-xs text-muted-foreground">{komp.forklaring}</p> : null}
         {r ? (
           <ul className="space-y-1 text-xs text-foreground">
@@ -1034,7 +1034,7 @@ function RaknaPrognos({
           </ul>
         ) : null}
         {ovriga.length > 0 ? (
-          <VisaMer>
+          <VisaMer etikett="Visa mer om övriga delar">
             <ul className="space-y-1 text-xs text-muted-foreground">
               {ovriga.map((k) => (
                 <li key={k.id}>
@@ -1046,7 +1046,7 @@ function RaknaPrognos({
           </VisaMer>
         ) : null}
         {prisTexter.length > 0 ? (
-          <VisaMer>
+          <VisaMer etikett="Så räknas avgiften om till pris">
             {prisTexter.map((t) => (
               <p key={t} className="text-xs text-foreground">
                 {t}

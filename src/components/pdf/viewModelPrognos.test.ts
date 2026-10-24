@@ -18,7 +18,7 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
     expect(vm.rakning?.utgangslage?.faktorer.length).toBeGreaterThan(3);
     const p = vm.rakning?.prognos;
     expect(p?.rubrik).toContain("+500 kr/mån");
-    expect(p?.komponenter.map((k) => k.vardeText)).toContain("Underlag saknas – spannet breddas");
+    expect(p?.komponenter.map((k) => k.vardeText)).toContain("Underlag saknas");
     expect(p?.prisTexter.join(" ")).toContain("≈ 300 kr i pris per krona");
     expect(p?.prisCaveat).toBeDefined();
     expect(p?.refinansiering?.rader).toHaveLength(3);

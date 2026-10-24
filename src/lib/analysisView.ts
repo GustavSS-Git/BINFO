@@ -422,7 +422,7 @@ export function avgiftsprognosRubrik(p: Avgiftsprognos): string {
 export interface KomponentRad {
   id: AvgiftsKomponent["id"];
   label: string;
-  /** "+312 kr/mån", "Underlag saknas – spannet breddas" eller "Ej aktuellt". */
+  /** "+312 kr/mån", "Underlag saknas" eller "Ej aktuellt". */
   vardeText: string;
   forklaring: string;
   /** Visas nedtonad (ej aktuell / saknar underlag). */
@@ -437,7 +437,7 @@ export function komponentRader(p: Avgiftsprognos): KomponentRad[] {
     if (k.status === "saknar_underlag") {
       return {
         ...bas,
-        vardeText: "Underlag saknas – spannet breddas",
+        vardeText: "Underlag saknas",
         dimmad: true,
         ...ref,
       };
@@ -470,7 +470,8 @@ export function prisEffektTexter(p: Pick<Prisanalys, "justeringar" | "breddnings
       rader.push(`≈ ${heltal(j.krPerKrManad)} kr i pris per krona i månadsavgift.`);
     }
   }
-  for (const skal of p.breddningsskal ?? []) rader.push(skal);
+  // The range is no longer shown (owner 2026-10-24), so its widening reasons
+  // (breddningsskal) are not either.
   return rader;
 }
 
@@ -755,7 +756,12 @@ export function vattenfall(
   if (steg.length === 0) return undefined;
   const summa = steg.reduce((a, s) => a + s.c, 0);
   const rest = slut - (bas + summa);
-  if (Math.abs(rest) > 1) steg.push({ id: "ovrigt", label: "Övrigt", c: rest, ton: "neutral" });
+  // Rounding leftovers go into the largest step instead of a noise row.
+  if (Math.abs(rest) > 1) {
+    const storst = steg.reduce((a, s) => (Math.abs(s.c) > Math.abs(a.c) ? s : a));
+    if (Math.abs(rest) <= 0.002 * bas) storst.c += rest;
+    else steg.push({ id: "ovrigt", label: "Övrigt", c: rest, ton: "neutral" });
+  }
 
   const punkter = [bas, slut];
   let lopande = bas;
