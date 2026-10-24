@@ -120,6 +120,16 @@ export const BYGGDEL_LIVSLANGD: Record<Byggdel, { label: string; lag: number; ho
 // TODO: unverified placeholder (round 2026-10-24c)
 export const PLANMAL_MIN_ANDEL_AV_SCHABLON = 0.5;
 
+/** A plan-based target above this multiple of the schablon is treated as a
+ *  misread (e.g. one project counted as a yearly need) and not used. */
+// TODO: unverified placeholder (review 2026-10-24c)
+export const PLANMAL_MAX_ANDEL_AV_SCHABLON = 2;
+
+/** Planned costs are averaged over at least this many years, so a few items
+ *  clustered in time never count as a yearly need. */
+// TODO: unverified placeholder (review 2026-10-24c)
+export const PLANKOSTNAD_MIN_AR = 10;
+
 /** The plan-cost target averages planned costs over at most this many years
  *  when a plan item has no year span. */
 // TODO: unverified placeholder (round 2026-10-24c)

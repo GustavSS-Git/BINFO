@@ -149,15 +149,20 @@ describe("plan-cost span math", () => {
   const med = (poster: ReturnType<typeof post>[]) =>
     kor(forening({ underhallsplan: { finns: "ja", planeradeKostnader: poster } }));
 
-  it("two items: min fran 2030 .. max till 2034 = 5 years; 2 000 000 + 1 000 000 = 3 000 000 ÷ 5 ÷ 2 000 = 300", () => {
+  it("two items 2030–2034 span 5 years, floored to 10: 4 000 000 + 2 000 000 = 6 000 000 ÷ 10 ÷ 2 000 = 300", () => {
     const r = med([
-      post(2_000_000, "lan", { fran: 2030, till: 2031 }),
-      post(1_000_000, "fond", { fran: 2033, till: 2034 }),
+      post(4_000_000, "lan", { fran: 2030, till: 2031 }),
+      post(2_000_000, "fond", { fran: 2033, till: 2034 }),
     ]);
     expect(r.sparbehov).toMatchObject({ malKrPerM2: 300, malKalla: "planerade_kostnader" });
   });
-  it("an item with only fran uses that year: 600 000 in 2031 → span 1 → 600 000 ÷ 2 000 = 300", () => {
-    expect(med([post(600_000, "lan", { fran: 2031 })]).sparbehov.malKrPerM2).toBe(300);
+  it("an item with only fran: 6 000 000 in 2031 → span floored to 10 → 6 000 000 ÷ 10 ÷ 2 000 = 300", () => {
+    expect(med([post(6_000_000, "lan", { fran: 2031 })]).sparbehov.malKrPerM2).toBe(300);
+  });
+  it("one big project never counts as a yearly need: 30 Mkr in 2030 ÷ 10 ÷ 2 000 = 1 500 > 600 → schablon", () => {
+    const r = med([post(30_000_000, "ofinansierad", { fran: 2030 })]);
+    expect(r.sparbehov.malKalla).toBe("schablon");
+    expect(r.forkastatPlanmal).toEqual({ malKrPerM2: 1500, malKalla: "planerade_kostnader" });
   });
   it("an item without years makes the span PLANKOSTNAD_MAX_AR (30): 12 000 000 ÷ 30 ÷ 2 000 = 200", () => {
     expect(med([post(12_000_000, "lan")]).sparbehov.malKrPerM2).toBe(200);
@@ -256,8 +261,15 @@ describe("horizon items are excluded from the plan-cost target", () => {
 });
 
 describe("schablon target moved by building parts", () => {
+  // genomfordaAtgarder: [] = a v10 extraction that looked and found none.
   const sch = (extra: Partial<Forening> = {}, input: Partial<SparbehovInput> = {}) =>
-    kor(forening(extra), input);
+    kor(forening({ genomfordaAtgarder: [], ...extra }), input);
+
+  it("a pre-v10 extraction (no genomfordaAtgarder field) never reads byggår as eftersatt: 1950 → all okant → 300", () => {
+    const r = kor(forening(), { byggar: 1950 });
+    expect(r.sparbehov.malKrPerM2).toBe(300);
+    expect(r.sparbehov.byggdelar?.every((b) => b.status === "okant")).toBe(true);
+  });
   const del = (r: ReturnType<typeof sch>, d: Byggdel) =>
     r.sparbehov.byggdelar?.find((b) => b.byggdel === d);
 

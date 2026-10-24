@@ -95,3 +95,43 @@ reprices within the horizon only.
 - A total rise above 30 % of today's fee is applied but marked osäker with a question (guards
   against a misread 30-year maintenance total).
 - Old extractions (PROMPT_VERSION ≤ 8) have only the maturity year: a 1 July date is assumed.
+
+## Round 2026-10-24c: sustainable fee and refinancing years 3–5
+
+Replaces component 1 (spargap) and extends component 2. Assumptions in `prognosantaganden.ts`,
+sources in `docs/underhall-referens.md`.
+
+**1. Sparande mot underhållsbehov** (`calc/sparbehov.ts`). Gap = target − sparande per m² totalyta;
+BRF kr/year = gap × totalyta × dampning. A surplus (negative gap) lowers the expected fee.
+
+| Target, first available                                                                                          | Dampning |
+| ---------------------------------------------------------------------------------------------------------------- | -------- |
+| `investeringsbehovPerM2` (report nyckeltal)                                                                      | 1        |
+| `rekommenderadAvsattning` (or the plan's stated yearly need) ÷ totalyta                                          | 1        |
+| `planTotal` ÷ years ÷ totalyta, else planned costs ÷ their span (≤ 30 years) ÷ totalyta, excluding horizon items | 1        |
+| Schablon 300 kr/m² moved within 250–350 by building parts                                                        | 0.5      |
+
+- Building parts (stambyte, tak, fasad, fönster, ventilation, el, hiss — hiss only when the buyer
+  says the house has one): last year = latest `genomfordaAtgarder` item, else byggår. `nyligen` when
+  renovated less than half the lower lifetime ago; `eftersatt` when older than the upper lifetime;
+  `okant` without any year. Score = (#eftersatt − #nyligen) ÷ #assessed; target = 300 + 50 × score.
+- A plan-based target below 150 kr/m² (half the schablon) is treated as a partial plan and ignored.
+- Missing totalyta is derived as total debt ÷ skuldsättning per m² totalyta.
+- `underhall` now counts only unfinanced plan items within the 24-month horizon (minus fund and
+  allocations, over 10 years); those items are excluded from the plan-cost target.
+
+**2. Refinancing, later phase.** Dated loans resetting in months 25–60 count only when their rate
+is below SSVX + margin, weighted 0.75 (≤ 36), 0.5 (≤ 48), 0.25 (≤ 60). Per-loan rows in
+`refinansiering.lan`. Never a cut that far ahead; undated debt has no later phase.
+
+**Fee pressure** (`tryckFor`): |kr/month| ÷ today's fee < 2 % green, ≤ 10 % yellow, else red; a
+decrease is green.
+
+Worked examples (fictional flat 60 m², 3 600 kr/mån, 6 Mkr, byggår 1965, hiss; BRF totalyta 5 500,
+andel 1.2 %; SSVX 2.068 %): a förening saving 150 kr/m² with no plan → target 336 (5 parts
+eftersatt) → +512 kr/mån → −2.1 %; saving 400 → −176 kr/mån → +0.7 %; a 1.2 % loan resetting in
+month 38 → +543 kr/mån (weight 0.5). Real: Pontonjären 3 (+372 kr/mån, −107 750 kr) and
+Helsingborgshus 17 (−5 kr/mån), see the round summary in PLAN.md.
+
+**Calibration note:** with the schablon, a typical förening (sparande 85–225 kr/m²) gets a yellow
+or red savings step and roughly −1 to −3 % on the price. `SPARMAL_SCHABLON_DAMPNING` is the knob.

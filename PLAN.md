@@ -1,6 +1,6 @@
 # Binfo — current plan
 
-**Latest: sustainable fee + longer refinancing horizon (2026-10-24c, in progress), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
@@ -10,9 +10,35 @@ Earlier plans (done, kept for history): the UI copy + new `/exempel` plan furthe
 
 # Plan: sustainable fee (A) + longer refinancing horizon (B) (round 2026-10-24c)
 
-Status: **APPROVED 2026-10-24, in progress.** Budget max 40 kr API. No deploy without the
-owner's OK. One commit per task. Follows point 4 ("the förening's finances barely move the
-price"). Owner decision: build A and B; C (räntekänslighet) stays out of the price.
+Status: **DONE 2026-10-24, committed on `main`, not pushed, not deployed.** API spend: 27.46 kr
+of 40 (rows 115–122 in `docs/api-test-log.md`).
+
+## Result (2026-10-24)
+
+- **Done:** T0–T5. Contract + config; extraction v10 (past renovations, investeringsbehov, the
+  plan's recommended allocation/yearly need, plan total); `calc/sparbehov.ts` (savings target) +
+  two-phase refinancing + fee pressure colours; assembly/summary labels; visual "Så har vi räknat"
+  (savings chain, building parts, loans by phase), price waterfall, colours in summary and PDF;
+  new `/exempel` snapshot; reviewer pass with fixes (span floor 10 years, plan target ceiling 2×
+  schablon, pre-v10 extractions never read byggår as eftersatt, derived totalyta ≥ 100 m², plan
+  figures tagged as estimates, PDF no longer prints the range).
+- **Checks:** typecheck 0; 140 files / 2943 tests pass; build OK; eslint clean on the round's files.
+- **Paid verification:** nyckeltal complete on Beckasinen, Torsborgen, Helsingborgshus (one
+  Beckasinen run had skuldsättning/m² totalyta null — the report's ambiguous row; complete on the
+  rerun); renovations: Torsborgen 2/2, Helsingborgshus 3/3, Beckasinen 2/3 (fasad 2018 in a long
+  paragraph still missed); Pontonjären 9 renovations found.
+- **Worked examples:** Pontonjären +372 kr/mån (red; savings 125 vs 300 schablon), adjusted
+  5 573 857 vs 5 681 607; Helsingborgshus −5 kr/mån (green; 777 tkr/år plan figure rejected as
+  partial, totalyta derived 16 733 m²).
+- **Left for the owner:** calibration of `SPARMAL_SCHABLON_DAMPNING` (typical föreningar get −1 to
+  −3 %); BENCHMARKS.md still grades sparande "God" above 0 (contradicts the savings chain);
+  verify `fixtures/answer-key-underhall/` (UTKAST); deploy together with v9 (PROMPT_VERSION 10,
+  both migrations, `deploy:edge`, Lovable publish).
+- **For Lovable to polish:** the waterfall (`pris-vattenfall`), savings pills (`spar-steg`, mobile
+  wrapping), need/saving bars, tryck dots, "Visa mer" summaries, loan/building-part tables on
+  narrow screens, facts vs estimates tags, the summary badge, the PDF tables. Budget max 40 kr API. No deploy without the
+  owner's OK. One commit per task. Follows point 4 ("the förening's finances barely move the
+  price"). Owner decision: build A and B; C (räntekänslighet) stays out of the price.
 
 ## Step zero (done)
 

@@ -858,7 +858,9 @@ export function sparKedja(
       rubrik: "Behov",
       varde: kronorM2(sb.malKrPerM2),
       kalla: `${MAL_KALLA_TEXT[sb.malKalla]}${schablon ? "" : sida(sb.malRef)}`,
-      fakta: !schablon,
+      // Only the report's own investeringsbehov is a cited fact; the others
+      // are Binfo's division of plan figures.
+      fakta: sb.malKalla === "investeringsbehov",
     },
     {
       id: "sparar",

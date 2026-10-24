@@ -70,3 +70,16 @@ One line each: date — decision — rationale. Owner decisions are marked (owne
 - 2026-10-24 — BRF margin 0.58 pp over SSVX: per-BRF median of variable loans (labelled "rörlig", or villkorsändringsdag ≤ 3 months after the balance date) in 5 of the test reports. Details: `docs/avgiftsprognos.md`.
 - 2026-10-24 — Assumptions (moderate set, placeholders): horizon 24 months; 50 % of debt refinances when maturities are missing (range 0–100 %); maintenance spread over 10 years; 50 % of lokal rent at risk; each missing input widens only the LOW end of the price range by 3 % (owner).
 - 2026-10-24 — No separate recommendation: the buyer decides. Instead "Så har vi räknat" under the price explains model + report, and a deterministic closing summary (grade, adjusted price vs utgångspris and area budpremie, fee rise, closing line) sits before the save options. "Sammanvägt riskbetyg" unchanged (owner).
+
+## Sustainable fee + longer refinancing horizon (2026-10-24c)
+
+- 2026-10-24 — Build A (savings gap) and B (refinancing years 3–5); räntekänslighet stays out of the price (owner). Reference table of maintenance needs with sources: `docs/underhall-referens.md`.
+- 2026-10-24 — Savings target, first available: investeringsbehov per m² → the plan's recommended allocation / stated yearly need ÷ totalyta → planned costs ÷ years ÷ totalyta (excluding horizon items counted by `underhall`) → schablon 300 kr/m² totalyta (HSB 2026, Riksbyggen 2025). The schablon is moved within 250–350 by building parts (FAR 2025 / SIB M84:10 lifetimes): score = (#eftersatt − #nyligen) ÷ #assessed; target = 300 + 50 × score. Component costs per m² are not used (weak sources).
+- 2026-10-24 — A schablon-based gap counts 50 % (owner); a plan-based gap counts in full. A surplus counts too and can raise the price (owner).
+- 2026-10-24 — A plan-based target below 50 % of the schablon (< 150 kr/m²) is taken as a partial plan and not used (Helsingborgshus: "underhållsbehov 777 tkr/år" ≈ 46 kr/m²). Placeholder.
+- 2026-10-24 — Missing totalyta is derived as total debt ÷ skuldsättning per m² totalyta (both statutory/reported figures).
+- 2026-10-24 — Refinancing: ≤ 24 months both directions; months 25–60 only loans cheaper than SSVX + margin, weights 0.75 / 0.5 / 0.25 by year (owner). No later phase for undated debt.
+- 2026-10-24 — Fee pressure colour: green < 2 %, yellow 2–10 %, red > 10 % of today's fee (owner); a decrease is green. Same colours on web, summary and PDF.
+- 2026-10-24 — Price labels: "Vad jämförbara lägenheter säljs för" (baseline) and "Värde med hänsyn till föreningens ekonomi" (adjusted). The range is not shown, so its widening reasons are not either (owner).
+- 2026-10-24 — Component id `spargap` kept (label "Sparande mot underhållsbehov") instead of a new `sparandegap` id: prognoses are assembled per read, so no stored data depends on the label, and the contract stays smaller.
+- 2026-10-24 — Extraction v10: past renovations (seven building parts, year, cited), investeringsbehov per m², the plan's recommended allocation or stated yearly need, plan total. Minor repairs (e.g. hissens styrskor, new fans) are not renovations. Known miss: Beckasinen's "Fasadrenovering" in the 4th line of a long 2018 paragraph.

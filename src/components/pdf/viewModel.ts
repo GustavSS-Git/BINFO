@@ -418,11 +418,9 @@ function buildVarderingsunderlag(
   const u = p.varderingsunderlag;
   if (!u) return undefined;
 
-  const intervallText =
-    p.externVardering?.range !== undefined
-      ? `Sannolikt mellan ${formatVarde(p.externVardering.range.low, "kr")} och ` +
-        `${formatVarde(p.externVardering.range.high, "kr")} (${u.intervallTackningProcent} %)`
-      : undefined;
+  // The valuation range is not shown (owner: hidden on the web since
+  // 2026-10-09, "we don't show the range any more" 2026-10-24), in the PDF either.
+  const intervallText: string | undefined = undefined;
 
   const tackning = varderingsTackningText(u);
   return {

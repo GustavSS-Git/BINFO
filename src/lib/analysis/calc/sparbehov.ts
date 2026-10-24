@@ -37,6 +37,8 @@ import type {
   Tristate,
 } from "@/types/analysis";
 import {
+  PLANMAL_MAX_ANDEL_AV_SCHABLON,
+  PLANKOSTNAD_MIN_AR,
   PLANMAL_MIN_ANDEL_AV_SCHABLON,
   BYGGDEL_LIVSLANGD,
   HORISONT_MANADER,
@@ -126,7 +128,10 @@ function bedomaByggdelar(
       senast = senaste.ar;
       senastKalla = "atgard";
       ref = senaste.ref;
-    } else if (byggar !== undefined) {
+    } else if (byggar !== undefined && forening.genomfordaAtgarder !== undefined) {
+      // Only an extraction that looked for past renovations (PROMPT_VERSION
+      // ≥ 10, field present even if empty) can say "never mentioned"; an
+      // older one leaves the part unknown.
       senast = byggar;
       senastKalla = "byggar";
     }
@@ -175,9 +180,10 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
     const perM2 =
       forening.keyFigures.find((k) => k.id === "skuldsattning_per_m2_totalyta")?.figure.value ??
       null;
-    return skuld !== null && skuld > 0 && perM2 !== null && perM2 > 0
-      ? Math.round(skuld / perM2)
-      : null;
+    if (skuld === null || skuld <= 0 || perM2 === null || perM2 <= 0) return null;
+    const yta = Math.round(skuld / perM2);
+    // A misread (tkr vs kr) can give an absurd area; below 100 m² is no BRF.
+    return Number.isFinite(yta) && yta >= 100 ? yta : null;
   })();
   const totalyta = angivenTotalyta ?? harleddTotalyta;
 
@@ -207,7 +213,7 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
     } else {
       const raknade = horisontPoster(up?.planeradeKostnader ?? [], idag);
       const kvar = (up?.planeradeKostnader ?? []).filter(
-        (p) => p.belopp.value !== null && !raknade.includes(p),
+        (p) => p.belopp.value !== null && !p.belopp.osaker && !raknade.includes(p),
       );
       const summa = kvar.reduce((s, p) => s + (p.belopp.value as number), 0);
       if (kvar.length > 0 && summa > 0) {
@@ -215,7 +221,7 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
         if (kvar.every((p) => p.fran !== undefined || p.till !== undefined)) {
           const lo = Math.min(...kvar.map((p) => (p.fran ?? p.till) as number));
           const hi = Math.max(...kvar.map((p) => (p.till ?? p.fran) as number));
-          span = Math.min(PLANKOSTNAD_MAX_AR, Math.max(1, hi - lo + 1));
+          span = Math.min(PLANKOSTNAD_MAX_AR, Math.max(PLANKOSTNAD_MIN_AR, hi - lo + 1));
         }
         mal = summa / span / totalyta;
         malKalla = "planerade_kostnader";
@@ -224,7 +230,11 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
     }
   }
   let forkastatPlanmal: SparbehovResultat["forkastatPlanmal"];
-  if (mal !== null && mal < PLANMAL_MIN_ANDEL_AV_SCHABLON * SPARMAL_SCHABLON_KR_PER_M2) {
+  if (
+    mal !== null &&
+    (mal < PLANMAL_MIN_ANDEL_AV_SCHABLON * SPARMAL_SCHABLON_KR_PER_M2 ||
+      mal > PLANMAL_MAX_ANDEL_AV_SCHABLON * SPARMAL_SCHABLON_KR_PER_M2)
+  ) {
     forkastatPlanmal = { malKrPerM2: Math.round(mal), malKalla };
     mal = null;
     malKalla = "schablon";

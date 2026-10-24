@@ -42,7 +42,8 @@ describe("buildPdfViewModel — sample analysis", () => {
     expect(vm.prisanalys.varderingsunderlag).toBeDefined();
     const u = vm.prisanalys.varderingsunderlag;
     expect(u?.omradeText).toContain("Kungsholmen");
-    expect(u?.intervallText).toMatch(/Sannolikt mellan/);
+    // The range is not shown any more (owner 2026-10-24).
+    expect(u?.intervallText).toBeUndefined();
     expect(u).not.toHaveProperty("drivare");
     expect(u?.metadataText).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
     expect(u?.kallaText).toContain("Svensk Mäklarstatistik");

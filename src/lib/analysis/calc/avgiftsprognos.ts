@@ -47,6 +47,7 @@ import {
   SENARE_FAS_VIKTER,
   TRYCK_GRANS_GUL,
   TRYCK_GRANS_ROD,
+  SPARMAL_SCHABLON_KR_PER_M2,
   UNDERHALL_FORDELNING_AR,
 } from "./prognosantaganden";
 import { beraknaSparbehov, horisontPoster } from "./sparbehov";
@@ -252,7 +253,9 @@ function sparandegap(
       ? " Årsredovisningen beskriver ett planerat, finansierat uttag, vilket inte ändrar schablonen."
       : "";
   const forkastat = r.forkastatPlanmal
-    ? ` Underhållsplanens siffra (cirka ${kr(r.forkastatPlanmal.malKrPerM2)} kr/m² per år) är så låg att den troligen bara täcker en del av planen, så vi använder schablonen.`
+    ? r.forkastatPlanmal.malKrPerM2 < SPARMAL_SCHABLON_KR_PER_M2
+      ? ` Underhållsplanens siffra (cirka ${kr(r.forkastatPlanmal.malKrPerM2)} kr/m² per år) är så låg att den troligen bara täcker en del av planen, så vi använder schablonen.`
+      : ` Underhållsplanens siffra (cirka ${kr(r.forkastatPlanmal.malKrPerM2)} kr/m² per år) är orimligt hög, troligen en feltolkning, så vi använder schablonen.`
     : "";
   const harledd = r.totalytaHarledd
     ? ` Totalytan (${kr(sb.totalyta as number)} m²) är beräknad ur skulden och skuldsättningen per kvadratmeter.`
@@ -602,7 +605,7 @@ function refinansiering(
       : "";
   const senareText =
     senare.length > 0
-      ? ` Dessutom omsätts ${senare.length} ${senare.length === 1 ? "lån" : "lån"} månad ${HORISONT_MANADER + 1}–${HORISONT_LANG_MANADER} till högre ränta; de räknas med minskad vikt och höjer kostnaden med cirka ${kr(senarePerAr)} kr per år.`
+      ? ` Dessutom omsätts ${senare.length} lån månad ${HORISONT_MANADER + 1}–${HORISONT_LANG_MANADER} till högre ränta; de räknas med minskad vikt och höjer kostnaden med cirka ${kr(senarePerAr)} kr per år.`
       : "";
   const inomText =
     belopp > 0

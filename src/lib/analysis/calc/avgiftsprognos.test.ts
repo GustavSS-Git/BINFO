@@ -220,7 +220,12 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
     });
   });
   it("byggår and hiss reach the schablon: byggår 1950 + hiss ja → 5/7 eftersatt → 336; gap 336 − 150 = 186 × 2 000 × 0,5 = 186 000", () => {
-    const r = kor(forening({ keyFigures: [sparande(150)], totalyta: fig(2000, { unit: "m2" }) }), {
+    const f = forening({
+      keyFigures: [sparande(150)],
+      totalyta: fig(2000, { unit: "m2" }),
+      genomfordaAtgarder: [],
+    });
+    const r = kor(f, {
       byggar: 1950,
       hiss: "ja",
     });
