@@ -256,7 +256,12 @@ function lasJsonLd(html: string): JsonLd {
         if (!arObjekt(el)) continue;
         const lank = text(el["item"]);
         const namn = text(el["name"]);
-        if (lank !== undefined && namn !== undefined && lank.includes("/bostadsrattsforening/")) {
+        if (
+          lank !== undefined &&
+          namn !== undefined &&
+          namn.length <= 200 && // AnnonsKallaSchema.forening limit
+          lank.includes("/bostadsrattsforening/")
+        ) {
           ut.forening = namn; // the last one wins
         }
       }
@@ -290,7 +295,8 @@ function avgiftPerManad(
 
 function giltigtMaklarUrl(v: string | null | undefined): string | undefined {
   const t = text(v);
-  if (t === undefined || t.length > 2000) return undefined;
+  // Same rule as AnnonsKallaSchema.maklarUrl: the value is stored with the analysis.
+  if (t === undefined || t.length > 2000 || !/^https?:\/\/[^\s]+$/.test(t)) return undefined;
   try {
     const u = new URL(t);
     return u.protocol === "https:" || u.protocol === "http:" ? t : undefined;

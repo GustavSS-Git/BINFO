@@ -109,14 +109,24 @@ describe("geokodaPostnummer", () => {
     expect(NOMINATIM_USER_AGENT).toBe("Binfo/1.0 (+https://binfo.slanesens.com)");
   });
 
-  it("utan koordinater söks adressen med ort (Stockholm som standard); en husträff ger postnumret", async () => {
+  it("utan koordinater söks adressen med ort; en husträff ger postnumret", async () => {
     const { f, anrop } = fakeFetch(json(searchHus));
-    const r = await geokodaPostnummer({ adress: "Baltzar von Platens gata 6" }, { fetch: f });
+    const r = await geokodaPostnummer(
+      { adress: "Baltzar von Platens gata 6", ort: "Stockholm" },
+      { fetch: f },
+    );
     expect(r).toEqual({ postnummer: "112 35", metod: "search" });
     expect(anrop).toHaveLength(1);
     const u = new URL(anrop[0]!.url);
     expect(u.searchParams.get("street")).toBe("Baltzar von Platens gata 6");
     expect(u.searchParams.get("city")).toBe("Stockholm");
+  });
+
+  it("utan ort gissas ingen stad: ingen sökning, postnumret saknas", async () => {
+    const { f, anrop } = fakeFetch(json(searchHus));
+    const r = await geokodaPostnummer({ adress: "Kastellgatan 9" }, { fetch: f });
+    expect(r.postnummer).toBeNull();
+    expect(anrop).toHaveLength(0);
   });
 
   it("använder ort när den finns", async () => {
@@ -137,7 +147,7 @@ describe("geokodaPostnummer", () => {
   it("reverse utan postnummer faller tillbaka på sökningen: högst ett anrop vardera", async () => {
     const { f, anrop } = fakeFetch(json('{"error":"Unable to geocode"}'), json(searchHus));
     const r = await geokodaPostnummer(
-      { koordinater: KOORD, adress: "Baltzar von Platens gata 6" },
+      { koordinater: KOORD, adress: "Baltzar von Platens gata 6", ort: "Stockholm" },
       { fetch: f },
     );
     expect(r).toEqual({ postnummer: "112 35", metod: "search" });

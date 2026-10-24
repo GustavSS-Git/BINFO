@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { AnnonsKallaSchema } from "@/lib/analysis/schema";
 import { parsePositivtTal, parseVaning } from "@/lib/analyseraForm";
 import { ANNONS_FALT } from "@/lib/annons/typer";
 import type { AnnonsFalt, AnnonsUppgifter } from "@/lib/annons/typer";
@@ -440,6 +441,19 @@ describe("tolkaBooli: synthetic listings", () => {
     expect(med("/relativ")).not.toHaveProperty("maklarUrl");
     expect(med(`https://maklare.se/${"a".repeat(2000)}`)).not.toHaveProperty("maklarUrl");
     expect(med("")).not.toHaveProperty("maklarUrl");
+    // Must also satisfy AnnonsKallaSchema, or the stored kalla would fail the analysis.
+    expect(med("https://maklare.se/a b/Booli")).not.toHaveProperty("maklarUrl");
+    for (const url of ["https://maklare.se/o/1", "http://brspec.capitex.se/ObjDesc.aspx?GUID=X"]) {
+      expect(
+        AnnonsKallaSchema.safeParse({
+          typ: "booli",
+          url: "https://www.booli.se/annons/1",
+          maklarUrl: med(url).maklarUrl,
+          hamtad: "2026-10-24T00:00:00.000Z",
+          oandradeFalt: [],
+        }).success,
+      ).toBe(true);
+    }
   });
 
   it("the Listing scanner copes with braces, quotes and escapes inside strings", () => {

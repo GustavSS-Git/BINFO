@@ -409,7 +409,9 @@ async function kor(data: unknown, b: HamtaAnnonsBeroenden): Promise<AnnonsSvar> 
   if (!kontroll.ok) return felSvar(kontroll.errorCode);
   const url = kontroll.url;
 
-  // 4. Cache: a fresh hit costs neither quota nor a request.
+  // 4. Cache: a fresh hit costs neither quota nor a request. NOTE: it is served
+  //    before the entitlement check; if `hamta_annons` is ever restricted,
+  //    move this below step 5.
   const cachad = await lasCache(b, url, nu());
   if (cachad) return cachad;
 

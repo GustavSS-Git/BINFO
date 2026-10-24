@@ -193,8 +193,10 @@ export async function geokodaPostnummer(
       if (r.drift) return { postnummer: null, orsak: orsaker.join("; ") };
     }
     const adress = indata.adress?.trim();
-    if (adress) {
-      const ort = indata.ort?.trim() || "Stockholm";
+    const ort = indata.ort?.trim();
+    // Never guess the town: a street name alone can match the same name in
+    // another kommun and give a confidently wrong postcode.
+    if (adress && ort) {
       const r = await sok(adress, ort, opts);
       if ("postnummer" in r) return { postnummer: r.postnummer, metod: "search" };
       orsaker.push(r.orsak);
