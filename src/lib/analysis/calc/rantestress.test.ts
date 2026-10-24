@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { beraknaRantestress, rantestressScenario } from "./rantestress";
+import { beraknaRantestress, byggPrognosTabell, rantestressScenario } from "./rantestress";
+import type { AvgiftsprognosResultat } from "./avgiftsprognos";
 import type { Forening, KeyFigure } from "@/types/analysis";
 
 describe("rantestressScenario", () => {
@@ -168,5 +169,70 @@ describe("beraknaRantestress", () => {
       expect(s.avgiftsokningKrPerManad.value).toBe(0);
     }
     expect(r.kommentar).toMatch(/inga räntebärande lån/i);
+  });
+});
+
+describe("byggPrognosTabell", () => {
+  // andel 0,01; repricing debt 5 000 000; total +100 kr/month; fee 4 000.
+  // +1 pp: 5 000 000 × 1 / 100 × 0,01 / 12 = 41,67 → 42 → 4 000 + 100 + 42 = 4 142
+  // +2 pp: 83,33 → 83 → 4 183
+  const prognos = (
+    over: Partial<AvgiftsprognosResultat> & { total?: number | null; andel?: number | null } = {},
+  ): AvgiftsprognosResultat => {
+    const andel = over.andel === undefined ? 0.01 : over.andel;
+    return {
+      prognos: {
+        horisontManader: 24,
+        berakningsdatum: "2026-10-24",
+        andel: andel === null ? null : { varde: andel, metod: "avgiftsandel" },
+        komponenter: [],
+        totalKrPerManad: over.total === undefined ? 100 : over.total,
+      },
+      omsattningsbarSkuld:
+        over.omsattningsbarSkuld === undefined ? 5_000_000 : over.omsattningsbarSkuld,
+      antalSaknadeUnderlag: 0,
+      ...(over.totalSpannVidAntagande
+        ? { totalSpannVidAntagande: over.totalSpannVidAntagande }
+        : {}),
+    };
+  };
+
+  it("four rows with hand-computed amounts", () => {
+    const t = byggPrognosTabell(4000, prognos());
+    expect(t?.rader).toEqual([
+      { id: "idag", label: "Dagens avgift", manadsavgift: 4000, forandringKr: 0 },
+      {
+        id: "forvantad",
+        label: "Förväntad avgift (oförändrad ränta)",
+        manadsavgift: 4100,
+        forandringKr: 100,
+      },
+      { id: "plus1", label: "+1 procentenhet", manadsavgift: 4142, forandringKr: 142 },
+      { id: "plus2", label: "+2 procentenheter", manadsavgift: 4183, forandringKr: 183 },
+    ]);
+    expect(t?.kommentar).toContain("5 000 000 kr");
+    expect(t?.kommentar).toMatch(/24 månader/);
+  });
+  it("null when the expected rise is unknown", () => {
+    expect(byggPrognosTabell(4000, prognos({ total: null, andel: null }))).toBeNull();
+  });
+  it("omits plus rows when the repricing debt is unknown", () => {
+    const t = byggPrognosTabell(4000, prognos({ omsattningsbarSkuld: null }));
+    expect(t?.rader.map((r) => r.id)).toEqual(["idag", "forvantad"]);
+    expect(t?.kommentar).toMatch(/Vi vet inte/);
+  });
+  it("negative expected change is kept (refinancing lowers the fee)", () => {
+    const t = byggPrognosTabell(4000, prognos({ total: -20 }));
+    expect(t?.rader[1]).toMatchObject({ manadsavgift: 3980, forandringKr: -20 });
+    expect(t?.rader[2]).toMatchObject({ manadsavgift: 4022, forandringKr: 22 });
+  });
+  it("zero repricing debt: plus rows equal the expected row", () => {
+    const t = byggPrognosTabell(4000, prognos({ omsattningsbarSkuld: 0 }));
+    expect(t?.rader[2]?.manadsavgift).toBe(4100);
+    expect(t?.kommentar).toMatch(/Ingen del/);
+  });
+  it("flags the assumption when maturities were missing", () => {
+    const t = byggPrognosTabell(4000, prognos({ totalSpannVidAntagande: { lag: 0, hog: 10 } }));
+    expect(t?.kommentar).toMatch(/antagande/);
   });
 });
