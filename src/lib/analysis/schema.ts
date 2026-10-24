@@ -330,6 +330,34 @@ const KeyFiguresArraySchema = z.array(KeyFigureSchema).superRefine((keyFigures, 
   }
 });
 
+/** YYYY-MM-DD with a real month/day range (calendar validity is checked by Date). */
+export const IsoDatumSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Datum ska vara YYYY-MM-DD.")
+  .refine((d) => !Number.isNaN(Date.parse(`${d}T00:00:00Z`)), "Ogiltigt datum.");
+
+export const LanSchema = z
+  .object({
+    kreditgivare: z.string().min(1).optional(),
+    belopp: FigureSchema,
+    ranta: FigureSchema.optional(),
+    villkorsandringsdag: IsoDatumSchema.optional(),
+    rantetyp: z.enum(["rorlig", "bunden", "okant"]),
+    ref: CitatPageRefSchema,
+  })
+  .strict();
+
+export const PlaneradUnderhallskostnadSchema = z
+  .object({
+    text: z.string().min(1),
+    fran: z.number().int().optional(),
+    till: z.number().int().optional(),
+    belopp: FigureSchema,
+    finansiering: z.enum(["lan", "fond", "beslutad", "ofinansierad", "okant"]),
+    ref: PageRefSchema.optional(),
+  })
+  .strict();
+
 export const ForeningSchema = z
   .object({
     namn: z.string(),
@@ -338,7 +366,9 @@ export const ForeningSchema = z
     byggar: FigureSchema.optional(),
     antalLagenheter: FigureSchema.optional(),
     totalyta: FigureSchema.optional(),
+    bostadsrattsyta: FigureSchema.optional(),
     rakenskapsar: z.number().int(),
+    balansdag: IsoDatumSchema.optional(),
     keyFigures: KeyFiguresArraySchema,
     avgiftInkluderarEnligtForening: FeeInclusionSchema.optional(),
     avgiftInkluderarKallor: AvgiftInkluderarKallorSchema.optional(),
@@ -357,6 +387,8 @@ export const ForeningSchema = z
           )
           .optional(),
         snittranta: FigureSchema.optional(),
+        lan: z.array(LanSchema).optional(),
+        rantekostnader: FigureSchema.optional(),
       })
       .strict()
       .optional(),
@@ -368,8 +400,50 @@ export const ForeningSchema = z
           .array(z.object({ text: z.string(), ref: PageRefSchema.optional() }).strict())
           .optional(),
         ref: PageRefSchema.optional(),
+        planeradeKostnader: z.array(PlaneradUnderhallskostnadSchema).optional(),
+        underhallsfond: FigureSchema.optional(),
+        arligAvsattning: FigureSchema.optional(),
       })
       .strict()
+      .optional(),
+    sparandeUttag: z
+      .object({
+        planerat: TristateSchema,
+        finansierat: TristateSchema,
+        text: z.string().min(1).optional(),
+        ref: PageRefSchema.optional(),
+      })
+      .strict()
+      .optional(),
+    lokaler: z
+      .object({
+        hyresintakter: FigureSchema.optional(),
+        kontrakt: z
+          .array(
+            z
+              .object({
+                text: z.string().min(1).optional(),
+                arshyra: FigureSchema.optional(),
+                slutdatum: IsoDatumSchema.optional(),
+                ref: CitatPageRefSchema,
+              })
+              .strict(),
+          )
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    energiprojekt: z
+      .array(
+        z
+          .object({
+            text: z.string().min(1),
+            belopp: FigureSchema.optional(),
+            finansierat: TristateSchema,
+            ref: PageRefSchema.optional(),
+          })
+          .strict(),
+      )
       .optional(),
     vasentligaHandelser: z
       .array(z.object({ text: z.string(), ref: PageRefSchema.optional() }).strict())
@@ -490,6 +564,16 @@ export const BudpremieSchema = z
   })
   .strict();
 
+export const PrisjusteringSchema = z
+  .object({
+    id: z.literal("forvantad_avgiftshojning"),
+    label: z.string(),
+    belopp: FigureSchema,
+    krPerKrManad: z.number().optional(),
+    forklaring: z.string(),
+  })
+  .strict();
+
 export const PrisanalysSchema = z
   .object({
     utgangspris: FigureSchema.optional(),
@@ -515,6 +599,10 @@ export const PrisanalysSchema = z
     varderingsunderlag: VarderingsunderlagSchema.optional(),
     budpremie: BudpremieSchema.optional(),
     andelAvForeningensSkuld: FigureSchema.optional(),
+    justeringar: z.array(PrisjusteringSchema).optional(),
+    justeradVardering: FigureSchema.optional(),
+    avvikelseMotJusteradVardering: z.number().optional(),
+    breddningsskal: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -532,6 +620,7 @@ export const PrisInputSchema = z
   })
   .strict();
 
+/** The Priskoll's prisanalys: no BRF data, so none of the BRF-layer fields. */
 export const PrisanalysUtanForeningSchema = PrisanalysSchema.omit({
   andelAvForeningensSkuld: true,
 }).strict();
@@ -554,12 +643,103 @@ export const RantestressScenarioSchema = z
   })
   .strict();
 
+export const AvgiftstabellRadSchema = z
+  .object({
+    id: z.enum(["idag", "forvantad", "plus1", "plus2"]),
+    label: z.string(),
+    manadsavgift: z.number(),
+    forandringKr: z.number(),
+  })
+  .strict();
+
 export const RantestressSchema = z
   .object({
     rantekanslighetProcent: z.number().nullable(),
     nuvarandeManadsavgift: FigureSchema,
     scenarier: z.array(RantestressScenarioSchema),
     kommentar: z.string(),
+    prognosTabell: z
+      .object({ rader: z.array(AvgiftstabellRadSchema), kommentar: z.string() })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
+// Expected fee rise, report-vs-input comparison, closing summary (2026-10-24b)
+// ---------------------------------------------------------------------------
+
+export const AvgiftsKomponentSchema = z
+  .object({
+    id: z.enum(["spargap", "refinansiering", "underhall", "lokaler", "energi"]),
+    label: z.string(),
+    status: z.enum(["beraknad", "saknar_underlag", "ej_aktuell"]),
+    foreningKrPerAr: z.number().nullable(),
+    krPerManad: z.number().nullable(),
+    forklaring: z.string(),
+    ref: PageRefSchema.optional(),
+  })
+  .strict();
+
+export const ReferensrantaSchema = z
+  .object({
+    namn: z.string(),
+    serie: z.string(),
+    datum: IsoDatumSchema,
+    procent: z.number(),
+    kalla: z.string(),
+    reserv: z.boolean(),
+  })
+  .strict();
+
+export const AvgiftsprognosSchema = z
+  .object({
+    horisontManader: z.number().int().positive(),
+    berakningsdatum: IsoDatumSchema,
+    andel: z
+      .object({
+        varde: z.number().nonnegative(),
+        metod: z.enum(["avgiftsandel", "ytandel", "harledd_avgiftsandel"]),
+      })
+      .strict()
+      .nullable(),
+    komponenter: z.array(AvgiftsKomponentSchema),
+    totalKrPerManad: z.number().nullable(),
+    refinansiering: z
+      .object({
+        forfallandeBelopp: z.number(),
+        nuvarandeRantaProcent: z.number().nullable(),
+        nyRantaProcent: z.number(),
+        referensranta: ReferensrantaSchema,
+        marginalProcent: z.number(),
+        antagenAndelProcent: z.number().optional(),
+        antalLan: z.number().int().nonnegative(),
+      })
+      .strict()
+      .optional(),
+    osaker: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const FaltjamforelseSchema = z
+  .object({
+    falt: z.enum(["byggar", "antalLagenheter", "totalyta", "bostadsrattsyta", "totalSkuld"]),
+    label: z.string(),
+    anvandare: z.number().optional(),
+    rapport: z.number().optional(),
+    status: z.enum(["bekraftat", "avviker", "manuellt", "osakert", "endast_rapport"]),
+    anvant: z.number().nullable(),
+    text: z.string(),
+    ref: PageRefSchema.optional(),
+  })
+  .strict();
+
+export const SammanfattningSchema = z
+  .object({
+    betyg: z.string(),
+    pris: z.string(),
+    avgift: z.string(),
+    slutsats: z.string(),
   })
   .strict();
 
@@ -669,6 +849,10 @@ export const AnalysisResultSchema = z
     fragor: z.array(FragaSchema),
 
     datakvalitet: DatakvalitetSchema,
+
+    avgiftsprognos: AvgiftsprognosSchema.optional(),
+    uppgiftsjamforelse: z.array(FaltjamforelseSchema).optional(),
+    sammanfattning: SammanfattningSchema.optional(),
 
     gratisSektioner: z.array(z.enum(["betyg", "rodaFlaggor_topp2", "datakvalitet"])),
   })

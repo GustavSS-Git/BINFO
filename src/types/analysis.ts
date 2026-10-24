@@ -198,7 +198,13 @@ export interface Forening {
   byggar?: Figure;
   antalLagenheter?: Figure;
   totalyta?: Figure;
+  /** Area let as bostadsrätt, m² (round 2026-10-24b; before that only in
+   *  ExtractionResult.kontrollsummor). Basis for the flat's share fallback. */
+  bostadsrattsyta?: Figure;
   rakenskapsar: number; // which financial year the report covers
+  /** Balance-sheet date, YYYY-MM-DD (räkenskapsårets sista dag). Absent on
+   *  extractions before PROMPT_VERSION 9: read as `${rakenskapsar}-12-31`. */
+  balansdag?: string;
   keyFigures: KeyFigure[]; // all seven, even when value is null
 
   /** What the annual report itself states is covered by the fee, per item.
@@ -229,6 +235,11 @@ export interface Forening {
     /** Maturity ladder — how much reprices when. Drives stress realism. */
     forfalloprofil?: Array<{ ar: number; belopp: Figure; ranta?: Figure }>;
     snittranta?: Figure;
+    /** Each loan as the loan note lists it (PROMPT_VERSION 9). When present,
+     *  `forfalloprofil` is derived from it deterministically. */
+    lan?: Lan[];
+    /** Räntekostnader for the fiscal year, kr (resultaträkningen / not). */
+    rantekostnader?: Figure;
   };
 
   underhallsplan?: {
@@ -247,7 +258,29 @@ export interface Forening {
     /** Cites the general underhållsplan statement (e.g. "uppdaterad 2024") —
      *  separate from each action's own ref above. */
     ref?: PageRef;
+    /** Planned costs WITH an amount, as the report states them (PROMPT_VERSION 9). */
+    planeradeKostnader?: PlaneradUnderhallskostnad[];
+    /** Fund for yttre underhåll at the balance-sheet date, kr. */
+    underhallsfond?: Figure;
+    /** Planned yearly allocation to the fund, kr/year. */
+    arligAvsattning?: Figure;
   };
+
+  /** Whether the report says a negative sparande is a planned withdrawal, and
+   *  whether it is financed (e.g. from the fund or a decided loan). Absent =
+   *  the report doesn't address it. */
+  sparandeUttag?: { planerat: Tristate; finansierat: Tristate; text?: string; ref?: PageRef };
+
+  /** Commercial premises the association lets out (PROMPT_VERSION 9). */
+  lokaler?: {
+    /** Rental income from lokaler for the fiscal year, kr. */
+    hyresintakter?: Figure;
+    /** Leases with a stated end date. Every item cited. */
+    kontrakt?: Array<{ text?: string; arshyra?: Figure; slutdatum?: string; ref: PageRef }>;
+  };
+
+  /** Energy projects the report names (solceller, bergvärme, …). */
+  energiprojekt?: Array<{ text: string; belopp?: Figure; finansierat: Tristate; ref?: PageRef }>;
 
   /** "Väsentliga händelser" and anything after the balance sheet date. Often
    *  where the real risk is disclosed in prose rather than in the figures.
@@ -265,6 +298,31 @@ export interface Forening {
   /** Fastighetsbeteckningar the association owns or holds in tomträtt, as
    *  stated in the report (e.g. "Pontonjären 3"). Cited like `adresser`. */
   fastighetsbeteckningar?: Array<{ beteckning: string; ref: PageRef }>;
+}
+
+/** One loan from the loan note. Cited with an excerpt like any extracted item. */
+export interface Lan {
+  kreditgivare?: string;
+  belopp: Figure;
+  ranta?: Figure;
+  /** Villkorsändringsdag / konverteringsdag / förfallodag, YYYY-MM-DD. */
+  villkorsandringsdag?: string;
+  /** 'rorlig' when the report says so, or (deterministically) when the reset
+   *  date is within 3 months of the balance date. */
+  rantetyp: "rorlig" | "bunden" | "okant";
+  ref: PageRef;
+}
+
+export interface PlaneradUnderhallskostnad {
+  text: string;
+  /** Year span the cost falls in, when stated. */
+  fran?: number;
+  till?: number;
+  belopp: Figure;
+  /** How the report says it is paid for; 'beslutad' = decided and financed
+   *  without saying how; 'okant' = not stated. */
+  finansiering: "lan" | "fond" | "beslutad" | "ofinansierad" | "okant";
+  ref?: PageRef;
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +380,30 @@ export interface Prisanalys {
    * debt figure is missing; 0 for a cited debt-free association.
    */
   andelAvForeningensSkuld?: Figure;
+  /**
+   * Full analysis only (round 2026-10-24b): adjustments applied on top of the
+   * model's baseline (`externVardering`). Today the only one is the expected
+   * fee rise; the list leaves room for e.g. sales in the förening later. The
+   * grade never appears here.
+   */
+  justeringar?: Prisjustering[];
+  /** Baseline + Σ justeringar, with the range shifted and widened for missing
+   *  data (low end only). `source: 'schablon'` — it is still an estimate. */
+  justeradVardering?: Figure;
+  /** Signed percent: utgångspris vs justeradVardering (positive = above). */
+  avvikelseMotJusteradVardering?: number;
+  /** Why the adjusted range is wider than the baseline's, plain Swedish. */
+  breddningsskal?: string[];
+}
+
+export interface Prisjustering {
+  id: "forvantad_avgiftshojning";
+  label: string;
+  /** Signed kr added to the baseline (negative lowers the price). */
+  belopp: Figure;
+  /** Kronor of price per kr/month of fee for this flat (positive number). */
+  krPerKrManad?: number;
+  forklaring: string;
 }
 
 /** The valuation-relevant subset of PropertyInput — all the standalone price
@@ -429,6 +511,15 @@ export interface RantestressScenario {
   totalManadskostnad?: Figure;
 }
 
+/** One row of the fee table (round 2026-10-24b). */
+export interface AvgiftstabellRad {
+  id: "idag" | "forvantad" | "plus1" | "plus2";
+  label: string;
+  manadsavgift: number;
+  /** kr/month versus today's fee. */
+  forandringKr: number;
+}
+
 export interface Rantestress {
   /** The statutory key figure this is built on. null when the report does not
    *  state it (and the association is not provably debt-free): the stress
@@ -438,6 +529,93 @@ export interface Rantestress {
   nuvarandeManadsavgift: Figure;
   scenarier: RantestressScenario[];
   kommentar: string;
+  /** Today / expected / +1 / +2 pp on debt that reprices within the horizon.
+   *  Rows +1/+2 are absent when the repricing debt is unknown. */
+  prognosTabell?: { rader: AvgiftstabellRad[]; kommentar: string };
+}
+
+// ---------------------------------------------------------------------------
+// Expected fee rise (round 2026-10-24b) — see docs/avgiftsprognos.md
+// ---------------------------------------------------------------------------
+
+export type AvgiftsKomponentId = "spargap" | "refinansiering" | "underhall" | "lokaler" | "energi";
+
+export interface AvgiftsKomponent {
+  id: AvgiftsKomponentId;
+  label: string;
+  /** 'saknar_underlag' adds nothing to the estimate but widens the price range. */
+  status: "beraknad" | "saknar_underlag" | "ej_aktuell";
+  /** The association's extra cost (or lost income), kr/year, signed. */
+  foreningKrPerAr: number | null;
+  /** This flat's share, kr/month, signed. */
+  krPerManad: number | null;
+  forklaring: string;
+  ref?: PageRef;
+}
+
+export interface Referensranta {
+  /** Plain Swedish, e.g. "3-månaders statsskuldväxel". */
+  namn: string;
+  /** Source series id, e.g. "SETB3MBENCH". */
+  serie: string;
+  /** Observation date, YYYY-MM-DD. */
+  datum: string;
+  procent: number;
+  kalla: string;
+  /** True when no fetched value was available and the config fallback was used. */
+  reserv: boolean;
+}
+
+export interface Refinansieringsunderlag {
+  /** Debt that reprices within the horizon, kr (or the assumed share). */
+  forfallandeBelopp: number;
+  /** Amount-weighted current rate of that debt, percent. */
+  nuvarandeRantaProcent: number | null;
+  nyRantaProcent: number;
+  referensranta: Referensranta;
+  marginalProcent: number;
+  /** Set when maturities were missing and a share of total debt was assumed. */
+  antagenAndelProcent?: number;
+  antalLan: number;
+}
+
+export interface Avgiftsprognos {
+  horisontManader: number;
+  /** The day the horizon counts from, YYYY-MM-DD. */
+  berakningsdatum: string;
+  /** The flat's share of the association's fee income; null = unknown. */
+  andel: { varde: number; metod: "avgiftsandel" | "ytandel" | "harledd_avgiftsandel" } | null;
+  komponenter: AvgiftsKomponent[];
+  /** Σ beräknade komponenter, kr/month; null when the share is unknown. */
+  totalKrPerManad: number | null;
+  refinansiering?: Refinansieringsunderlag;
+  /** Set when the total looks implausibly large (sanity guard). */
+  osaker?: string;
+}
+
+/** Report data vs the buyer's input, per field (round 2026-10-24b). */
+export type JamforelseFalt =
+  "byggar" | "antalLagenheter" | "totalyta" | "bostadsrattsyta" | "totalSkuld";
+
+export interface Faltjamforelse {
+  falt: JamforelseFalt;
+  label: string;
+  anvandare?: number;
+  rapport?: number;
+  status: "bekraftat" | "avviker" | "manuellt" | "osakert" | "endast_rapport";
+  /** The value Binfo uses; null when neither side has one. */
+  anvant: number | null;
+  /** Plain Swedish, e.g. "Du angav 1962, årsredovisningen anger 1958, vi använder 1958." */
+  text: string;
+  ref?: PageRef;
+}
+
+/** Closing summary (deterministic, buyer-level). */
+export interface Sammanfattning {
+  betyg: string;
+  pris: string;
+  avgift: string;
+  slutsats: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -590,6 +768,12 @@ export interface AnalysisResult {
   fragor: Fraga[];
 
   datakvalitet: Datakvalitet;
+
+  /** Round 2026-10-24b, assembled on every read. Absent on frozen snapshots
+   *  made before it. */
+  avgiftsprognos?: Avgiftsprognos;
+  uppgiftsjamforelse?: Faltjamforelse[];
+  sammanfattning?: Sammanfattning;
 
   /** Vestigial: from the removed free-preview paywall. Nothing reads it any
    *  more; kept because stored results carry it and the schema is strict. A
