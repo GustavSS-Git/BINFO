@@ -1,0 +1,49 @@
+{
+  "orgnr": "716421-9722",
+  "namn": "Bostadsrättsföreningen Beckasinen 14",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "_F_ORG_T816_7800.pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; lånenoten på sida 15"
+  },
+  "anmarkning": "Not 14 (Övriga kortfristiga skulder till kreditinstitut); räkenskapsåret 2024, balansdag 2024-12-31.",
+  "balansdag": "2024-12-31",
+  "lanenotSida": 15,
+  "totalSkuld": {
+    "belopp": 12862500,
+    "sida": 15,
+    "tryckt": "12 862 500"
+  },
+  "rantekostnader": {
+    "belopp": 556007,
+    "sida": 8,
+    "tryckt": "Räntekostnader och liknande resultatposter Not 8 -556 007 -421 077"
+  },
+  "lan": [
+    {
+      "kreditgivare": "Nordea",
+      "belopp": 4775000,
+      "ranta": 3.04,
+      "villkorsandringsdag": "2025-09-22",
+      "sida": 15,
+      "tryckt": "Nordea 3,04% 2025-09-22 4 775 000 0"
+    },
+    {
+      "kreditgivare": "Nordea",
+      "belopp": 3550000,
+      "ranta": 3.54,
+      "villkorsandringsdag": "2025-01-20",
+      "sida": 15,
+      "tryckt": "Nordea 3,54% 2025-01-20 3 550 000 0"
+    },
+    {
+      "kreditgivare": "Nordea",
+      "belopp": 4537500,
+      "ranta": 3.53,
+      "villkorsandringsdag": "2025-10-14",
+      "sida": 15,
+      "tryckt": "Nordea 3,53% 2025-10-14 4 537 500 0"
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import { beraknaFastaVarden, formateraFastaVarden, type FastaVarden } from "./fa
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "8";
+export const PROMPT_VERSION = "9";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -38,7 +38,9 @@ export function buildGroundingSystemPrompt(): string {
 
 Din uppgift i detta steg är ENDAST att hitta och citera källunderlag — inte att sammanställa eller bedöma. Gå igenom rapporten och leta reda på följande, i den mån de finns i rapporten:
 
-Föreningens identitet: namn, organisationsnummer, om föreningen är äkta eller oäkta bostadsrättsförening, byggår, antal lägenheter, föreningens totalyta, vilket räkenskapsår rapporten avser.
+Föreningens identitet: namn, organisationsnummer, om föreningen är äkta eller oäkta bostadsrättsförening, byggår, antal lägenheter, föreningens totalyta och bostadsrättsyta (två olika tal: all yta respektive ytan upplåten med bostadsrätt), vilket räkenskapsår rapporten avser och räkenskapsårets sista dag (balansdagen).
+
+Byggår är året byggnaden uppfördes ("uppfördes", "byggnadsår", "byggår"). Citera INTE "värdeår" som byggår — värdeår är året fastighetens värde fastställdes och är ofta ett annat år. Anger rapporten bara värdeår: citera det och säg uttryckligen att det är värdeår.
 
 Antal medlemmar: föreningens medlemsantal VID RÄKENSKAPSÅRETS SLUT. Rapporter skriver ofta detta som "Föreningen hade vid årets slut 43 (41) medlemmar" — då är 43 talet att citera (nuvarande år), inte jämförelsetalet inom parentes (föregående år). Blanda inte ihop detta med ett annat tal som råkar stå nära ordet "medlemmar" i en annan mening (t.ex. ett årtal, ett styrelsemöte eller ett antal ledamöter) — citera bara meningen som uttryckligen anger det totala medlemsantalet. Vissa rapporter (särskilt från Riksbyggen i denna typ av underlag) anger bara antal lägenheter, aldrig medlemsantal — säg då inget om medlemsantal.
 
@@ -48,13 +50,19 @@ De sju lagstadgade nyckeltalen (BFNAR 2023:1) — leta upp exakta värden för v
 ${ALLA_NYCKELTAL.map((n) => `- ${n.label}`).join("\n")}
 Skuldsättning per kvm: anger rapporten bara ett enda skuldtal per kvm utan att tydligt skilja på totalyta och bostadsrättsyta (t.ex. "Lån per kvm bostadsyta, kr 2 284" eller "Skuldsättningsgrad kr/kvm 3 089"), citera det ändå — det ska redovisas som skuldsättning per m² bostadsrättsyta (skuldsattning_per_m2_brf_yta), inte utelämnas.
 
-Lånebok: total räntebärande skuld, eventuell förfalloprofil (när lån omsätts och till vilken ränta), genomsnittlig ränta. Säger rapporten uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder — citera den meningen, den är själva svaret på "total räntebärande skuld".
+Lånebok: total räntebärande skuld, genomsnittlig ränta och föreningens räntekostnader för året (resultaträkningens "Räntekostnader och liknande resultatposter" i kronor). Citera VARJE enskilt lån i lånenoten för sig, hela raden: kreditgivare, räntesats, villkorsändringsdag (även kallad konverteringsdag, förfallodag eller "bundet till") och skuld vid räkenskapsårets slut — och om raden anger rörlig eller bunden ränta. Säger rapporten uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder — citera den meningen, den är själva svaret på "total räntebärande skuld".
 
 Total räntebärande skuld är summan av BÅDE den långfristiga och den kortfristiga delen av lånen (t.ex. "Skulder till kreditinstitut" under långfristiga skulder PLUS "Skulder till kreditinstitut" eller "Kortfristig del av skuld" / "Kortfr. del av skuld" under kortfristiga skulder). Vissa föreningar bokför lånet under en annan rubrik, t.ex. "Övriga skulder" med en not som visar att det är ett lån — leta då upp både posten i balansräkningen och noten, och citera båda delarna var för sig. Står en tryckt totalsumma för lånen (t.ex. i en låne-not), citera den också.
 
 Kontrollsummor — citera dessa särskilt, de används för att kontrollera att siffrorna hänger ihop: "Summa tillgångar" och "Summa eget kapital och skulder" (balansräkningen), årets årsavgifter (intäkten "Årsavgifter" i resultaträkningen, i kronor), föreningens bostadsrättsyta i kvadratmeter (ytan upplåten med bostadsrätt) och de räntebärande skulderna.
 
-Underhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade (citera varje planerad åtgärd för sig — de kan nämnas på olika sidor).
+Underhållsplan: finns den, när uppdaterades den senast, vilka åtgärder är planerade (citera varje planerad åtgärd för sig — de kan nämnas på olika sidor). Leta särskilt efter planerade kostnader som har ett BELOPP (och hur de ska finansieras: nytt lån, fonden eller ett beslut), fondens saldo vid årets slut ("Fond för yttre underhåll") och den planerade årliga avsättningen till fonden.
+
+Negativt sparande/resultat: säger rapporten att ett uttag ur fonden eller ett negativt resultat är planerat, och hur det finansieras? Citera det.
+
+Lokaler: föreningens hyresintäkter från lokaler under året och eventuella hyresavtal för lokaler med angivet slutdatum eller uppsägningstid (hyra per år om den anges).
+
+Energiprojekt: namngivna projekt som solceller, bergvärme eller energieffektivisering, med belopp och finansiering om de anges.
 
 Väsentliga händelser: händelser efter räkenskapsårets slut eller annan väsentlig information i förvaltningsberättelsen som en köpare bör känna till.
 
@@ -187,8 +195,10 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     "akta": "ja",
     "byggar": { "value": 1965, "unit": "ar", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Byggnaden uppfördes 1965" } },
     "antalLagenheter": { "value": 42, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "föreningen omfattar 42 lägenheter" } },
-    "totalyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "total bostadsarea om 3 200 kvm" } },
+    "totalyta": { "value": 3450, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Total yta 3 450 kvm varav lokaler 250 kvm" } },
+    "bostadsrattsyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Bostadsrättsarea 3 200 kvm" } },
     "rakenskapsar": 2025,
+    "balansdag": "2025-12-31",
     "antalMedlemmar": { "value": 43, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Föreningen hade vid årets slut 43 (41) medlemmar" } },
     "antalHyresratter": { "value": 2, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "2 lokaler (hyresrätt)" } },
     "antalLokaler": { "value": 2, "unit": "antal", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "2 lokaler (hyresrätt)" } },
@@ -219,13 +229,25 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     ],
     "lanebok": {
       "totalSkuld": { "value": 43200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "Summa 43 200 000,00" } },
-      "forfalloprofil": [
+      "lan": [
         {
-          "ar": 2027,
-          "belopp": { "value": 25000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 ... 25 000 000,00" } },
-          "ranta": { "value": 3.2, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 ... 25 000 000,00" } }
+          "kreditgivare": "SBAB",
+          "belopp": { "value": 25000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 25 000 000,00" } },
+          "ranta": { "value": 3.2, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 25 000 000,00" } },
+          "villkorsandringsdag": "2027-02-25",
+          "rantetyp": "okant",
+          "ref": { "page": 12, "excerpt": "SBAB 3,2% 2027-02-25 25 000 000,00" }
+        },
+        {
+          "kreditgivare": "Swedbank",
+          "belopp": { "value": 18200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "Swedbank rörlig ränta 2,1% 2026-03-28 18 200 000,00" } },
+          "ranta": { "value": 2.1, "unit": "procent", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "Swedbank rörlig ränta 2,1% 2026-03-28 18 200 000,00" } },
+          "villkorsandringsdag": "2026-03-28",
+          "rantetyp": "rorlig",
+          "ref": { "page": 12, "excerpt": "Swedbank rörlig ränta 2,1% 2026-03-28 18 200 000,00" }
         }
       ],
+      "rantekostnader": { "value": 1050000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 9, "excerpt": "Räntekostnader och liknande resultatposter -1 050 000" } },
       "snittranta": { "value": 1.94, "unit": "procent", "source": "berakning" }
     },
     "underhallsplan": {
@@ -235,8 +257,30 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
         { "text": "Stambyte planerat 2029", "ref": { "page": 6, "excerpt": "Stambyte ca 2027–2029" } },
         { "text": "Fasadrenovering under utredning" }
       ],
-      "ref": { "page": 15, "excerpt": "Underhållsplanen uppdaterades 2024" }
+      "ref": { "page": 15, "excerpt": "Underhållsplanen uppdaterades 2024" },
+      "planeradeKostnader": [
+        {
+          "text": "Stambyte",
+          "fran": 2027,
+          "till": 2029,
+          "belopp": { "value": 12000000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 6, "excerpt": "Stambyte ca 2027–2029, beräknad kostnad 12 mkr, finansieras med nytt lån" } },
+          "finansiering": "lan",
+          "ref": { "page": 6, "excerpt": "Stambyte ca 2027–2029, beräknad kostnad 12 mkr, finansieras med nytt lån" }
+        }
+      ],
+      "underhallsfond": { "value": 850000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 11, "excerpt": "Fond för yttre underhåll 850 000" } },
+      "arligAvsattning": { "value": 300000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 4, "excerpt": "Avsättning till underhållsfonden 300 000 kr per år" } }
     },
+    "sparandeUttag": { "planerat": "ja", "finansierat": "ja", "text": "Underskottet täcks av uttag ur underhållsfonden.", "ref": { "page": 4, "excerpt": "Årets underskott täcks genom uttag ur fonden för yttre underhåll" } },
+    "lokaler": {
+      "hyresintakter": { "value": 480000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 9, "excerpt": "Hyresintäkter lokaler 480 000" } },
+      "kontrakt": [
+        { "text": "Butikslokal, hyresavtal löper ut", "arshyra": { "value": 240000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 5, "excerpt": "Butiken hyrs ut för 240 000 kr/år, avtalet löper till 2026-09-30" } }, "slutdatum": "2026-09-30", "ref": { "page": 5, "excerpt": "Butiken hyrs ut för 240 000 kr/år, avtalet löper till 2026-09-30" } }
+      ]
+    },
+    "energiprojekt": [
+      { "text": "Solceller på taket", "belopp": { "value": 1500000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 5, "excerpt": "Solceller installeras 2026 för 1,5 mkr" } }, "finansierat": "okant", "ref": { "page": 5, "excerpt": "Solceller installeras 2026 för 1,5 mkr" } }
+    ],
     "vasentligaHandelser": [
       { "text": "Föreningen har beslutat om en avgiftshöjning på 8 % från 2026.", "ref": { "page": 4, "excerpt": "styrelsen beslutat om höja årsavgiften med 8 %" } }
     ],
@@ -256,14 +300,14 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
     "summaTillgangar": { "value": 301200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 10, "excerpt": "Summa tillgångar 301 200 000" } },
     "summaEgetKapitalOchSkulder": { "value": 301200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 11, "excerpt": "Summa eget kapital och skulder 301 200 000" } },
     "arsavgifter": { "value": 3400000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 9, "excerpt": "Årsavgifter 3 400 000" } },
-    "bostadsrattsyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "bostadsrätter om totalt 3 200 kvm" } },
+    "bostadsrattsyta": { "value": 3200, "unit": "m2", "source": "arsredovisning", "ref": { "page": 3, "excerpt": "Bostadsrättsarea 3 200 kvm" } },
     "rantebarandeSkulder": { "value": 43200000, "unit": "kr", "source": "arsredovisning", "ref": { "page": 12, "excerpt": "Summa 43 200 000,00" } }
   }
 }
 
 Skarpa regler mot exakt de misstag som brukar uppstå:
 - keyFigures är en ARRAY med exakt sju objekt — aldrig ett objekt nycklat på id. Alla sju id:n måste finnas, även när figure.value är null.
-- Varje tal (byggar, antalLagenheter, totalyta, figure inuti keyFigures, totalSkuld, belopp, ranta, snittranta) är ALLTID ett objekt med "value", "unit", "source" — ALDRIG ett bart nummer.
+- Varje tal (byggar, antalLagenheter, totalyta, bostadsrattsyta, figure inuti keyFigures, totalSkuld, belopp, ranta, snittranta, rantekostnader, underhallsfond, arligAvsattning, hyresintakter, arshyra) är ALLTID ett objekt med "value", "unit", "source" — ALDRIG ett bart nummer.
 - En ref-objekt har ENDAST fälten "page" och "excerpt" — aldrig "quote", "citat" eller andra namn. Sätt ALLTID "excerpt" när source är "arsredovisning": kopiera citatet ordagrant från fyndlistan (korta ner det till den relevanta delen, max ~15 ord). En sidhänvisning utan excerpt bevisar ingenting för köparen — citatet är beviset.
 - kommandeAtgarder är en ARRAY av objekt { "text", "ref"? } — aldrig en platt sträng-array. Varje planerad åtgärd citeras för sig, eftersom olika åtgärder ofta nämns på olika sidor. Om du inte kan hitta en exakt sida för en specifik åtgärd: utelämna "ref" för just den posten (skriv inte in "page": null) — åtgärden tas ändå med, bara utan citat.
 - Samma sak gäller vasentligaHandelser: "ref" är valfritt per händelse. Utelämna det om ingen exakt sida kan anges — händelsen ska ändå finnas med, aldrig hittas på en sida eller strykas för att den saknar exakt citat.
@@ -275,12 +319,21 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - antalHyresratter / antalLokaler: sätt bara när rapporten uttryckligen anger föreningens hyresrätter respektive lokaler som egna enheter (t.ex. "2 lokaler (hyresrätt)"). Räkna aldrig en areauppgift i kvadratmeter (t.ex. "garagelokaler 130 kvm") eller ett gemensamhetsutrymme ("föreningslokal", "samlingslokal") som en lokal i den här betydelsen.
 - adresser: föreningens EGNA gatuadress(er), en post per adress, ENDAST när fynden uttryckligen anger dem. "gatuadress" är gatunamnet och numret (t.ex. "Baltzar von Platens gata 6") utan postnummer och ort, skrivet som i rapporten. "postnummer" skrivs "NNN NN" (fem siffror med ett mellanslag efter de tre första) och "ort" som i rapporten — utelämna båda när rapporten inte anger dem i samband med adressen, gissa aldrig utifrån gatunamnet. "ref" är obligatorisk med excerpt ordagrant ur fyndlistan. Skriv aldrig förvaltarens, revisorns, en styrelseledamots eller en banks adress och inte en c/o-adress för post; sätt aldrig ett ortnamn som gatuadress. Utelämna hela fältet när fynden inte anger någon gatuadress.
 - fastighetsbeteckningar: föreningens fastighetsbeteckning(ar) (t.ex. "Pontonjären 3", "Kungsholmen 1:23"), en post per beteckning, ENDAST när fynden uttryckligen anger dem, med "ref" och excerpt som ovan. Utelämna hela fältet när fynden inte anger någon.
+- byggar är året byggnaden uppfördes (rapporten skriver "uppfördes", "byggnadsår", "byggår"). "Värdeår" är något annat (året fastighetens värde fastställdes): ta det ENDAST om rapporten inte anger något annat byggår, och då ska excerpt visa att det står "värdeår". Skriv aldrig i datakvalitet.extraktionKonfidens.skal att byggår saknas eller inte framgår — den texten visas för köpare som kan ha angett byggåret själva; lägg i stället "byggar" i saknadeFalt.
+- totalyta (all yta, inklusive lokaler) och bostadsrattsyta (ytan upplåten med bostadsrätt) är OLIKA tal med olika citat — använd aldrig samma tal eller samma citat för båda. Anger rapporten bara en yta: sätt den på det fält etiketten säger och utelämna det andra. bostadsrattsyta i forening och i kontrollsummor är samma tal.
+- balansdag: räkenskapsårets sista dag som "YYYY-MM-DD" (t.ex. "2025-12-31", eller "2025-08-31" vid brutet räkenskapsår). Utelämna om den inte står i fynden.
+- lanebok.lan: ett objekt per lån i lånenoten, med skuld vid RÄKENSKAPSÅRETS SLUT (årets kolumn, inte jämförelseårets) i belopp (kr). Ta inte med en rad vars skuld är 0 vid årets slut (återbetalt lån). ranta är räntesatsen som procent-tal ("3,2 %" → 3.2). villkorsandringsdag som "YYYY-MM-DD" från villkorsändringsdag/konv.datum/förfallodag/"bundet till"; står bara ett år eller ingen dag: utelämna fältet, hitta aldrig på en dag. rantetyp är "rorlig" ENDAST när raden eller texten uttryckligen säger rörlig/rörligt, "bunden" ENDAST när den säger bunden/fast ränta, annars "okant". ref.excerpt är lånets egen rad ordagrant; belopp och ranta får samma ref. Skriv INTE forfalloprofil när du anger lan — koden härleder den. Finns ingen lånetabell per lån men ett förfalloprofil per år: använd forfalloprofil som tidigare och utelämna lan.
+- lanebok.rantekostnader: årets räntekostnader i kronor som POSITIVT tal (resultaträkningen/noten "Räntekostnader och liknande resultatposter"; står den med minustecken, skriv beloppet utan tecken). Står belopp i tkr: räkna om till kronor.
+- underhallsplan.planeradeKostnader: ENDAST planerade kostnader där rapporten anger ett belopp (kr; mkr/tkr räknas om). En åtgärd utan belopp hör bara hemma i kommandeAtgarder. finansiering: "lan" om rapporten säger nytt lån, "fond" om den tas ur underhållsfonden, "beslutad" om den är beslutad/finansierad utan att säga hur, "ofinansierad" om rapporten uttryckligen säger att finansiering saknas, annars "okant". fran/till är år när rapporten anger dem. underhallsfond är fonden för yttre underhåll vid årets slut (kr); arligAvsattning är den PLANERADE årliga avsättningen (kr/år), inte årets uttag.
+- sparandeUttag: ENDAST när rapporten uttryckligen säger att ett negativt sparande/resultat är ett planerat uttag (t.ex. ur fonden) eller hur underskottet finansieras. planerat/finansierat är "ja"/"nej"/"okant" och ref.excerpt är obligatoriskt; utelämna fältet annars.
+- lokaler: hyresintakter är årets hyresintäkter från lokaler (kr). kontrakt: ENDAST hyresavtal för lokaler med angivet slutdatum (YYYY-MM-DD), arshyra om hyran anges; ref med excerpt obligatoriskt. Utelämna lokaler helt om rapporten inte säger något.
+- energiprojekt: ENDAST namngivna projekt (solceller, bergvärme, fönsterbyte för energi m.m.); belopp om det anges; finansierat "ja"/"nej" bara när rapporten säger det, annars "okant".
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.
 - Skuldsättning per kvm med otydlig bas: finns bara ett skuldtal per kvm och det framgår inte om det avser totalyta eller bostadsrättsyta (t.ex. "Lån per kvm bostadsyta" eller "Skuldsättningsgrad kr/kvm" — säger etiketten inte uttryckligen "totalyta" är basen oklar), lägg det under skuldsattning_per_m2_brf_yta med sitt citat och låt skuldsattning_per_m2_totalyta vara null. Ett tal är bättre än inget här — de två brukar ligga nära varandra.
 - Skuldfri förening: säger fynden uttryckligen att föreningen är skuldfri eller saknar räntebärande skulder, sätt lanebok.totalSkuld till { "value": 0, "unit": "kr", "source": "arsredovisning", "ref": { ... } } med en ref till det stället — nyckeltalscellerna (rantekanslighet, skuldsattning_per_m2_totalyta, skuldsattning_per_m2_brf_yta) lämnas precis som de står tryckta i rapporten, ett senare steg härleder dem vid behov.
 - lanebok.totalSkuld är SUMMAN av den långfristiga och den kortfristiga delen av lånen, oavsett vad posterna heter (t.ex. "Skulder till kreditinstitut" långfristigt + kortfristigt, "Kortfr. del av skuld", eller ett lån som bokförs som "Övriga skulder" med en not som visar att det är ett lån). Missa aldrig den kortfristiga delen. Finns en tryckt totalsumma för lånen i fynden: använd den (source "arsredovisning", med ref och excerpt). Annars: lägg ihop delarna själv och sätt source "berakning" med ref/excerpt från den STÖRRE delen. Finns bara en del i fynden: använd den delen.
 - kontrollsummor: fyll i de fem uppgifterna summaTillgangar, summaEgetKapitalOchSkulder, arsavgifter (årets intäkt "Årsavgifter" i kronor), bostadsrattsyta (m², ytan upplåten med bostadsrätt) och rantebarandeSkulder (kr) som ordinära Figure-objekt med källa och excerpt — ENDAST de som uttryckligen finns bland fynden. En uppgift som saknas UTELÄMNAS helt ur kontrollsummor (skriv aldrig 0 eller null i stället). Står belopp i tkr: räkna om till kronor. Utelämna hela kontrollsummor om inget av de fem finns.
-- Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta i sig själva, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
+- Om ett värde saknas bland fynden: sätt figure.value till null och source till "berakning" (inget citat krävs för null), och lägg fältnamnet i datakvalitet.saknadeFalt. null är ENDAST giltigt inuti "value" på en Figure. Alla andra valfria fält (t.ex. underhallsplan.senastUppdaterad, byggar/antalLagenheter/totalyta/bostadsrattsyta i sig själva, balansdag, lan, rantekostnader, sparandeUttag, lokaler, energiprojekt, ref) ska UTELÄMNAS helt (fältet skrivs inte alls) när uppgiften saknas — aldrig sättas till null.
 - Om cellen för ett nyckeltal INTE är ett rent tal — t.ex. "neg", "negativ", "(123)", "−4,2", "-", eller en kolumn märkt "tkr" — kopiera det exakt som det står i rapporten (tecken, mellanslag och allt) till figure.tryckt. Sätt figure.value till din bästa läsning av talet om du kan utläsa ett (annars null); ett senare, deterministiskt steg tolkar tryckt på nytt och den tolkningen vinner ALLTID över value när tryckt är satt, så en ofullständig gissning i value kostar ingenting — men hitta aldrig på en siffra som inte alls går att utläsa ur cellen. Sätt ALDRIG fältet "tecken" själv — det sätts uteslutande i det deterministiska steget, aldrig av dig. Är cellen redan ett rent tal (t.ex. "670" eller "-1 200"): utelämna tryckt helt, precis som idag.
 - Tristate-fält (akta, underhallsplan.finns) ska vara "okant" om fynden inte ger ett entydigt svar — gissa aldrig "nej" bara för att inget nämns.
 - forklaring: enkelt, rakt språk utan facktermer — en mening om vad talet betyder för köparen.
@@ -490,6 +543,18 @@ ${ALLA_NYCKELTAL.map((n) => `  - "${n.id}"`).join("\n")}
 Svara ENDAST med detta enda JSON-objekt — ingen inledande text, ingen förklaring, inga Markdown-kodstaket. Bara JSON.`;
 }
 
+/**
+ * The judging sees the loan book as `forfalloprofil` (derived from `lan` in
+ * slutfor/tolkaVarde, with the same citations), so the per-loan rows are left
+ * out of its input: same facts, fewer tokens.
+ */
+function utanLanrader(extraction: ExtractionResult): ExtractionResult {
+  const lanebok = extraction.forening.lanebok;
+  if (!lanebok?.lan) return extraction;
+  const { lan: _lan, ...utan } = lanebok;
+  return { ...extraction, forening: { ...extraction.forening, lanebok: utan } };
+}
+
 export function buildAnalysUserPrompt(
   extraction: ExtractionResult,
   tillatnaSidor: ReadonlySet<number>,
@@ -503,7 +568,7 @@ export function buildAnalysUserPrompt(
 
   return `Här är det faktakontrollerade underlaget ur årsredovisningen:
 
-${JSON.stringify(extraction, null, 2)}
+${JSON.stringify(utanLanrader(extraction), null, 2)}
 
 ## Fasta värden (beräknade av Binfo ur underlaget — använd exakt dessa tal, räkna aldrig om dem)
 

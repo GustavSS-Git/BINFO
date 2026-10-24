@@ -24,6 +24,14 @@ import { TOM_SIDA_TECKEN } from "./textlager";
  * characters) cannot refute anything and is reported as 'ej_kontrollerbar', and
  * so is a citation without an excerpt.
  *
+ * The new cited items of PROMPT_VERSION 9 (lanebok.lan, planeradeKostnader,
+ * underhallsfond, arligAvsattning, rantekostnader, lokaler, energiprojekt,
+ * bostadsrattsyta, sparandeUttag) go through the same walk: their Figures are
+ * corrected / marked `osaker`. A loan row whose own citation fails keeps its
+ * Figures (marked by their refs, which cite the same row) rather than vanishing
+ * from the debt picture; a lease, an energy project or the planned-withdrawal
+ * claim has no figure to carry the mark, so it is removed (`kontrolleraNyaPoster`).
+ *
  * Addresses and fastighetsbeteckningar are not Figures and have no `osaker`
  * slot. They feed the public register's area assignment, so an item whose
  * citation does not hold (or whose street address / beteckning is not on the
@@ -269,9 +277,15 @@ interface Kontext {
   skal: string[];
 }
 
-/** Fields of the association's own addresses/fastighetsbeteckningar, handled
- *  separately by `kontrolleraAdresser`. */
-const SARBEHANDLADE = new Set(["adresser", "fastighetsbeteckningar"]);
+/** Items handled separately (by `kontrolleraAdresser` / `kontrolleraNyaPoster`)
+ *  because a citation that does not hold removes the item instead of marking it. */
+const SARBEHANDLADE = new Set([
+  "forening.adresser",
+  "forening.fastighetsbeteckningar",
+  "forening.sparandeUttag",
+  "forening.energiprojekt",
+  "forening.lokaler.kontrakt",
+]);
 
 function verifieraNod(nod: unknown, sokvag: string, k: Kontext): unknown {
   if (Array.isArray(nod)) return nod.map((v, i) => verifieraNod(v, `${sokvag}[${i}]`, k));
@@ -282,8 +296,8 @@ function verifieraNod(nod: unknown, sokvag: string, k: Kontext): unknown {
   const ut: Record<string, unknown> = {};
 
   for (const [nyckel, varde] of Object.entries(nod)) {
-    if (SARBEHANDLADE.has(nyckel) && sokvag === "forening") {
-      ut[nyckel] = varde; // done by kontrolleraAdresser
+    if (SARBEHANDLADE.has(`${sokvag}.${nyckel}`)) {
+      ut[nyckel] = varde; // done by kontrolleraAdresser / kontrolleraNyaPoster
       continue;
     }
     const arKallaPost = sokvag.endsWith("avgiftInkluderarKallor");
@@ -403,6 +417,89 @@ function kontrolleraAdresser(
 }
 
 /**
+ * One cited item that is not a Figure (a lease, an energy project, the planned
+ * withdrawal): its own `ref` is checked; a wrong page is corrected, a citation
+ * that holds nowhere removes the item (returns undefined) with a skäl line. The
+ * item's Figures are verified like any other (marked `osaker` when not found).
+ */
+function kontrolleraPost(
+  post: unknown,
+  stig: string,
+  beskrivning: string,
+  k: Kontext,
+): unknown | undefined {
+  if (!arObjekt(post)) return post;
+  const ref = post["ref"];
+  let ny: Record<string, unknown> = post;
+  if (arSidref(ref)) {
+    const { fynd } = kontrolleraRef(k.sidor, ref.page, ref.excerpt);
+    const fynd1: Sidreferensfynd = { sokvag: `${stig}.ref`, ...fynd };
+    k.fynd.push(fynd1);
+    if (fynd1.status === "saknas") {
+      k.skal.push(`${beskrivning} kunde inte styrkas mot årsredovisningens text och utelämnades.`);
+      return undefined;
+    }
+    if (fynd1.status === "korrigerad") ny = { ...post, ref: { ...ref, page: fynd1.nySida! } };
+  }
+  const ut: Record<string, unknown> = {};
+  for (const [nyckel, varde] of Object.entries(ny)) {
+    ut[nyckel] = nyckel === "ref" ? varde : verifieraNod(varde, `${stig}.${nyckel}`, k);
+  }
+  return ut;
+}
+
+function kontrolleraNyaPoster(
+  forening: Record<string, unknown>,
+  k: Kontext,
+): Record<string, unknown> {
+  const ut = { ...forening };
+
+  if ("sparandeUttag" in forening) {
+    const post = kontrolleraPost(
+      forening["sparandeUttag"],
+      "forening.sparandeUttag",
+      "Uppgiften om planerat uttag och dess finansiering",
+      k,
+    );
+    if (post === undefined) delete ut["sparandeUttag"];
+    else ut["sparandeUttag"] = post;
+  }
+
+  const projekt = forening["energiprojekt"];
+  if (Array.isArray(projekt)) {
+    const kvar = projekt
+      .map((p, i) =>
+        kontrolleraPost(
+          p,
+          `forening.energiprojekt[${i}]`,
+          `Energiprojektet "${arObjekt(p) && typeof p["text"] === "string" ? kortaNer(p["text"], 50) : ""}"`,
+          k,
+        ),
+      )
+      .filter((p) => p !== undefined);
+    if (kvar.length > 0) ut["energiprojekt"] = kvar;
+    else delete ut["energiprojekt"];
+  }
+
+  const lokaler = forening["lokaler"];
+  if (arObjekt(lokaler) && Array.isArray(lokaler["kontrakt"])) {
+    const kvar = lokaler["kontrakt"]
+      .map((c, i) =>
+        kontrolleraPost(
+          c,
+          `forening.lokaler.kontrakt[${i}]`,
+          `Ett lokalkontrakt${arObjekt(c) && typeof c["slutdatum"] === "string" ? ` (slutdatum ${c["slutdatum"]})` : ""}`,
+          k,
+        ),
+      )
+      .filter((c) => c !== undefined);
+    const { kontrakt: _utan, ...resten } = lokaler;
+    ut["lokaler"] = kvar.length > 0 ? { ...resten, kontrakt: kvar } : resten;
+  }
+  return ut;
+}
+
+/**
  * Verifies every cited item of `extraction` against `sidtexter` (1-based page
  * number -> the page's text). Returns a new extraction (the input is not
  * modified) and one finding per checked reference.
@@ -423,7 +520,9 @@ export function verifieraSidreferenser(
   for (const [nyckel, varde] of Object.entries(raw)) {
     ut[nyckel] = verifieraNod(varde, nyckel, k);
   }
-  if (arObjekt(ut["forening"])) ut["forening"] = kontrolleraAdresser(ut["forening"], k);
+  if (arObjekt(ut["forening"])) {
+    ut["forening"] = kontrolleraNyaPoster(kontrolleraAdresser(ut["forening"], k), k);
+  }
 
   const saknas = k.fynd.filter((f) => f.status === "saknas");
   const resultat = ut as unknown as ExtractionResult;

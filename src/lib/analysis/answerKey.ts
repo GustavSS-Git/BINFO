@@ -89,3 +89,126 @@ export function jamforTristate(
 ): TristateComparisonResult {
   return { falt, forvantat, faktiskt, godkand: faktiskt === forvantat };
 }
+
+// ---------------------------------------------------------------------------
+// Loan answer keys (fixtures/answer-key-lan/<orgnr>.json, round 2026-10-24b)
+// ---------------------------------------------------------------------------
+
+/** One loan as the key's author read it from the loan note. */
+export interface LanFacit {
+  kreditgivare?: string;
+  belopp: number;
+  ranta: number;
+  villkorsandringsdag: string;
+  sida?: number;
+  tryckt?: string;
+}
+
+/** The parts of a loan answer key that are scored. */
+export interface LanFacitFil {
+  /** "UTKAST" until the owner has checked the key against the PDF. */
+  status?: string;
+  balansdag?: string;
+  totalSkuld?: { belopp: number };
+  rantekostnader?: { belopp: number };
+  lan: LanFacit[];
+}
+
+/** The extraction's loan data, structurally (a subset of `Forening`). */
+export interface LanFaktiskt {
+  balansdag?: string | undefined;
+  lan?:
+    | Array<{
+        kreditgivare?: string | undefined;
+        belopp: { value: number | null };
+        ranta?: { value: number | null } | undefined;
+        villkorsandringsdag?: string | undefined;
+      }>
+    | undefined;
+  rantekostnader?: { value: number | null } | undefined;
+}
+
+export interface LanPoang {
+  falt: string;
+  godkand: boolean;
+  forvantat: string;
+  faktiskt: string;
+}
+
+const visa = (v: string | number | null | undefined): string =>
+  v === null || v === undefined ? "saknas" : String(v);
+
+/**
+ * Scores the extracted loans against a loan answer key: balance date, number of
+ * loans, Σ belopp (exact), räntekostnader (exact), and per expected loan its
+ * belopp, villkorsändringsdag and ränta. A loan is paired with the unused
+ * extracted loan of the same belopp (the one with the same date first); an
+ * unpaired loan fails all three of its fields. Missing = fail, as everywhere.
+ */
+export function poangsattLan(facit: LanFacitFil, faktiskt: LanFaktiskt): LanPoang[] {
+  const poang: LanPoang[] = [];
+  const ut = faktiskt.lan ?? [];
+
+  if (facit.balansdag !== undefined) {
+    poang.push({
+      falt: "balansdag",
+      godkand: faktiskt.balansdag === facit.balansdag,
+      forvantat: facit.balansdag,
+      faktiskt: visa(faktiskt.balansdag),
+    });
+  }
+  poang.push({
+    falt: "lan.antal",
+    godkand: ut.length === facit.lan.length,
+    forvantat: String(facit.lan.length),
+    faktiskt: String(ut.length),
+  });
+  const forvantadSumma = facit.lan.reduce((s, l) => s + l.belopp, 0);
+  const faktiskSumma = ut.reduce((s, l) => s + (l.belopp.value ?? 0), 0);
+  poang.push({
+    falt: "lan.summa",
+    godkand: ut.length > 0 && faktiskSumma === forvantadSumma,
+    forvantat: String(forvantadSumma),
+    faktiskt: ut.length > 0 ? String(faktiskSumma) : "saknas",
+  });
+  if (facit.rantekostnader !== undefined) {
+    const v = faktiskt.rantekostnader?.value ?? null;
+    poang.push({
+      falt: "lanebok.rantekostnader",
+      godkand: v === facit.rantekostnader.belopp,
+      forvantat: String(facit.rantekostnader.belopp),
+      faktiskt: visa(v),
+    });
+  }
+
+  const anvanda = new Set<number>();
+  for (const forvantat of facit.lan) {
+    const kandidater = ut
+      .map((l, i) => ({ l, i }))
+      .filter(({ l, i }) => !anvanda.has(i) && l.belopp.value === forvantat.belopp);
+    const par =
+      kandidater.find(({ l }) => l.villkorsandringsdag === forvantat.villkorsandringsdag) ??
+      kandidater[0];
+    if (par) anvanda.add(par.i);
+    const namn = `lan ${forvantat.kreditgivare ?? "?"} ${forvantat.belopp}`;
+    poang.push({
+      falt: `${namn}: belopp`,
+      godkand: par !== undefined,
+      forvantat: String(forvantat.belopp),
+      faktiskt: par ? String(par.l.belopp.value) : "saknas",
+    });
+    poang.push({
+      falt: `${namn}: villkorsandringsdag`,
+      godkand: par?.l.villkorsandringsdag === forvantat.villkorsandringsdag,
+      forvantat: forvantat.villkorsandringsdag,
+      faktiskt: visa(par?.l.villkorsandringsdag),
+    });
+    poang.push({
+      falt: `${namn}: ranta`,
+      godkand: par?.l.ranta?.value === forvantat.ranta,
+      forvantat: String(forvantat.ranta),
+      faktiskt: visa(par?.l.ranta?.value),
+    });
+  }
+  return poang;
+}

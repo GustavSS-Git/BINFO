@@ -1,0 +1,65 @@
+{
+  "orgnr": "716420-0599",
+  "namn": "Brf Pontonjären 3",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "exemple_analysis_report/Årsredovisning 2025 (1).pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; lånenoten på sida 18"
+  },
+  "anmarkning": "Raden 'SEB 0 2 439 975' är ett lån som var återbetalt vid årsskiftet (skuld 2025 = 0) och räknas inte. Noten heter NOT 15, SKULDER TILL KREDITINSTITUT; summan stämmer: 683 080 + 1 180 000 + 970 000 + 2 000 000 + 2 926 011 = 7 759 091.",
+  "balansdag": "2025-12-31",
+  "lanenotSida": 18,
+  "totalSkuld": {
+    "belopp": 7759091,
+    "sida": 18,
+    "tryckt": "Summa 7 759 091"
+  },
+  "rantekostnader": {
+    "belopp": 235636,
+    "sida": 10,
+    "tryckt": "Räntekostnader och liknande resultatposter 11 -235 636 -181 390"
+  },
+  "lan": [
+    {
+      "kreditgivare": "SEB",
+      "belopp": 683080,
+      "ranta": 2.51,
+      "villkorsandringsdag": "2026-11-28",
+      "sida": 18,
+      "tryckt": "SEB 2026-11-28 2,51 % 683 080 699 760"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 1180000,
+      "ranta": 4.49,
+      "villkorsandringsdag": "2026-09-28",
+      "sida": 18,
+      "tryckt": "SEB 2026-09-28 4,49 % 1 180 000 1 180 000"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 970000,
+      "ranta": 2.43,
+      "villkorsandringsdag": "2026-12-28",
+      "sida": 18,
+      "tryckt": "SEB 2026-12-28 2,43 % 970 000 1 010 000"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 2000000,
+      "ranta": 2.98,
+      "villkorsandringsdag": "2028-10-28",
+      "sida": 18,
+      "tryckt": "SEB 2028-10-28 2,98 % 2 000 000 2 000 000"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 2926011,
+      "ranta": 2.53,
+      "villkorsandringsdag": "2026-03-28",
+      "sida": 18,
+      "tryckt": "SEB 2026-03-28 2,53 % 2 926 011"
+    }
+  ]
+}

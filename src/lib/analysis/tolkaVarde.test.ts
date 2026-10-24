@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  harledLanData,
+  harledRantetyp,
   harledSkuldfriaNyckeltal,
+  laggTillManader,
   parseTrycktVarde,
+  rensaByggarSaknasSkal,
   rensaSkuldfriaKonfidensSkal,
+  synkaBostadsrattsyta,
   tolkaNyckeltal,
 } from "./tolkaVarde";
-import type { Figure, KeyFigure, KeyFigureId } from "@/types/analysis";
+import { extraktion } from "./__fixtures__/extraktion";
+import type { ExtractionResult, Figure, KeyFigure, KeyFigureId, Lan } from "@/types/analysis";
 
 const NBSP = " ";
 const NARROW_NBSP = " ";
@@ -408,5 +414,177 @@ describe("rensaSkuldfriaKonfidensSkal", () => {
   it("rör ingenting när inget skäl handlar om skuldnyckeltalen", () => {
     const konfidens = { niva: "lag" as const, skal: ["Skannade sidor."] };
     expect(rensaSkuldfriaKonfidensSkal(konfidens, true)).toEqual(konfidens);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Loans: rantetyp, forfalloprofil, area, byggår notes (PROMPT_VERSION 9)
+// ---------------------------------------------------------------------------
+
+const lanFig = (value: number, unit: Figure["unit"] = "kr", page = 12): Figure => ({
+  value,
+  unit,
+  source: "arsredovisning",
+  ref: { page, excerpt: "lånerad" },
+});
+
+function lan(belopp: number, dag: string | undefined, extra: Partial<Lan> = {}): Lan {
+  return {
+    kreditgivare: "SEB",
+    belopp: lanFig(belopp),
+    ranta: lanFig(2.5, "procent"),
+    ...(dag ? { villkorsandringsdag: dag } : {}),
+    rantetyp: "okant",
+    ref: { page: 12, excerpt: "lånerad" },
+    ...extra,
+  };
+}
+
+function medLan(
+  lanen: Lan[],
+  forening: Partial<ExtractionResult["forening"]> = {},
+): ExtractionResult {
+  const { forfalloprofil: _bort, ...lanebokUtanProfil } = extraktion.forening.lanebok!;
+  return {
+    ...extraktion,
+    forening: {
+      ...extraktion.forening,
+      lanebok: { ...lanebokUtanProfil, forfalloprofil: [], lan: lanen },
+      ...forening,
+    },
+  };
+}
+
+describe("laggTillManader", () => {
+  it.each([
+    ["2025-12-31", 3, "2026-03-31"],
+    ["2025-08-31", 3, "2025-11-30"],
+    ["2025-11-30", 3, "2026-02-28"],
+    ["2024-11-30", 3, "2025-02-28"],
+    ["2023-12-31", 3, "2024-03-31"],
+    ["2025-01-31", 1, "2025-02-28"],
+  ])("%s + %i månader = %s", (d, m, vantat) => expect(laggTillManader(d, m)).toBe(vantat));
+});
+
+describe("harledRantetyp", () => {
+  const bal = "2025-12-31";
+  it("behåller det rapporten säger (rorlig/bunden), även om datumet pekar åt andra hållet", () => {
+    expect(harledRantetyp(lan(1, "2029-01-01", { rantetyp: "rorlig" }), bal)).toBe("rorlig");
+    expect(harledRantetyp(lan(1, "2026-01-05", { rantetyp: "bunden" }), bal)).toBe("bunden");
+  });
+  it("villkorsändringsdag högst tre månader efter balansdagen = rorlig (inklusive gränsdagen)", () => {
+    expect(harledRantetyp(lan(1, "2026-01-28"), bal)).toBe("rorlig");
+    expect(harledRantetyp(lan(1, "2026-03-31"), bal)).toBe("rorlig");
+  });
+  it("ett längre bort datum bevisar inte bunden ränta: okant", () => {
+    expect(harledRantetyp(lan(1, "2026-04-01"), bal)).toBe("okant");
+    expect(harledRantetyp(lan(1, "2030-06-01"), bal)).toBe("okant");
+  });
+  it("utan datum och utan besked: okant", () => {
+    expect(harledRantetyp(lan(1, undefined), bal)).toBe("okant");
+  });
+});
+
+describe("harledLanData", () => {
+  it("härleder forfalloprofil ur lan: ar = året för villkorsändringsdagen, sorterat, med samma Figures", () => {
+    const a = lan(5_000_000, "2028-10-28");
+    const b = lan(3_000_000, "2026-03-28");
+    const r = harledLanData(medLan([a, b]));
+    const profil = r.forening.lanebok!.forfalloprofil!;
+    expect(profil.map((p) => p.ar)).toEqual([2026, 2028]);
+    expect(profil[0]!.belopp).toBe(b.belopp);
+    expect(profil[0]!.ranta).toBe(b.ranta);
+  });
+
+  it("lämnar lån utan datum utanför forfalloprofil men behåller dem i lan", () => {
+    const r = harledLanData(medLan([lan(5_000_000, undefined), lan(3_000_000, "2027-05-05")]));
+    expect(r.forening.lanebok!.lan).toHaveLength(2);
+    expect(r.forening.lanebok!.forfalloprofil!.map((p) => p.belopp.value)).toEqual([3_000_000]);
+  });
+
+  it("utelämnar forfalloprofil helt när inget lån har datum", () => {
+    const r = harledLanData(medLan([lan(5_000_000, undefined)]));
+    expect("forfalloprofil" in r.forening.lanebok!).toBe(false);
+  });
+
+  it("skriver över modellens egen forfalloprofil när lan finns", () => {
+    const e = medLan([lan(1_000_000, "2027-01-01")]);
+    e.forening.lanebok!.forfalloprofil = [{ ar: 1999, belopp: lanFig(42) }];
+    const r = harledLanData(e);
+    expect(r.forening.lanebok!.forfalloprofil!.map((p) => p.ar)).toEqual([2027]);
+  });
+
+  it("sätter rantetyp med balansdagen (brutet räkenskapsår) och faller tillbaka på rakenskapsar-12-31", () => {
+    const brutet = harledLanData(
+      medLan([lan(1, "2025-09-28")], { balansdag: "2025-08-31", rakenskapsar: 2025 }),
+    );
+    expect(brutet.forening.lanebok!.lan![0]!.rantetyp).toBe("rorlig");
+    const utanBalansdag = medLan([lan(1, "2026-02-01")]);
+    delete utanBalansdag.forening.balansdag;
+    expect(harledLanData(utanBalansdag).forening.lanebok!.lan![0]!.rantetyp).toBe("rorlig");
+  });
+
+  it("gör ingenting utan lan: modellens forfalloprofil gäller (gammalt beteende)", () => {
+    const utanLan = structuredClone(extraktion);
+    delete utanLan.forening.lanebok!.lan;
+    expect(harledLanData(utanLan)).toBe(utanLan);
+    const tomt = medLan([]);
+    expect(harledLanData(tomt)).toBe(tomt);
+  });
+
+  it("ändrar inte indata", () => {
+    const e = medLan([lan(1_000_000, "2026-02-01")]);
+    const kopia = structuredClone(e);
+    harledLanData(e);
+    expect(e).toEqual(kopia);
+  });
+});
+
+describe("synkaBostadsrattsyta", () => {
+  const yta = lanFig(3200, "m2", 3);
+  it("kopierar kontrollsummans yta till forening när bara den finns", () => {
+    const utan = { ...extraktion, forening: { ...extraktion.forening } };
+    delete utan.forening.bostadsrattsyta;
+    const r = synkaBostadsrattsyta({ ...utan, kontrollsummor: { bostadsrattsyta: yta } });
+    expect(r.forening.bostadsrattsyta).toBe(yta);
+  });
+  it("kopierar foreningens yta till kontrollsummor när bara den finns", () => {
+    const r = synkaBostadsrattsyta({
+      ...extraktion,
+      forening: { ...extraktion.forening, bostadsrattsyta: yta },
+    });
+    expect(r.kontrollsummor?.bostadsrattsyta).toBe(yta);
+  });
+  it("rör inget när båda finns eller ingen finns", () => {
+    const bada = {
+      ...extraktion,
+      forening: { ...extraktion.forening, bostadsrattsyta: yta },
+      kontrollsummor: { bostadsrattsyta: lanFig(3201, "m2") },
+    };
+    expect(synkaBostadsrattsyta(bada)).toBe(bada);
+    const ingen = { ...extraktion, forening: { ...extraktion.forening } };
+    delete ingen.forening.bostadsrattsyta;
+    expect(synkaBostadsrattsyta(ingen)).toBe(ingen);
+  });
+});
+
+describe("rensaByggarSaknasSkal", () => {
+  it.each([
+    "Byggår saknas i underlaget.",
+    "byggår framgår inte av rapporten",
+    "Byggnadsår anges inte.",
+  ])("tar bort %j", (skal) => {
+    const r = rensaByggarSaknasSkal({ niva: "medel", skal: [skal, "Annat skäl."] });
+    expect(r).toEqual({ niva: "medel", skal: ["Annat skäl."] });
+  });
+  it("behåller nivån när inget skäl finns kvar och lämnar andra skäl orörda", () => {
+    expect(rensaByggarSaknasSkal({ niva: "medel", skal: ["Byggår saknas."] })).toEqual({
+      niva: "medel",
+    });
+    const orort: ExtractionResult["datakvalitet"]["extraktionKonfidens"] = {
+      niva: "lag",
+      skal: ["Räntekänsligheten saknas.", "Byggåret är 1965."],
+    };
+    expect(rensaByggarSaknasSkal(orort)).toBe(orort);
   });
 });

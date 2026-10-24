@@ -1,7 +1,13 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { APIConnectionError } from "@anthropic-ai/sdk";
-import { jamforTecken, jamforTristate, jamforVarde } from "./answerKey";
+import {
+  jamforTecken,
+  jamforTristate,
+  jamforVarde,
+  poangsattLan,
+  type LanFacitFil,
+} from "./answerKey";
 import { bedomStatus } from "./benchmarks";
 import { type runStructuredExtraction, type ModelEffort } from "./runExtraction";
 import { korExtraktion, type StegTid } from "./korExtraktion";
@@ -105,6 +111,8 @@ interface AnswerKeyFixture {
   /** Raw totals read by the key's author, printed next to the extraction's
    *  kontrollsummor for the sanity-check review. Not scored. */
   kontrollsummor?: Record<string, number>;
+  /** Loan answer key from fixtures/answer-key-lan/<orgnr>.json, when one exists. */
+  lanFacit?: LanFacitFil;
   /** See `OvrigInfoForvantat` above. */
   ovrigInfo?: OvrigInfoForvantat;
   /** Per-field page + printed text for the human verifier — same shape and
@@ -144,6 +152,7 @@ try {
 }
 
 const ANSWER_KEY_DIR = "fixtures/answer-key";
+const ANSWER_KEY_LAN_DIR = "fixtures/answer-key-lan";
 
 const GILTIGA_EFFORT: ModelEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
@@ -207,7 +216,34 @@ async function loadFixtures(): Promise<AnswerKeyFixture[]> {
   const alla: AnswerKeyFixture[] = await Promise.all(
     files.map(async (f) => JSON.parse(await readFile(path.join(ANSWER_KEY_DIR, f), "utf-8"))),
   );
-  return alla.filter((f) => !f.obsolet);
+  const aktiva = alla.filter((f) => !f.obsolet);
+
+  // Loan keys (round 2026-10-24b): attached to the fixture of the same orgnr; a
+  // loan key without a nyckeltal fixture (Pontonjären 3) becomes a fixture that
+  // scores only its loans.
+  let lanFiler: string[] = [];
+  try {
+    lanFiler = (await readdir(ANSWER_KEY_LAN_DIR)).filter((f) => f.endsWith(".json")).sort();
+  } catch {
+    // No loan keys — fine.
+  }
+  for (const f of lanFiler) {
+    const lan = JSON.parse(
+      await readFile(path.join(ANSWER_KEY_LAN_DIR, f), "utf-8"),
+    ) as LanFacitFil & Pick<AnswerKeyFixture, "orgnr" | "namn" | "kalla">;
+    const fixture = aktiva.find((a) => a.orgnr === lan.orgnr);
+    if (fixture) fixture.lanFacit = lan;
+    else {
+      aktiva.push({
+        orgnr: lan.orgnr,
+        namn: lan.namn,
+        kalla: lan.kalla,
+        nyckeltal: {},
+        lanFacit: lan,
+      });
+    }
+  }
+  return aktiva;
 }
 
 /** Running tally kept separately for verified vs. draft ("UTKAST") fixtures
@@ -543,6 +579,40 @@ async function main() {
       console.log(
         `  ${r.godkand ? "✓" : "✗"} lanebok.snittranta: förväntat ${r.forvantat}, fick ${r.faktiskt ?? "null"}${avvikelse}`,
       );
+    }
+
+    // Loans (fixtures/answer-key-lan): a key still marked UTKAST scores into the
+    // draft tally, whatever the rest of the fixture is.
+    if (fixture.lanFacit) {
+      const rakningLan =
+        fixture.lanFacit.status?.toUpperCase() === "UTKAST" || arUtkast(fixture)
+          ? utkast
+          : verifierad;
+      const lanebok = extraction.forening.lanebok;
+      const poang = poangsattLan(fixture.lanFacit, {
+        balansdag: extraction.forening.balansdag,
+        lan: lanebok?.lan,
+        rantekostnader: lanebok?.rantekostnader,
+      });
+      console.log(
+        `  Lån (facit ${fixture.lanFacit.status ?? "verifierad"}): ${lanebok?.lan?.length ?? 0} extraherade, ${fixture.lanFacit.lan.length} i facit`,
+      );
+      for (const p of poang) {
+        rakningLan.totalFalt++;
+        if (p.godkand) rakningLan.godkanda++;
+        console.log(
+          `  ${p.godkand ? "✓" : "✗"} ${p.falt}: förväntat ${p.forvantat}, fick ${p.faktiskt}`,
+        );
+      }
+      for (const l of lanebok?.lan ?? []) {
+        console.log(
+          `  · lån ${l.kreditgivare ?? "?"} ${l.belopp.value ?? "null"} kr, ${l.ranta?.value ?? "?"} %, ` +
+            `${l.villkorsandringsdag ?? "ingen dag"}, ${l.rantetyp}${l.belopp.osaker ? " [OSÄKER]" : ""} (sida ${l.ref.page})`,
+        );
+      }
+      if (!utkastRapporter.includes(fixture.namn) && rakningLan === utkast) {
+        utkastRapporter.push(`${fixture.namn} (endast lån)`);
+      }
     }
 
     // Information only (not scored): the raw totals vs the key author's, and every

@@ -393,3 +393,97 @@ describe("osaker bevarar resten av figuren", () => {
     });
   });
 });
+
+describe("kontrolleraRimlighet: lånenoten (round 2026-10-24b)", () => {
+  const lan = (belopp: number, ranta: number | null, kreditgivare = "SEB") => ({
+    kreditgivare,
+    belopp: fig(belopp),
+    ...(ranta === null ? {} : { ranta: fig(ranta, "procent") }),
+    rantetyp: "okant" as const,
+    ref: { page: 4, excerpt: "lånerad" },
+  });
+  function medLanebok(
+    lanen: ReturnType<typeof lan>[],
+    totalSkuld: number,
+    rantekostnader?: number,
+  ): ExtractionResult {
+    const e = extraktion({}, { totalSkuld });
+    return {
+      ...e,
+      forening: {
+        ...e.forening,
+        lanebok: {
+          ...e.forening.lanebok!,
+          lan: lanen,
+          ...(rantekostnader === undefined ? {} : { rantekostnader: fig(rantekostnader) }),
+        },
+      },
+    };
+  }
+
+  it("godkänner lån som summerar till skulden (inom 2 %) och rimliga räntor", () => {
+    const e = medLanebok([lan(5_000_000, 2.5), lan(2_759_091, 3.1)], 7_759_091, 235_636);
+    const r = kontrolleraRimlighet(e);
+    expect(r.anmarkningar).toEqual([]);
+    expect(r.extraction).toBe(e);
+  });
+
+  it("markerar totalSkuld osäker när lånen inte summerar till skulden", () => {
+    const e = medLanebok([lan(5_000_000, 2.5)], 7_759_091);
+    const r = kontrolleraRimlighet(e);
+    expect(r.anmarkningar).toHaveLength(1);
+    expect(r.anmarkningar[0]).toMatch(/Lånen i lånenoten/);
+    expect(r.extraction.forening.lanebok!.totalSkuld.osaker).toMatch(/Lånen i lånenoten/);
+    expect(r.extraction.datakvalitet.extraktionKonfidens.niva).not.toBe("hog");
+  });
+
+  it("tolererar 2 % men inte 3 %", () => {
+    expect(kontrolleraRimlighet(medLanebok([lan(9_850_000, 2)], 10_000_000)).anmarkningar).toEqual(
+      [],
+    );
+    expect(
+      kontrolleraRimlighet(medLanebok([lan(9_700_000, 2)], 10_000_000)).anmarkningar,
+    ).toHaveLength(1);
+  });
+
+  it("hoppar över summakontrollen när ett lånebelopp saknas (null är ingen evidens)", () => {
+    const e = medLanebok([lan(5_000_000, 2.5)], 7_759_091);
+    e.forening.lanebok!.lan!.push({ ...lan(0, 2), belopp: fig(null) });
+    expect(kontrolleraRimlighet(e).anmarkningar).toEqual([]);
+  });
+
+  it("markerar räntekostnader osäker utanför 0–10 % av skulden", () => {
+    const e = medLanebok([lan(10_000_000, 2.5)], 10_000_000, 1_500_000);
+    const r = kontrolleraRimlighet(e);
+    expect(r.anmarkningar).toHaveLength(1);
+    expect(r.extraction.forening.lanebok!.rantekostnader!.osaker).toMatch(/Räntekostnaderna/);
+    expect(r.extraction.forening.lanebok!.totalSkuld.osaker).toBeUndefined();
+  });
+
+  it("räntekostnader 0 är rimligt och en skuld på 0 ger ingen division", () => {
+    expect(
+      kontrolleraRimlighet(medLanebok([lan(10_000_000, 2.5)], 10_000_000, 0)).anmarkningar,
+    ).toEqual([]);
+    const skuldfri = extraktion({}, { totalSkuld: 0 });
+    skuldfri.forening.lanebok!.rantekostnader = fig(500);
+    expect(kontrolleraRimlighet(skuldfri).anmarkningar).toEqual([]);
+  });
+
+  it("markerar ett låns ränta osäker utanför 0–15 %", () => {
+    const e = medLanebok([lan(5_000_000, 25), lan(5_000_000, 2.5)], 10_000_000);
+    const r = kontrolleraRimlighet(e);
+    expect(r.anmarkningar).toHaveLength(1);
+    const [forsta, andra] = r.extraction.forening.lanebok!.lan!;
+    expect(forsta!.ranta!.osaker).toMatch(/Räntan 25 %/);
+    expect(andra!.ranta!.osaker).toBeUndefined();
+  });
+
+  it("lånen utan ränta eller utan lan-fält ger inga fynd", () => {
+    expect(
+      kontrolleraRimlighet(medLanebok([lan(10_000_000, null)], 10_000_000)).anmarkningar,
+    ).toEqual([]);
+    expect(kontrolleraRimlighet(extraktion({}, { totalSkuld: 10_000_000 })).anmarkningar).toEqual(
+      [],
+    );
+  });
+});

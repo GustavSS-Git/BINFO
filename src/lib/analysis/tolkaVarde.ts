@@ -1,4 +1,12 @@
-import type { Figure, KeyFigure, KeyFigureId, Konfidens } from "@/types/analysis";
+import type {
+  ExtractionResult,
+  Figure,
+  KeyFigure,
+  KeyFigureId,
+  Konfidens,
+  Lan,
+} from "@/types/analysis";
+import { RORLIG_MAX_MANADER_EFTER_BALANSDAG } from "./calc/prognosantaganden";
 
 /**
  * Deterministic parsing of a value exactly as printed in an annual report —
@@ -294,4 +302,102 @@ export function rensaSkuldfriaKonfidensSkal(konfidens: Konfidens, harleddes: boo
   const kvar = konfidens.skal.filter((s) => !SKULDNYCKELTAL_I_TEXT.test(s));
   if (kvar.length === konfidens.skal.length) return konfidens;
   return kvar.length === 0 ? { niva: "hog" } : { niva: konfidens.niva, skal: kvar };
+}
+
+// ---------------------------------------------------------------------------
+// Loans (PROMPT_VERSION 9): rantetyp, forfalloprofil, area, byggår notes
+// ---------------------------------------------------------------------------
+
+/** `datum` (YYYY-MM-DD) plus `manader` calendar months, the day clamped to the
+ *  month's last day (2025-08-31 + 3 = 2025-11-30). */
+export function laggTillManader(datum: string, manader: number): string {
+  const [y, m, d] = datum.split("-").map(Number) as [number, number, number];
+  const index = y * 12 + (m - 1) + manader;
+  const ar = Math.floor(index / 12);
+  const man = (index % 12) + 1;
+  const sistaDag = new Date(Date.UTC(ar, man, 0)).getUTCDate();
+  const dag = Math.min(d, sistaDag);
+  return `${ar}-${String(man).padStart(2, "0")}-${String(dag).padStart(2, "0")}`;
+}
+
+/**
+ * `Lan.rantetyp`: what the report says ('rorlig' / 'bunden') is kept. Otherwise
+ * a loan whose villkorsändringsdag is at most RORLIG_MAX_MANADER_EFTER_BALANSDAG
+ * months after the balance-sheet date counts as 'rorlig' (a 3-month variable
+ * loan resets quarterly); anything else stays 'okant'. A date further away does
+ * NOT prove a fixed rate, so it is never turned into 'bunden'.
+ */
+export function harledRantetyp(lan: Lan, balansdag: string): Lan["rantetyp"] {
+  if (lan.rantetyp === "rorlig" || lan.rantetyp === "bunden") return lan.rantetyp;
+  const dag = lan.villkorsandringsdag;
+  if (dag === undefined) return "okant";
+  return dag <= laggTillManader(balansdag, RORLIG_MAX_MANADER_EFTER_BALANSDAG) ? "rorlig" : "okant";
+}
+
+/**
+ * Runs LAST (after the page-reference check, so corrected pages and `osaker`
+ * markers are copied along). When `lanebok.lan` exists:
+ *   - every loan gets its `rantetyp` (`harledRantetyp`; balance date from
+ *     `forening.balansdag`, else `${rakenskapsar}-12-31`);
+ *   - `forfalloprofil` is REPLACED by one row per loan with a date (ar = year of
+ *     villkorsändringsdagen, same belopp/ranta Figures), sorted by date. Loans
+ *     without a date are left out; if none has a date the field is omitted.
+ * Without `lan`, whatever `forfalloprofil` the model gave is kept.
+ */
+export function harledLanData(extraction: ExtractionResult): ExtractionResult {
+  const lanebok = extraction.forening.lanebok;
+  if (!lanebok?.lan || lanebok.lan.length === 0) return extraction;
+  const balansdag = extraction.forening.balansdag ?? `${extraction.forening.rakenskapsar}-12-31`;
+
+  const lan = lanebok.lan.map((l) => ({ ...l, rantetyp: harledRantetyp(l, balansdag) }));
+  const profil = lan
+    .filter((l): l is Lan & { villkorsandringsdag: string } => l.villkorsandringsdag !== undefined)
+    .sort((a, b) => a.villkorsandringsdag.localeCompare(b.villkorsandringsdag))
+    .map((l) => ({
+      ar: Number(l.villkorsandringsdag.slice(0, 4)),
+      belopp: l.belopp,
+      ...(l.ranta ? { ranta: l.ranta } : {}),
+    }));
+
+  const { forfalloprofil: _gammal, ...utanProfil } = lanebok;
+  return {
+    ...extraction,
+    forening: {
+      ...extraction.forening,
+      lanebok: { ...utanProfil, lan, ...(profil.length > 0 ? { forfalloprofil: profil } : {}) },
+    },
+  };
+}
+
+/**
+ * `forening.bostadsrattsyta` and `kontrollsummor.bostadsrattsyta` are the same
+ * figure: when the model gave only one of them, the other is filled from it.
+ */
+export function synkaBostadsrattsyta(extraction: ExtractionResult): ExtractionResult {
+  const iForening = extraction.forening.bostadsrattsyta;
+  const iSummor = extraction.kontrollsummor?.bostadsrattsyta;
+  if (iForening && iSummor) return extraction;
+  if (iForening) {
+    return {
+      ...extraction,
+      kontrollsummor: { ...extraction.kontrollsummor, bostadsrattsyta: iForening },
+    };
+  }
+  if (iSummor) {
+    return { ...extraction, forening: { ...extraction.forening, bostadsrattsyta: iSummor } };
+  }
+  return extraction;
+}
+
+/** A model note that the construction year is missing. It is shown to buyers who
+ *  may have typed the year themselves, so it must not reach the confidence
+ *  `skal` (saknadeFalt may still list it). */
+const BYGGAR_SAKNAS_SKAL =
+  /bygg(nads)?\s?år[^.]*\b(saknas|saknad|framgår inte|anges inte|uppges inte|ej angivet)/i;
+
+export function rensaByggarSaknasSkal(konfidens: Konfidens): Konfidens {
+  if (!konfidens.skal) return konfidens;
+  const kvar = konfidens.skal.filter((s) => !BYGGAR_SAKNAS_SKAL.test(s));
+  if (kvar.length === konfidens.skal.length) return konfidens;
+  return kvar.length === 0 ? { niva: konfidens.niva } : { niva: konfidens.niva, skal: kvar };
 }

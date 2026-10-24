@@ -1,0 +1,41 @@
+{
+  "orgnr": "716419-8579",
+  "namn": "Bostadsrättsföreningen Torsborgen 3",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Årsredovisning 2025.pdf",
+    "forvaltare": "HSB",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; lånenoten på sida 15"
+  },
+  "anmarkning": "Not 12 (Övriga kortfristiga skulder till kreditinstitut); kolumnerna är Låneinstitut, Räntesats, Konv.datum, Belopp, Nästa års amortering.",
+  "balansdag": "2025-12-31",
+  "lanenotSida": 15,
+  "totalSkuld": {
+    "belopp": 15000000,
+    "sida": 15,
+    "tryckt": "15 000 000"
+  },
+  "rantekostnader": {
+    "belopp": 417473,
+    "sida": 7,
+    "tryckt": "Räntekostnader och liknande resultatposter -417 473 -641 228"
+  },
+  "lan": [
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 10000000,
+      "ranta": 2.43,
+      "villkorsandringsdag": "2026-01-28",
+      "sida": 15,
+      "tryckt": "Swedbank 2,43% 2026-01-28 10 000 000 0"
+    },
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 5000000,
+      "ranta": 2.32,
+      "villkorsandringsdag": "2026-03-28",
+      "sida": 15,
+      "tryckt": "Swedbank 2,32% 2026-03-28 5 000 000 0"
+    }
+  ]
+}

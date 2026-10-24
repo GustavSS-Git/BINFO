@@ -113,7 +113,20 @@ export const extraktion: ExtractionResult = {
       source: "arsredovisning",
       ref: { page: 3, excerpt: "föreningen omfattar 48 lägenheter" },
     },
+    totalyta: {
+      value: 5300,
+      unit: "m2",
+      source: "arsredovisning",
+      ref: { page: 3, excerpt: "Total yta 5 300 kvm varav lokaler 150 kvm" },
+    },
+    bostadsrattsyta: {
+      value: 4640,
+      unit: "m2",
+      source: "arsredovisning",
+      ref: { page: 3, excerpt: "Bostadsrättsarea 4 640 kvm" },
+    },
     rakenskapsar: 2025,
+    balansdag: "2025-12-31",
     keyFigures: berikaNyckeltal(raaNyckeltal()),
     lanebok: {
       totalSkuld: {
@@ -146,6 +159,44 @@ export const extraktion: ExtractionResult = {
             source: "arsredovisning",
             ref: { page: 12, excerpt: "Swedbank 3,4 % 2029-09-30 21 000 000" },
           },
+        },
+      ],
+      lan: [
+        {
+          kreditgivare: "SBAB",
+          belopp: {
+            value: 31000000,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 12, excerpt: "SBAB 1,1 % 2026-03-01 31 000 000" },
+          },
+          ranta: {
+            value: 1.1,
+            unit: "procent",
+            source: "arsredovisning",
+            ref: { page: 12, excerpt: "SBAB 1,1 % 2026-03-01 31 000 000" },
+          },
+          villkorsandringsdag: "2026-03-01",
+          rantetyp: "rorlig",
+          ref: { page: 12, excerpt: "SBAB 1,1 % 2026-03-01 31 000 000" },
+        },
+        {
+          kreditgivare: "Swedbank",
+          belopp: {
+            value: 21000000,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 12, excerpt: "Swedbank 3,4 % 2029-09-30 21 000 000" },
+          },
+          ranta: {
+            value: 3.4,
+            unit: "procent",
+            source: "arsredovisning",
+            ref: { page: 12, excerpt: "Swedbank 3,4 % 2029-09-30 21 000 000" },
+          },
+          villkorsandringsdag: "2029-09-30",
+          rantetyp: "okant",
+          ref: { page: 12, excerpt: "Swedbank 3,4 % 2029-09-30 21 000 000" },
         },
       ],
       snittranta: { value: 1.98, unit: "procent", source: "berakning" },

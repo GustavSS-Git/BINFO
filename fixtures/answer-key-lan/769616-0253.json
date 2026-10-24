@@ -1,0 +1,65 @@
+{
+  "orgnr": "769616-0253",
+  "namn": "Brf Granen 10-11",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Nabo årsredovisning.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; lånenoten på sida 20"
+  },
+  "anmarkning": "NOT 17, SKULDER TILL KREDITINSTITUT; kolumnerna är Villkorsändringsdag, Räntesats, Skuld 2025-12-31, Skuld 2024-12-31.",
+  "balansdag": "2025-12-31",
+  "lanenotSida": 20,
+  "totalSkuld": {
+    "belopp": 24182000,
+    "sida": 20,
+    "tryckt": "Summa 24 182 000 24 365 000"
+  },
+  "rantekostnader": {
+    "belopp": 835652,
+    "sida": 11,
+    "tryckt": "Räntekostnader och liknande resultatposter 11 -835 652 -713 656"
+  },
+  "lan": [
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 8942000,
+      "ranta": 2.66,
+      "villkorsandringsdag": "2028-09-28",
+      "sida": 20,
+      "tryckt": "Swedbank 2028-09-28 2,66 % 8 942 000 8 941 000"
+    },
+    {
+      "kreditgivare": "SBAB",
+      "belopp": 8000000,
+      "ranta": 4.22,
+      "villkorsandringsdag": "2027-07-14",
+      "sida": 20,
+      "tryckt": "SBAB 2027-07-14 4,22 % 8 000 000 8 000 000"
+    },
+    {
+      "kreditgivare": "Swedbank Hypotek AB",
+      "belopp": 2499000,
+      "ranta": 3.77,
+      "villkorsandringsdag": "2026-10-23",
+      "sida": 20,
+      "tryckt": "Swedbank Hypotek AB 2026-10-23 3,77 % 2 499 000 2 567 000"
+    },
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 3900000,
+      "ranta": 4.14,
+      "villkorsandringsdag": "2026-09-25",
+      "sida": 20,
+      "tryckt": "Swedbank 2026-09-25 4,14 % 3 900 000 3 900 000"
+    },
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 841000,
+      "ranta": 4.27,
+      "villkorsandringsdag": "2027-03-25",
+      "sida": 20,
+      "tryckt": "Swedbank 2027-03-25 4,27 % 841 000 957 000"
+    }
+  ]
+}

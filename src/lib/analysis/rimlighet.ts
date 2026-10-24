@@ -32,6 +32,16 @@ const RANTEKANSLIGHET_TOLERANS = 0.15;
 const ARSAVGIFT_TOLERANS = 0.25;
 // Product tolerance (supervisor, 2026-10-09), not a market fact
 const SKULD_TOLERANS = 0.1;
+// Product tolerance (round 2026-10-24b), not a market fact. Tighter than the
+// others: the loans of the loan note should add up to the debt total almost to
+// the krona (rounding, "senast kända" amounts); 2 % still tolerates a tkr
+// rounding of each row.
+const LANESUMMA_TOLERANS = 0.02;
+// Plausibility guards (round 2026-10-24b), not market facts or benchmarks. Only
+// meant to catch a misread (tkr/kr, a dropped decimal, a total from another
+// column): räntekostnader / räntebärande skuld, and one loan's ränta in percent.
+const RANTEKOSTNAD_ANDEL_INTERVALL = [0, 0.1] as const;
+const LANERANTA_INTERVALL = [0, 15] as const;
 
 /**
  * Plausible range per nyckeltal [low, high], inclusive. Only meant to catch a
@@ -97,6 +107,9 @@ interface Fynd {
   markera: Array<
     | { typ: "nyckeltal"; id: KeyFigureId; text: string }
     | { typ: "summa"; nyckel: keyof Kontrollsummor; text: string }
+    | { typ: "totalSkuld"; text: string }
+    | { typ: "rantekostnader"; text: string }
+    | { typ: "lanranta"; index: number; text: string }
   >;
 }
 
@@ -210,6 +223,49 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
     }
   }
 
+  // 6. The loan note (round 2026-10-24b): Σ loans ~ total debt, räntekostnader
+  // ~ a plausible share of the debt, each loan's rate in a plausible range.
+  const lanebok = extraction.forening.lanebok;
+  const lan = lanebok?.lan ?? [];
+  const lanebelopp = lan.map((l) => varde(l.belopp));
+  if (lan.length > 0 && lanebelopp.every((b): b is number => b !== null)) {
+    const summa = lanebelopp.reduce((s, b) => s + b, 0);
+    const total = varde(lanebok?.totalSkuld) ?? skuld;
+    if (total !== null) {
+      const avvikelse = relativAvvikelse(summa, total);
+      const avviker = avvikelse === null ? summa !== 0 : avvikelse > LANESUMMA_TOLERANS;
+      if (avviker) {
+        const text =
+          `Lånen i lånenoten blir tillsammans ${fmt(summa)} kr, men räntebärande skulder är ` +
+          `${fmt(total)} kr${avvikelse === null ? "" : ` (skillnad ${procentText(avvikelse)}, högst ${procentText(LANESUMMA_TOLERANS)} väntat)`}.`;
+        fynd.push({ anmarkning: text, markera: [{ typ: "totalSkuld", text }] });
+      }
+    }
+  }
+  const rantekostnader = varde(lanebok?.rantekostnader);
+  if (rantekostnader !== null && skuld !== null && skuld > 0) {
+    const andel = rantekostnader / skuld;
+    const [lag, hog] = RANTEKOSTNAD_ANDEL_INTERVALL;
+    if (andel < lag || andel > hog) {
+      const text =
+        `Räntekostnaderna ${fmt(rantekostnader)} kr är ${procentText(andel)} av de räntebärande ` +
+        `skulderna (${fmt(skuld)} kr), utanför det rimliga intervallet ${procentText(lag)}–${procentText(hog)}. ` +
+        "Det kan vara fel enhet eller en felläst siffra.";
+      fynd.push({ anmarkning: text, markera: [{ typ: "rantekostnader", text }] });
+    }
+  }
+  lan.forEach((l, index) => {
+    const r = varde(l.ranta);
+    if (r === null) return;
+    const [lag, hog] = LANERANTA_INTERVALL;
+    if (r < lag || r > hog) {
+      const text =
+        `Räntan ${fmt(r)} % för lånet${l.kreditgivare ? ` hos ${l.kreditgivare}` : ""} ligger utanför det ` +
+        `rimliga intervallet ${fmt(lag)}–${fmt(hog)} %. Det kan vara en felläst siffra.`;
+      fynd.push({ anmarkning: text, markera: [{ typ: "lanranta", index, text }] });
+    }
+  });
+
   if (fynd.length === 0) return { extraction, anmarkningar: [] };
 
   const anmarkningar = fynd.map((f) => f.anmarkning);
@@ -217,12 +273,21 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
   // First marker wins per figure; further reasons still reach the skäl list.
   const nyckeltalOsaker = new Map<KeyFigureId, string>();
   const summaOsaker = new Map<keyof Kontrollsummor, string>();
+  let totalSkuldOsaker: string | undefined;
+  let rantekostnaderOsaker: string | undefined;
+  const lanrantaOsaker = new Map<number, string>();
   for (const f of fynd) {
     for (const m of f.markera) {
       if (m.typ === "nyckeltal") {
         if (!nyckeltalOsaker.has(m.id)) nyckeltalOsaker.set(m.id, m.text);
-      } else if (!summaOsaker.has(m.nyckel)) {
-        summaOsaker.set(m.nyckel, m.text);
+      } else if (m.typ === "summa") {
+        if (!summaOsaker.has(m.nyckel)) summaOsaker.set(m.nyckel, m.text);
+      } else if (m.typ === "totalSkuld") {
+        totalSkuldOsaker ??= m.text;
+      } else if (m.typ === "rantekostnader") {
+        rantekostnaderOsaker ??= m.text;
+      } else if (!lanrantaOsaker.has(m.index)) {
+        lanrantaOsaker.set(m.index, m.text);
       }
     }
   }
@@ -241,6 +306,23 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
     }
   }
 
+  let nyLanebok = extraction.forening.lanebok;
+  if (nyLanebok) {
+    nyLanebok = { ...nyLanebok };
+    if (totalSkuldOsaker !== undefined) {
+      nyLanebok.totalSkuld = { ...nyLanebok.totalSkuld, osaker: totalSkuldOsaker };
+    }
+    if (rantekostnaderOsaker !== undefined && nyLanebok.rantekostnader) {
+      nyLanebok.rantekostnader = { ...nyLanebok.rantekostnader, osaker: rantekostnaderOsaker };
+    }
+    if (lanrantaOsaker.size > 0 && nyLanebok.lan) {
+      nyLanebok.lan = nyLanebok.lan.map((l, i) => {
+        const text = lanrantaOsaker.get(i);
+        return text === undefined || !l.ranta ? l : { ...l, ranta: { ...l.ranta, osaker: text } };
+      });
+    }
+  }
+
   const konfidens = extraction.datakvalitet.extraktionKonfidens;
   const nedsatt = {
     niva: konfidens.niva === "hog" ? ("medel" as const) : ("lag" as const),
@@ -250,7 +332,11 @@ export function kontrolleraRimlighet(extraction: ExtractionResult): {
   return {
     extraction: {
       ...extraction,
-      forening: { ...extraction.forening, keyFigures },
+      forening: {
+        ...extraction.forening,
+        keyFigures,
+        ...(nyLanebok ? { lanebok: nyLanebok } : {}),
+      },
       datakvalitet: { ...extraction.datakvalitet, extraktionKonfidens: nedsatt },
       ...(nyaSummor ? { kontrollsummor: nyaSummor } : {}),
     },

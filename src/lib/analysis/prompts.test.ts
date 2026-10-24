@@ -231,6 +231,76 @@ describe("formatGroundingForExtraction", () => {
   });
 });
 
+describe("PROMPT_VERSION 9: lån, ytor, byggår och nya fält", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+
+  it("grundningen letar efter varje lån med villkorsändringsdag, räntekostnader och rörlig/bunden", () => {
+    expect(grund).toMatch(/VARJE enskilt lån/);
+    expect(grund).toMatch(/villkorsändringsdag/);
+    expect(grund).toMatch(/konverteringsdag/);
+    expect(grund).toMatch(/Räntekostnader och liknande resultatposter/);
+    expect(grund).toMatch(/balansdagen/);
+  });
+
+  it("grundningen letar efter underhållsbelopp, fond, avsättning, uttag, lokaler och energiprojekt", () => {
+    expect(grund).toMatch(/BELOPP/);
+    expect(grund).toMatch(/Fond för yttre underhåll/);
+    expect(grund).toMatch(/Negativt sparande/);
+    expect(grund).toMatch(/Lokaler:/);
+    expect(grund).toMatch(/Energiprojekt/);
+  });
+
+  it("extraktionen: lan ersätter forfalloprofil i exemplet och koden härleder profilen", () => {
+    expect(extr).toContain('"lan": [');
+    expect(extr).not.toContain('"forfalloprofil": [');
+    expect(extr).toMatch(/Skriv INTE forfalloprofil när du anger lan/);
+    expect(extr).toMatch(/rantetyp är "rorlig" ENDAST/);
+    expect(extr).toMatch(/hitta aldrig på en dag/);
+  });
+
+  it("extraktionen: totalyta och bostadsrattsyta är olika tal med olika citat i exemplet", () => {
+    const exempel = JSON.parse(
+      extr.slice(extr.indexOf('{\n  "schemaVersion"'), extr.indexOf("\n\nSkarpa regler")),
+    );
+    const f = exempel.forening;
+    expect(f.totalyta.value).not.toBe(f.bostadsrattsyta.value);
+    expect(f.totalyta.ref.excerpt).not.toBe(f.bostadsrattsyta.ref.excerpt);
+    expect(exempel.kontrollsummor.bostadsrattsyta.value).toBe(f.bostadsrattsyta.value);
+    expect(extr).not.toContain("total bostadsarea om 3 200 kvm");
+    expect(extr).toMatch(/OLIKA tal/);
+  });
+
+  it("extraktionen: byggår är uppförandeår, värdeår bara som sista utväg, och 'byggår saknas' hör inte hemma i skal", () => {
+    expect(extr).toMatch(/Värdeår/i);
+    expect(extr).toMatch(/uppfördes/);
+    expect(extr).toMatch(/excerpt visa att det står "värdeår"/);
+    expect(extr).toMatch(
+      /Skriv aldrig i datakvalitet\.extraktionKonfidens\.skal att byggår saknas/,
+    );
+    expect(grund).toMatch(/INTE "värdeår" som byggår/);
+  });
+
+  it("extraktionen: nya fält i exemplet validerar mot schemat", () => {
+    const exempel = JSON.parse(
+      extr.slice(extr.indexOf('{\n  "schemaVersion"'), extr.indexOf("\n\nSkarpa regler")),
+    );
+    const f = exempel.forening;
+    expect(f.balansdag).toBe("2025-12-31");
+    expect(f.lanebok.lan).toHaveLength(2);
+    expect(f.underhallsplan.planeradeKostnader[0].finansiering).toBe("lan");
+    expect(f.lokaler.kontrakt[0].slutdatum).toBe("2026-09-30");
+    expect(f.energiprojekt[0].finansierat).toBe("okant");
+    expect(f.sparandeUttag.ref.excerpt).toBeTruthy();
+  });
+
+  it("extraktionen: bara planerade kostnader med belopp, sparandeUttag och kontrakt kräver citat", () => {
+    expect(extr).toMatch(/ENDAST planerade kostnader där rapporten anger ett belopp/);
+    expect(extr).toMatch(/sparandeUttag: ENDAST/);
+    expect(extr).toMatch(/ref med excerpt obligatoriskt/);
+  });
+});
+
 describe("buildAnalysSystemPrompt", () => {
   it("förbjuder uttryckligen modellen att omvärdera de sju nyckeltalen — bedömningen är redan gjord deterministiskt", () => {
     const prompt = buildAnalysSystemPrompt();
@@ -668,8 +738,8 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 8 sedan frågorna fick varför med konkret fynd och valfri svarssignal, betygsbanden skärptes och bedömningen fick fasta värden (7: adresser, 6: skuldsummering)", () => {
-    expect(PROMPT_VERSION).toBe("8");
+  it("är 9 sedan extraktionen fick lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler och energiprojekt (8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("9");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -699,7 +769,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("325dc325c83c870d4e61d3efa0867f524009dd400fbdc849ad1d12646998d046");
+    expect(hash).toBe("015765ab5ef3f04b2ba3e1753eddd32c6afa68dfa6214ba795d40e17cca21326");
   });
 });
 

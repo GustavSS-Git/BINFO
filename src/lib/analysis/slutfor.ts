@@ -6,8 +6,11 @@ import { kontrolleraRimlighet } from "./rimlighet";
 import { buildAnalysJudgementSchema, ExtractionResultSchema } from "./schema";
 import { verifieraSidreferenser, type Sidreferensfynd } from "./sidreferenser";
 import {
+  harledLanData,
   harledSkuldfriaNyckeltal,
+  rensaByggarSaknasSkal,
   rensaSkuldfriaKonfidensSkal,
+  synkaBostadsrattsyta,
   tolkaNyckeltal,
 } from "./tolkaVarde";
 
@@ -78,6 +81,184 @@ function stripOsaker(varde: unknown): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The new optional fields (PROMPT_VERSION 9): loans, maintenance amounts,
+// lokaler, energy projects, planned withdrawal. A malformed or uncited item is
+// DROPPED here, before Zod, instead of failing the whole extraction and burning
+// a retry: absent data is omitted, never guessed.
+// ---------------------------------------------------------------------------
+
+type Rad = Record<string, unknown>;
+
+const arRad = (v: unknown): v is Rad => v !== null && typeof v === "object" && !Array.isArray(v);
+
+const arIsoDatum = (v: unknown): v is string =>
+  typeof v === "string" &&
+  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v) &&
+  !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+
+const arSida = (v: unknown): v is Rad =>
+  arRad(v) && Number.isInteger(v["page"]) && (v["page"] as number) > 0;
+
+/** A page reference WITH a non-empty excerpt: the evidence an item needs. */
+const arCitat = (v: unknown): v is Rad =>
+  arSida(v) && typeof v["excerpt"] === "string" && v["excerpt"].trim() !== "";
+
+const TRISTATE = new Set(["ja", "nej", "okant"]);
+
+/** A Figure that can be kept: a number value (null = nothing to keep), unit and
+ *  source present, and a page whenever the source is the report. `reserv` is
+ *  the item's own reference, lent to a figure that cites the same row. */
+function behallFigur(varde: unknown, reserv?: Rad): Rad | undefined {
+  if (!arRad(varde) || typeof varde["value"] !== "number" || !Number.isFinite(varde["value"])) {
+    return undefined;
+  }
+  if (typeof varde["unit"] !== "string" || typeof varde["source"] !== "string") return undefined;
+  if (varde["source"] === "arsredovisning" && !arSida(varde["ref"])) {
+    return reserv ? { ...varde, ref: { ...reserv } } : undefined;
+  }
+  return varde;
+}
+
+/** Replaces `rad[nyckel]` with its kept Figure or removes the key. */
+function rensaFigurfalt(rad: Rad, nyckel: string, reserv?: Rad): void {
+  const f = behallFigur(rad[nyckel], reserv);
+  if (f) rad[nyckel] = f;
+  else delete rad[nyckel];
+}
+
+function rensaDatum(rad: Rad, nyckel: string): void {
+  if (nyckel in rad && !arIsoDatum(rad[nyckel])) delete rad[nyckel];
+}
+
+function rensaTristate(rad: Rad, nyckel: string): void {
+  if (!TRISTATE.has(String(rad[nyckel]))) rad[nyckel] = "okant";
+}
+
+function rensaText(rad: Rad, nyckel: string): void {
+  const t = rad[nyckel];
+  if (typeof t !== "string" || t.trim() === "") delete rad[nyckel];
+}
+
+function rensaValfriRef(rad: Rad): void {
+  if ("ref" in rad && !arSida(rad["ref"])) delete rad["ref"];
+}
+
+function rensaLan(lanebok: Rad): void {
+  rensaFigurfalt(lanebok, "rantekostnader");
+  if (!Array.isArray(lanebok["lan"])) {
+    delete lanebok["lan"];
+    return;
+  }
+  const lan: Rad[] = [];
+  for (const l of lanebok["lan"]) {
+    if (!arRad(l) || !arCitat(l["ref"])) continue; // an uncited loan row proves nothing
+    const ref = l["ref"];
+    const belopp = behallFigur(l["belopp"], ref);
+    if (!belopp) continue;
+    l["belopp"] = belopp;
+    rensaFigurfalt(l, "ranta", ref);
+    rensaDatum(l, "villkorsandringsdag");
+    rensaText(l, "kreditgivare");
+    if (!["rorlig", "bunden", "okant"].includes(String(l["rantetyp"]))) l["rantetyp"] = "okant";
+    lan.push(l);
+  }
+  if (lan.length > 0) lanebok["lan"] = lan;
+  else delete lanebok["lan"];
+}
+
+function rensaUnderhall(plan: Rad): void {
+  rensaFigurfalt(plan, "underhallsfond");
+  rensaFigurfalt(plan, "arligAvsattning");
+  if (!Array.isArray(plan["planeradeKostnader"])) {
+    delete plan["planeradeKostnader"];
+    return;
+  }
+  const poster: Rad[] = [];
+  for (const k of plan["planeradeKostnader"]) {
+    if (!arRad(k) || typeof k["text"] !== "string" || k["text"].trim() === "") continue;
+    rensaValfriRef(k);
+    const belopp = behallFigur(k["belopp"], arSida(k["ref"]) ? k["ref"] : undefined);
+    if (!belopp) continue; // only planned costs that come with a cited amount
+    k["belopp"] = belopp;
+    if (!["lan", "fond", "beslutad", "ofinansierad", "okant"].includes(String(k["finansiering"]))) {
+      k["finansiering"] = "okant";
+    }
+    for (const ar of ["fran", "till"]) if (ar in k && !Number.isInteger(k[ar])) delete k[ar];
+    poster.push(k);
+  }
+  if (poster.length > 0) plan["planeradeKostnader"] = poster;
+  else delete plan["planeradeKostnader"];
+}
+
+function rensaLokaler(lokaler: Rad): void {
+  rensaFigurfalt(lokaler, "hyresintakter");
+  if (!Array.isArray(lokaler["kontrakt"])) {
+    delete lokaler["kontrakt"];
+    return;
+  }
+  const kontrakt: Rad[] = [];
+  for (const k of lokaler["kontrakt"]) {
+    if (!arRad(k) || !arCitat(k["ref"])) continue;
+    rensaFigurfalt(k, "arshyra", k["ref"]);
+    rensaDatum(k, "slutdatum");
+    rensaText(k, "text");
+    kontrakt.push(k);
+  }
+  if (kontrakt.length > 0) lokaler["kontrakt"] = kontrakt;
+  else delete lokaler["kontrakt"];
+}
+
+/**
+ * Cleans the new optional fields of `forening` in the model's raw JSON (a copy
+ * already). Anything malformed, uncited where a citation is the evidence, or
+ * empty is removed. Never invents a value.
+ */
+export function rensaNyaFalt(raw: unknown): void {
+  if (!arRad(raw) || !arRad(raw["forening"])) return;
+  const forening = raw["forening"];
+
+  rensaDatum(forening, "balansdag");
+  rensaFigurfalt(forening, "bostadsrattsyta");
+
+  if (arRad(forening["lanebok"])) rensaLan(forening["lanebok"]);
+
+  if (arRad(forening["underhallsplan"])) rensaUnderhall(forening["underhallsplan"]);
+
+  const uttag = forening["sparandeUttag"];
+  if (arRad(uttag) && arCitat(uttag["ref"])) {
+    rensaTristate(uttag, "planerat");
+    rensaTristate(uttag, "finansierat");
+    rensaText(uttag, "text");
+  } else {
+    delete forening["sparandeUttag"]; // a claim about financing needs its citation
+  }
+
+  if (arRad(forening["lokaler"])) {
+    rensaLokaler(forening["lokaler"]);
+    if (Object.keys(forening["lokaler"]).length === 0) delete forening["lokaler"];
+  } else {
+    delete forening["lokaler"];
+  }
+
+  if (Array.isArray(forening["energiprojekt"])) {
+    const projekt: Rad[] = [];
+    for (const p of forening["energiprojekt"]) {
+      if (!arRad(p) || typeof p["text"] !== "string" || p["text"].trim() === "") continue;
+      rensaValfriRef(p);
+      rensaFigurfalt(p, "belopp", arSida(p["ref"]) ? p["ref"] : undefined);
+      rensaTristate(p, "finansierat");
+      // "financed" without a citation is a guess: unknown.
+      if (!arCitat(p["ref"])) p["finansierat"] = "okant";
+      projekt.push(p);
+    }
+    if (projekt.length > 0) forening["energiprojekt"] = projekt;
+    else delete forening["energiprojekt"];
+  } else {
+    delete forening["energiprojekt"];
+  }
+}
+
 /**
  * The model sometimes lists only SOME of the five fee-inclusion posts in
  * `avgiftInkluderarEnligtForening` although the schema requires all five (measured
@@ -109,6 +290,7 @@ export function forbehandlaExtraktionsSvar(raw: unknown, ctx: ExtraktionsKontext
   const kopia = structuredClone(raw) as Record<string, unknown>;
   stripOsaker(kopia);
   fyllIOkandaAvgiftsposter(kopia);
+  rensaNyaFalt(kopia);
   if ("datakvalitet" in kopia) {
     const dk = kopia["datakvalitet"];
     if (dk !== null && typeof dk === "object") {
@@ -173,11 +355,16 @@ export interface AvstamdExtraktion {
  *      capped at 'medel' and says so.
  *   6. verifieraSidreferenser — every cited page checked against the page
  *      text (when given); see sidreferenser.ts.
+ *   7. harledLanData — rantetyp per loan and `forfalloprofil` derived from
+ *      `lanebok.lan` (after 6, so it carries the verified refs).
+ *   Before 1: the bostadsrättsyta figure is shared between forening and
+ *   kontrollsummor; the model's "byggår saknas" confidence notes are dropped.
  */
 export function avstamExtraktion(
-  extraction: ExtractionResult,
+  extraktionIn: ExtractionResult,
   ctx: Pick<ExtraktionsKontext, "kalla" | "sidtexter">,
 ): AvstamdExtraktion {
+  const extraction = synkaBostadsrattsyta(extraktionIn);
   const { keyFigures: tolkadeNyckeltal, avvikelser: tolkningsAvvikelser } = tolkaNyckeltal(
     extraction.forening.keyFigures,
   );
@@ -194,9 +381,8 @@ export function avstamExtraktion(
   // The model's own "debt figures missing" note is stale once the debt-free
   // rule has filled them in (see rensaSkuldfriaKonfidensSkal).
   const harleddes = skuldfriaNyckeltal.some((kf, i) => kf !== tolkadeNyckeltal[i]);
-  const modellensKonfidens = rensaSkuldfriaKonfidensSkal(
-    extraction.datakvalitet.extraktionKonfidens,
-    harleddes,
+  const modellensKonfidens = rensaByggarSaknasSkal(
+    rensaSkuldfriaKonfidensSkal(extraction.datakvalitet.extraktionKonfidens, harleddes),
   );
 
   const extraktionKonfidens =
@@ -227,10 +413,11 @@ export function avstamExtraktion(
   const slutlig = ctx.kalla === "skannad" ? kapKonfidensForSkannad(kontrollerad) : kontrollerad;
 
   if (!ctx.sidtexter || ctx.sidtexter.size === 0) {
-    return { extraction: slutlig, sidreferenser: [] };
+    return { extraction: harledLanData(slutlig), sidreferenser: [] };
   }
   const verifierad = verifieraSidreferenser(slutlig, ctx.sidtexter);
-  return { extraction: verifierad.extraction, sidreferenser: verifierad.fynd };
+  // Last: forfalloprofil copies the loans' (verified, possibly corrected) refs.
+  return { extraction: harledLanData(verifierad.extraction), sidreferenser: verifierad.fynd };
 }
 
 /** Steps 1-3 on one raw model answer. */

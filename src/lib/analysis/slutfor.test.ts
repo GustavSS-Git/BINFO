@@ -259,3 +259,227 @@ describe("kontrolleraBedomning: clamp metadata", () => {
     expect(kontrolleraBedomning(medStatusar([]), { betyg: "Z" }, tyst).ok).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The new optional fields of PROMPT_VERSION 9
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw model JSON in tests
+type Rad = Record<string, any>;
+const fig = (value: number | null, unit: string, page = 12, excerpt = "lånerad"): Rad => ({
+  value,
+  unit,
+  source: "arsredovisning",
+  ref: { page, excerpt },
+});
+const lanRad = (belopp: number, dag: string | undefined, extra: Rad = {}): Rad => ({
+  kreditgivare: "SEB",
+  belopp: fig(belopp, "kr"),
+  ranta: fig(2.5, "procent"),
+  ...(dag ? { villkorsandringsdag: dag } : {}),
+  rantetyp: "okant",
+  ref: { page: 12, excerpt: "lånerad" },
+  ...extra,
+});
+
+function ok(raw: unknown) {
+  const r = slutforExtraktion(raw, ctx);
+  if (!r.ok) throw new Error(`ogiltig: ${r.zodError.message}`);
+  return r.value.extraction;
+}
+
+describe("slutforExtraktion: lån (lanebok.lan)", () => {
+  function medLan(lan: Rad[], forening: Rad = {}) {
+    const a = rå() as Rad;
+    delete a["forening"]["lanebok"]["forfalloprofil"];
+    a["forening"]["lanebok"]["lan"] = lan;
+    Object.assign(a["forening"], forening);
+    return a;
+  }
+
+  it("härleder forfalloprofil ur lan och sätter rantetyp efter balansdagen", () => {
+    const e = ok(
+      medLan([lanRad(31_000_000, "2026-03-01"), lanRad(21_000_000, "2029-09-30")], {
+        balansdag: "2025-12-31",
+      }),
+    );
+    const lb = e.forening.lanebok!;
+    expect(lb.lan!.map((l) => l.rantetyp)).toEqual(["rorlig", "okant"]);
+    expect(lb.forfalloprofil!.map((p) => [p.ar, p.belopp.value])).toEqual([
+      [2026, 31_000_000],
+      [2029, 21_000_000],
+    ]);
+  });
+
+  it("modellens rantetyp rorlig/bunden vinner över datumregeln", () => {
+    const e = ok(medLan([lanRad(52_000_000, "2031-01-01", { rantetyp: "rorlig" })]));
+    expect(e.forening.lanebok!.lan![0]!.rantetyp).toBe("rorlig");
+  });
+
+  it("släpper ett lån utan citat (tomt excerpt) i stället för att underkänna hela svaret", () => {
+    const e = ok(
+      medLan([
+        lanRad(31_000_000, "2026-03-01"),
+        lanRad(21_000_000, "2029-09-30", { ref: { page: 12, excerpt: "" } }),
+        lanRad(1, "2029-09-30", { ref: { page: 12 } }),
+      ]),
+    );
+    expect(e.forening.lanebok!.lan).toHaveLength(1);
+    expect(e.forening.lanebok!.forfalloprofil).toHaveLength(1);
+  });
+
+  it("lånebelopp utan egen ref lånar lånradens ref; ogiltigt datum och okänd rantetyp rensas", () => {
+    const rad = lanRad(31_000_000, "2026-13-45", { rantetyp: "fast" });
+    delete rad["belopp"]["ref"];
+    const e = ok(medLan([rad]));
+    const l = e.forening.lanebok!.lan![0]!;
+    expect(l.belopp.ref).toEqual({ page: 12, excerpt: "lånerad" });
+    expect(l.villkorsandringsdag).toBeUndefined();
+    expect(l.rantetyp).toBe("okant");
+    expect(e.forening.lanebok!.forfalloprofil).toBeUndefined();
+  });
+
+  it("ett lån med belopp null släpps; är alla släppta försvinner lan och modellens forfalloprofil gäller", () => {
+    const a = rå() as Rad;
+    a["forening"]["lanebok"]["lan"] = [lanRad(1, "2026-03-01", { belopp: fig(null, "kr") })];
+    const e = ok(a);
+    expect(e.forening.lanebok!.lan).toBeUndefined();
+    expect(e.forening.lanebok!.forfalloprofil).toHaveLength(2); // fixturens, orörd
+  });
+
+  it("utan lan behålls modellens forfalloprofil (gammalt beteende)", () => {
+    const e = ok(rå());
+    expect(e.forening.lanebok!.forfalloprofil!.map((p) => p.ar)).toEqual([2026, 2029]);
+  });
+});
+
+describe("slutforExtraktion: övriga nya fält", () => {
+  const med = (forening: Rad) => {
+    const a = rå() as Rad;
+    Object.assign(a["forening"], forening);
+    return a;
+  };
+
+  it("balansdag: giltig behålls, ogiltig tas bort", () => {
+    expect(ok(med({ balansdag: "2025-08-31" })).forening.balansdag).toBe("2025-08-31");
+    expect(ok(med({ balansdag: "31/8 2025" })).forening.balansdag).toBeUndefined();
+    expect(ok(med({ balansdag: "2025-02-31x" })).forening.balansdag).toBeUndefined();
+  });
+
+  it("bostadsrattsyta: kopieras till kontrollsummor (och tvärtom) när bara en finns", () => {
+    const a = med({ bostadsrattsyta: fig(3750, "m2", 3, "Bostadsrättsarea 3 750 kvm") });
+    const e = ok(a);
+    expect(e.kontrollsummor?.bostadsrattsyta?.value).toBe(3750);
+
+    const b = rå() as Rad;
+    delete b["forening"]["bostadsrattsyta"];
+    b["kontrollsummor"] = { bostadsrattsyta: fig(3200, "m2", 3, "Bostadsrättsarea 3 200 kvm") };
+    expect(ok(b).forening.bostadsrattsyta?.value).toBe(3200);
+  });
+
+  it("planeradeKostnader: bara poster med belopp; okänd finansiering blir okant; underhallsfond behålls", () => {
+    const e = ok(
+      med({
+        underhallsplan: {
+          finns: "ja",
+          planeradeKostnader: [
+            {
+              text: "Stambyte",
+              fran: 2027,
+              till: 2029,
+              belopp: fig(12_000_000, "kr", 6, "Stambyte 12 mkr"),
+              finansiering: "lan",
+              ref: { page: 6, excerpt: "Stambyte 12 mkr" },
+            },
+            { text: "Fasad", belopp: fig(null, "kr"), finansiering: "okant" },
+            { text: "Tak", finansiering: "okant" },
+            {
+              text: "Hiss",
+              belopp: fig(500_000, "kr", 6, "Hiss 500 000"),
+              finansiering: "kanske",
+              fran: 2027.5,
+            },
+          ],
+          underhallsfond: fig(850_000, "kr", 11, "Fond för yttre underhåll 850 000"),
+          arligAvsattning: fig(null, "kr"),
+        },
+      }),
+    );
+    const plan = e.forening.underhallsplan!;
+    expect(plan.planeradeKostnader!.map((k) => k.text)).toEqual(["Stambyte", "Hiss"]);
+    expect(plan.planeradeKostnader![1]).toMatchObject({ finansiering: "okant" });
+    expect(plan.planeradeKostnader![1]!.fran).toBeUndefined();
+    expect(plan.underhallsfond?.value).toBe(850_000);
+    expect(plan.arligAvsattning).toBeUndefined(); // null-värde = inget att behålla
+  });
+
+  it("sparandeUttag utan citat tas bort; med citat behålls", () => {
+    expect(
+      ok(med({ sparandeUttag: { planerat: "ja", finansierat: "ja" } })).forening.sparandeUttag,
+    ).toBeUndefined();
+    const e = ok(
+      med({
+        sparandeUttag: {
+          planerat: "ja",
+          finansierat: "ja",
+          text: "Täcks av fonden.",
+          ref: { page: 4, excerpt: "uttag ur fonden" },
+        },
+      }),
+    );
+    expect(e.forening.sparandeUttag).toMatchObject({ planerat: "ja", finansierat: "ja" });
+  });
+
+  it("lokaler: kontrakt utan citat släpps, tomt objekt försvinner; slutdatum valideras", () => {
+    const e = ok(
+      med({
+        lokaler: {
+          hyresintakter: fig(480_000, "kr", 9, "Hyresintäkter lokaler 480 000"),
+          kontrakt: [
+            { slutdatum: "2026-09-30", ref: { page: 5, excerpt: "avtalet löper till 2026-09-30" } },
+            { slutdatum: "2027-01-01", ref: { page: 5 } },
+            { slutdatum: "snart", ref: { page: 5, excerpt: "avtalet löper ut" } },
+          ],
+        },
+      }),
+    );
+    expect(e.forening.lokaler!.hyresintakter?.value).toBe(480_000);
+    expect(e.forening.lokaler!.kontrakt).toHaveLength(2);
+    expect(e.forening.lokaler!.kontrakt![1]!.slutdatum).toBeUndefined();
+
+    expect(
+      ok(med({ lokaler: { kontrakt: [{ ref: { page: 5 } }] } })).forening.lokaler,
+    ).toBeUndefined();
+  });
+
+  it("energiprojekt: finansierat utan citat blir okant; post utan text släpps", () => {
+    const e = ok(
+      med({
+        energiprojekt: [
+          { text: "Solceller", finansierat: "ja" },
+          {
+            text: "Bergvärme",
+            finansierat: "ja",
+            ref: { page: 5, excerpt: "bergvärme finansieras med lån" },
+            belopp: fig(2_000_000, "kr", 5, "bergvärme 2 mkr"),
+          },
+          { text: "", finansierat: "nej" },
+        ],
+      }),
+    );
+    expect(e.forening.energiprojekt!.map((p) => [p.text, p.finansierat])).toEqual([
+      ["Solceller", "okant"],
+      ["Bergvärme", "ja"],
+    ]);
+  });
+
+  it("byggår saknas skrivs aldrig vidare som konfidensskäl", () => {
+    const a = rå() as Rad;
+    a["datakvalitet"]["extraktionKonfidens"] = {
+      niva: "medel",
+      skal: ["Byggår saknas i rapporten.", "Räntekänsligheten är svårläst."],
+    };
+    const e = ok(a);
+    expect(e.datakvalitet.extraktionKonfidens.skal).toEqual(["Räntekänsligheten är svårläst."]);
+  });
+});

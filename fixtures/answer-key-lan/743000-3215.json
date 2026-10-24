@@ -1,0 +1,105 @@
+{
+  "orgnr": "743000-3215",
+  "namn": "Riksbyggen Brf Helsingborgshus nr 17",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Årsredovisning_2025_Riksbyggen.pdf",
+    "forvaltare": "Riksbyggen",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; lånenoten på sida 23"
+  },
+  "anmarkning": "Not 18 / lånetabell; belopp = Utg.skuld (sista kolumnen), räntesatserna är 'Senast kända'. Räkenskapsåret är 2024-09-01 – 2025-08-31. Notera: tabellen redovisar flera lån med samma kreditgivare.",
+  "balansdag": "2025-08-31",
+  "lanenotSida": 23,
+  "totalSkuld": {
+    "belopp": 49211830,
+    "sida": 23,
+    "tryckt": "Summa 38 630 830,00 11 800 000,00 1 219 000,00 49 211 830,00"
+  },
+  "rantekostnader": {
+    "belopp": 1128384,
+    "sida": 11,
+    "tryckt": "Räntekostnader och liknande resultatposter Not 9 −1 128 384 −921 607"
+  },
+  "lan": [
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 5250000,
+      "ranta": 2.61,
+      "villkorsandringsdag": "2025-09-28",
+      "sida": 23,
+      "tryckt": "SWEDBANK 2,61% 2025-09-28 5 450 000,00 0,00 200 000,00 5 250 000,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 4787500,
+      "ranta": 3.65,
+      "villkorsandringsdag": "2026-03-25",
+      "sida": 23,
+      "tryckt": "SWEDBANK 3,65% 2026-03-25 4 837 500,00 0,00 50 000,00 4 787 500,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 4506723,
+      "ranta": 1.28,
+      "villkorsandringsdag": "2026-09-25",
+      "sida": 23,
+      "tryckt": "SWEDBANK 1,28% 2026-09-25 4 606 723,00 0,00 100 000,00 4 506 723,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 6500000,
+      "ranta": 1.79,
+      "villkorsandringsdag": "2026-10-23",
+      "sida": 23,
+      "tryckt": "SWEDBANK 1,79% 2026-10-23 6 900 000,00 0,00 400 000,00 6 500 000,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 4000000,
+      "ranta": 3.46,
+      "villkorsandringsdag": "2027-02-25",
+      "sida": 23,
+      "tryckt": "SWEDBANK 3,46% 2027-02-25 4 200 000,00 0,00 200 000,00 4 000 000,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 5771000,
+      "ranta": 3.05,
+      "villkorsandringsdag": "2028-03-24",
+      "sida": 23,
+      "tryckt": "SWEDBANK 3,05% 2028-03-24 0,00 5 800 000,00 29 000,00 5 771 000,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 5981250,
+      "ranta": 3.91,
+      "villkorsandringsdag": "2028-05-24",
+      "sida": 23,
+      "tryckt": "SWEDBANK 3,91% 2028-05-24 5 981 250,00 0,00 0,00 5 981 250,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 6000000,
+      "ranta": 2.62,
+      "villkorsandringsdag": "2028-05-24",
+      "sida": 23,
+      "tryckt": "SWEDBANK 2,62% 2028-05-24 0,00 6 000 000,00 0,00 6 000 000,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 3497439,
+      "ranta": 2.62,
+      "villkorsandringsdag": "2028-06-21",
+      "sida": 23,
+      "tryckt": "SWEDBANK 2,62% 2028-06-21 3 597 439,00 0,00 100 000,00 3 497 439,00"
+    },
+    {
+      "kreditgivare": "SWEDBANK",
+      "belopp": 2917918,
+      "ranta": 1.16,
+      "villkorsandringsdag": "2030-10-25",
+      "sida": 23,
+      "tryckt": "SWEDBANK 1,16% 2030-10-25 3 057 918,00 0,00 140 000,00 2 917 918,00"
+    }
+  ]
+}

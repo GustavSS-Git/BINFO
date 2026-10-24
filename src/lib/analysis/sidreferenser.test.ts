@@ -246,3 +246,142 @@ describe("verifieraSidreferenser på riktiga sidtexter", async () => {
     120_000,
   );
 });
+
+describe("verifieraSidreferenser: nya poster (PROMPT_VERSION 9)", () => {
+  const RAD = "SEB 2,5 % 2026-03-28 683 080";
+  const SIDA_LAN = `Not 15 Skulder till kreditinstitut\n${RAD}\nSumma 683 080`;
+  const ref = (page: number, excerpt: string) => ({ page, excerpt });
+  const fig = (value: number, unit: "kr" | "procent", r: ReturnType<typeof ref>) => ({
+    value,
+    unit,
+    source: "arsredovisning" as const,
+    ref: r,
+  });
+
+  function medNytt(nytt: Partial<ExtractionResult["forening"]>): ExtractionResult {
+    return { ...extraktion, forening: { ...extraktion.forening, ...nytt } };
+  }
+  const lanMed = (page: number, excerpt: string) => ({
+    kreditgivare: "SEB",
+    belopp: fig(683080, "kr", ref(page, excerpt)),
+    ranta: fig(2.5, "procent", ref(page, excerpt)),
+    villkorsandringsdag: "2026-03-28",
+    rantetyp: "okant" as const,
+    ref: ref(page, excerpt),
+  });
+  // Sidan 3 bär lånenoten; sida 1-2 och 4 är fyllnad.
+  const texter = sidor(FYLL, FYLL, SIDA_LAN, FYLL);
+
+  it("godtar ett lån vars rad står på den citerade sidan", () => {
+    const e = medNytt({
+      lanebok: { ...extraktion.forening.lanebok!, lan: [lanMed(3, RAD)] },
+    });
+    const r = verifieraSidreferenser(e, texter);
+    expect(r.extraction.forening.lanebok!.lan![0]!.belopp.osaker).toBeUndefined();
+    expect(r.fynd.filter((f) => f.sokvag.includes(".lan[0]")).map((f) => f.status)).toEqual([
+      "ok",
+      "ok",
+      "ok",
+    ]);
+  });
+
+  it("rättar fel sida för lånet och dess belopp/ranta", () => {
+    const e = medNytt({
+      lanebok: { ...extraktion.forening.lanebok!, lan: [lanMed(2, RAD)] },
+    });
+    const l = verifieraSidreferenser(e, texter).extraction.forening.lanebok!.lan![0]!;
+    expect(l.ref.page).toBe(3);
+    expect(l.belopp.ref?.page).toBe(3);
+    expect(l.ranta?.ref?.page).toBe(3);
+  });
+
+  it("markerar lånets belopp osäkert när raden inte finns, men tappar inte lånet", () => {
+    const e = medNytt({
+      lanebok: { ...extraktion.forening.lanebok!, lan: [lanMed(3, "Nordea 9,9 % 1999-01-01")] },
+    });
+    const r = verifieraSidreferenser(e, texter);
+    const l = r.extraction.forening.lanebok!.lan![0]!;
+    expect(l.belopp.osaker).toMatch(/kunde inte styrkas/);
+    expect(l.ranta?.osaker).toBeDefined();
+    expect(r.extraction.datakvalitet.extraktionKonfidens.niva).not.toBe("hog");
+  });
+
+  it("markerar räntekostnader, fond och avsättning osäkra när citatet saknas, rättar sidan annars", () => {
+    const e = medNytt({
+      lanebok: {
+        ...extraktion.forening.lanebok!,
+        rantekostnader: fig(
+          417473,
+          "kr",
+          ref(1, "Räntekostnader och liknande resultatposter -417 473"),
+        ),
+      },
+      underhallsplan: {
+        finns: "ja",
+        underhallsfond: fig(850000, "kr", ref(1, "Fond för yttre underhåll 850 000")),
+        arligAvsattning: fig(300000, "kr", ref(1, "Avsättning 300 000 per år finns ingenstans")),
+      },
+    });
+    const t = sidor(
+      FYLL,
+      "Resultaträkning\nRäntekostnader och liknande resultatposter -417 473",
+      "Balans\nFond för yttre underhåll 850 000",
+    );
+    const f = verifieraSidreferenser(e, t).extraction.forening;
+    expect(f.lanebok!.rantekostnader!.ref?.page).toBe(2);
+    expect(f.lanebok!.rantekostnader!.osaker).toBeUndefined();
+    expect(f.underhallsplan!.underhallsfond!.ref?.page).toBe(3);
+    expect(f.underhallsplan!.arligAvsattning!.osaker).toMatch(/kunde inte styrkas/);
+  });
+
+  it("markerar bostadsrattsyta osäker när citatet inte finns", () => {
+    const e = medNytt({
+      bostadsrattsyta: { ...fig(3750, "kr", ref(1, "Bostadsrättsarea 3 750 kvm")), unit: "m2" },
+    });
+    const f = verifieraSidreferenser(e, sidor(FYLL, FYLL)).extraction.forening;
+    expect(f.bostadsrattsyta!.osaker).toBeDefined();
+  });
+
+  it("tar bort ett lokalkontrakt, ett energiprojekt och sparandeUttag vars citat inte håller", () => {
+    const e = medNytt({
+      lokaler: {
+        hyresintakter: fig(480000, "kr", ref(2, "Hyresintäkter lokaler 480 000")),
+        kontrakt: [
+          { slutdatum: "2026-09-30", ref: ref(2, "avtalet löper till 2026-09-30") },
+          { slutdatum: "2027-01-01", ref: ref(2, "avtal som inte finns") },
+        ],
+      },
+      energiprojekt: [
+        { text: "Solceller", finansierat: "ja", ref: ref(2, "Solceller installeras 2026") },
+        { text: "Bergvärme", finansierat: "ja", ref: ref(2, "finns inte alls") },
+      ],
+      sparandeUttag: { planerat: "ja", finansierat: "ja", ref: ref(2, "påhittat uttag") },
+    });
+    const t = sidor(
+      FYLL,
+      "Hyresintäkter lokaler 480 000. Butiken: avtalet löper till 2026-09-30. Solceller installeras 2026.",
+    );
+    const r = verifieraSidreferenser(e, t);
+    const f = r.extraction.forening;
+    expect(f.lokaler!.kontrakt!.map((c) => c.slutdatum)).toEqual(["2026-09-30"]);
+    expect(f.lokaler!.hyresintakter!.osaker).toBeUndefined();
+    expect(f.energiprojekt!.map((p) => p.text)).toEqual(["Solceller"]);
+    expect(f.sparandeUttag).toBeUndefined();
+    const skal = r.extraction.datakvalitet.extraktionKonfidens.skal ?? [];
+    expect(skal.some((s) => /lokalkontrakt/i.test(s))).toBe(true);
+    expect(skal.some((s) => /Bergvärme/.test(s))).toBe(true);
+    expect(skal.some((s) => /planerat uttag/.test(s))).toBe(true);
+    expect(r.extraction.datakvalitet.extraktionKonfidens.niva).not.toBe("hog");
+  });
+
+  it("rättar sidan på ett lokalkontrakt som står på en annan sida", () => {
+    const e = medNytt({
+      lokaler: {
+        kontrakt: [{ slutdatum: "2026-09-30", ref: ref(1, "Butiken hyrs ut till 2026-09-30") }],
+      },
+    });
+    const t = sidor(FYLL, "Butiken hyrs ut till 2026-09-30, avtalet förlängs");
+    const k = verifieraSidreferenser(e, t).extraction.forening.lokaler!.kontrakt!;
+    expect(k[0]!.ref.page).toBe(2);
+  });
+});

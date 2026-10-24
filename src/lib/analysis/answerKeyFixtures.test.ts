@@ -67,3 +67,61 @@ describe("fixtures/answer-key", () => {
     expect(f.data.lanebok?.totalSkuld).toBe(7_706_397);
   });
 });
+
+describe("fixtures/answer-key-lan", () => {
+  const lanDir = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../fixtures/answer-key-lan",
+  );
+  const lanFiler = readdirSync(lanDir).filter((f) => f.endsWith(".json"));
+  interface LanFacitFilTest {
+    orgnr: string;
+    status: string;
+    kalla: { fil: string };
+    balansdag: string;
+    totalSkuld: { belopp: number };
+    rantekostnader?: { belopp: number };
+    lan: Array<{ belopp: number; ranta: number; villkorsandringsdag: string; sida: number }>;
+  }
+  const nycklar = lanFiler.map((f) => ({
+    fil: f,
+    data: JSON.parse(readFileSync(path.join(lanDir, f), "utf-8")) as LanFacitFilTest,
+  }));
+
+  it("finns för de fem rapporterna med lånenot", () => {
+    expect(nycklar.map((n) => n.data.orgnr).sort()).toEqual([
+      "716419-8579",
+      "716420-0599",
+      "716421-9722",
+      "743000-3215",
+      "769616-0253",
+    ]);
+  });
+
+  it("varje nyckel heter som sitt orgnr, är markerad UTKAST och har ISO-datum", () => {
+    for (const { fil, data } of nycklar) {
+      expect(fil, fil).toBe(`${data.orgnr}.json`);
+      expect(data.status, fil).toBe("UTKAST");
+      expect(data.balansdag, fil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      for (const l of data.lan) {
+        expect(l.villkorsandringsdag, fil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(l.ranta, fil).toBeGreaterThan(0);
+        expect(l.sida, fil).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("lånen summerar till den tryckta totalen", () => {
+    for (const { fil, data } of nycklar) {
+      const summa = data.lan.reduce((s, l) => s + l.belopp, 0);
+      expect(summa, fil).toBe(data.totalSkuld.belopp);
+    }
+  });
+
+  it("de fem som har en nyckeltalsnyckel pekar på samma PDF", () => {
+    for (const { data } of nycklar) {
+      const nyckeltalsNyckel = fixtures.find((f) => f.data.orgnr === data.orgnr);
+      if (nyckeltalsNyckel) expect(nyckeltalsNyckel.data.kalla.fil).toBe(data.kalla.fil);
+    }
+  });
+});
