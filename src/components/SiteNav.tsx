@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { LinkButton } from "@/components/ui/binfo";
 import { useSession } from "@/lib/session";
 
 const links = [
@@ -17,19 +18,19 @@ function KontoLank() {
   const { lage } = useSession();
   if (lage === "laddar") {
     return (
-      <span aria-hidden="true" className="invisible rounded-full px-3 py-2 text-sm">
+      <span aria-hidden="true" className="invisible rounded-full px-4 py-2 text-sm">
         Mitt konto
       </span>
     );
   }
   return lage === "inloggad" ? (
-    <Link to="/konto" className={lankKlass}>
+    <LinkButton to="/konto" size="md" className="px-4 py-2">
       Mitt konto
-    </Link>
+    </LinkButton>
   ) : (
-    <Link to="/konto/logga-in" className={lankKlass}>
+    <LinkButton to="/konto/logga-in" size="md" className="px-4 py-2">
       Logga in
-    </Link>
+    </LinkButton>
   );
 }
 
