@@ -219,6 +219,7 @@ function rensaUnderhall(plan: Rad): void {
 
 function rensaLokaler(lokaler: Rad): void {
   rensaFigurfalt(lokaler, "hyresintakter");
+  rensaForlustsignaler(lokaler);
   if (!Array.isArray(lokaler["kontrakt"])) {
     delete lokaler["kontrakt"];
     return;
@@ -233,6 +234,71 @@ function rensaLokaler(lokaler: Rad): void {
   }
   if (kontrakt.length > 0) lokaler["kontrakt"] = kontrakt;
   else delete lokaler["kontrakt"];
+}
+
+/**
+ * Loss signals for lokal rent (PROMPT_VERSION 11): cited statements only; an
+ * arshyra is kept when positive. A shape that is not a list removes the field.
+ */
+function rensaForlustsignaler(lokaler: Rad): void {
+  if (!Array.isArray(lokaler["forlustsignaler"])) {
+    delete lokaler["forlustsignaler"];
+    return;
+  }
+  const kvar: Rad[] = [];
+  for (const sig of lokaler["forlustsignaler"]) {
+    if (!arRad(sig) || !arCitat(sig["ref"])) continue;
+    if (typeof sig["text"] !== "string" || sig["text"].trim() === "") continue;
+    rensaPositivtFigurfalt(sig, "arshyra");
+    kvar.push(sig);
+  }
+  if (kvar.length > 0) lokaler["forlustsignaler"] = kvar;
+  else delete lokaler["forlustsignaler"];
+}
+
+/** Largest believable change of an årsavgift in one step, percent (absolute).
+ *  A larger number is taken to be a misread (e.g. a kr amount or a total). */
+// TODO: unverified placeholder (owner 2026-10-25)
+const MAX_AVGIFTSANDRING_PROCENT = 50;
+
+/**
+ * Decided or planned changes of the årsavgift (PROMPT_VERSION 11). Dropped:
+ * uncited, no text, status other than beslutad/planerad, procent not a finite
+ * number in unit "procent", |procent| above the limit (logged), and repeats of
+ * the same procent + fran. An invalid `fran` is removed, the item stays.
+ */
+function rensaAvgiftsandringar(forening: Rad): void {
+  if (!Array.isArray(forening["avgiftsandringar"])) {
+    delete forening["avgiftsandringar"];
+    return;
+  }
+  const sett = new Set<string>();
+  const kvar: Rad[] = [];
+  for (const a of forening["avgiftsandringar"]) {
+    if (!arRad(a) || !arCitat(a["ref"])) continue;
+    if (typeof a["text"] !== "string" || a["text"].trim() === "") continue;
+    if (a["status"] !== "beslutad" && a["status"] !== "planerad") continue;
+    const procent = behallFigur(a["procent"], a["ref"]);
+    if (!procent || procent["unit"] !== "procent") {
+      console.warn("avgiftsandringar: item dropped, procent is not a number in unit procent");
+      continue;
+    }
+    const p = procent["value"] as number;
+    if (Math.abs(p) > MAX_AVGIFTSANDRING_PROCENT) {
+      console.warn(
+        `avgiftsandringar: item dropped, |procent| ${p} exceeds ${MAX_AVGIFTSANDRING_PROCENT}`,
+      );
+      continue;
+    }
+    a["procent"] = procent;
+    rensaDatum(a, "fran");
+    const nyckel = `${p}:${String(a["fran"] ?? "")}`;
+    if (sett.has(nyckel)) continue;
+    sett.add(nyckel);
+    kvar.push(a);
+  }
+  if (kvar.length > 0) forening["avgiftsandringar"] = kvar;
+  else delete forening["avgiftsandringar"];
 }
 
 const BYGGDELAR = new Set(["stambyte", "tak", "fasad", "fonster", "ventilation", "el", "hiss"]);
@@ -311,6 +377,8 @@ export function rensaNyaFalt(raw: unknown): void {
   } else {
     delete forening["lokaler"];
   }
+
+  rensaAvgiftsandringar(forening);
 
   if (Array.isArray(forening["energiprojekt"])) {
     const projekt: Rad[] = [];

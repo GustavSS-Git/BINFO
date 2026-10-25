@@ -289,7 +289,16 @@ export interface Forening {
     hyresintakter?: Figure;
     /** Leases with a stated end date. Every item cited. */
     kontrakt?: Array<{ text?: string; arshyra?: Figure; slutdatum?: string; ref: PageRef }>;
+    /** Statements that lokal rent will fall away (lease terminated, tenant
+     *  leaving, vacant premises, tenant insolvent, rent dispute or reduction)
+     *  (PROMPT_VERSION 11). A lease end date alone is NOT a signal. Only these
+     *  feed the 'lokaler' fee component (owner 2026-10-25). */
+    forlustsignaler?: Array<{ text: string; arshyra?: Figure; ref: PageRef }>;
   };
+
+  /** Decided or announced changes of the bostäder's årsavgift (older
+   *  föreningar call it "hyra"), never lokal rents (PROMPT_VERSION 11). */
+  avgiftsandringar?: Avgiftsandring[];
 
   /** Energy projects the report names (solceller, bergvärme, …). */
   energiprojekt?: Array<{ text: string; belopp?: Figure; finansierat: Tristate; ref?: PageRef }>;
@@ -315,6 +324,18 @@ export interface Forening {
 /** Building parts whose age moves the schablon savings target
  *  (docs/underhall-referens.md). */
 export type Byggdel = "stambyte" | "tak" | "fasad" | "fonster" | "ventilation" | "el" | "hiss";
+
+/** A change of the årsavgift the report states (PROMPT_VERSION 11). */
+export interface Avgiftsandring {
+  /** Signed percent: +25 = höjning med 25 %. */
+  procent: Figure;
+  /** First day the new fee applies, YYYY-MM-DD ("från 1 maj 2024" →
+   *  2024-05-01, "från 2025" → 2025-01-01). Absent when not stated. */
+  fran?: string;
+  status: "beslutad" | "planerad";
+  text: string;
+  ref: PageRef;
+}
 
 /** One loan from the loan note. Cited with an excerpt like any extracted item. */
 export interface Lan {
@@ -545,8 +566,9 @@ export interface Rantestress {
   nuvarandeManadsavgift: Figure;
   scenarier: RantestressScenario[];
   kommentar: string;
-  /** Today / expected / +1 / +2 pp on debt that reprices within the horizon.
-   *  Rows +1/+2 are absent when the repricing debt is unknown. */
+  /** Today / expected / expected + the räntekänslighet scenario increment for
+   *  +1 / +2 pp (the same kr/month as the web slider, 2026-10-25). Rows +1/+2
+   *  are absent when räntekänslighet is null. */
   prognosTabell?: { rader: AvgiftstabellRad[]; kommentar: string };
 }
 
@@ -554,7 +576,14 @@ export interface Rantestress {
 // Expected fee rise (round 2026-10-24b) — see docs/avgiftsprognos.md
 // ---------------------------------------------------------------------------
 
-export type AvgiftsKomponentId = "spargap" | "refinansiering" | "underhall" | "lokaler" | "energi";
+export type AvgiftsKomponentId =
+  | "spargap"
+  | "refinansiering"
+  | "underhall"
+  | "lokaler"
+  | "energi"
+  /** A decided årsavgift rise that has not taken effect yet (2026-10-25). */
+  | "beslutad_hojning";
 
 export interface AvgiftsKomponent {
   id: AvgiftsKomponentId;
@@ -666,6 +695,27 @@ export interface Avgiftsprognos {
   /** Pressure colour of the total. */
   tryck?: Tryck;
   sparbehov?: Sparbehov;
+  /** INTERNAL check (owner 2026-10-25): has each stated årsavgift change
+   *  already taken effect in the buyer's fee? Stored for Binfo's own review of
+   *  drafts; never rendered on the web or in the PDF. */
+  avgiftsandringKontroll?: AvgiftsandringKontroll[];
+}
+
+export interface AvgiftsandringKontroll {
+  procent: number;
+  fran?: string;
+  /** `fran` versus the day of the calculation. */
+  datum: "passerat" | "framtida" | "okant";
+  /** årsavgift/m² bostadsrättsyta × boarea ÷ 12, kr/month, before and after
+   *  the change; null when the key figure is missing. */
+  uppskattadAvgiftFore: number | null;
+  uppskattadAvgiftEfter: number | null;
+  /** Which estimate the buyer's fee is closer to. */
+  avgift: "matchar_fore" | "matchar_efter" | "okant";
+  slutsats: "i_kraft" | "ej_i_kraft" | "okant";
+  /** Date and fee point different ways (the date decides). */
+  konflikt: boolean;
+  ref?: PageRef;
 }
 
 /** Report data vs the buyer's input, per field (round 2026-10-24b). */

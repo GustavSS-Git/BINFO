@@ -458,8 +458,32 @@ export const ForeningSchema = z
               .strict(),
           )
           .optional(),
+        forlustsignaler: z
+          .array(
+            z
+              .object({
+                text: z.string().min(1),
+                arshyra: FigureSchema.optional(),
+                ref: CitatPageRefSchema,
+              })
+              .strict(),
+          )
+          .optional(),
       })
       .strict()
+      .optional(),
+    avgiftsandringar: z
+      .array(
+        z
+          .object({
+            procent: FigureSchema,
+            fran: IsoDatumSchema.optional(),
+            status: z.enum(["beslutad", "planerad"]),
+            text: z.string().min(1),
+            ref: CitatPageRefSchema,
+          })
+          .strict(),
+      )
       .optional(),
     energiprojekt: z
       .array(
@@ -701,7 +725,7 @@ export const TryckSchema = z.enum(["gron", "gul", "rod"]);
 
 export const AvgiftsKomponentSchema = z
   .object({
-    id: z.enum(["spargap", "refinansiering", "underhall", "lokaler", "energi"]),
+    id: z.enum(["spargap", "refinansiering", "underhall", "lokaler", "energi", "beslutad_hojning"]),
     label: z.string(),
     status: z.enum(["beraknad", "saknar_underlag", "ej_aktuell"]),
     foreningKrPerAr: z.number().nullable(),
@@ -799,6 +823,23 @@ export const AvgiftsprognosSchema = z
     osaker: z.string().min(1).optional(),
     tryck: TryckSchema.optional(),
     sparbehov: SparbehovSchema.optional(),
+    avgiftsandringKontroll: z
+      .array(
+        z
+          .object({
+            procent: z.number(),
+            fran: IsoDatumSchema.optional(),
+            datum: z.enum(["passerat", "framtida", "okant"]),
+            uppskattadAvgiftFore: z.number().nullable(),
+            uppskattadAvgiftEfter: z.number().nullable(),
+            avgift: z.enum(["matchar_fore", "matchar_efter", "okant"]),
+            slutsats: z.enum(["i_kraft", "ej_i_kraft", "okant"]),
+            konflikt: z.boolean(),
+            ref: PageRefSchema.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();
 

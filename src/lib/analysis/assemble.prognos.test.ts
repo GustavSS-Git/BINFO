@@ -98,6 +98,42 @@ describe("assembly with the fee prognosis", () => {
     expect(r.uppgiftsjamforelse?.find((x) => x.falt === "byggar")?.status).toBe("bekraftat");
   });
 
+  it("PROMPT_VERSION 11 fields: the fixture's 12 % raise from 2026-01-01 is checked (780 × 62 ÷ 12 = 4 030 vs fee 4 200), stored and validates", async () => {
+    const r = await montera();
+    expect(AnalysisResultSchema.safeParse(r).success).toBe(true);
+    // 4 030 × 1,12 = 4 513,6; |4 200 − 4 030| = 170 < 313,6 → matchar_fore; date passed → i_kraft, konflikt
+    expect(r.avgiftsprognos?.avgiftsandringKontroll).toEqual([
+      expect.objectContaining({
+        procent: 12,
+        fran: "2026-01-01",
+        datum: "passerat",
+        uppskattadAvgiftFore: 4030,
+        uppskattadAvgiftEfter: 4514,
+        avgift: "matchar_fore",
+        slutsats: "i_kraft",
+        konflikt: true,
+      }),
+    ]);
+    const k = r.avgiftsprognos?.komponenter.find((c) => c.id === "beslutad_hojning");
+    expect(k?.status).toBe("ej_aktuell");
+    // the fixture's lokaler signal (120 000 × 0,5) is the only lokal rent at risk
+    expect(r.avgiftsprognos?.komponenter.find((c) => c.id === "lokaler")?.foreningKrPerAr).toBe(
+      60_000,
+    );
+  });
+
+  it("an old extraction without avgiftsandringar and forlustsignaler still assembles: no check, both components ej_aktuell", async () => {
+    const gammal = structuredClone(extraktion);
+    delete gammal.forening.avgiftsandringar;
+    delete gammal.forening.lokaler;
+    const r = await montera(gammal);
+    expect(AnalysisResultSchema.safeParse(r).success).toBe(true);
+    expect(r.avgiftsprognos?.avgiftsandringKontroll).toBeUndefined();
+    for (const id of ["beslutad_hojning", "lokaler"] as const) {
+      expect(r.avgiftsprognos?.komponenter.find((c) => c.id === id)?.status).toBe("ej_aktuell");
+    }
+  });
+
   it("the grade never moves the price: A and E give identical price blocks", async () => {
     const a = await montera(extraktion, {}, { ...bedomning, betyg: "A" });
     const e = await montera(extraktion, {}, { ...bedomning, betyg: "E" });

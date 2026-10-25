@@ -14,14 +14,28 @@
  *   always `saknar_underlag` (a missing plan, `finns: nej` and a plan without
  *   amounts all tell us nothing about the next years); only the wording
  *   differs. With amounts that all fall outside the window → beraknad 0.
- * - Lokaler: a lease without `slutdatum` is treated as not ending; ending
- *   leases without arshyra use hyresintakter ÷ number of leases each.
+ * - Lokaler (owner 2026-10-25): rent counts only when the report states a
+ *   loss signal (`lokaler.forlustsignaler`: terminated lease, tenant leaving,
+ *   vacant, insolvent tenant, rent dispute or reduction). A lease end date
+ *   alone is NOT a signal (a lease normally runs on), and neither is an old
+ *   extraction without the field: both give `ej_aktuell`. A signal without
+ *   arshyra uses hyresintakter ÷ max(kontrakt, antalLokaler, 1), all signals
+ *   capped at hyresintakter.
+ * - Beslutad avgiftshöjning (owner 2026-10-25): a decided/planned raise of the
+ *   årsavgift that has NOT taken effect adds manadsavgift × % to the fee. The
+ *   report is from before the raise, so an internal check (never shown)
+ *   decides from the date and from the key figure årsavgift/m² whether the
+ *   buyer's fee already contains it. Every relevant raise also offsets the
+ *   spargap component (it is the förening's answer to the gap): see
+ *   `motverkaSpargap`.
  * - Assumed refinancing (no maturities): the current rate is snittranta, else
  *   the amount-weighted rate of the listed loans, else räntekostnader ÷ skuld.
  *   `totalSpannVidAntagande` is normalised so lag ≤ hog even when the
  *   refinancing is negative.
  */
 import type {
+  Avgiftsandring,
+  AvgiftsandringKontroll,
   AvgiftsKomponent,
   Avgiftsprognos,
   Figure,
@@ -678,18 +692,14 @@ function underhall(forening: Forening, idag: string, andel: number | null): Avgi
   );
 }
 
-function lokaler(
-  forening: Forening,
-  balansdag: string,
-  horisontSlut: string,
-  andel: number | null,
-): AvgiftsKomponent {
+function lokaler(forening: Forening, andel: number | null): AvgiftsKomponent {
   const label = "Lokalhyror som kan falla bort";
   const lk = forening.lokaler;
   const antal = varde(forening.antalLokaler) ?? 0;
   const hyra = varde(lk?.hyresintakter);
   const kontrakt = lk?.kontrakt ?? [];
-  const finnsLokaler = antal > 0 || (hyra ?? 0) > 0 || kontrakt.length > 0;
+  const signaler = lk?.forlustsignaler ?? [];
+  const finnsLokaler = antal > 0 || (hyra ?? 0) > 0 || kontrakt.length > 0 || signaler.length > 0;
   if (!finnsLokaler) {
     return komponent(
       {
@@ -702,10 +712,14 @@ function lokaler(
       andel,
     );
   }
-  const ref = lk?.hyresintakter?.ref ?? kontrakt[0]?.ref;
+  const ref = lk?.hyresintakter?.ref ?? signaler[0]?.ref ?? kontrakt[0]?.ref;
   // Cited zero lokal rent for the year: nothing left that can fall away (the
   // loss, if any, is already in today's accounts and fee).
-  if (hyra === 0 && !kontrakt.some((k) => (varde(k.arshyra) ?? 0) > 0)) {
+  if (
+    hyra === 0 &&
+    !kontrakt.some((k) => (varde(k.arshyra) ?? 0) > 0) &&
+    !signaler.some((s) => (varde(s.arshyra) ?? 0) > 0)
+  ) {
     return komponent(
       {
         id: "lokaler",
@@ -719,41 +733,31 @@ function lokaler(
       ref,
     );
   }
-  if (!kontrakt.some((k) => k.slutdatum !== undefined)) {
+  if (signaler.length === 0) {
+    const belopp = hyra !== null && hyra > 0 ? ` (${kr(hyra)} kr per år)` : "";
     return komponent(
       {
         id: "lokaler",
         label,
-        status: "saknar_underlag",
-        foreningKrPerAr: null,
-        forklaring:
-          "Föreningen hyr ut lokaler, men årsredovisningen anger inte när hyresavtalen går ut.",
-      },
-      andel,
-      ref,
-    );
-  }
-  const slutar = kontrakt.filter(
-    (k) => k.slutdatum !== undefined && k.slutdatum >= balansdag && k.slutdatum <= horisontSlut,
-  );
-  if (slutar.length === 0) {
-    return komponent(
-      {
-        id: "lokaler",
-        label,
-        status: "beraknad",
+        status: "ej_aktuell",
         foreningKrPerAr: 0,
-        forklaring: `Inget hyresavtal för lokaler går ut inom ${HORISONT_MANADER} månader enligt årsredovisningen.`,
+        forklaring:
+          `Föreningen hyr ut lokaler${belopp}. Inget i årsredovisningen tyder på att hyresintäkterna ` +
+          "faller bort, så vi räknar inte med något bortfall.",
       },
       andel,
       ref,
     );
   }
+  // At least one stated loss signal. Rent at risk = the signals' own rents;
+  // a signal without a rent figure gets an equal share of the year's lokal
+  // rent, and the total never exceeds that rent.
+  const delar = Math.max(kontrakt.length, antal, 1);
   let summa = 0;
-  for (const k of slutar) {
-    const h = varde(k.arshyra);
+  for (const sig of signaler) {
+    const h = varde(sig.arshyra);
     if (h !== null) summa += h;
-    else if (hyra !== null) summa += hyra / kontrakt.length;
+    else if (hyra !== null) summa += hyra / delar;
     else {
       return komponent(
         {
@@ -761,13 +765,15 @@ function lokaler(
           label,
           status: "saknar_underlag",
           foreningKrPerAr: null,
-          forklaring: `${slutar.length} hyresavtal för lokaler går ut inom ${HORISONT_MANADER} månader, men hyran står inte i årsredovisningen.`,
+          forklaring:
+            "Årsredovisningen tyder på att en lokalhyra kan falla bort, men hyran står inte i årsredovisningen.",
         },
         andel,
         ref,
       );
     }
   }
+  if (hyra !== null && hyra > 0) summa = Math.min(summa, hyra);
   const perAr = avrunda(summa * LOKALHYRA_RISKANDEL);
   return komponent(
     {
@@ -776,12 +782,258 @@ function lokaler(
       status: "beraknad",
       foreningKrPerAr: perAr,
       forklaring:
-        `${slutar.length} hyresavtal för lokaler (${kr(summa)} kr i hyra per år) går ut inom ${HORISONT_MANADER} månader. ` +
+        `Årsredovisningen tyder på att en lokalhyra kan falla bort (${kr(summa)} kr i hyra per år). ` +
         `Vi räknar med att ${pct(LOKALHYRA_RISKANDEL * 100)} % av hyran kan falla bort, cirka ${kr(perAr)} kr per år.`,
     },
     andel,
     ref,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Decided fee raises (owner 2026-10-25)
+// ---------------------------------------------------------------------------
+
+const MANADSNAMN = [
+  "januari",
+  "februari",
+  "mars",
+  "april",
+  "maj",
+  "juni",
+  "juli",
+  "augusti",
+  "september",
+  "oktober",
+  "november",
+  "december",
+];
+
+function datumText(iso: string): string {
+  return `${Number(iso.slice(8, 10))} ${MANADSNAMN[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+}
+
+interface RelevantAndring {
+  a: Avgiftsandring;
+  procent: number;
+  kontroll: AvgiftsandringKontroll;
+}
+
+/**
+ * The internal check, per relevant change. Relevant: a RAISE (procent > 0)
+ * that is not already in the accounts (`fran` absent or after the balance
+ * date). A change on/before the balance date is in the report's own figures,
+ * and a decrease is ignored (we never price a decided cut). A procent marked
+ * `osaker` (its citation did not hold) is not used.
+ *
+ * Estimated fee (kr/month) = the key figure årsavgift/m² bostadsrättsyta ×
+ * boarea ÷ 12 (the flat's fee at the report's level, approximated by the
+ * average per m²). The list is sorted by `fran` (undated last); each change's
+ * "före" is the previous change's "efter" (raises compound), so a later raise
+ * is compared with a fee that already contains the earlier ones. The key
+ * figure is the fiscal year's level, so for a raise after the balance date it
+ * is the right "före" of the first raise.
+ *
+ * Conclusion: a known date decides (passed → in effect, future → not yet);
+ * `konflikt` when the fee points the other way. Without a date the fee decides
+ * (the closer estimate; a tie or a missing key figure → "okant").
+ */
+function byggAvgiftsandringar(input: AvgiftsprognosInput, balansdag: string): RelevantAndring[] {
+  const { forening, manadsavgift, boarea, idag } = input;
+  const relevanta = (forening.avgiftsandringar ?? []).flatMap((a) => {
+    const p = a.procent.value;
+    if (p === null || !Number.isFinite(p) || p <= 0 || a.procent.osaker !== undefined) return [];
+    if (a.fran !== undefined && a.fran <= balansdag) return [];
+    return [{ a, p }];
+  });
+  relevanta.sort((x, y) => (x.a.fran ?? "9999-12-31").localeCompare(y.a.fran ?? "9999-12-31"));
+
+  const nyckel = forening.keyFigures.find((k) => k.id === "arsavgift_per_m2_brf_yta")?.figure;
+  const perM2 = nyckel && nyckel.osaker === undefined ? nyckel.value : null;
+  let fore: number | null =
+    perM2 !== null && perM2 > 0 && boarea > 0 && manadsavgift > 0 ? (perM2 * boarea) / 12 : null;
+
+  return relevanta.map(({ a, p }) => {
+    const efter: number | null = fore === null ? null : fore * (1 + p / 100);
+    const datum: AvgiftsandringKontroll["datum"] =
+      a.fran === undefined ? "okant" : a.fran <= idag ? "passerat" : "framtida";
+    let avgift: AvgiftsandringKontroll["avgift"] = "okant";
+    if (fore !== null && efter !== null) {
+      const dFore = Math.abs(manadsavgift - fore);
+      const dEfter = Math.abs(manadsavgift - efter);
+      avgift = dEfter < dFore ? "matchar_efter" : dFore < dEfter ? "matchar_fore" : "okant";
+    }
+    let slutsats: AvgiftsandringKontroll["slutsats"];
+    let konflikt = false;
+    if (datum === "passerat") {
+      slutsats = "i_kraft";
+      konflikt = avgift === "matchar_fore";
+    } else if (datum === "framtida") {
+      slutsats = "ej_i_kraft";
+      konflikt = avgift === "matchar_efter";
+    } else {
+      slutsats =
+        avgift === "matchar_efter" ? "i_kraft" : avgift === "matchar_fore" ? "ej_i_kraft" : "okant";
+    }
+    const kontroll: AvgiftsandringKontroll = {
+      procent: p,
+      ...(a.fran !== undefined ? { fran: a.fran } : {}),
+      datum,
+      uppskattadAvgiftFore: fore === null ? null : avrunda(fore),
+      uppskattadAvgiftEfter: efter === null ? null : avrunda(efter),
+      avgift,
+      slutsats,
+      konflikt,
+      ...(a.ref ? { ref: a.ref } : {}),
+    };
+    fore = efter;
+    return { a, procent: p, kontroll };
+  });
+}
+
+function franText(r: RelevantAndring): string {
+  return r.a.fran ? ` från ${datumText(r.a.fran)}` : "";
+}
+
+/** "Den beslutade höjningen på 25 % från 1 maj 2024" */
+function hojningBestamd(r: RelevantAndring): string {
+  return `Den ${r.a.status === "planerad" ? "planerade" : "beslutade"} höjningen på ${pct(r.procent)} %${franText(r)}`;
+}
+
+/** "en beslutad höjning av årsavgiften på 25 % från 1 maj 2024" */
+function hojningObestamd(r: RelevantAndring): string {
+  return `en ${r.a.status === "planerad" ? "planerad" : "beslutad"} höjning av årsavgiften på ${pct(r.procent)} %${franText(r)}`;
+}
+
+function beslutadHojning(
+  rel: RelevantAndring[],
+  manadsavgift: number,
+  andel: number | null,
+): AvgiftsKomponent {
+  const label = "Beslutad avgiftshöjning som inte har trätt i kraft";
+  if (rel.length === 0) {
+    return komponent(
+      {
+        id: "beslutad_hojning",
+        label,
+        status: "ej_aktuell",
+        foreningKrPerAr: 0,
+        forklaring:
+          "Årsredovisningen nämner ingen beslutad eller planerad höjning av årsavgiften som ännu inte gäller.",
+      },
+      andel,
+    );
+  }
+  const ref = rel[0]?.a.ref;
+  const ejIKraft = rel.filter((r) => r.kontroll.slutsats === "ej_i_kraft");
+  const iKraft = rel.filter((r) => r.kontroll.slutsats === "i_kraft");
+  const okanda = rel.filter((r) => r.kontroll.slutsats === "okant");
+  const iKraftText = iKraft.map((r) => `${hojningBestamd(r)} ingår redan i din avgift.`).join(" ");
+  if (okanda.length > 0) {
+    return komponent(
+      {
+        id: "beslutad_hojning",
+        label,
+        status: "saknar_underlag",
+        foreningKrPerAr: null,
+        forklaring:
+          `Årsredovisningen nämner ${okanda.map(hojningObestamd).join(" och ")}, ` +
+          `men vi kan inte avgöra om ${okanda.length === 1 ? "den" : "de"} redan ingår i din avgift.`,
+      },
+      andel,
+      ref,
+    );
+  }
+  if (ejIKraft.length === 0) {
+    return komponent(
+      {
+        id: "beslutad_hojning",
+        label,
+        status: "ej_aktuell",
+        foreningKrPerAr: 0,
+        forklaring: iKraftText,
+      },
+      andel,
+      ref,
+    );
+  }
+  // Σ manadsavgift × % (kr/month for the flat). The BRF figure is that × 12 ÷
+  // andel, i.e. the förening's yearly fee revenue × %, so the component's
+  // kr/month (foreningKrPerAr × andel ÷ 12) comes back to the same number.
+  const perManad = ejIKraft.reduce((s, r) => s + (manadsavgift * r.procent) / 100, 0);
+  const perAr = andel === null ? null : avrunda((perManad * 12) / andel);
+  return komponent(
+    {
+      id: "beslutad_hojning",
+      label,
+      status: "beraknad",
+      foreningKrPerAr: perAr,
+      forklaring:
+        `Årsredovisningen visar ${ejIKraft.map(hojningObestamd).join(" och ")}, som ännu inte gäller i din avgift. ` +
+        `${ejIKraft.length === 1 ? "Den" : "De"} höjer avgiften med cirka ${kr(perManad)} kr i månaden.` +
+        (iKraftText ? ` ${iKraftText}` : ""),
+    },
+    andel,
+    ref,
+  );
+}
+
+/**
+ * A decided or planned raise of the årsavgift is the förening's own answer to
+ * its savings gap, so it is subtracted from the spargap component's BRF
+ * amount (floor 0; only a calculated, positive gap; other components are NOT
+ * offset). Yearly revenue of a raise = the förening's fee revenue
+ * (manadsavgift × 12 ÷ andel) × %. For a raise that is already in the buyer's
+ * fee the revenue is measured before the raise: fee × % ÷ (1 + %), because
+ * today's fee contains it. Raises in the future or of unknown status use
+ * fee × %. Without `andel` the revenue is unknown and nothing is offset.
+ */
+function motverkaSpargap(
+  gap: AvgiftsKomponent,
+  rel: RelevantAndring[],
+  manadsavgift: number,
+  andel: number | null,
+): AvgiftsKomponent {
+  if (
+    rel.length === 0 ||
+    andel === null ||
+    gap.status !== "beraknad" ||
+    gap.foreningKrPerAr === null ||
+    gap.foreningKrPerAr <= 0
+  ) {
+    return gap;
+  }
+  const intakt = (manadsavgift * 12) / andel;
+  const motverkan = rel.reduce(
+    (s, r) =>
+      s +
+      (r.kontroll.slutsats === "i_kraft"
+        ? (intakt * (r.procent / 100)) / (1 + r.procent / 100)
+        : intakt * (r.procent / 100)),
+    0,
+  );
+  if (!(motverkan > 0)) return gap;
+  const glapp = gap.foreningKrPerAr;
+  const ny = Math.max(0, avrunda(glapp - motverkan));
+  const taxt = rel.every((r) => r.a.status === "beslutad")
+    ? "beslutade"
+    : "beslutade eller planerade";
+  const procentLista = rel.map((r) => `${pct(r.procent)} %`);
+  const procentText =
+    procentLista.length === 1
+      ? procentLista[0]
+      : `${procentLista.slice(0, -1).join(", ")} och ${procentLista[procentLista.length - 1]}`;
+  const tackt = Math.min(glapp, avrunda(motverkan));
+  const mening =
+    rel.length === 1
+      ? ` Den ${taxt} höjningen av årsavgiften på ${procentText} ger föreningen cirka ${kr(motverkan)} kr mer per år och täcker ${ny === 0 ? "hela glappet" : `${kr(tackt)} kr av glappet`}.`
+      : ` De ${taxt} höjningarna av årsavgiften på ${procentText} ger föreningen cirka ${kr(motverkan)} kr mer per år och täcker ${ny === 0 ? "hela glappet" : `${kr(tackt)} kr av glappet`}.`;
+  return {
+    ...gap,
+    foreningKrPerAr: ny,
+    krPerManad: avrunda((ny * andel) / 12),
+    forklaring: gap.forklaring + mening,
+  };
 }
 
 function energi(forening: Forening, andel: number | null): AvgiftsKomponent {
@@ -850,12 +1102,14 @@ export function beraknaAvgiftsprognos(input: AvgiftsprognosInput): Avgiftsprogno
 
   const refin = refinansiering(input, andel, horisontSlut);
   const gap = sparandegap(input, andel);
+  const hojningar = byggAvgiftsandringar(input, balansdag);
   const komponenter: AvgiftsKomponent[] = [
-    gap.komponent,
+    motverkaSpargap(gap.komponent, hojningar, manadsavgift, andel),
     refin.komponent,
     underhall(forening, idag, andel),
-    lokaler(forening, balansdag, horisontSlut, andel),
+    lokaler(forening, andel),
     energi(forening, andel),
+    beslutadHojning(hojningar, manadsavgift, andel),
   ].map((k) => {
     const t = k.status === "beraknad" ? tryckFor(k.krPerManad, manadsavgift) : undefined;
     return t ? { ...k, tryck: t } : k;
@@ -891,6 +1145,7 @@ export function beraknaAvgiftsprognos(input: AvgiftsprognosInput): Avgiftsprogno
     totalKrPerManad: total,
     ...(tryckFor(total, manadsavgift) ? { tryck: tryckFor(total, manadsavgift) as Tryck } : {}),
     sparbehov: gap.sparbehov,
+    ...(hojningar.length > 0 ? { avgiftsandringKontroll: hojningar.map((h) => h.kontroll) } : {}),
     ...(refin.underlag ? { refinansiering: refin.underlag } : {}),
     ...(total !== null && total > MAX_RIMLIG_HOJNING_ANDEL * manadsavgift
       ? {

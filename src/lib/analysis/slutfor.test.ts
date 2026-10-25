@@ -473,6 +473,137 @@ describe("slutforExtraktion: övriga nya fält", () => {
     ]);
   });
 
+  it("lokaler.forlustsignaler (PROMPT_VERSION 11): uncited/empty items dropped, arshyra kept only when positive", () => {
+    const e = ok(
+      med({
+        lokaler: {
+          forlustsignaler: [
+            {
+              text: "Hyresgästen har sagt upp avtalet",
+              arshyra: fig(200_000, "kr", 5, "hyra 200 000"),
+              ref: { page: 5, excerpt: "hyresgästen har sagt upp" },
+            },
+            { text: "Lokalen står tom", ref: { page: 5 } }, // no excerpt
+            { text: "", ref: { page: 5, excerpt: "tom" } },
+            {
+              text: "Hyresnedsättning",
+              arshyra: fig(-5, "kr", 5, "x"),
+              ref: { page: 6, excerpt: "hyran sänks" },
+            },
+          ],
+        },
+      }),
+    );
+    const sig = e.forening.lokaler!.forlustsignaler!;
+    expect(sig.map((x) => x.text)).toEqual([
+      "Hyresgästen har sagt upp avtalet",
+      "Hyresnedsättning",
+    ]);
+    expect(sig[0]!.arshyra?.value).toBe(200_000);
+    expect(sig[1]!.arshyra).toBeUndefined();
+  });
+
+  it("lokaler.forlustsignaler alone keeps lokaler; a wrong shape is dropped without failing", () => {
+    expect(
+      ok(
+        med({
+          lokaler: {
+            forlustsignaler: [{ text: "Vakant", ref: { page: 2, excerpt: "lokalen är vakant" } }],
+          },
+        }),
+      ).forening.lokaler?.forlustsignaler,
+    ).toHaveLength(1);
+    expect(
+      ok(med({ lokaler: { forlustsignaler: "uppsagd", hyresintakter: fig(1, "kr", 2, "x") } }))
+        .forening.lokaler,
+    ).toEqual({ hyresintakter: expect.objectContaining({ value: 1 }) });
+  });
+
+  describe("avgiftsandringar (PROMPT_VERSION 11)", () => {
+    const post = (extra: Rad = {}): Rad => ({
+      procent: fig(25, "procent", 3, "hyreshöjning med 25%"),
+      fran: "2024-05-01",
+      status: "beslutad",
+      text: "Höjning av årsavgiften med 25 % från 1 maj 2024",
+      ref: { page: 3, excerpt: "hyreshöjning med 25% från 1 maj 2024" },
+      ...extra,
+    });
+    const kor = (poster: unknown) =>
+      ok(med({ avgiftsandringar: poster })).forening.avgiftsandringar;
+
+    it("a good item is kept as is", () => {
+      expect(kor([post()])).toEqual([post()]);
+    });
+
+    it("uncited, textless and malformed items are dropped", () => {
+      const r = kor([
+        post(),
+        post({ ref: { page: 3 } }),
+        post({ ref: undefined }),
+        post({ text: " " }),
+        post({ status: "kanske" }),
+        post({ procent: fig(null, "procent") }),
+        post({ procent: "25" }),
+        "text",
+      ]);
+      expect(r).toHaveLength(1);
+    });
+
+    it("an invalid fran is removed (the item stays)", () => {
+      const r = kor([
+        post({ fran: "1 maj 2024" }),
+        post({ fran: "2024-13-01", procent: fig(5, "procent", 3, "x") }),
+      ]);
+      expect(r).toHaveLength(2);
+      expect(r![0]!.fran).toBeUndefined();
+      expect(r![1]!.fran).toBeUndefined();
+    });
+
+    it("|procent| > 50 drops the item and logs; 50 and −10 are kept", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const r = kor([
+        post({ procent: fig(51, "procent", 3, "x"), fran: "2025-01-01" }),
+        post({ procent: fig(50, "procent", 3, "x"), fran: "2025-02-01" }),
+        post({ procent: fig(-10, "procent", 3, "x"), fran: "2025-03-01" }),
+        post({ procent: fig(-50.5, "procent", 3, "x"), fran: "2025-04-01" }),
+      ]);
+      expect(r!.map((x) => x.procent.value)).toEqual([50, -10]);
+      expect(warn).toHaveBeenCalledTimes(2);
+      warn.mockRestore();
+    });
+
+    it("a procent in another unit is dropped (kr is not a percentage)", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      expect(kor([post({ procent: fig(25, "kr", 3, "x") })])).toBeUndefined();
+      warn.mockRestore();
+    });
+
+    it("the same procent + fran twice counts once", () => {
+      expect(
+        kor([
+          post(),
+          post({ text: "Samma höjning på en annan sida", ref: { page: 8, excerpt: "25%" } }),
+        ]),
+      ).toHaveLength(1);
+    });
+
+    it("an empty or missing list removes the field", () => {
+      expect(kor([])).toBeUndefined();
+      expect(kor("nej")).toBeUndefined();
+      const utan = rå() as Rad;
+      delete utan["forening"]["avgiftsandringar"];
+      expect(ok(utan).forening.avgiftsandringar).toBeUndefined();
+    });
+
+    it("procent without its own ref borrows the item's citation", () => {
+      const r = kor([post({ procent: { value: 8, unit: "procent", source: "arsredovisning" } })]);
+      expect(r![0]!.procent.ref).toEqual({
+        page: 3,
+        excerpt: "hyreshöjning med 25% från 1 maj 2024",
+      });
+    });
+  });
+
   it("byggår saknas skrivs aldrig vidare som konfidensskäl", () => {
     const a = rå() as Rad;
     a["datakvalitet"]["extraktionKonfidens"] = {

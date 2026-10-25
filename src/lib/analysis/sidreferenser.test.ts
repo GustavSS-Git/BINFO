@@ -334,6 +334,72 @@ describe("verifieraSidreferenser: nya poster (PROMPT_VERSION 9)", () => {
     expect(f.underhallsplan!.arligAvsattning!.osaker).toMatch(/kunde inte styrkas/);
   });
 
+  describe("PROMPT_VERSION 11: avgiftsandringar och förlustsignaler", () => {
+    const andring = (page: number, excerpt: string, procentPage = page) => ({
+      procent: fig(25, "procent", ref(procentPage, excerpt)),
+      fran: "2024-05-01",
+      status: "beslutad" as const,
+      text: "Höjning av årsavgiften",
+      ref: ref(page, excerpt),
+    });
+    const t = sidor(
+      FYLL,
+      "Väsentliga händelser\nföreningen har beslutat om en hyreshöjning med 25% från 1 maj 2024",
+      "Lokaler\nHyresgästen har sagt upp sitt avtal",
+    );
+
+    it("keeps a change on the right page, corrects a wrong page, drops one whose citation is nowhere", () => {
+      const e = medNytt({
+        avgiftsandringar: [
+          andring(2, "hyreshöjning med 25% från 1 maj 2024"),
+          andring(3, "hyreshöjning med 25% från 1 maj 2024"), // wrong page
+          andring(2, "höjning med 99% som aldrig stod här"),
+        ],
+      });
+      const r = verifieraSidreferenser(e, t);
+      expect(r.extraction.forening.avgiftsandringar!.map((a) => a.ref.page)).toEqual([2, 2]);
+      expect(r.extraction.forening.avgiftsandringar![1]!.procent.ref?.page).toBe(2);
+      expect(r.extraction.datakvalitet.extraktionKonfidens.skal?.join(" ")).toMatch(
+        /Höjningen av årsavgiften/,
+      );
+    });
+
+    it("all changes dropped → the field disappears", () => {
+      const e = medNytt({ avgiftsandringar: [andring(2, "står inte här")] });
+      expect(verifieraSidreferenser(e, t).extraction.forening.avgiftsandringar).toBeUndefined();
+    });
+
+    it("förlustsignaler: right page kept, wrong page corrected, uncitable dropped; lokaler stays", () => {
+      const sig = (page: number, excerpt: string) => ({
+        text: "Hyresgästen har sagt upp",
+        ref: ref(page, excerpt),
+      });
+      const e = medNytt({
+        lokaler: {
+          forlustsignaler: [
+            sig(3, "Hyresgästen har sagt upp sitt avtal"),
+            sig(2, "Hyresgästen har sagt upp sitt avtal"), // wrong page
+            sig(3, "Lokalen står tom sedan i våras"), // nowhere
+          ],
+        },
+      });
+      const l = verifieraSidreferenser(e, t).extraction.forening.lokaler!;
+      expect(l.forlustsignaler!.map((x) => x.ref.page)).toEqual([3, 3]);
+    });
+
+    it("all signals dropped → forlustsignaler removed, other lokaler data kept", () => {
+      const e = medNytt({
+        lokaler: {
+          hyresintakter: fig(100, "kr", ref(3, "Hyresgästen har sagt upp sitt avtal")),
+          forlustsignaler: [{ text: "x", ref: ref(3, "finns inte") }],
+        },
+      });
+      const l = verifieraSidreferenser(e, t).extraction.forening.lokaler!;
+      expect(l.forlustsignaler).toBeUndefined();
+      expect(l.hyresintakter?.value).toBe(100);
+    });
+  });
+
   describe("PROMPT_VERSION 10: underhåll och genomförda åtgärder", () => {
     const atgard = (byggdel: "tak" | "stambyte", ar: number, page: number, excerpt: string) => ({
       byggdel,

@@ -213,6 +213,40 @@ export const extraktion: ExtractionResult = {
       ],
       ref: { page: 6, excerpt: "Underhållsplanen uppdaterades 2021" },
     },
+    lokaler: {
+      hyresintakter: {
+        value: 360000,
+        unit: "kr",
+        source: "arsredovisning",
+        ref: { page: 8, excerpt: "Hyresintäkter lokaler 360 000" },
+      },
+      forlustsignaler: [
+        {
+          text: "Hyresgästen i lokalen har sagt upp avtalet.",
+          arshyra: {
+            value: 120000,
+            unit: "kr",
+            source: "arsredovisning",
+            ref: { page: 8, excerpt: "Hyresgästen har sagt upp avtalet, hyra 120 000 kr/år" },
+          },
+          ref: { page: 8, excerpt: "Hyresgästen har sagt upp avtalet, hyra 120 000 kr/år" },
+        },
+      ],
+    },
+    avgiftsandringar: [
+      {
+        procent: {
+          value: 12,
+          unit: "procent",
+          source: "arsredovisning",
+          ref: { page: 4, excerpt: "höja årsavgifterna med 12 % från 2026-01-01" },
+        },
+        fran: "2026-01-01",
+        status: "beslutad",
+        text: "Årsavgifterna höjs med 12 % från 2026-01-01.",
+        ref: { page: 4, excerpt: "höja årsavgifterna med 12 % från 2026-01-01" },
+      },
+    ],
     vasentligaHandelser: [
       {
         text: "Styrelsen har beslutat om en avgiftshöjning på 12 % från januari 2026.",

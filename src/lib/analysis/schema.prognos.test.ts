@@ -201,3 +201,38 @@ describe("schema, round 2026-10-24c", () => {
     expect(AnalysisResultSchema.safeParse(fel).success).toBe(false);
   });
 });
+
+describe("schema, round 2026-10-25 (avgiftsandringar, förlustsignaler, kontroll)", () => {
+  const ref = citat(4, "föreningen har beslutat om en hyreshöjning med 25% från 1 maj 2024");
+  const andring = {
+    procent: {
+      value: 25,
+      unit: "procent" as const,
+      source: "arsredovisning" as const,
+      ref,
+    },
+    fran: "2024-05-01",
+    status: "beslutad" as const,
+    text: "Höjning av årsavgiften",
+    ref,
+  };
+
+  it("accepts avgiftsandringar and lokaler.forlustsignaler, rejects bad shapes", () => {
+    const ex = structuredClone(extraktion);
+    const bra = {
+      ...ex.forening,
+      avgiftsandringar: [andring],
+      lokaler: { forlustsignaler: [{ text: "Uppsagt", arshyra: kr(1000, 4, "x"), ref }] },
+    };
+    expect(ForeningSchema.safeParse(bra).error?.issues ?? []).toEqual([]);
+    for (const fel of [
+      { ...bra, avgiftsandringar: [{ ...andring, fran: "1 maj 2024" }] },
+      { ...bra, avgiftsandringar: [{ ...andring, status: "kanske" }] },
+      { ...bra, avgiftsandringar: [{ ...andring, ref: { page: 4 } }] },
+      { ...bra, avgiftsandringar: [{ ...andring, extra: 1 }] },
+      { ...bra, lokaler: { forlustsignaler: [{ text: "Uppsagt", ref: { page: 4 } }] } },
+    ]) {
+      expect(ForeningSchema.safeParse(fel).success).toBe(false);
+    }
+  });
+});

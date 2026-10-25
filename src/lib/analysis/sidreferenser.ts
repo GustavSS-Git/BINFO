@@ -31,6 +31,9 @@ import { TOM_SIDA_TECKEN } from "./textlager";
  * Figures (marked by their refs, which cite the same row) rather than vanishing
  * from the debt picture; a lease, an energy project or the planned-withdrawal
  * claim has no figure to carry the mark, so it is removed (`kontrolleraNyaPoster`).
+ * PROMPT_VERSION 11 adds forening.avgiftsandringar and lokaler.forlustsignaler:
+ * cited items without a Figure of their own to carry a mark, so, like a lease,
+ * an item whose citation holds nowhere is removed (a wrong page is corrected).
  * PROMPT_VERSION 10 adds underhallsplan.investeringsbehovPerM2 /
  * rekommenderadAvsattning / planTotal.belopp (Figures: corrected / `osaker` by
  * the generic walk) and forening.genomfordaAtgarder (no figure: an item whose
@@ -289,7 +292,9 @@ const SARBEHANDLADE = new Set([
   "forening.sparandeUttag",
   "forening.energiprojekt",
   "forening.lokaler.kontrakt",
+  "forening.lokaler.forlustsignaler",
   "forening.genomfordaAtgarder",
+  "forening.avgiftsandringar",
 ]);
 
 function verifieraNod(nod: unknown, sokvag: string, k: Kontext): unknown {
@@ -502,20 +507,57 @@ function kontrolleraNyaPoster(
     else delete ut["genomfordaAtgarder"];
   }
 
-  const lokaler = forening["lokaler"];
-  if (arObjekt(lokaler) && Array.isArray(lokaler["kontrakt"])) {
-    const kvar = lokaler["kontrakt"]
-      .map((c, i) =>
-        kontrolleraPost(
-          c,
-          `forening.lokaler.kontrakt[${i}]`,
-          `Ett lokalkontrakt${arObjekt(c) && typeof c["slutdatum"] === "string" ? ` (slutdatum ${c["slutdatum"]})` : ""}`,
+  const andringar = forening["avgiftsandringar"];
+  if (Array.isArray(andringar)) {
+    const kvar = andringar
+      .map((a, i) => {
+        const p = arObjekt(a) && arObjekt(a["procent"]) ? a["procent"]["value"] : undefined;
+        return kontrolleraPost(
+          a,
+          `forening.avgiftsandringar[${i}]`,
+          `Höjningen av årsavgiften${typeof p === "number" ? ` på ${p} %` : ""}`,
           k,
-        ),
-      )
-      .filter((c) => c !== undefined);
-    const { kontrakt: _utan, ...resten } = lokaler;
-    ut["lokaler"] = kvar.length > 0 ? { ...resten, kontrakt: kvar } : resten;
+        );
+      })
+      .filter((a) => a !== undefined);
+    if (kvar.length > 0) ut["avgiftsandringar"] = kvar;
+    else delete ut["avgiftsandringar"];
+  }
+
+  const lokaler = forening["lokaler"];
+  if (
+    arObjekt(lokaler) &&
+    (Array.isArray(lokaler["kontrakt"]) || Array.isArray(lokaler["forlustsignaler"]))
+  ) {
+    const { kontrakt: _k, forlustsignaler: _f, ...resten } = lokaler;
+    const nyLokaler: Record<string, unknown> = { ...resten };
+    if (Array.isArray(lokaler["kontrakt"])) {
+      const kvar = lokaler["kontrakt"]
+        .map((c, i) =>
+          kontrolleraPost(
+            c,
+            `forening.lokaler.kontrakt[${i}]`,
+            `Ett lokalkontrakt${arObjekt(c) && typeof c["slutdatum"] === "string" ? ` (slutdatum ${c["slutdatum"]})` : ""}`,
+            k,
+          ),
+        )
+        .filter((c) => c !== undefined);
+      if (kvar.length > 0) nyLokaler["kontrakt"] = kvar;
+    }
+    if (Array.isArray(lokaler["forlustsignaler"])) {
+      const kvar = lokaler["forlustsignaler"]
+        .map((sig, i) =>
+          kontrolleraPost(
+            sig,
+            `forening.lokaler.forlustsignaler[${i}]`,
+            `Uppgiften "${arObjekt(sig) && typeof sig["text"] === "string" ? kortaNer(sig["text"], 50) : ""}" om lokalhyran`,
+            k,
+          ),
+        )
+        .filter((sig) => sig !== undefined);
+      if (kvar.length > 0) nyLokaler["forlustsignaler"] = kvar;
+    }
+    ut["lokaler"] = nyLokaler;
   }
   return ut;
 }

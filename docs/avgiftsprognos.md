@@ -77,7 +77,7 @@ kr/month for the flat = BRF kr/year × andel ÷ 12.
      `saknar_underlag`, wider range, no price effect.
 3. **Underhåll**: planned costs in the window not financed by loan/fund/decision, minus the fund
    balance, minus planned yearly savings × years; positive remainder ÷ 10 years.
-4. **Lokaler**: rent of leases ending within the horizon × 50 %.
+4. **Lokaler**: rent at risk × 50 %, but only when the report states a loss signal (see round 2026-10-25).
 5. **Energi**: unfinanced energy projects with an amount ÷ 10 years. Energikostnad itself is already
    in today's fee and is never added.
 
@@ -135,3 +135,57 @@ Helsingborgshus 17 (−5 kr/mån), see the round summary in PLAN.md.
 
 **Calibration note:** with the schablon, a typical förening (sparande 85–225 kr/m²) gets a yellow
 or red savings step and roughly −1 to −3 % on the price. `SPARMAL_SCHABLON_DAMPNING` is the knob.
+
+## Round 2026-10-25: lokal rent only on a signal, decided fee raises
+
+Owner feedback on Bf Volontären 12 (FY2023): a lokal lease with "Löptid t.o.m 2024-12-31" made the
+`lokaler` component subtract 50 % of the rent, although nothing says the tenant leaves.
+
+**Lokaler (component 4, replaces the end-date logic).** Subtract only when
+`forening.lokaler.forlustsignaler` is non-empty: statements that the rent falls away (uppsagt
+hyresavtal, hyresgästen har sagt upp / flyttar, lokalen står tom/vakant, hyresgäst i konkurs eller
+obestånd, hyrestvist, hyresnedsättning / omförhandling till lägre hyra). A lease end date, "löper
+till" or automatic extension is NOT a signal. Rent at risk = Σ signal `arshyra`; a signal without a
+rent uses `hyresintakter ÷ max(antal kontrakt, antalLokaler, 1)`; the sum never exceeds
+`hyresintakter`; no rent figure at all → `saknar_underlag`; × `LOKALHYRA_RISKANDEL` (50 %). No signals
+(and every extraction before PROMPT_VERSION 11, which lacks the field) → `ej_aktuell`, 0 kr, text
+"Föreningen hyr ut lokaler (X kr per år). Inget i årsredovisningen tyder på att hyresintäkterna faller
+bort, så vi räknar inte med något bortfall." The "no lokaler" and "cited zero rent" branches are kept.
+
+**Decided fee raises (new component 6, id `beslutad_hojning`, "Beslutad avgiftshöjning som inte har
+trätt i kraft").** PROMPT_VERSION 11 extracts `forening.avgiftsandringar`: decided ("beslutad") or
+planned ("planerad") changes of the bostäder's årsavgift (older föreningar write "hyra" for it; not
+lokal rents, not IMD/el), with `procent` (signed Figure), `fran` (YYYY-MM-DD, optional), status and a
+citation. Volontären 12 p. 3: "föreningen har beslutat om en hyreshöjning med 25% från 1 maj 2024".
+
+The report is older than the buyer's fee, so the raise may already be in it. An **internal check**
+(`prognos.avgiftsandringKontroll`, never shown on the web or in the PDF) decides, per relevant change:
+
+- Relevant = procent > 0 and (`fran` absent or after the balance date). A change on or before the
+  balance date is already in the accounts; a decrease is ignored (we never price a decided cut). A
+  procent marked `osaker` is not used.
+- `datum`: `fran` ≤ today → `passerat`, later → `framtida`, absent → `okant`.
+- Fee estimate: key figure `arsavgift_per_m2_brf_yta` × boarea ÷ 12 = `uppskattadAvgiftFore`;
+  × (1 + %) = `uppskattadAvgiftEfter`. Changes are sorted by `fran` (undated last) and **compound**:
+  the "före" of a later change is the "efter" of the previous one. `avgift` = the estimate the
+  buyer's månadsavgift is closer to (absolute difference; a tie or a missing key figure → `okant`).
+  Caveat: the key figure is a per-m² average, so a small raise cannot be told apart from the spread
+  between flats; for such changes the result is weak.
+- `slutsats`: a known date decides (passerat → `i_kraft`, framtida → `ej_i_kraft`); `konflikt` when
+  the fee points the other way. Without a date the fee decides; both unknown → `okant`.
+
+**Component.** No relevant change → `ej_aktuell`, 0 kr, plain text. Any change with slutsats `okant` →
+`saknar_underlag` (adds nothing, widens the low end of the price range like other missing data). All
+in effect → `ej_aktuell` with "Den beslutade höjningen på 25 % från 1 maj 2024 ingår redan i din
+avgift." Otherwise `beraknad`: kr/month = Σ månadsavgift × % over the changes not yet in effect (simple
+sum, no compounding); BRF kr/year = that × 12 ÷ andel (the förening's fee revenue × %), so the
+component's kr/month comes back to the same number.
+
+**Offset against the savings gap (prevents double counting).** A raise is the förening's own answer to
+its savings gap, so the yearly revenue of EVERY relevant raise (in effect, not yet, or unknown) is
+subtracted from the `spargap` component's BRF amount (floor 0; only when spargap is `beraknad` and
+positive; other components are not offset). Revenue = månadsavgift × 12 ÷ andel × %, except for a raise
+already in the buyer's fee, where the fee contains the raise and the revenue is fee × % ÷ (1 + %). The
+spargap explanation gets a sentence ("Den beslutade höjningen av årsavgiften på X % ger föreningen
+cirka Y kr mer per år och täcker Z kr av glappet"). `sparbehov` (the target/gap in kr/m²) is NOT
+changed; only the component's BRF amount is. Without `andel` nothing is offset.

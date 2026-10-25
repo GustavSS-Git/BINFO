@@ -732,14 +732,74 @@ describe("buildTranskriberingSystemPrompt", () => {
   });
 });
 
+describe("PROMPT_VERSION 11: lokalernas förlustsignaler och avgiftsändringar", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+  const exempel = () =>
+    JSON.parse(extr.slice(extr.indexOf('{\n  "schemaVersion"'), extr.indexOf("\n\nSkarpa regler")));
+
+  it("grundningen ber om uppsägningar, vakanser och hyrestvister men säger att ett slutdatum inte räknas", () => {
+    expect(grund).toMatch(/uppsagt hyresavtal/);
+    expect(grund).toMatch(/lokal som står tom eller vakant/);
+    expect(grund).toMatch(/konkurs eller obestånd/);
+    expect(grund).toMatch(/"löper till" eller automatisk förlängning är INTE ett sådant uttalande/);
+  });
+
+  it("grundningen ber om beslutade/planerade avgiftsändringar och förklarar att 'hyra' kan vara årsavgiften", () => {
+    expect(grund).toMatch(
+      /beslutade eller aviserade\/planerade ändringar av bostädernas årsavgift/,
+    );
+    expect(grund).toMatch(/skriver "hyra" för årsavgiften/);
+    expect(grund).toMatch(/inte lokalhyror och inte avgifter för individuell mätning/);
+  });
+
+  it("extraktionen: forlustsignaler är bara uttalanden, aldrig ett slutdatum", () => {
+    expect(extr).toMatch(/lokaler\.forlustsignaler: ENDAST uttryckliga uttalanden/);
+    expect(extr).toMatch(/ALDRIG ett slutdatum, "löper till" eller automatisk förlängning/);
+    expect(extr).toMatch(/Utelämna forlustsignaler när/);
+  });
+
+  it("extraktionen: avgiftsandringar förklarar procent, fran, status och att 'hyra' är årsavgiften", () => {
+    expect(extr).toMatch(
+      /- avgiftsandringar: beslutade \("beslutad"\) eller aviserade\/planerade \("planerad"\)/,
+    );
+    expect(extr).toMatch(/Äldre föreningar skriver "hyra" för årsavgiften/);
+    expect(extr).toMatch(/"från 1 maj 2024" → "2024-05-01"/);
+    expect(extr).toMatch(/"från 2025" eller "från årsskiftet" till 2025 → "2025-01-01"/);
+    expect(extr).toMatch(/lokalhyror och avgifter för individuell mätning\/el är INTE årsavgift/);
+    expect(extr).toMatch(/Utelämna avgiftsandringar när/);
+  });
+
+  it("exemplet: en avgiftsändring som motsvarar väsentlig händelse om 8 %, och en cited förlustsignal", () => {
+    const f = exempel().forening;
+    expect(f.avgiftsandringar).toHaveLength(1);
+    const a = f.avgiftsandringar[0];
+    expect(a).toMatchObject({ fran: "2026-01-01", status: "beslutad" });
+    expect(a.procent).toMatchObject({ value: 8, unit: "procent", source: "arsredovisning" });
+    expect(a.ref.excerpt).toBeTruthy();
+    expect(f.vasentligaHandelser[0].text).toMatch(/8 %/);
+    const sig = f.lokaler.forlustsignaler[0];
+    expect(sig.ref.excerpt).toBeTruthy();
+    expect(sig.arshyra.value).toBe(120000);
+    // the lease with an end date is NOT repeated as a signal
+    expect(sig.text).not.toMatch(/slutdatum|löper/);
+  });
+
+  it("exemplet behåller avtalet med slutdatum utan att göra det till en signal", () => {
+    const f = exempel().forening;
+    expect(f.lokaler.kontrakt[0].slutdatum).toBe("2026-09-30");
+    expect(f.lokaler.forlustsignaler).toHaveLength(1);
+  });
+});
+
 describe("PROMPT_VERSION", () => {
   it("exporteras som en icke-tom sträng", () => {
     expect(typeof PROMPT_VERSION).toBe("string");
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 10 sedan extraktionen fick investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("10");
+  it("är 11 sedan extraktionen fick lokaler.forlustsignaler och avgiftsandringar (10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("11");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -769,7 +829,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("8af568bf7bd63f0fc6f526be8996a9a429c1a71eb3a3f4e21a90924d9c91cb88");
+    expect(hash).toBe("9ee14a2bf664db07ff42f9c19183602b1b4068a5a63ee7a6e082c3bf43a20e2a");
   });
 });
 
