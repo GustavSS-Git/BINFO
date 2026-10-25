@@ -8,16 +8,18 @@ import type { AnalysisResult } from "@/types/analysis";
  * Generated 2026-10-24 (PROMPT_VERSION 10, sustainable-fee round 2026-10-24c) with
  *   EXTRACT_SPARA_UNDERLAG=<underlag.json> ANTHROPIC_MODEL=claude-sonnet-5-5 \
  *     npm run -s extract -- "<Årsredovisning 2025 (1).pdf>" <input.json>
- * then re-assembled for free with scripts/monteraOm.ts <underlag.json>.
+ * then re-assembled for free with scripts/monteraOm.ts <underlag.json> (last on
+ * 2026-10-25 for round 2026-10-25b: rate slider tabs, lokal signals, fee-change check;
+ * the extraction is still PROMPT_VERSION 10, so it has no avgiftsandringar).
  * Model claude-sonnet-5-5, valuation model valuation-v3.1, reference rate SSVX
- * 3M 2,068 % (2026-10-23). The fee prognosis is FROZEN at 2026-10-24 here (a
+ * 3M 2,068 % (2026-10-23). The fee prognosis is FROZEN at 2026-10-25 here (a
  * live report recomputes it on every read). Regenerate rather than hand-edit.
  * Powers the static example report at src/routes/exempel.tsx.
  */
 export const sampleAnalysis: AnalysisResult = {
   schemaVersion: "1.0.0",
-  analysisId: "60bd5f2a-0f89-44c2-9b85-d0eb1bafb4ae",
-  skapad: "2026-10-24T17:17:42.252Z",
+  analysisId: "f1b94b65-feef-4efe-85c1-022d3522b202",
+  skapad: "2026-10-25T12:01:29.318Z",
   input: {
     kind: "bostadsratt",
     utgangspris: 4995000,
@@ -992,18 +994,18 @@ export const sampleAnalysis: AnalysisResult = {
         {
           id: "plus1",
           label: "+1 procentenhet",
-          manadsavgift: 3989,
-          forandringKr: 486,
+          manadsavgift: 4022,
+          forandringKr: 519,
         },
         {
           id: "plus2",
           label: "+2 procentenheter",
-          manadsavgift: 4102,
-          forandringKr: 599,
+          manadsavgift: 4169,
+          forandringKr: 666,
         },
       ],
       kommentar:
-        "Raderna +1 och +2 procentenheter gäller bara den del av skulden som prissätts om inom 24 månader, 5 759 091 kr, och läggs ovanpå den förväntade avgiften.",
+        "Raderna +1 och +2 procentenheter läggs ovanpå den förväntade avgiften och gäller hela skulden via räntekänsligheten.",
     },
   },
   fragor: [
@@ -1108,7 +1110,7 @@ export const sampleAnalysis: AnalysisResult = {
   },
   avgiftsprognos: {
     horisontManader: 24,
-    berakningsdatum: "2026-10-24",
+    berakningsdatum: "2026-10-25",
     andel: {
       varde: 0.023659700161873864,
       metod: "avgiftsandel",
@@ -1174,6 +1176,15 @@ export const sampleAnalysis: AnalysisResult = {
         status: "ej_aktuell",
         foreningKrPerAr: 0,
         forklaring: "Årsredovisningen nämner inga energiprojekt.",
+        krPerManad: null,
+      },
+      {
+        id: "beslutad_hojning",
+        label: "Beslutad avgiftshöjning som inte har trätt i kraft",
+        status: "ej_aktuell",
+        foreningKrPerAr: 0,
+        forklaring:
+          "Årsredovisningen nämner ingen beslutad eller planerad höjning av årsavgiften som ännu inte gäller.",
         krPerManad: null,
       },
     ],

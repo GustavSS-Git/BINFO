@@ -16,9 +16,10 @@ per-apartment cost in kronor, and what to do before bidding.
   `main` and **deployed to production on 2026-10-14** (both v3 migrations,
   `deploy:edge`, Lovable publish; the two pre-v3 register reports were re-run
   in production the same day, `docs/api-test-log.md` #104). Runbook:
-  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p10.i1.s1`
+  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p11.i1.s1`
   (p8 2026-10-23 question context, p9 2026-10-24 loans/maintenance/lokaler,
-  p10 2026-10-24 past renovations + plan need figures) — not deployed yet,
+  p10 2026-10-24 past renovations + plan need figures, p11 2026-10-25 lokal
+  loss signals + årsavgift changes) — not deployed yet,
   see `PLAN.md`.
 - After v3 (on `main`, 2026-10-14): `/integritet` privacy page (controller
   "Binfo (binfo.slanesens.com)", no contact e-mail yet: `src/lib/kontakt.ts`),
@@ -45,6 +46,17 @@ per-apartment cost in kronor, and what to do before bidding.
   cheaper loans resetting in months 25–60 with weights. Fee pressure colours
   green/yellow/red. Sources: `docs/underhall-referens.md`; decisions in
   `docs/DECISIONS.md`.
+- **Owner feedback round** (2026-10-25b, on `main`, NOT deployed; PROMPT_VERSION
+  11): the rate section is the slider again with tabs "Dagens avgift" /
+  "Förväntad avgift" (`rantestressVy` in `analysisView.ts`; same räntekänslighet
+  increment on both bases, and the PDF table's +1/+2 rows match); lokal rent
+  lowers the expected fee only on a cited loss signal
+  (`lokaler.forlustsignaler`), never on a lease end date alone; stated
+  årsavgift changes (`avgiftsandringar`) get an INTERNAL check (date vs today +
+  the buyer's fee vs årsavgift/m² × boarea ÷ 12) stored as
+  `avgiftsprognos.avgiftsandringKontroll`, never rendered; a raise not yet in
+  effect is the component `beslutad_hojning`, and every relevant raise offsets
+  the savings gap.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -194,7 +206,7 @@ per-apartment cost in kronor, and what to do before bidding.
   väntad avgiftshöjning", the collapsed "Så har vi räknat" `<details>` (part 1
   generic factor list, also on the Priskoll; the per-flat driver % rows were
   removed there 2026-10-24 (owner: "kaka på kaka"); part 2 fee rise; part 3
-  refinancing inputs), the fee table in `Rantestress`, the closing
+  refinancing inputs), the rate slider with the "Dagens avgift"/"Förväntad avgift" tabs in `Rantestress` (texts in `rantestressVy`; the PDF keeps a table), the closing
   "Sammanfattning" — all in `AnalysRapport.tsx`
   with text helpers in `src/lib/analysisView.ts`; component texts come from
   `avgiftsprognos.ts`, summary texts from `sammanfattning.ts`. PDF mirrors it.
@@ -247,8 +259,9 @@ per-apartment cost in kronor, and what to do before bidding.
 ## Example analysis (`/exempel`)
 
 - `src/data/sampleAnalysis.ts` is a pasted snapshot of real CLI output, not
-  regenerated automatically. Regenerated 2026-10-24 on PROMPT_VERSION 10 (fee
-  prognosis frozen at that day, SSVX 2.068 %). Earlier example (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
+  regenerated automatically. Regenerated 2026-10-24 on PROMPT_VERSION 10 and re-assembled for free on
+  2026-10-25 (fee prognosis frozen at that day, SSVX 2.068 %; the extraction has
+  no p11 fields). Earlier example (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
   `annual reports examples/exemple_analysis_report/`, gitignored) + the owner's
   real listing Baltzar von Platens gata 6, 112 42 (Kungsholmen: best training
   coverage, 644 sales, CV MAPE 7.6 %). Valuation v3.1.
@@ -345,7 +358,7 @@ per-apartment cost in kronor, and what to do before bidding.
      Buyer-level (assembled per read) = `input`, `prisanalys`, `rantestress`,
      missing-data questions, the fee-deviation question.
    - `PIPELINE_VERSION` = `p<PROMPT_VERSION>.i<IDENTITET_PROMPT_VERSION>.s<SCHEMA_MAJOR>`
-     (production since 2026-10-14: `p7.i1.s1`; `main`: `p10.i1.s1`). v3 adds `rapport.proveniens`
+     (production since 2026-10-14: `p7.i1.s1`; `main`: `p11.i1.s1`). v3 adds `rapport.proveniens`
      (`api` default). Each stage has pure `bygg*Request`/`tolka*Svar` (golden
      tests pin the request bodies).
 4. **Reads** re-assemble on every read from the rapport's extraction/judgement +
@@ -473,7 +486,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-25: 143 files, ~2960 tests, all passing)
+npm test                    # vitest run (2026-10-25b: 144 files, ~3030 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)

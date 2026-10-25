@@ -1,10 +1,53 @@
 # Binfo — current plan
 
-**Latest: postnummer help on /analysera (2026-10-25, done), below. Before it: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: owner feedback round 2026-10-25b (rate slider tabs, lokal rent only on a signal, internal fee-change check), below. Before it: postnummer help on /analysera (2026-10-25, done), below. Before it: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Owner feedback round (2026-10-25b)
+
+Status: **DONE 2026-10-25, committed on `main`, not pushed, not deployed.** API spend: 2.92 kr
+(row 123). Deploy: PROMPT_VERSION 11 → `deploy:edge` together with the Lovable publish (plus
+the earlier pending migrations); no new migration.
+
+Result:
+- Volontären 12 FY2023 (paid run, hypothetical 50 m² flat, fee 2 104): the model extracted
+  "+25 % från 1 maj 2024" (beslutad, cited p. 3) and no lokal loss signal (only the lease end
+  2024-12-31), so lokaler = 0 kr; the check says date passed + fee matches the raised estimate
+  (1 683 → 2 104) → in effect, nothing added. Re-assembled for free with fee 1 683: still in
+  effect (the date decides), `konflikt: true`.
+- `/exempel` re-assembled for free (`monteraOm`): +1/+2 rows now 4 022 / 4 169 kr, the new
+  `beslutad_hojning` component (Pontonjären's 22 % raise was before the balance date, so ignored).
+- For Lovable to polish: the Toggle above the slider (`mb-6` wrapper; two `px-5` buttons may be
+  tight at 390 px); the pressure dot next to the uppercase "Förväntad avgift" label; maybe a hint
+  in the "Stressad avgift" box that it builds on the expected fee on that tab.
+- Open: the fee-vs-estimate signal is weak for small raises (flats' fee/m² spread around the
+  average); the date decides whenever it is known. The 50 % cap on a stated change lives in
+  `slutfor.ts` (TODO placeholder). Fees raised since the report WITHOUT a stated decision are not
+  detected (possible next step: the same fee comparison without a stated change).
+
+1. **Rate section back to the slider, with two tabs** (owner): one card, a `Toggle` "Dagens avgift" |
+   "Förväntad avgift". Same slider (+0…+3 p.e.) in both; the increment per p.e. is the
+   räntekänslighet scenario (whole debt) in both tabs, only the base differs (today's fee vs the
+   expected fee). The PDF table's +1/+2 rows use the same increments (was: repricing debt only), so
+   web and PDF agree. Old results without a prognosis: slider only, no tabs. (agent frontend-state)
+2. **Lokal rent only on a signal** (owner): the 'lokaler' component subtracts nothing unless the
+   report states the rent will fall away (terminated lease, tenant leaving, vacancy, insolvency,
+   dispute, reduction). A lease end date alone is no signal. New cited field
+   `lokaler.forlustsignaler`, PROMPT_VERSION 11. (agent pdf-pipeline)
+3. **Internal fee-change check** (owner): new cited field `avgiftsandringar` (decided/planned
+   change of the årsavgift with % and start date). For each change after the balance date:
+   date vs today + the buyer's fee vs årsavgift/m² × boarea ÷ 12 (before/after the change) →
+   `i_kraft | ej_i_kraft | okant`, stored as `avgiftsprognos.avgiftsandringKontroll` (never
+   rendered). Use: not in effect → component `beslutad_hojning` (fee × %); unknown →
+   `saknar_underlag`; the raise's yearly revenue offsets the savings gap in every case (it is the
+   förening's answer to that gap, so nothing is counted twice). (agent pdf-pipeline)
+4. Paid check on Volontären 12 (owner's PDF) + a small regression run; re-assemble `/exempel`
+   for free with `scripts/monteraOm.ts`; docs.
 
 ---
 

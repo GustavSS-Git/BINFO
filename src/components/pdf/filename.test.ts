@@ -23,12 +23,12 @@ describe("slugify", () => {
 
 describe("buildPdfFilename", () => {
   it("builds binfo-analys-<slug>-<YYYY-MM-DD>.pdf from the sample analysis", () => {
-    expect(buildPdfFilename(sampleAnalysis)).toBe("binfo-analys-brf-pontonjaren-3-2026-10-24.pdf");
+    expect(buildPdfFilename(sampleAnalysis)).toBe("binfo-analys-brf-pontonjaren-3-2026-10-25.pdf");
   });
 
   it("falls back to 'analys' when the förening name has no sluggable characters", () => {
     const analys = { ...sampleAnalysis, forening: { ...sampleAnalysis.forening, namn: "!!!" } };
-    expect(buildPdfFilename(analys)).toBe("binfo-analys-analys-2026-10-24.pdf");
+    expect(buildPdfFilename(analys)).toBe("binfo-analys-analys-2026-10-25.pdf");
   });
 
   it("dates the filename from skapad, not the current date", () => {
