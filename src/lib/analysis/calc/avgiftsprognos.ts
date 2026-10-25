@@ -379,7 +379,7 @@ function refinansiering(
   const { forening, referensranta } = input;
   const label = "Lån som ska omsättas";
   const lb = forening.lanebok;
-  const lan = laddaLan(forening);
+  let lan = laddaLan(forening);
   const totalSkuldFigur = lb?.totalSkuld;
   const totalSkuld =
     varde(totalSkuldFigur) ?? (lan.length > 0 ? lan.reduce((s, l) => s + l.belopp, 0) : null);
@@ -419,9 +419,26 @@ function refinansiering(
     };
   }
 
-  // A stale report: its loans have most likely been refinanced already.
+  // A stale report: loans that reset before today have most likely been
+  // refinanced at a rate we don't know. Loans whose reset date is still ahead
+  // keep the report's rate until then, so those are priced (owner 2026-10-25);
+  // without any, the component is missing data as before.
   const balansdag = forening.balansdag ?? `${forening.rakenskapsar}-12-31`;
-  if (laggTillManader(balansdag, MAX_RAPPORTALDER_MANADER) < input.idag) {
+  const inaktuell = laggTillManader(balansdag, MAX_RAPPORTALDER_MANADER) < input.idag;
+  const kvarstaende = lan.filter((l) => !l.rorlig && l.dag !== undefined && l.dag > input.idag);
+  let inaktuellText = "";
+  if (inaktuell && kvarstaende.length > 0) {
+    const kvarSumma = kvarstaende.reduce((s, l) => s + l.belopp, 0);
+    const passerat = Math.max(0, totalSkuld - kvarSumma);
+    inaktuellText =
+      `Årsredovisningen gäller räkenskapsåret som slutade ${balansdag}, mer än ` +
+      `${MAX_RAPPORTALDER_MANADER} månader sedan.` +
+      (passerat > totalSkuld * 0.02
+        ? ` Lån på ${kr(passerat)} kr har troligen redan fått en ny ränta som vi inte känner till och räknas inte.`
+        : "") +
+      ` Vi räknar på ${kvarstaende.length === 1 ? "det lån" : `de ${kvarstaende.length} lån`} (${kr(kvarSumma)} kr) som omsätts efter i dag, med räntan i årsredovisningen. `;
+    lan = kvarstaende;
+  } else if (inaktuell) {
     return {
       komponent: komponent(
         {
@@ -533,7 +550,8 @@ function refinansiering(
     .filter((l) => !l.rorlig && l.dag === undefined)
     .reduce((s, l) => s + l.belopp, 0);
   const lanSumma = lan.reduce((s, l) => s + l.belopp, 0);
-  const otackt = totalSkuld - lanSumma > totalSkuld * 0.02 ? totalSkuld - lanSumma : 0;
+  const otackt =
+    !inaktuell && totalSkuld - lanSumma > totalSkuld * 0.02 ? totalSkuld - lanSumma : 0;
   const okandTid = odaterat + otackt;
   const okandAntagen = avrunda(okandTid * REFINANSIERINGSANDEL_UTAN_FORFALL);
   const belopp = omsatts.reduce((s, l) => s + l.belopp, 0) + okandAntagen;
@@ -547,7 +565,7 @@ function refinansiering(
           label,
           status: "beraknad",
           foreningKrPerAr: 0,
-          forklaring: `Inget lån ska omsättas inom ${HORISONT_MANADER} månader enligt årsredovisningen.`,
+          forklaring: `${inaktuellText}Inget lån ska omsättas inom ${HORISONT_MANADER} månader enligt årsredovisningen.`,
         },
         andel,
         ref,
@@ -653,7 +671,7 @@ function refinansiering(
         label,
         status: "beraknad",
         foreningKrPerAr: perAr,
-        forklaring: inomText + okandText + senareText,
+        forklaring: inaktuellText + inomText + okandText + senareText,
       },
       andel,
       ref,

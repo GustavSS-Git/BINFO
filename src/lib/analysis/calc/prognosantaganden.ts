@@ -43,9 +43,10 @@ export const BREDDNING_PER_SAKNAT_UNDERLAG = 0.03;
 export const MAX_RIMLIG_HOJNING_ANDEL = 0.3;
 
 /** A report whose balance date is older than this, counted from the read, is
- *  too stale to price refinancing from: its loans have most likely been
- *  refinanced already and the fee adjusted. The component then counts as
- *  missing data (wider range, no effect on the price). */
+ *  too stale to price refinancing from: loans that reset before today have
+ *  most likely been refinanced at an unknown rate and are left out. Loans
+ *  whose reset date is still ahead keep the report's rate and are priced
+ *  (owner 2026-10-25); with none, the component counts as missing data. */
 // TODO: unverified placeholder (review 2026-10-24)
 export const MAX_RAPPORTALDER_MANADER = 18;
 

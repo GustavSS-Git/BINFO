@@ -33,6 +33,8 @@ Result:
   only when the årsavgift/m² key figure is svag/kritisk, + the missing components); a byggår line at
   the price says which year the valuation used (report year when sure, `byggarPrisNotis`). Byggår
   already fed the valuation before; it just wasn't visible.
+- Stale reports (> 18 months) now price loans resetting after today at the report's rate (owner);
+  Näcken: −166 660 kr/yr for the förening. The budget-without-cost-coverage signal is left for later.
 - `/exempel` re-assembled for free (`monteraOm`): +1/+2 rows now 4 022 / 4 169 kr, the new
   `beslutad_hojning` component (Pontonjären's 22 % raise was before the balance date, so ignored).
 - For Lovable to polish: the Toggle above the slider (`mb-6` wrapper; two `px-5` buttons may be

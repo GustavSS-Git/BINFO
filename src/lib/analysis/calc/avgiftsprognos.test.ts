@@ -312,6 +312,24 @@ describe("refinansiering", () => {
     expect(komp(r, "refinansiering").status).toBe("saknar_underlag");
     expect(r.antalSaknadeUnderlag).toBeGreaterThan(0);
   });
+  it("stale report, Näcken-like: loans resetting after today are priced at the report's rate, passed ones are not: 9 472 000 × (2,648 − 3,25) % + 5 920 000 × (2,648 − 4,50) % = −166 660", () => {
+    const r = med({
+      ...lanebok(31_968_000, [
+        lan(10_656_000, 3.03, "2025-06-28"),
+        lan(5_920_000, 4.42, "2025-09-28"),
+        lan(9_472_000, 3.25, "2026-12-28"),
+        lan(5_920_000, 4.5, "2027-09-28"),
+      ]),
+      rakenskapsar: 2024,
+      balansdag: "2024-12-31",
+    });
+    const k = komp(r, "refinansiering");
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: -166_660 });
+    expect(k.forklaring).toMatch(/Lån på 16\s576\s000 kr har troligen redan fått en ny ränta/);
+    expect(k.forklaring).toMatch(/de 2 lån \(15\s392\s000 kr\) som omsätts efter i dag/);
+    expect(r.omsattningsbarSkuld).toBe(15_392_000);
+    expect(r.totalSpannVidAntagande).toBeUndefined();
+  });
   it("debt-free (totalSkuld 0): beraknad 0", () => {
     const r = med(lanebok(0));
     expect(komp(r, "refinansiering")).toMatchObject({ status: "beraknad", foreningKrPerAr: 0 });
@@ -1140,7 +1158,7 @@ describe("refinansiering, later phase (months 25–60 from idag 2026-10-24; weig
   it("a later-phase loan without any rate is skipped without failing the component", () => {
     expect(k(ett("2029-10-25", null as unknown as number)).status).toBe("beraknad");
   });
-  it("the stale-report rule covers both phases (balansdag 2024-12-31)", () => {
+  it("a stale report still prices a later-phase loan resetting after today (balansdag 2024-12-31): 1 000 000 × 0,648 % × 0,5 = 3 240", () => {
     const r = kor(
       forening({
         ...lanebok(1_000_000, [lan(1_000_000, 2.0, "2029-10-25")]),
@@ -1148,7 +1166,7 @@ describe("refinansiering, later phase (months 25–60 from idag 2026-10-24; weig
         balansdag: "2024-12-31",
       }),
     );
-    expect(k(r).status).toBe("saknar_underlag");
+    expect(k(r)).toMatchObject({ status: "beraknad", foreningKrPerAr: 3240 });
   });
   it("no later phase for the undated/no-maturities assumption", () => {
     const r = kor(forening(lanebok(2_000_000, undefined, { snittranta: fig(2.0) })));

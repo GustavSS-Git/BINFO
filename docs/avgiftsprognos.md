@@ -236,3 +236,7 @@ changed; only the component's BRF amount is. Without `andel` nothing is offset.
 ### Share after a raise in effect (2026-10-25)
 
 The report's årsavgifter (and the fee income derived from räntekänslighet) predate a stated raise that the check finds in effect, while the buyer's fee includes it. The fee-based share therefore divides by årsavgifter × Π(1 + p) of the in-effect raises (`raknaAndel`), and the raise's yearly revenue in the savings-gap offset becomes årsavgifter × p. The fee-deviation question (`avgiftsavvikelseFraga`) compares the buyer's fee with the raised level and names both levels. Volontären 12 (fee 2 104, +25 % from 2024-05-01): share 0,0445 → 0,0356, lokaler 453 → 363 kr/mån, and no deviation question (2 104 = 1 683 × 1,25).
+
+### Stale reports keep their pending loans (2026-10-25)
+
+A report older than `MAX_RAPPORTALDER_MANADER` (18) months no longer drops the refinancing component outright. Loans whose reset date has passed are left out, since their new rate is unknown and so is any uncovered debt. Loans whose reset date is still ahead keep the report's rate until then and go through the normal two-phase calculation. If no loan is pending, the component is `saknar_underlag` as before. Brf Näcken 2 (FY2024, read 2026-10-25): 16 576 000 kr reset in 2025 and is not counted; 9 472 000 kr at 3,25 % (2026-12-28) and 5 920 000 kr at 4,50 % (2027-09-28) give −166 660 kr per year at 2,648 %.
