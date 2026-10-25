@@ -58,6 +58,7 @@ import { hashaIp, losIp, tanstackKontextKallor, type Kontext } from "./kontext";
 import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
 import { hamtaAnnons } from "./annons/hamta";
+import { postnummerInfo } from "./postnummer";
 import {
   hamtaForening as hamtaRegisterForening,
   hamtaRegisteranalys as hamtaRegisteranalysImpl,
@@ -257,6 +258,21 @@ export const hamtaAnnonsFn = createServerFn({ method: "POST" })
       return await hamtaAnnons(data, { anropare, env });
     } catch (fel) {
       throw sakertFel("hamtaAnnonsFn", fel);
+    }
+  });
+
+/**
+ * Områdesraden under postnummerfältet på /analysera: vad värderingens tabeller
+ * säger om postnumret (src/server/postnummer.ts). Ren uppslagning, ingen I/O,
+ * ingen kontext (sätter inga kakor), ingen kvot.
+ */
+export const hamtaPostnummerInfoFn = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => data)
+  .handler(async ({ data }) => {
+    try {
+      return postnummerInfo(data);
+    } catch (fel) {
+      throw sakertFel("hamtaPostnummerInfoFn", fel);
     }
   });
 

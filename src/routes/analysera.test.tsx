@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
+import { POSTNORD_POSTNUMMER_URL } from "@/lib/postnummer/typer";
 
 // Routing och serveranrop är inte under test: bara vad som ritas.
 const sokning = { current: {} as Record<string, unknown> };
@@ -15,6 +16,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 vi.mock("@/server/analysFn", () => ({
   hamtaAnnonsFn: vi.fn(),
+  hamtaPostnummerInfoFn: vi.fn(),
   hamtaPrisuppskattningFn: vi.fn(),
   hamtaRegisterForeningFn: vi.fn(),
   hamtaSparadVarderingFn: vi.fn(),
@@ -70,6 +72,16 @@ describe("/analysera: priskoll och BRF-analys på en sida", () => {
     for (const fn of Object.values(servern)) {
       expect(fn).not.toHaveBeenCalled();
     }
+  });
+
+  it("har PostNord-länken för postnummer, utan hint eller serveranrop vid rendering", () => {
+    sokning.current = {};
+    const html = rita();
+    expect(html).toContain("Vet du inte postnumret? Sök hos PostNord");
+    expect(html).toContain(POSTNORD_POSTNUMMER_URL);
+    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html).not.toContain("Område:");
+    expect(servern.hamtaPostnummerInfoFn).not.toHaveBeenCalled();
   });
 
   it("länkar inte längre till den gamla priskollssidan", () => {

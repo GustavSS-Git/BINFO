@@ -28,6 +28,7 @@ import {
 } from "@/lib/varderingForm";
 import {
   hamtaAnnonsFn,
+  hamtaPostnummerInfoFn,
   hamtaPrisuppskattningFn,
   hamtaRegisterForeningFn,
   sparaVarderingFn,
@@ -46,6 +47,12 @@ import {
   tillampaAnnons,
   type AnnonsFormLage,
 } from "@/lib/annons/formular";
+import { postnummerFaltVisning } from "@/lib/postnummer/falt";
+import {
+  POSTNORD_POSTNUMMER_URL,
+  postnummerSiffror,
+  type PostnummerInfo,
+} from "@/lib/postnummer/typer";
 import { formatSkapadDatum } from "@/lib/analysisView";
 import { MAX_ETIKETT_TECKEN } from "@/lib/kontoTyper";
 import { inloggningsSok, parseSparaSok, type SparaSok } from "@/lib/till";
@@ -244,6 +251,32 @@ function Analysera() {
     // Ett ändrat annonsfält är inte längre "hämtat från Booli".
     setAnnonsLage((l) => (l ? markeraAndrad(l, k) : l));
   };
+
+  // Områdestext under postnummerfältet (bara på klienten).
+  const [postnummerInfo, setPostnummerInfo] = useState<PostnummerInfo | null>(null);
+  const postnummerSif = postnummerSiffror(form.postnummer);
+  useEffect(() => {
+    if (postnummerSif === null) {
+      setPostnummerInfo(null);
+      return;
+    }
+    let aktuell = true; // ignorera inaktuella svar
+    const timer = setTimeout(() => {
+      hamtaPostnummerInfoFn({ data: { postnummer: postnummerSif } })
+        .then((info) => {
+          if (aktuell) setPostnummerInfo(info);
+        })
+        .catch((e: unknown) => {
+          console.error("Postnummerinfo kunde inte hämtas", e);
+          if (aktuell) setPostnummerInfo(null);
+        });
+    }, 250);
+    return () => {
+      aktuell = false;
+      clearTimeout(timer);
+    };
+  }, [postnummerSif]);
+
   const annonsVisning = (falt: Parameters<typeof annonsFaltVisning>[1], varde: string) =>
     annonsFaltVisning(annonsLage, falt, varde);
 
@@ -583,16 +616,35 @@ function Analysera() {
             error={visaFelSteg1 ? fel1.manadsavgift : null}
             {...annonsVisning("manadsavgift", form.manadsavgift)}
           />
-          <Field
-            id="falt-postnummer"
-            label="Postnummer"
-            type="text"
-            placeholder="116 25"
-            value={form.postnummer}
-            onChange={set("postnummer")}
-            error={visaFelSteg1 ? fel1.postnummer : null}
-            {...annonsVisning("postnummer", form.postnummer)}
-          />
+          <div>
+            <Field
+              id="falt-postnummer"
+              label="Postnummer"
+              type="text"
+              placeholder="116 25"
+              value={form.postnummer}
+              onChange={set("postnummer")}
+              error={visaFelSteg1 ? fel1.postnummer : null}
+              {...postnummerFaltVisning({
+                // Bara svaret för det postnummer som står i fältet nu.
+                info:
+                  postnummerInfo !== null &&
+                  postnummerInfo.status !== "ogiltig" &&
+                  postnummerInfo.postnummer === postnummerSif
+                    ? postnummerInfo
+                    : null,
+                annons: annonsVisning("postnummer", form.postnummer),
+              })}
+            />
+            <a
+              href={POSTNORD_POSTNUMMER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Vet du inte postnumret? Sök hos PostNord
+            </a>
+          </div>
           <Field
             id="falt-vaning"
             label="Våning"

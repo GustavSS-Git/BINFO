@@ -1,10 +1,29 @@
 # Binfo — current plan
 
-**Latest: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: postnummer help on /analysera (2026-10-25, done), below. Before it: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Postnummer help on /analysera (round 2026-10-25)
+
+Status: **DONE 2026-10-25, committed on `main`, not pushed, not deployed.** API spend: 0 kr.
+No migration, no Edge change: ships with the next Lovable publish.
+
+- Part 1, area hint under the postnummer field (owner point 2 of 2026-10-24): `hamtaPostnummerInfoFn`
+  (pure lookup, same `losTackning` as the valuation), texts in `src/lib/postnummer/typer.ts`.
+- Part 2, "Vet du inte postnumret?": built as a Nominatim address search, measured wrong on 5/5 hits,
+  replaced by a link to PostNord's postcode search (owner decision 2026-10-25). See `docs/DECISIONS.md`.
+- Checked in a browser (dev server, headless Chrome): 112 42 → "Område: Kungsholmen, Stockholm.",
+  17067 → Solna/län text, 99999 → warning text; link opens PostNord.
+- For Lovable to polish: the PostNord link under the field (spacing `mt-2`); the postnummer cell is a
+  `<div>` wrapper and grows taller than its neighbour when the hint wraps.
+- Open: the URL is PostNord's English tool page (the Swedish path could not be verified: bot
+  protection); swap if the owner prefers the Swedish page. The Booli prefill's Nominatim postcode
+  fallback has the same accuracy problem (rarely used).
 
 ---
 
