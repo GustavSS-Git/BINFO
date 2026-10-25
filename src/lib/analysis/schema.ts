@@ -454,6 +454,14 @@ export const ForeningSchema = z
                 arshyra: FigureSchema.optional(),
                 slutdatum: IsoDatumSchema.optional(),
                 ref: CitatPageRefSchema,
+                fornyelse: z
+                  .object({
+                    text: z.string().min(1),
+                    nyttSlutdatum: IsoDatumSchema.optional(),
+                    ref: CitatPageRefSchema,
+                  })
+                  .strict()
+                  .optional(),
               })
               .strict(),
           )

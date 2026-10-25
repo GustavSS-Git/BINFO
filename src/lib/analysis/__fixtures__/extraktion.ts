@@ -220,6 +220,18 @@ export const extraktion: ExtractionResult = {
         source: "arsredovisning",
         ref: { page: 8, excerpt: "Hyresintäkter lokaler 360 000" },
       },
+      kontrakt: [
+        {
+          text: "kontoret (130,5 kvm)",
+          slutdatum: "2026-12-31",
+          ref: { page: 8, excerpt: "Kontoret hyrs ut, avtalet löper till 2026-12-31" },
+          fornyelse: {
+            text: "Avtalet för kontoret har förlängts till 2029-12-31",
+            nyttSlutdatum: "2029-12-31",
+            ref: { page: 8, excerpt: "Hyresavtalet för kontoret har förlängts till 2029-12-31" },
+          },
+        },
+      ],
       forlustsignaler: [
         {
           text: "Hyresgästen i lokalen har sagt upp avtalet.",

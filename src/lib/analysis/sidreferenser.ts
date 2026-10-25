@@ -31,6 +31,8 @@ import { TOM_SIDA_TECKEN } from "./textlager";
  * Figures (marked by their refs, which cite the same row) rather than vanishing
  * from the debt picture; a lease, an energy project or the planned-withdrawal
  * claim has no figure to carry the mark, so it is removed (`kontrolleraNyaPoster`).
+ * PROMPT_VERSION 12 adds lokaler.kontrakt[].fornyelse (verified like the lease;
+ * an unverifiable renewal is dropped, not the lease).
  * PROMPT_VERSION 11 adds forening.avgiftsandringar and lokaler.forlustsignaler:
  * cited items without a Figure of their own to carry a mark, so, like a lease,
  * an item whose citation holds nowhere is removed (a wrong page is corrected).
@@ -533,14 +535,23 @@ function kontrolleraNyaPoster(
     const nyLokaler: Record<string, unknown> = { ...resten };
     if (Array.isArray(lokaler["kontrakt"])) {
       const kvar = lokaler["kontrakt"]
-        .map((c, i) =>
-          kontrolleraPost(
-            c,
-            `forening.lokaler.kontrakt[${i}]`,
-            `Ett lokalkontrakt${arObjekt(c) && typeof c["slutdatum"] === "string" ? ` (slutdatum ${c["slutdatum"]})` : ""}`,
+        .map((c, i) => {
+          const stig = `forening.lokaler.kontrakt[${i}]`;
+          if (!arObjekt(c)) return kontrolleraPost(c, stig, "Ett lokalkontrakt", k);
+          const slut = typeof c["slutdatum"] === "string" ? ` (slutdatum ${c["slutdatum"]})` : "";
+          // PROMPT_VERSION 12: the lease's own `fornyelse` is verified like the
+          // lease; if its citation holds nowhere only the renewal is dropped.
+          const { fornyelse, ...utanFornyelse } = c;
+          const post = kontrolleraPost(utanFornyelse, stig, `Ett lokalkontrakt${slut}`, k);
+          if (post === undefined || fornyelse === undefined) return post;
+          const f = kontrolleraPost(
+            fornyelse,
+            `${stig}.fornyelse`,
+            `Uppgiften om förlängning eller ny hyresgäst för ett lokalkontrakt${slut}`,
             k,
-          ),
-        )
+          );
+          return f === undefined ? post : { ...(post as Record<string, unknown>), fornyelse: f };
+        })
         .filter((c) => c !== undefined);
       if (kvar.length > 0) nyLokaler["kontrakt"] = kvar;
     }

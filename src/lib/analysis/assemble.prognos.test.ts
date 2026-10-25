@@ -116,10 +116,67 @@ describe("assembly with the fee prognosis", () => {
     ]);
     const k = r.avgiftsprognos?.komponenter.find((c) => c.id === "beslutad_hojning");
     expect(k?.status).toBe("ej_aktuell");
-    // the fixture's lokaler signal (120 000 × 0,5) is the only lokal rent at risk
+    // the fixture's lokaler signal (120 000 × 100 %) is the only lokal rent at risk;
+    // its kontor lease (ends 2026-12-31) is renewed in the report → 0
     expect(r.avgiftsprognos?.komponenter.find((c) => c.id === "lokaler")?.foreningKrPerAr).toBe(
-      60_000,
+      120_000,
     );
+  });
+
+  describe("buyer questions about lokal rent (owner 2026-10-25)", () => {
+    const lokalFraga = (r: Awaited<ReturnType<typeof montera>>) =>
+      r.fragor.filter((f) => f.id.startsWith("lokal-"));
+
+    it("the fixture's loss signal gives one question for the styrelse with a cited page; the renewed lease gives none", async () => {
+      const r = await montera();
+      const q = lokalFraga(r);
+      expect(q.map((f) => f.id)).toEqual(["lokal-signal-0"]);
+      expect(q[0]).toMatchObject({ ursprung: "analys", riktadTill: "styrelsen", ref: { page: 8 } });
+      expect(q[0]?.varfor).toMatch(/Hyran är 120.000 kr per år/);
+    });
+
+    it("an unrenewed lease ending in the window adds a question and a 50 % component", async () => {
+      const ex = structuredClone(extraktion);
+      delete ex.forening.lokaler!.kontrakt![0]!.fornyelse;
+      const r = await montera(ex);
+      expect(lokalFraga(r).map((f) => f.id)).toEqual(["lokal-signal-0", "lokal-avtal-0"]);
+      const avtal = lokalFraga(r)[1]!;
+      expect(avtal.fraga).toBe(
+        "Vad händer med hyresavtalet för kontoret (130,5 kvm) som löper ut 31 december 2026? Har föreningen och hyresgästen kommit överens om att förlänga, eller finns en ny hyresgäst?",
+      );
+      const k = r.avgiftsprognos?.komponenter.find((c) => c.id === "lokaler");
+      // signal 120 000 × 100 % = 120 000. The lease has no arshyra: 360 000 ÷ max(1, 0, 1) = 360 000,
+      // capped at the 360 000 − 120 000 = 240 000 the signal left, × 50 % = 120 000. Total 240 000.
+      expect(k?.foreningKrPerAr).toBe(240_000);
+      expect(k?.forklaring).toContain("kontoret (130,5 kvm) löper ut 31 december 2026");
+    });
+
+    it("no lokal question when the model already asks about the lokal", async () => {
+      const r = await montera(
+        extraktion,
+        {},
+        {
+          ...bedomning,
+          fragor: [
+            ...bedomning.fragor,
+            {
+              id: "lokal",
+              fraga: "Vad händer med hyresgästen i lokalen?",
+              ursprung: "analys",
+              riktadTill: "styrelsen",
+              varfor: "Lokalhyran är en intäkt.",
+            },
+          ],
+        },
+      );
+      expect(lokalFraga(r)).toEqual([]);
+    });
+
+    it("an old extraction without lokaler gets no lokal question", async () => {
+      const gammal = structuredClone(extraktion);
+      delete gammal.forening.lokaler;
+      expect(lokalFraga(await montera(gammal))).toEqual([]);
+    });
   });
 
   it("an old extraction without avgiftsandringar and forlustsignaler still assembles: no check, both components ej_aktuell", async () => {

@@ -19,9 +19,18 @@ export const REFINANSIERINGSANDEL_UTAN_FORFALL = 0.5;
 // TODO: unverified placeholder (owner default 2026-10-24)
 export const UNDERHALL_FORDELNING_AR = 10;
 
-/** Share of lokal rent treated as at risk when a lease ends within the horizon. */
-// TODO: unverified placeholder (owner default 2026-10-24)
+/** Probability (as a share of the rent) that the income disappears when a lease
+ *  ends within the horizon (from the balance date to the horizon end) and the
+ *  report says nothing about renewal or a replacement tenant. Owner decision
+ *  2026-10-25 (compromise): a lease end alone is a coin flip, not a certainty. */
+// TODO: unverified placeholder (owner default 2026-10-24, meaning changed 2026-10-25)
 export const LOKALHYRA_RISKANDEL = 0.5;
+
+/** Share of a lokal rent that is subtracted when the report itself says the
+ *  rent WILL fall away (a `forlustsignal`: terminated lease, tenant leaving,
+ *  vacant premises, insolvent tenant, rent dispute or reduction). Source:
+ *  owner decision 2026-10-25. */
+export const LOKALHYRA_ANDEL_VID_FORLUSTSIGNAL = 1;
 
 /** Widening of the price range's LOW end per component without data, as a
  *  share of the baseline. Missing data never lowers the point estimate. */

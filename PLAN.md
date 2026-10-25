@@ -10,16 +10,23 @@ Earlier plans (done, kept for history): the UI copy + new `/exempel` plan furthe
 
 # Owner feedback round (2026-10-25b)
 
-Status: **DONE 2026-10-25, committed on `main`, not pushed, not deployed.** API spend: 2.92 kr
-(row 123). Deploy: PROMPT_VERSION 11 → `deploy:edge` together with the Lovable publish (plus
+Status: **DONE 2026-10-25, committed on `main`, not pushed, not deployed.** API spend: 5.65 kr
+(rows 123–124). Deploy: PROMPT_VERSION 12 → `deploy:edge` together with the Lovable publish (plus
 the earlier pending migrations); no new migration.
 
 Result:
+
 - Volontären 12 FY2023 (paid run, hypothetical 50 m² flat, fee 2 104): the model extracted
   "+25 % från 1 maj 2024" (beslutad, cited p. 3) and no lokal loss signal (only the lease end
   2024-12-31), so lokaler = 0 kr; the check says date passed + fee matches the raised estimate
   (1 683 → 2 104) → in effect, nothing added. Re-assembled for free with fee 1 683: still in
   effect (the date decides), `konflikt: true`.
+- Lokal compromise (owner, same day): loss signal 100 %, lease ending within the horizon without a
+  cited renewal 50 %, each lease named in the text, one styrelse question per lease/signal (skipped
+  when the model already asks). Volontären (paid run 124): kontoret (130,5 kvm) ended 2024-12-31,
+  no renewal → 122 190 kr/yr; the model asked about the lease itself. The run showed the share used
+  pre-raise årsavgifter; fixed (share and fee-deviation question use the raised level): 363 kr/mån,
+  price −113 000 kr, no deviation question. Open: no cap on the number of lease questions.
 - `/exempel` re-assembled for free (`monteraOm`): +1/+2 rows now 4 022 / 4 169 kr, the new
   `beslutad_hojning` component (Pontonjären's 22 % raise was before the balance date, so ignored).
 - For Lovable to polish: the Toggle above the slider (`mb-6` wrapper; two `px-5` buttons may be

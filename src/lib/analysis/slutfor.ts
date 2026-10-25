@@ -217,6 +217,27 @@ function rensaUnderhall(plan: Rad): void {
   else delete plan["planeradeKostnader"];
 }
 
+/**
+ * A lease's `fornyelse` (PROMPT_VERSION 12: the report says it is extended /
+ * renewed or a new tenant has signed): kept only with text and a cited excerpt;
+ * an invalid nyttSlutdatum is removed; unknown keys are stripped. Anything else
+ * drops the renewal, never the lease (a dropped renewal leaves the lease
+ * counted as unrenewed, the cautious side).
+ */
+function rensaFornyelse(kontrakt: Rad): void {
+  if (!("fornyelse" in kontrakt)) return;
+  const f = kontrakt["fornyelse"];
+  if (!arRad(f) || typeof f["text"] !== "string" || f["text"].trim() === "" || !arCitat(f["ref"])) {
+    delete kontrakt["fornyelse"];
+    return;
+  }
+  kontrakt["fornyelse"] = {
+    text: f["text"],
+    ...(arIsoDatum(f["nyttSlutdatum"]) ? { nyttSlutdatum: f["nyttSlutdatum"] } : {}),
+    ref: f["ref"],
+  };
+}
+
 function rensaLokaler(lokaler: Rad): void {
   rensaFigurfalt(lokaler, "hyresintakter");
   rensaForlustsignaler(lokaler);
@@ -230,6 +251,7 @@ function rensaLokaler(lokaler: Rad): void {
     rensaFigurfalt(k, "arshyra", k["ref"]);
     rensaDatum(k, "slutdatum");
     rensaText(k, "text");
+    rensaFornyelse(k);
     kontrakt.push(k);
   }
   if (kontrakt.length > 0) lokaler["kontrakt"] = kontrakt;

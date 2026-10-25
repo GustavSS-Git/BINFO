@@ -27,6 +27,7 @@ import { reservReferensranta } from "./calc/prognosantaganden";
 import { byggPrisjustering } from "./prisjustering";
 import { jamforUppgifter } from "./uppgiftsjamforelse";
 import { byggSammanfattning } from "./sammanfattning";
+import { lokalFragor } from "./lokalfragor";
 import { sagerAttByggarSaknas } from "./tolkaVarde";
 import {
   konfidensUtanPrisdata,
@@ -352,12 +353,22 @@ const AVGIFTSAVVIKELSE_TROSKEL = 0.15;
 export function avgiftsavvikelseFraga(
   input: Pick<PropertyInput, "manadsavgift" | "boarea">,
   forening: Forening,
+  /** Stated raises already in effect after the balance date (2026-10-25):
+   *  the comparison uses the raised level, since the key figure predates them. */
+  hojningIKraft: { faktor: number; procent: number[] } = { faktor: 1, procent: [] },
 ): Fraga | null {
   const arsavgiftPerM2 = nyckeltalsfigur(forening, "arsavgift_per_m2_brf_yta");
   if (!arsavgiftPerM2 || arsavgiftPerM2.value === null || arsavgiftPerM2.value <= 0) return null;
   if (!(input.boarea > 0) || !(input.manadsavgift > 0)) return null;
 
-  const forvantad = (arsavgiftPerM2.value * input.boarea) / 12;
+  const fore = (arsavgiftPerM2.value * input.boarea) / 12;
+  const hojd = hojningIKraft.faktor > 1 && hojningIKraft.procent.length > 0;
+  const forvantad = hojd ? fore * hojningIKraft.faktor : fore;
+  const hojningText = hojd
+    ? `, eller ungefär ${sv0(Math.round(forvantad))} kr efter ${
+        hojningIKraft.procent.length === 1 ? "den beslutade höjningen" : "de beslutade höjningarna"
+      } på ${hojningIKraft.procent.map((p) => `${procent(p)} %`).join(" och ")} som redan gäller`
+    : "";
   const avvikelse = (input.manadsavgift - forvantad) / forvantad;
   if (Math.abs(avvikelse) <= AVGIFTSAVVIKELSE_TROSKEL) return null;
 
@@ -372,8 +383,8 @@ export function avgiftsavvikelseFraga(
     riktadTill: "maklaren",
     varfor:
       `Enligt årsredovisningen är årsavgiften ${sv0(arsavgiftPerM2.value)} kr per kvadratmeter ` +
-      `bostadsrättsyta, vilket för ${boareaText} m² motsvarar ungefär ${sv0(Math.round(forvantad))} kr ` +
-      `i månaden. Den angivna månadsavgiften är ${sv0(input.manadsavgift)} kr, ` +
+      `bostadsrättsyta, vilket för ${boareaText} m² motsvarar ungefär ${sv0(Math.round(fore))} kr ` +
+      `i månaden${hojningText}. Den angivna månadsavgiften är ${sv0(input.manadsavgift)} kr, ` +
       `${procent(avvikelse * 100)} % ${riktning}. Skillnaden kan bero på ett annat andelstal, på ` +
       "vad som ingår i avgiften eller på en planerad avgiftsändring. Svaret avgör vilken " +
       "månadskostnad du faktiskt kan räkna med i din budget.",
@@ -1099,10 +1110,19 @@ export async function assembleraAnalys({
     andelAvForeningensSkuld === null && !harRedanFragaOmSkuldPerM2(analys)
       ? [SAKNAR_SKULD_PER_M2_FRAGA]
       : [];
-  const avgiftFraga = avgiftsavvikelseFraga(input, extraction.forening);
+  const avgiftFraga = avgiftsavvikelseFraga(input, extraction.forening, prognos.hojningIKraft);
   const prognosFraga: Fraga[] = prognos.prognos.osaker
     ? [avgiftsprognosFraga(prognos.prognos.osaker)]
     : [];
+  // Lokal leases ending without a stated renewal, and cited loss signals
+  // (owner 2026-10-25): deterministic questions for the styrelse, skipped when
+  // the model already asks about lokaler / hyresavtal / hyresgäster.
+  const lokalFragorLista = lokalFragor({
+    forening: extraction.forening,
+    arsavgifter: extraction.kontrollsummor?.arsavgifter?.value ?? undefined,
+    idag: prognos.prognos.berakningsdatum,
+    befintliga: [...analysFragor, ...saknadUppgiftFragor, ...prognosFraga],
+  });
   const osakerFragor = osakerhetsfragor(extraction.forening, [
     ...analysFragor,
     ...saknadUppgiftFragor,
@@ -1138,6 +1158,7 @@ export async function assembleraAnalys({
       ...skuldFraga,
       ...(avgiftFraga ? [avgiftFraga] : []),
       ...prognosFraga,
+      ...lokalFragorLista,
       ...osakerFragor,
     ],
 

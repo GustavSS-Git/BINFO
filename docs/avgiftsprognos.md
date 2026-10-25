@@ -77,7 +77,7 @@ kr/month for the flat = BRF kr/year × andel ÷ 12.
      `saknar_underlag`, wider range, no price effect.
 3. **Underhåll**: planned costs in the window not financed by loan/fund/decision, minus the fund
    balance, minus planned yearly savings × years; positive remainder ÷ 10 years.
-4. **Lokaler**: rent at risk × 50 %, but only when the report states a loss signal (see round 2026-10-25).
+4. **Lokaler**: a cited loss signal counts 100 % of its rent; a lease ending within the horizon with no stated renewal counts 50 % (see round 2026-10-25).
 5. **Energi**: unfinanced energy projects with an amount ÷ 10 years. Energikostnad itself is already
    in today's fee and is never added.
 
@@ -136,21 +136,64 @@ Helsingborgshus 17 (−5 kr/mån), see the round summary in PLAN.md.
 **Calibration note:** with the schablon, a typical förening (sparande 85–225 kr/m²) gets a yellow
 or red savings step and roughly −1 to −3 % on the price. `SPARMAL_SCHABLON_DAMPNING` is the knob.
 
-## Round 2026-10-25: lokal rent only on a signal, decided fee raises
+## Round 2026-10-25: lokal rent (signal 100 %, ending lease 50 %), decided fee raises
 
 Owner feedback on Bf Volontären 12 (FY2023): a lokal lease with "Löptid t.o.m 2024-12-31" made the
-`lokaler` component subtract 50 % of the rent, although nothing says the tenant leaves.
+`lokaler` component subtract 50 % of the rent, although nothing says the tenant leaves. First fix:
+count only loss signals. Refined the same day into the compromise below.
 
-**Lokaler (component 4, replaces the end-date logic).** Subtract only when
-`forening.lokaler.forlustsignaler` is non-empty: statements that the rent falls away (uppsagt
-hyresavtal, hyresgästen har sagt upp / flyttar, lokalen står tom/vakant, hyresgäst i konkurs eller
-obestånd, hyrestvist, hyresnedsättning / omförhandling till lägre hyra). A lease end date, "löper
-till" or automatic extension is NOT a signal. Rent at risk = Σ signal `arshyra`; a signal without a
-rent uses `hyresintakter ÷ max(antal kontrakt, antalLokaler, 1)`; the sum never exceeds
-`hyresintakter`; no rent figure at all → `saknar_underlag`; × `LOKALHYRA_RISKANDEL` (50 %). No signals
-(and every extraction before PROMPT_VERSION 11, which lacks the field) → `ej_aktuell`, 0 kr, text
-"Föreningen hyr ut lokaler (X kr per år). Inget i årsredovisningen tyder på att hyresintäkterna faller
-bort, så vi räknar inte med något bortfall." The "no lokaler" and "cited zero rent" branches are kept.
+**Lokaler (component 4; first version 2026-10-25, refined the same day: a compromise).** Sources
+of risk, all from cited fields (code: `calc/lokalrisk.ts` classifies, `avgiftsprognos.ts` prices):
+
+1. **Loss signal** (`forening.lokaler.forlustsignaler`: uppsagt hyresavtal, hyresgästen har sagt upp /
+   flyttar, lokalen står tom/vakant, hyresgäst i konkurs eller obestånd, hyrestvist, hyresnedsättning
+   / omförhandling till lägre hyra): the report says the rent WILL fall away → **100 %** of the rent
+   (`LOKALHYRA_ANDEL_VID_FORLUSTSIGNAL`, owner 2026-10-25).
+2. **Lease ending soon**: `kontrakt[].slutdatum` in [balansdag, idag + `HORISONT_MANADER`], both
+   ends inclusive (so also a lease that ended after the balance date: the report is old and does not
+   tell us what happened), and the report says nothing about renewal → **50 %**
+   (`LOKALHYRA_RISKANDEL`, now meaning "50 % probability that the income disappears").
+3. **Not at risk**: a lease with `fornyelse` (new optional field on each kontrakt, PROMPT_VERSION 12:
+   `{ text, nyttSlutdatum?, ref }`, the report says the lease is extended/renewed or a new tenant has
+   signed; automatic extension counts only if the report says so for that lease), a lease ending
+   outside the window, a lease that ended before the balance date. Neither a signal nor an ending
+   lease → `ej_aktuell`, 0 kr, text "Föreningen hyr ut lokaler (X kr per år). Inget i årsredovisningen
+   tyder på att hyresintäkterna faller bort, så vi räknar inte med något bortfall." (a renewed lease
+   adds a sentence naming it before that). The "no lokaler" and "cited zero rent" branches are kept.
+
+Rent per lease: its `arshyra`, else `hyresintakter ÷ max(antal kontrakt, antalLokaler, 1)` (the same
+share a signal without rent gets). Any at-risk item with no rent figure at all → `saknar_underlag`
+(the text still names the lease and says the rent is missing).
+
+**No double counting (choice).** Signals first: their rents are summed and, when `hyresintakter` is
+known and > 0, scaled proportionally down to it. Ending unrenewed leases are then capped at the rent
+the signals did not cover (`hyresintakter` − signal rent), again scaled proportionally; if nothing is
+left the lease is named as "redan inräknad ovan". A lease whose own `arshyra` equals a signal's
+`arshyra` is taken to be that same rent and is counted by the signal only (two different leases with
+an identical rent would be under-counted: the cautious side, and there is no other link between a signal
+and a lease). Each item's amount is rounded on its own and the component is their sum, so the
+amounts in the explanation always add up to `foreningKrPerAr`.
+
+Hand-computed example (Volontären-like: one lease, no `arshyra`, `hyresintakter` 244 380, slutdatum
+2024-12-31, balansdag 2023-12-31, today 2026-10-25): 244 380 × 50 % = 122 190 kr/year; flat share at
+fee/årsavgifter = 1 % → 122 190 ÷ 1 200 = 102 kr/month. Explanation: "Hyresavtalet för kontoret
+(130,5 kvm) löpte ut 31 december 2024 och årsredovisningen säger inget om förlängning eller ny
+hyresgäst. Vi räknar med 50 % sannolikhet att hyran faller bort, cirka 122 190 kr per år för
+föreningen." A signal: "Årsredovisningen nämner: ”…”. Vi räknar med att hela hyran, X kr per år,
+faller bort." Several items → one sentence each plus "Sammanlagt räknar vi med cirka X kr per år
+för föreningen." The lease name is the lease's `text` when it is a short noun phrase (≤ 60 characters,
+not mentioning "avtal"/"löper", as older extractions sometimes do), else "lokalen". No causal claim:
+the text says what the report says and which assumption we make.
+
+**Questions to the styrelse** (`lokalfragor.ts`, buyer-level, assembled on every read in
+`assemble.ts`, ursprung `analys`, riktadTill `styrelsen`): one per cited loss signal ("Hur planerar
+föreningen att ersätta lokalhyran som enligt årsredovisningen faller bort, och när kan lokalen vara
+uthyrd igen?") and one per lease ending in the window without `fornyelse` and not covered by a signal
+("Vad händer med hyresavtalet för kontoret (130,5 kvm) som löpte ut 31 december 2024? Har föreningen
+och hyresgästen kommit överens om att förlänga, eller finns en ny hyresgäst?"). `varfor` uses only
+numbers that exist (the year's lokal rent, the lease's rent, the share of årsavgifter only when
+årsavgifter is known). All are skipped when any of the model's (or earlier deterministic) questions
+mention lokal / hyresavtal / hyresgäst in `fraga` or `varfor`.
 
 **Decided fee raises (new component 6, id `beslutad_hojning`, "Beslutad avgiftshöjning som inte har
 trätt i kraft").** PROMPT_VERSION 11 extracts `forening.avgiftsandringar`: decided ("beslutad") or
@@ -189,3 +232,7 @@ already in the buyer's fee, where the fee contains the raise and the revenue is 
 spargap explanation gets a sentence ("Den beslutade höjningen av årsavgiften på X % ger föreningen
 cirka Y kr mer per år och täcker Z kr av glappet"). `sparbehov` (the target/gap in kr/m²) is NOT
 changed; only the component's BRF amount is. Without `andel` nothing is offset.
+
+### Share after a raise in effect (2026-10-25)
+
+The report's årsavgifter (and the fee income derived from räntekänslighet) predate a stated raise that the check finds in effect, while the buyer's fee includes it. The fee-based share therefore divides by årsavgifter × Π(1 + p) of the in-effect raises (`raknaAndel`), and the raise's yearly revenue in the savings-gap offset becomes årsavgifter × p. The fee-deviation question (`avgiftsavvikelseFraga`) compares the buyer's fee with the raised level and names both levels. Volontären 12 (fee 2 104, +25 % from 2024-05-01): share 0,0445 → 0,0356, lokaler 453 → 363 kr/mån, and no deviation question (2 104 = 1 683 × 1,25).

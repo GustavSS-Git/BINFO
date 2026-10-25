@@ -792,14 +792,63 @@ describe("PROMPT_VERSION 11: lokalernas förlustsignaler och avgiftsändringar",
   });
 });
 
+describe("PROMPT_VERSION 12: lokalkontrakt med förlängning (fornyelse)", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+  const exempel = () =>
+    JSON.parse(extr.slice(extr.indexOf('{\n  "schemaVersion"'), extr.indexOf("\n\nSkarpa regler")));
+
+  it("grundningen ber om uttalanden om förlängning/förnyelse/ny hyresgäst för varje avtal med slutdatum", () => {
+    expect(grund).toMatch(/och \(c\) för varje lokalhyresavtal med slutdatum/);
+    expect(grund).toMatch(/förlängts eller förnyats, eller att en ny hyresgäst har skrivit på/);
+    expect(grund).toMatch(/med det nya slutdatumet om det anges/);
+  });
+
+  it("grundningen: automatisk förlängning räknas bara när rapporten säger det om just avtalet", () => {
+    expect(grund).toMatch(
+      /automatisk förlängning \("löper vidare om det inte sägs upp"\) räknas bara när rapporten uttryckligen säger det om just det avtalet/,
+    );
+  });
+
+  it("extraktionen förklarar fornyelse: ordagrant citat, nyttSlutdatum bara när det anges, utelämna annars", () => {
+    expect(extr).toMatch(/fornyelse \(valfri, \{ "text", "nyttSlutdatum"\?, "ref" \}\)/);
+    expect(extr).toMatch(
+      /ENDAST när fynden innehåller ett uttalande om att just det avtalet har förlängts/,
+    );
+    expect(extr).toMatch(/nyttSlutdatum \(YYYY-MM-DD\) bara när det nya slutdatumet anges/);
+    expect(extr).toMatch(/Utelämna fornyelse när fynden inte säger något sådant — gissa aldrig/);
+    expect(extr).toMatch(
+      /Automatisk förlängning .* räknas bara när rapporten uttryckligen säger det/,
+    );
+  });
+
+  it("extraktionen ber om text som substantiv i bestämd form, inte ordet hyresavtal", () => {
+    expect(extr).toMatch(/kontoret \(130,5 kvm\)/);
+    expect(extr).toMatch(/skriv inte ordet hyresavtal i text/);
+  });
+
+  it("exemplet: ett avtal utan fornyelse och ett med citerad fornyelse och nytt slutdatum", () => {
+    const k = exempel().forening.lokaler.kontrakt;
+    expect(k).toHaveLength(2);
+    expect(k[0].fornyelse).toBeUndefined();
+    expect(k[1].fornyelse).toMatchObject({ nyttSlutdatum: "2029-12-31" });
+    expect(k[1].fornyelse.ref.excerpt).toBeTruthy();
+    expect(k[1].fornyelse.ref.page).toBeGreaterThan(0);
+  });
+
+  it("fornyelse finns bland fälten som utelämnas när uppgiften saknas", () => {
+    expect(extr).toMatch(/forlustsignaler, fornyelse, avgiftsandringar/);
+  });
+});
+
 describe("PROMPT_VERSION", () => {
   it("exporteras som en icke-tom sträng", () => {
     expect(typeof PROMPT_VERSION).toBe("string");
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 11 sedan extraktionen fick lokaler.forlustsignaler och avgiftsandringar (10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("11");
+  it("är 12 sedan lokalkontrakten fick fornyelse (11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("12");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -829,7 +878,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("9ee14a2bf664db07ff42f9c19183602b1b4068a5a63ee7a6e082c3bf43a20e2a");
+    expect(hash).toBe("13b4d898db77d75c40dd19d175393ea3780d6de954a77b375ba8493f2e421120");
   });
 });
 

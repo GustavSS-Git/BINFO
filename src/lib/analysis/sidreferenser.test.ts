@@ -387,6 +387,60 @@ describe("verifieraSidreferenser: nya poster (PROMPT_VERSION 9)", () => {
       expect(l.forlustsignaler!.map((x) => x.ref.page)).toEqual([3, 3]);
     });
 
+    describe("PROMPT_VERSION 12: kontrakt[].fornyelse", () => {
+      const tt = sidor(
+        FYLL,
+        "Kontoret hyrs ut till 2026-12-31",
+        "Avtalet för kontoret har förlängts till 2029-12-31",
+      );
+      const kontrakt = (fornyelseRef: ReturnType<typeof ref>) => ({
+        slutdatum: "2026-12-31",
+        ref: ref(2, "Kontoret hyrs ut till 2026-12-31"),
+        fornyelse: { text: "Förlängt", nyttSlutdatum: "2029-12-31", ref: fornyelseRef },
+      });
+      it("a renewal on the right page is kept", () => {
+        const e = medNytt({
+          lokaler: { kontrakt: [kontrakt(ref(3, "har förlängts till 2029-12-31"))] },
+        });
+        const k = verifieraSidreferenser(e, tt).extraction.forening.lokaler!.kontrakt!;
+        expect(k).toHaveLength(1);
+        expect(k[0]!.fornyelse?.ref.page).toBe(3);
+      });
+      it("a renewal on the wrong page is corrected", () => {
+        const e = medNytt({
+          lokaler: { kontrakt: [kontrakt(ref(2, "har förlängts till 2029-12-31"))] },
+        });
+        const k = verifieraSidreferenser(e, tt).extraction.forening.lokaler!.kontrakt!;
+        expect(k[0]!.fornyelse?.ref.page).toBe(3);
+      });
+      it("a renewal whose citation is nowhere is dropped, the lease stays", () => {
+        const e = medNytt({
+          lokaler: { kontrakt: [kontrakt(ref(3, "ny hyresgäst har skrivit på"))] },
+        });
+        const r = verifieraSidreferenser(e, tt);
+        const k = r.extraction.forening.lokaler!.kontrakt!;
+        expect(k).toHaveLength(1);
+        expect(k[0]!.fornyelse).toBeUndefined();
+        expect(k[0]!.slutdatum).toBe("2026-12-31");
+        expect(r.extraction.datakvalitet.extraktionKonfidens.skal?.join(" ")).toMatch(
+          /förlängning eller ny hyresgäst/,
+        );
+      });
+      it("a lease whose own citation fails is dropped with its renewal", () => {
+        const e = medNytt({
+          lokaler: {
+            kontrakt: [
+              {
+                ...kontrakt(ref(3, "har förlängts till 2029-12-31")),
+                ref: ref(2, "finns inte alls"),
+              },
+            ],
+          },
+        });
+        expect(verifieraSidreferenser(e, tt).extraction.forening.lokaler?.kontrakt).toBeUndefined();
+      });
+    });
+
     it("all signals dropped → forlustsignaler removed, other lokaler data kept", () => {
       const e = medNytt({
         lokaler: {

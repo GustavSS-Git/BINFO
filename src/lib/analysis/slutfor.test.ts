@@ -452,6 +452,49 @@ describe("slutforExtraktion: övriga nya fält", () => {
     ).toBeUndefined();
   });
 
+  it("lokaler.kontrakt[].fornyelse (PROMPT_VERSION 12): uncited → dropped, bad nyttSlutdatum removed, lease kept", () => {
+    const lease = (fornyelse: unknown) => ({
+      slutdatum: "2026-12-31",
+      ref: { page: 5, excerpt: "avtalet löper till 2026-12-31" },
+      fornyelse,
+    });
+    const kontrakt = ok(
+      med({
+        lokaler: {
+          kontrakt: [
+            lease({
+              text: "Avtalet har förlängts",
+              nyttSlutdatum: "2029-12-31",
+              ref: { page: 5, excerpt: "förlängts till 2029-12-31" },
+            }),
+            lease({ text: "Förlängt", ref: { page: 5 } }), // no excerpt
+            lease({ text: "", ref: { page: 5, excerpt: "x" } }), // no text
+            lease("förlängt"), // wrong shape
+            lease({
+              text: "Ny hyresgäst",
+              nyttSlutdatum: "snart",
+              ref: { page: 6, excerpt: "ny hyresgäst har skrivit på" },
+              extra: 1,
+            }),
+          ],
+        },
+      }),
+    ).forening.lokaler!.kontrakt!;
+    expect(kontrakt).toHaveLength(5);
+    expect(kontrakt[0]!.fornyelse).toEqual({
+      text: "Avtalet har förlängts",
+      nyttSlutdatum: "2029-12-31",
+      ref: { page: 5, excerpt: "förlängts till 2029-12-31" },
+    });
+    expect(kontrakt[1]!.fornyelse).toBeUndefined();
+    expect(kontrakt[2]!.fornyelse).toBeUndefined();
+    expect(kontrakt[3]!.fornyelse).toBeUndefined();
+    expect(kontrakt[4]!.fornyelse).toEqual({
+      text: "Ny hyresgäst",
+      ref: { page: 6, excerpt: "ny hyresgäst har skrivit på" },
+    });
+  });
+
   it("energiprojekt: finansierat utan citat blir okant; post utan text släpps", () => {
     const e = ok(
       med({

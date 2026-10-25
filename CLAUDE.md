@@ -16,10 +16,10 @@ per-apartment cost in kronor, and what to do before bidding.
   `main` and **deployed to production on 2026-10-14** (both v3 migrations,
   `deploy:edge`, Lovable publish; the two pre-v3 register reports were re-run
   in production the same day, `docs/api-test-log.md` #104). Runbook:
-  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p11.i1.s1`
+  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p12.i1.s1`
   (p8 2026-10-23 question context, p9 2026-10-24 loans/maintenance/lokaler,
-  p10 2026-10-24 past renovations + plan need figures, p11 2026-10-25 lokal
-  loss signals + årsavgift changes) — not deployed yet,
+  p10 2026-10-24 past renovations + plan need figures, p11/p12 2026-10-25 lokal
+  loss signals, lease renewals + årsavgift changes) — not deployed yet,
   see `PLAN.md`.
 - After v3 (on `main`, 2026-10-14): `/integritet` privacy page (controller
   "Binfo (binfo.slanesens.com)", no contact e-mail yet: `src/lib/kontakt.ts`),
@@ -47,16 +47,19 @@ per-apartment cost in kronor, and what to do before bidding.
   green/yellow/red. Sources: `docs/underhall-referens.md`; decisions in
   `docs/DECISIONS.md`.
 - **Owner feedback round** (2026-10-25b, on `main`, NOT deployed; PROMPT_VERSION
-  11): the rate section is the slider again with tabs "Dagens avgift" /
+  12): the rate section is the slider again with tabs "Dagens avgift" /
   "Förväntad avgift" (`rantestressVy` in `analysisView.ts`; same räntekänslighet
   increment on both bases, and the PDF table's +1/+2 rows match); lokal rent
-  lowers the expected fee only on a cited loss signal
-  (`lokaler.forlustsignaler`), never on a lease end date alone; stated
+  lowers the expected fee by 100 % on a cited loss signal
+  (`lokaler.forlustsignaler`) and by 50 % for a lease ending within the horizon
+  without a cited renewal (`kontrakt[].fornyelse`), each lease named in the
+  text and asked about (`lokalfragor.ts`, `calc/lokalrisk.ts`); stated
   årsavgift changes (`avgiftsandringar`) get an INTERNAL check (date vs today +
   the buyer's fee vs årsavgift/m² × boarea ÷ 12) stored as
   `avgiftsprognos.avgiftsandringKontroll`, never rendered; a raise not yet in
   effect is the component `beslutad_hojning`, and every relevant raise offsets
-  the savings gap.
+  the savings gap; a raise in effect also scales the report's fee income in
+  the flat's share and in the fee-deviation question.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -358,7 +361,7 @@ per-apartment cost in kronor, and what to do before bidding.
      Buyer-level (assembled per read) = `input`, `prisanalys`, `rantestress`,
      missing-data questions, the fee-deviation question.
    - `PIPELINE_VERSION` = `p<PROMPT_VERSION>.i<IDENTITET_PROMPT_VERSION>.s<SCHEMA_MAJOR>`
-     (production since 2026-10-14: `p7.i1.s1`; `main`: `p11.i1.s1`). v3 adds `rapport.proveniens`
+     (production since 2026-10-14: `p7.i1.s1`; `main`: `p12.i1.s1`). v3 adds `rapport.proveniens`
      (`api` default). Each stage has pure `bygg*Request`/`tolka*Svar` (golden
      tests pin the request bodies).
 4. **Reads** re-assemble on every read from the rapport's extraction/judgement +
@@ -486,7 +489,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-25b: 144 files, ~3030 tests, all passing)
+npm test                    # vitest run (2026-10-25b: 146 files, ~3090 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)

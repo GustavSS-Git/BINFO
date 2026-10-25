@@ -509,116 +509,218 @@ describe("underhall", () => {
   });
 });
 
-describe("lokaler (only a loss signal counts; a lease end date alone is nothing)", () => {
-  const avtal = (slutdatum: string | undefined, arshyra: number | undefined) => ({
+describe("lokaler (owner 2026-10-25: signal 100 %, unrenewed lease ending in the window 50 %)", () => {
+  // Default setup: idag 2026-10-24 → horizon end 2028-10-24; balansdag 2025-12-31 (rakenskapsar 2025).
+  // Flat share: BRF kr/year ÷ 1 200 = kr/month.
+  const avtal = (
+    slutdatum: string | undefined,
+    arshyra: number | undefined,
+    extra: {
+      text?: string;
+      fornyelse?: { text: string; nyttSlutdatum?: string };
+    } = {},
+  ) => ({
+    ...(extra.text ? { text: extra.text } : {}),
     ...(slutdatum ? { slutdatum } : {}),
     ...(arshyra !== undefined ? { arshyra: fig(arshyra) } : {}),
     ref: { page: 7, excerpt: "lokal" },
+    ...(extra.fornyelse
+      ? { fornyelse: { ...extra.fornyelse, ref: { page: 7, excerpt: "förlängt" } } }
+      : {}),
   });
   const signal = (arshyra?: number, text = "Hyresgästen har sagt upp avtalet") => ({
     text,
     ...(arshyra !== undefined ? { arshyra: fig(arshyra) } : {}),
     ref: { page: 8, excerpt: text },
   });
+  const ren = (t: string) => t.replace(/\s/g, " ");
+
   it("no lokaler: ej_aktuell", () => {
     expect(komp(kor(forening()), "lokaler").status).toBe("ej_aktuell");
     expect(komp(kor(forening({ antalLokaler: fig(0, { unit: "antal" }) })), "lokaler").status).toBe(
       "ej_aktuell",
     );
   });
-  it("Volontären-like: a lease ending inside the horizon but no signal → ej_aktuell, 0 kr, amount in the text", () => {
+  it("lokaler without a known rent or lease: ej_aktuell and no amount in the text", () => {
+    const k = komp(kor(forening({ antalLokaler: fig(3, { unit: "antal" }) })), "lokaler");
+    expect(k).toMatchObject({ status: "ej_aktuell", foreningKrPerAr: 0 });
+    expect(k.forklaring.startsWith("Föreningen hyr ut lokaler. Inget i")).toBe(true);
+  });
+  it("rent but no signal and no lease ending in the window: ej_aktuell with the 'Inget i årsredovisningen' text", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: { hyresintakter: fig(244_380), kontrakt: [avtal("2029-03-31", 244_380)] },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "ej_aktuell", foreningKrPerAr: 0 });
+    expect(ren(k.forklaring)).toBe(
+      "Föreningen hyr ut lokaler (244 380 kr per år). Inget i årsredovisningen tyder på att hyresintäkterna faller bort, så vi räknar inte med något bortfall.",
+    );
+  });
+  it("Volontären-like: one lease, no arshyra, hyresintakter 244 380, slut 2024-12-31, balansdag 2023-12-31, idag 2026-10-25 → 50 % = 122 190 kr/yr, 'löpte ut'", () => {
+    const r = kor(
+      forening({
+        balansdag: "2023-12-31",
+        rakenskapsar: 2023,
+        lokaler: {
+          hyresintakter: fig(244_380),
+          kontrakt: [avtal("2024-12-31", undefined, { text: "Kontoret (130,5 kvm)" })],
+        },
+      }),
+      { idag: "2026-10-25" },
+    );
+    const k = komp(r, "lokaler");
+    // 244 380 × 0,5 = 122 190; ÷ 1 200 = 101,8 → 102
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 122_190, krPerManad: 102 });
+    expect(ren(k.forklaring)).toBe(
+      "Hyresavtalet för kontoret (130,5 kvm) löpte ut 31 december 2024 och årsredovisningen säger inget om förlängning eller ny hyresgäst. Vi räknar med 50 % sannolikhet att hyran faller bort, cirka 122 190 kr per år för föreningen.",
+    );
+    expect(k.ref?.page).toBe(7);
+  });
+  it("a lease ending 2027-06-30 (future, in the window): 50 % of 100 000 = 50 000, 'löper ut'; 50 000 ÷ 1 200 = 41,7 → 42", () => {
     const k = komp(
       kor(
         forening({
           lokaler: {
-            hyresintakter: fig(244_380),
-            kontrakt: [avtal("2027-03-31", 244_380)],
+            hyresintakter: fig(300_000),
+            kontrakt: [avtal("2027-06-30", 100_000, { text: "butiken" })],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 50_000, krPerManad: 42 });
+    expect(ren(k.forklaring)).toMatch(/^Hyresavtalet för butiken löper ut 30 juni 2027 och /);
+  });
+  it("window edges: ending on the horizon end (2028-10-24) counts, a day later does not; on the balance date counts, a day earlier does not", () => {
+    const med = (slut: string) =>
+      komp(
+        kor(
+          forening({ lokaler: { hyresintakter: fig(200_000), kontrakt: [avtal(slut, 200_000)] } }),
+        ),
+        "lokaler",
+      ).foreningKrPerAr;
+    expect(med("2028-10-24")).toBe(100_000);
+    expect(med("2028-10-25")).toBe(0);
+    expect(med("2025-12-31")).toBe(100_000);
+    expect(med("2025-12-30")).toBe(0);
+  });
+  it("a lease ending 2029 (outside the window) → 0 kr, ej_aktuell", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: { hyresintakter: fig(300_000), kontrakt: [avtal("2029-01-31", 300_000)] },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "ej_aktuell", foreningKrPerAr: 0 });
+  });
+  it("a lease with fornyelse → 0 kr, ej_aktuell, the text says it is renewed and names the lease and date", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(300_000),
+            kontrakt: [
+              avtal("2026-12-31", 300_000, {
+                text: "kontoret",
+                fornyelse: { text: "Avtalet har förlängts", nyttSlutdatum: "2029-12-31" },
+              }),
+            ],
           },
         }),
       ),
       "lokaler",
     );
     expect(k).toMatchObject({ status: "ej_aktuell", foreningKrPerAr: 0 });
-    expect(k.forklaring).toMatch(
-      /^Föreningen hyr ut lokaler \(244\s380 kr per år\)\. Inget i årsredovisningen/,
+    expect(ren(k.forklaring)).toContain(
+      "Hyresavtalet för kontoret löper ut 31 december 2026, men årsredovisningen säger att avtalet förlängts eller ersatts av ett nytt avtal som löper till 31 december 2029, så vi räknar inte med något bortfall.",
     );
-    expect(k.forklaring).toMatch(/så vi räknar inte med något bortfall\.$/);
+    expect(ren(k.forklaring)).toMatch(/Inget i årsredovisningen tyder på/);
   });
-  it("lokaler without a known rent: ej_aktuell and no amount in the text", () => {
-    const k = komp(kor(forening({ antalLokaler: fig(3, { unit: "antal" }) })), "lokaler");
-    expect(k).toMatchObject({ status: "ej_aktuell", foreningKrPerAr: 0 });
-    expect(k.forklaring.startsWith("Föreningen hyr ut lokaler. Inget i")).toBe(true);
-  });
-  it("an old extraction (no forlustsignaler field) is the same as no signal", () => {
+  it("fornyelse without a new end date: 'förlängts eller att en ny hyresgäst har skrivit på'", () => {
     const k = komp(
-      kor(forening({ lokaler: { kontrakt: [avtal("2025-06-30", 200_000)] } })),
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(300_000),
+            kontrakt: [avtal("2026-12-31", 300_000, { fornyelse: { text: "Ny hyresgäst" } })],
+          },
+        }),
+      ),
       "lokaler",
     );
-    expect(k.status).toBe("ej_aktuell");
+    expect(k.forklaring).toContain("förlängts eller att en ny hyresgäst har skrivit på");
+    expect(k.forklaring).toContain("Hyresavtalet för lokalen löper ut 31 december 2026");
   });
-  it("an empty signal list is no signal", () => {
-    const k = komp(
-      kor(forening({ lokaler: { hyresintakter: fig(300_000), forlustsignaler: [] } })),
-      "lokaler",
-    );
-    expect(k.status).toBe("ej_aktuell");
-  });
-  it("one signal with rent 200 000: × 0,5 = 100 000 → ÷ 1 200 = 83,33 → 83", () => {
+  it("a signal counts 100 %: rent 200 000 → 200 000 kr/yr, ÷ 1 200 = 166,7 → 167", () => {
     const k = komp(
       kor(
         forening({ lokaler: { hyresintakter: fig(500_000), forlustsignaler: [signal(200_000)] } }),
       ),
       "lokaler",
     );
-    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 100_000, krPerManad: 83 });
-    expect(k.ref?.page).toBe(5);
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 200_000, krPerManad: 167 });
+    expect(k.ref?.page).toBe(8);
+    expect(ren(k.forklaring)).toBe(
+      "Årsredovisningen nämner: ”Hyresgästen har sagt upp avtalet”. Vi räknar med att hela hyran, 200 000 kr per år, faller bort.",
+    );
   });
-  it("two signals with rent 200 000 + 100 000: × 0,5 = 150 000 → 125", () => {
+  it("two signals 200 000 + 100 000 → 300 000 → 250 kr/month, 'Sammanlagt' sentence", () => {
     const k = komp(
       kor(forening({ lokaler: { forlustsignaler: [signal(200_000), signal(100_000)] } })),
       "lokaler",
     );
-    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 150_000, krPerManad: 125 });
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 300_000, krPerManad: 250 });
+    expect(ren(k.forklaring)).toMatch(
+      /Sammanlagt räknar vi med cirka 300 000 kr per år för föreningen\.$/,
+    );
   });
-  it("signal without rent: 600 000 ÷ max(3 kontrakt, 0, 1) = 200 000 × 0,5 = 100 000", () => {
+  it("a long signal text is shortened in the explanation", () => {
+    const lang = "Hyresgästen " + "har sagt upp avtalet ".repeat(12);
+    const k = komp(
+      kor(forening({ lokaler: { forlustsignaler: [signal(100_000, lang)] } })),
+      "lokaler",
+    );
+    expect(k.forklaring).toContain("…”");
+    expect(k.forklaring.length).toBeLessThan(300);
+  });
+  it("signal without rent: 600 000 ÷ max(3 kontrakt, 0, 1) = 200 000 at 100 %", () => {
     const k = komp(
       kor(
         forening({
           lokaler: {
             hyresintakter: fig(600_000),
-            kontrakt: [avtal("2027-01-01", undefined), avtal(undefined, 1), avtal(undefined, 1)],
+            kontrakt: [avtal(undefined, 1), avtal(undefined, 1), avtal(undefined, 1)],
             forlustsignaler: [signal()],
           },
         }),
       ),
       "lokaler",
     );
-    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 100_000 });
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 200_000 });
   });
-  it("signal without rent: antalLokaler 4 beats 3 kontrakt → 600 000 ÷ 4 = 150 000 × 0,5 = 75 000", () => {
+  it("signal without rent: antalLokaler 4 beats 3 kontrakt → 600 000 ÷ 4 = 150 000", () => {
     const k = komp(
       kor(
         forening({
           antalLokaler: fig(4, { unit: "antal" }),
           lokaler: {
             hyresintakter: fig(600_000),
-            kontrakt: [avtal("2027-01-01", undefined), avtal(undefined, 1), avtal(undefined, 1)],
+            kontrakt: [avtal(undefined, 1), avtal(undefined, 1), avtal(undefined, 1)],
             forlustsignaler: [signal()],
           },
         }),
       ),
       "lokaler",
     );
-    expect(k.foreningKrPerAr).toBe(75_000);
-  });
-  it("signal without rent, no kontrakt and no antal: 300 000 ÷ 1 × 0,5 = 150 000", () => {
-    const k = komp(
-      kor(forening({ lokaler: { hyresintakter: fig(300_000), forlustsignaler: [signal()] } })),
-      "lokaler",
-    );
     expect(k.foreningKrPerAr).toBe(150_000);
   });
-  it("two signals without rent are capped at hyresintakter: 300 000 (not 600 000) × 0,5 = 150 000", () => {
+  it("two signals without rent are capped at hyresintakter: 300 000 + 300 000 scaled by 1/2 → 150 000 + 150 000 = 300 000", () => {
     const k = komp(
       kor(
         forening({
@@ -627,9 +729,10 @@ describe("lokaler (only a loss signal counts; a lease end date alone is nothing)
       ),
       "lokaler",
     );
-    expect(k.foreningKrPerAr).toBe(150_000);
+    expect(k.foreningKrPerAr).toBe(300_000);
+    expect(ren(k.forklaring)).toContain("hela hyran, 150 000 kr per år");
   });
-  it("one signal with rent 100 000 + one without (300 000 ÷ 2 = 150 000): 250 000 × 0,5 = 125 000", () => {
+  it("one signal with rent 100 000 + one without (300 000 ÷ 2 = 150 000): 250 000", () => {
     const k = komp(
       kor(
         forening({
@@ -642,11 +745,154 @@ describe("lokaler (only a loss signal counts; a lease end date alone is nothing)
       ),
       "lokaler",
     );
-    expect(k.foreningKrPerAr).toBe(125_000);
+    expect(k.foreningKrPerAr).toBe(250_000);
+  });
+  it("signal 200 000 + lease 150 000 ending 2027-06-30, hyresintakter 300 000: signal 200 000 + lease capped to the 100 000 left × 0,5 = 50 000 → 250 000 (208 kr/month)", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(300_000),
+            kontrakt: [avtal("2027-06-30", 150_000, { text: "butiken" })],
+            forlustsignaler: [signal(200_000)],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 250_000, krPerManad: 208 });
+    const t = ren(k.forklaring);
+    expect(t).toContain("hela hyran, 200 000 kr per år, faller bort");
+    expect(t).toContain("cirka 50 000 kr per år för föreningen");
+    expect(t).toMatch(/Sammanlagt räknar vi med cirka 250 000 kr per år för föreningen\.$/);
+  });
+  it("signals that cover all of hyresintakter leave nothing for an ending lease: 200 000 only, lease 'redan inräknad ovan'", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(200_000),
+            kontrakt: [avtal("2027-06-30", 100_000, { text: "kontoret" })],
+            forlustsignaler: [signal(200_000)],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k.foreningKrPerAr).toBe(200_000);
+    expect(k.forklaring).toContain(
+      "Hyresavtalet för kontoret löper ut 30 juni 2027, men hyran är redan inräknad ovan.",
+    );
+  });
+  it("a lease with the same arshyra as a signal is the same rent: 200 000 + 200 000 → 200 000, not 300 000", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(500_000),
+            kontrakt: [avtal("2027-06-30", 200_000, { text: "kontoret" })],
+            forlustsignaler: [signal(200_000)],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k.foreningKrPerAr).toBe(200_000);
+    expect(k.forklaring).toContain("redan inräknad ovan");
+  });
+  it("two leases, one renewed: 250 000 × 0,5 = 125 000, the renewed one (150 000) adds 0; both are named", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(400_000),
+            kontrakt: [
+              avtal("2026-12-31", 250_000, { text: "kontoret" }),
+              avtal("2027-03-31", 150_000, {
+                text: "butiken",
+                fornyelse: { text: "Förlängt" },
+              }),
+            ],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 125_000, krPerManad: 104 });
+    const t = ren(k.forklaring);
+    expect(t).toContain("Hyresavtalet för kontoret löper ut 31 december 2026 och");
+    expect(t).toContain("cirka 125 000 kr per år för föreningen");
+    expect(t).toContain(
+      "Hyresavtalet för butiken löper ut 31 mars 2027, men årsredovisningen säger",
+    );
+    expect(t).not.toContain("Sammanlagt");
+  });
+  it("two unrenewed leases 100 000 + 60 000 (hyresintakter 200 000): 50 000 + 30 000 = 80 000, one sentence each + 'Sammanlagt'", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(200_000),
+            kontrakt: [
+              avtal("2026-12-31", 100_000, { text: "kontoret" }),
+              avtal("2027-06-30", 60_000, { text: "förrådet" }),
+            ],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k.foreningKrPerAr).toBe(80_000);
+    const t = ren(k.forklaring);
+    expect(t).toContain("kontoret löper ut 31 december 2026");
+    expect(t).toContain("cirka 50 000 kr per år");
+    expect(t).toContain("förrådet löper ut 30 juni 2027");
+    expect(t).toContain("cirka 30 000 kr per år");
+    expect(t).toMatch(/Sammanlagt räknar vi med cirka 80 000 kr per år för föreningen\.$/);
+  });
+  it("an old-style lease text that talks about the avtal falls back to 'lokalen'", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(100_000),
+            kontrakt: [avtal("2027-06-30", 100_000, { text: "Butikslokal, hyresavtal löper ut" })],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    expect(k.forklaring).toContain("Hyresavtalet för lokalen löper ut 30 juni 2027");
+  });
+  it("an old extraction (no fornyelse, no forlustsignaler) with a lease in the window counts as unrenewed (50 %)", () => {
+    const k = komp(
+      kor(forening({ lokaler: { kontrakt: [avtal("2026-12-31", 200_000)] } })),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 100_000 });
+  });
+  it("an empty signal list and no lease dates is no risk", () => {
+    const k = komp(
+      kor(forening({ lokaler: { hyresintakter: fig(300_000), forlustsignaler: [] } })),
+      "lokaler",
+    );
+    expect(k.status).toBe("ej_aktuell");
+  });
+  it("a lease in the window but no rent figure at all: saknar_underlag, names the lease, explains", () => {
+    const k = komp(
+      kor(
+        forening({ lokaler: { kontrakt: [avtal("2027-06-30", undefined, { text: "kontoret" })] } }),
+      ),
+      "lokaler",
+    );
+    expect(k).toMatchObject({ status: "saknar_underlag", foreningKrPerAr: null, krPerManad: null });
+    expect(k.forklaring).toContain("Hyresavtalet för kontoret löper ut 30 juni 2027");
+    expect(k.forklaring).toContain("står inte i årsredovisningen, så vi kan inte räkna ut");
   });
   it("signal but no rent figure at all: saknar_underlag", () => {
     const k = komp(kor(forening({ lokaler: { forlustsignaler: [signal()] } })), "lokaler");
     expect(k).toMatchObject({ status: "saknar_underlag", foreningKrPerAr: null });
+    expect(k.forklaring).toContain("Årsredovisningen nämner: ”Hyresgästen har sagt upp avtalet”.");
   });
   it("cited zero rent beats a signal: ej_aktuell", () => {
     const k = komp(
@@ -655,6 +901,22 @@ describe("lokaler (only a loss signal counts; a lease end date alone is nothing)
     );
     expect(k).toMatchObject({ status: "ej_aktuell", foreningKrPerAr: 0 });
     expect(k.forklaring).toMatch(/inga hyresintäkter/);
+  });
+  it("the amounts named in the explanation add up to foreningKrPerAr", () => {
+    const k = komp(
+      kor(
+        forening({
+          lokaler: {
+            hyresintakter: fig(350_001),
+            kontrakt: [avtal("2026-12-31", 100_001), avtal("2027-06-30", 50_003)],
+            forlustsignaler: [signal(100_001 + 7)],
+          },
+        }),
+      ),
+      "lokaler",
+    );
+    // signal 100 008; leases ½ × 100 001 = 50 000,5 → 50 001 ; ½ × 50 003 = 25 001,5 → 25 002 (Math.round)
+    expect(k.foreningKrPerAr).toBe(100_008 + 50_001 + 25_002);
   });
 });
 
@@ -1042,6 +1304,19 @@ describe("beslutad avgiftshöjning (internal check + component)", () => {
     );
   });
 
+  it("a raise in effect scales the report's årsavgifter in the share: fee 4 400 × 12 ÷ (4 800 000 × 1,10) = 0,01 (not 0,011)", () => {
+    const r = med([andring(10, "2026-05-01")], { fee: 4400 });
+    expect(r.prognos.andel?.metod).toBe("avgiftsandel");
+    expect(r.prognos.andel?.varde).toBeCloseTo(0.01, 9);
+    expect(r.hojningIKraft).toEqual({ faktor: 1.1, procent: [10] });
+  });
+
+  it("a raise not yet in effect leaves the share alone: fee 4 000 × 12 ÷ 4 800 000 = 0,01", () => {
+    const r = med([andring(10, "2027-01-01")], { fee: 4000 });
+    expect(r.prognos.andel?.varde).toBeCloseTo(0.01, 9);
+    expect(r.hojningIKraft).toEqual({ faktor: 1, procent: [] });
+  });
+
   it("passed date but fee = före (4 000): date decides (i_kraft), konflikt true, nothing added", () => {
     const r = med([andring(10, "2026-05-01")], { fee: 4000 });
     expect(kontroll(r)[0]).toMatchObject({
@@ -1261,9 +1536,9 @@ describe("a decided raise answers the savings gap (offset on spargap)", () => {
     expect(k.forklaring).toMatch(/240\s000 kr av glappet/);
   });
 
-  it("passed 5 % is already in the fee: revenue before = 4 800 000 × 0,05 ÷ 1,05 = 228 571 → 171 429", () => {
+  it("passed 5 % is already in the fee: the share uses 4 800 000 × 1,05, so the raise adds 4 800 000 × 0,05 = 240 000 → 160 000", () => {
     const k = komp(med([andring(5, "2026-05-01")]), "spargap");
-    expect(k.foreningKrPerAr).toBe(171_429);
+    expect(k.foreningKrPerAr).toBe(160_000);
   });
 
   it("a raise larger than the gap floors at 0: 10 % = 480 000 > 400 000 → 0, 'hela glappet'", () => {

@@ -451,7 +451,8 @@ describe("assembleraAnalys", () => {
     });
 
     expect(resultat.fragor.some((f) => f.id === "saknar-rantekanslighet")).toBe(false);
-    expect(resultat.fragor).toHaveLength(1);
+    // (the fixture's lokal loss signal adds its own deterministic question)
+    expect(resultat.fragor.filter((f) => !f.id.startsWith("lokal-"))).toHaveLength(1);
   });
 
   it("hoppar över den deterministiska frågan om pass 2 redan flaggat räntekänslighet (harledsFran)", async () => {
@@ -907,6 +908,26 @@ describe("avgiftskontrollen (D6) — månadsavgiften mot föreningens årsavgift
     expect(fraga?.varfor).toMatch(/4\s700 kr/);
     expect(fraga?.varfor).toMatch(/16,6 % högre/);
     expect(fraga?.varfor).toMatch(/andelstal/);
+  });
+
+  it("en höjning som redan gäller: jämför med den höjda nivån (4 030 × 1,25 = 5 038), ingen fråga för 5 038 kr", () => {
+    expect(
+      avgiftsavvikelseFraga({ manadsavgift: 5038, boarea: 62 }, forening, {
+        faktor: 1.25,
+        procent: [25],
+      }),
+    ).toBeNull();
+  });
+
+  it("en höjning som redan gäller: fråga när avgiften ändå avviker, med båda nivåerna i texten", () => {
+    const fraga = avgiftsavvikelseFraga({ manadsavgift: 6000, boarea: 62 }, forening, {
+      faktor: 1.25,
+      procent: [25],
+    });
+    expect(fraga?.varfor).toMatch(
+      /4\s030 kr i månaden, eller ungefär 5\s038 kr efter den beslutade höjningen på 25 % som redan gäller/,
+    );
+    expect(fraga?.varfor).toMatch(/19,1 % högre/);
   });
 
   it("fråga även när avgiften är mycket lägre än föreningens snitt", () => {

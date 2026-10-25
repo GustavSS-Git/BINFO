@@ -235,4 +235,29 @@ describe("schema, round 2026-10-25 (avgiftsandringar, förlustsignaler, kontroll
       expect(ForeningSchema.safeParse(fel).success).toBe(false);
     }
   });
+
+  it("accepts a lease with fornyelse (PROMPT_VERSION 12), rejects bad shapes", () => {
+    const ex = structuredClone(extraktion);
+    const kontrakt = {
+      slutdatum: "2026-12-31",
+      ref,
+      fornyelse: { text: "Förlängt", nyttSlutdatum: "2029-12-31", ref },
+    };
+    const bra = { ...ex.forening, lokaler: { kontrakt: [kontrakt] } };
+    expect(ForeningSchema.safeParse(bra).error?.issues ?? []).toEqual([]);
+    const utanNytt = { ...kontrakt, fornyelse: { text: "Ny hyresgäst", ref } };
+    expect(
+      ForeningSchema.safeParse({ ...ex.forening, lokaler: { kontrakt: [utanNytt] } }).success,
+    ).toBe(true);
+    for (const fornyelse of [
+      { text: "Förlängt" },
+      { text: "", ref },
+      { text: "Förlängt", nyttSlutdatum: "snart", ref },
+      { text: "Förlängt", ref: { page: 4 } },
+      { text: "Förlängt", ref, extra: 1 },
+    ]) {
+      const fel = { ...ex.forening, lokaler: { kontrakt: [{ ...kontrakt, fornyelse }] } };
+      expect(ForeningSchema.safeParse(fel).success).toBe(false);
+    }
+  });
 });

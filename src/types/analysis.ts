@@ -288,7 +288,15 @@ export interface Forening {
     /** Rental income from lokaler for the fiscal year, kr. */
     hyresintakter?: Figure;
     /** Leases with a stated end date. Every item cited. */
-    kontrakt?: Array<{ text?: string; arshyra?: Figure; slutdatum?: string; ref: PageRef }>;
+    kontrakt?: Array<{
+      text?: string;
+      arshyra?: Figure;
+      slutdatum?: string;
+      ref: PageRef;
+      /** The report says this lease is extended/renewed or a new tenant has
+       *  signed (PROMPT_VERSION 12). Present → the lease is not at risk. */
+      fornyelse?: { text: string; nyttSlutdatum?: string; ref: PageRef };
+    }>;
     /** Statements that lokal rent will fall away (lease terminated, tenant
      *  leaving, vacant premises, tenant insolvent, rent dispute or reduction)
      *  (PROMPT_VERSION 11). A lease end date alone is NOT a signal. Only these
