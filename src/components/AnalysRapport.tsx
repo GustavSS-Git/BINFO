@@ -8,6 +8,7 @@ import {
   StatusLabel,
   SectionTitle,
   Tag,
+  Toggle,
 } from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
 import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
@@ -30,7 +31,6 @@ import {
   byggdelNot,
   byggdelRader,
   ENERGI_TEXT,
-  formatForandringKr,
   komponentKalla,
   komponentRader,
   lanRader,
@@ -48,6 +48,7 @@ import {
   referensrantaRad,
   refinansieringRader,
   refiKomponent,
+  rantestressVy,
   REFI_FASTRAD,
   sparKedja,
   sparKomponent,
@@ -57,6 +58,7 @@ import {
   TRYCK_ETIKETT,
   TRYCK_TON,
   vattenfall,
+  type RantestressFlik,
   type Ton,
   type VattenfallRad,
 } from "@/lib/analysisView";
@@ -68,7 +70,6 @@ import type {
   Figure,
   Fraga,
   PrisanalysUtanForening,
-  RantestressScenario,
   Sammanfattning,
   Severity,
   Tristate,
@@ -1093,65 +1094,17 @@ function SammanfattningSektion({
 }
 
 function Rantestress({ analys }: { analys: AnalysisResult }) {
-  const r = analys.rantestress;
-  const ejBeraknbar = r.rantekanslighetProcent === null;
   const [delta, setDelta] = useState<0 | 1 | 2 | 3>(1);
+  const [flik, setFlik] = useState<RantestressFlik>("idag");
   // Räntekänslighet saknas i rapporten -> reglaget visas men är låst på +0,
   // och en avgiftsstress kan inte räknas fram (se Rantestress i
   // src/types/analysis.ts). Ett tomt scenarier-fält gör samma sak för +0
   // p.e. hos en skuldfri förening (rantekanslighetProcent === 0) — den ska
   // fortfarande renderas som vanligt, +0 kr.
-  const visadDelta = ejBeraknbar ? 0 : delta;
-  const scenario: RantestressScenario | undefined = r.scenarier.find(
-    (s) => s.okningPe === visadDelta,
-  );
-
-  // Ny rapport: tabell med väntad avgift och räntescenarier istället för reglaget.
-  // Gamla lagrade resultat saknar prognosTabell och behåller reglaget nedan.
-  if (r.prognosTabell) {
-    return (
-      <section className="mb-10">
-        <SectionTitle hint="Dagens avgift, den väntade avgiften och två räntescenarier för lånen som omsätts.">
-          Vad händer om räntan stiger?
-        </SectionTitle>
-        <Card>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="pb-2 font-medium" />
-                <th className="pb-2 text-right font-medium">Månadsavgift kr/mån</th>
-                <th className="pb-2 text-right font-medium">Förändring mot i dag kr/mån</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {r.prognosTabell.rader.map((rad) => (
-                <tr key={rad.id}>
-                  <td className="py-2 text-foreground">
-                    <span className="inline-flex items-center gap-2">
-                      {rad.id === "forvantad" && analys.avgiftsprognos?.tryck ? (
-                        <Prick
-                          ton={TRYCK_TON[analys.avgiftsprognos.tryck]}
-                          etikett={TRYCK_ETIKETT[analys.avgiftsprognos.tryck]}
-                        />
-                      ) : null}
-                      {rad.label}
-                    </span>
-                  </td>
-                  <td className="py-2 text-right text-foreground">
-                    {Math.round(rad.manadsavgift).toLocaleString("sv-SE")}
-                  </td>
-                  <td className="py-2 text-right text-foreground">
-                    {rad.id === "idag" ? "–" : formatForandringKr(rad.forandringKr)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-5 text-sm text-muted-foreground">{r.prognosTabell.kommentar}</p>
-        </Card>
-      </section>
-    );
-  }
+  // Flikarna "Dagens avgift" / "Förväntad avgift" visas bara när rapporten har
+  // en förväntad avgift; gamla lagrade resultat får bara reglaget.
+  const vy = rantestressVy(analys, flik, delta);
+  const { ejBeraknbar, visadDelta, vanster, hoger } = vy;
 
   return (
     <section className="mb-10">
@@ -1165,6 +1118,18 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
         Vad händer om räntan stiger?
       </SectionTitle>
       <Card>
+        {vy.harPrognos ? (
+          <div className="mb-6">
+            <Toggle<RantestressFlik>
+              options={[
+                { value: "idag", label: "Dagens avgift" },
+                { value: "forvantad", label: "Förväntad avgift" },
+              ]}
+              value={vy.flik}
+              onChange={setFlik}
+            />
+          </div>
+        ) : null}
         <div className="flex items-baseline justify-between">
           <label htmlFor="stress" className="text-sm font-medium text-foreground">
             Räntehöjning
@@ -1186,32 +1151,30 @@ function Rantestress({ analys }: { analys: AnalysisResult }) {
         />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-border p-5">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Dagens avgift</p>
-            <p className="mt-2 font-display text-3xl text-foreground">
-              {formatFigureVarde(r.nuvarandeManadsavgift)}
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                {vanster.tryck ? (
+                  <Prick ton={TRYCK_TON[vanster.tryck]} etikett={TRYCK_ETIKETT[vanster.tryck]} />
+                ) : null}
+                {vanster.etikett}
+              </span>
             </p>
-            <p className="text-xs text-muted-foreground">per månad</p>
+            <p className="mt-2 font-display text-3xl text-foreground">{vanster.varde}</p>
+            <p className="text-xs text-muted-foreground">{vanster.under}</p>
           </div>
           <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-5">
-            <p className="text-xs uppercase tracking-wide text-primary">Stressad avgift</p>
-            {ejBeraknbar ? (
-              <p className="mt-2 text-sm text-foreground">
-                Inte möjligt att räkna då räntekänslighet saknas i rapporten.
-              </p>
+            <p className="text-xs uppercase tracking-wide text-primary">{hoger.etikett}</p>
+            {"saknas" in hoger ? (
+              <p className="mt-2 text-sm text-foreground">{hoger.saknas}</p>
             ) : (
               <>
-                <p className="mt-2 font-display text-3xl text-foreground">
-                  {scenario ? formatFigureVarde(scenario.nyManadsavgift) : "Uppgift saknas"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  per månad · +
-                  {scenario ? formatFigureVarde(scenario.avgiftsokningKrPerManad) : "okänt"}
-                </p>
+                <p className="mt-2 font-display text-3xl text-foreground">{hoger.varde}</p>
+                <p className="text-xs text-muted-foreground">{hoger.under}</p>
               </>
             )}
           </div>
         </div>
-        <p className="mt-5 text-sm text-muted-foreground">{r.kommentar}</p>
+        <p className="mt-5 text-sm text-muted-foreground">{vy.kommentar}</p>
       </Card>
     </section>
   );

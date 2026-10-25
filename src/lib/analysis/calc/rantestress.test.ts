@@ -173,9 +173,10 @@ describe("beraknaRantestress", () => {
 });
 
 describe("byggPrognosTabell", () => {
-  // andel 0,01; repricing debt 5 000 000; total +100 kr/month; fee 4 000.
-  // +1 pp: 5 000 000 × 1 / 100 × 0,01 / 12 = 41,67 → 42 → 4 000 + 100 + 42 = 4 142
-  // +2 pp: 83,33 → 83 → 4 183
+  // fee 4 000; total +100 kr/month; räntekänslighet 5 %/pp.
+  // Scenario increments (rantestressScenario): +1 pp → 4 000 × 1,05 = 4 200 → +200,
+  // +2 pp → 4 000 × 1,10 = 4 400 → +400. Rows are expected fee + increment:
+  // plus1 = 4 000 + 100 + 200 = 4 300 (change 300), plus2 = 4 500 (change 500).
   const prognos = (
     over: Partial<AvgiftsprognosResultat> & { total?: number | null; andel?: number | null } = {},
   ): AvgiftsprognosResultat => {
@@ -197,8 +198,8 @@ describe("byggPrognosTabell", () => {
     };
   };
 
-  it("four rows with hand-computed amounts", () => {
-    const t = byggPrognosTabell(4000, prognos());
+  it("four rows with hand-computed amounts (expected fee + scenario increment)", () => {
+    const t = byggPrognosTabell(4000, prognos(), 5);
     expect(t?.rader).toEqual([
       { id: "idag", label: "Dagens avgift", manadsavgift: 4000, forandringKr: 0 },
       {
@@ -207,32 +208,41 @@ describe("byggPrognosTabell", () => {
         manadsavgift: 4100,
         forandringKr: 100,
       },
-      { id: "plus1", label: "+1 procentenhet", manadsavgift: 4142, forandringKr: 142 },
-      { id: "plus2", label: "+2 procentenheter", manadsavgift: 4183, forandringKr: 183 },
+      { id: "plus1", label: "+1 procentenhet", manadsavgift: 4300, forandringKr: 300 },
+      { id: "plus2", label: "+2 procentenheter", manadsavgift: 4500, forandringKr: 500 },
     ]);
-    expect(t?.kommentar).toContain("5 000 000 kr");
-    expect(t?.kommentar).toMatch(/24 månader/);
+    expect(t?.kommentar).toContain("läggs ovanpå den förväntade avgiften");
+    expect(t?.kommentar).toContain("hela skulden via räntekänsligheten");
+    expect(t?.kommentar).not.toContain("bara den del");
+  });
+  it("uses the same increments as the slider scenarios", () => {
+    const t = byggPrognosTabell(4000, prognos(), 12.7);
+    // fee 4 000, 12,7 %: +1 pp → 4 000 × 1,127 = 4 508 → +508; +2 pp → 4 000 × 1,254 = 5 016 → +1 016.
+    expect(t?.rader[2]?.forandringKr).toBe(100 + 508);
+    expect(t?.rader[3]?.forandringKr).toBe(100 + 1_016);
   });
   it("null when the expected rise is unknown", () => {
-    expect(byggPrognosTabell(4000, prognos({ total: null, andel: null }))).toBeNull();
+    expect(byggPrognosTabell(4000, prognos({ total: null, andel: null }), 5)).toBeNull();
   });
-  it("omits plus rows when the repricing debt is unknown", () => {
-    const t = byggPrognosTabell(4000, prognos({ omsattningsbarSkuld: null }));
+  it("omits plus rows when räntekänslighet is missing", () => {
+    const t = byggPrognosTabell(4000, prognos(), null);
     expect(t?.rader.map((r) => r.id)).toEqual(["idag", "forvantad"]);
-    expect(t?.kommentar).toMatch(/Vi vet inte/);
+    expect(t?.kommentar).toMatch(/Räntekänslighet saknas/);
   });
   it("negative expected change is kept (refinancing lowers the fee)", () => {
-    const t = byggPrognosTabell(4000, prognos({ total: -20 }));
+    // total -20; räntekänslighet 5: 3 980 → plus1 = 3 980 + 200 = 4 180 (change +180).
+    const t = byggPrognosTabell(4000, prognos({ total: -20 }), 5);
     expect(t?.rader[1]).toMatchObject({ manadsavgift: 3980, forandringKr: -20 });
-    expect(t?.rader[2]).toMatchObject({ manadsavgift: 4022, forandringKr: 22 });
+    expect(t?.rader[2]).toMatchObject({ manadsavgift: 4180, forandringKr: 180 });
   });
-  it("zero repricing debt: plus rows equal the expected row", () => {
-    const t = byggPrognosTabell(4000, prognos({ omsattningsbarSkuld: 0 }));
+  it("debt-free (räntekänslighet 0): plus rows equal the expected row", () => {
+    const t = byggPrognosTabell(4000, prognos(), 0);
     expect(t?.rader[2]?.manadsavgift).toBe(4100);
-    expect(t?.kommentar).toMatch(/Ingen del/);
+    expect(t?.rader[3]?.manadsavgift).toBe(4100);
+    expect(t?.kommentar).toMatch(/inga räntebärande lån/);
   });
   it("flags the assumption when maturities were missing", () => {
-    const t = byggPrognosTabell(4000, prognos({ totalSpannVidAntagande: { lag: 0, hog: 10 } }));
+    const t = byggPrognosTabell(4000, prognos({ totalSpannVidAntagande: { lag: 0, hog: 10 } }), 5);
     expect(t?.kommentar).toMatch(/antagande/);
   });
 });

@@ -1053,7 +1053,11 @@ export async function assembleraAnalys({
     ...(andelAvForeningensSkuld ? { andelAvForeningensSkuld } : {}),
     ...(justering ?? {}),
   };
-  const prognosTabell = byggPrognosTabell(input.manadsavgift, prognos);
+  const prognosTabell = byggPrognosTabell(
+    input.manadsavgift,
+    prognos,
+    rantestressBas.rantekanslighetProcent,
+  );
   const rantestress: Rantestress = prognosTabell
     ? { ...rantestressBas, prognosTabell }
     : rantestressBas;

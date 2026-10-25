@@ -1047,3 +1047,110 @@ export function referensrantaRad(r: NonNullable<Avgiftsprognos["refinansiering"]
   const rf = r.referensranta;
   return `Ny ränta ${formatProcentTal(r.nyRantaProcent)} = ${rf.namn} ${formatProcentTal(rf.procent)} (${rf.datum}${rf.reserv ? ", reservvärde" : ""}) + marginal ${formatProcentTal(r.marginalProcent)}`;
 }
+
+// ---------------------------------------------------------------------------
+// "Vad händer om räntan stiger?" — reglaget med två flikar (2026-10-25)
+// ---------------------------------------------------------------------------
+
+export type RantestressFlik = "idag" | "forvantad";
+
+export interface RantestressVy {
+  /** True when the report has an expected fee, so the tabs are shown. */
+  harPrognos: boolean;
+  /** The tab actually shown (falls back to "idag" without a prognosis). */
+  flik: RantestressFlik;
+  /** Räntekänslighet missing: slider locked at +0, no stressed fee. */
+  ejBeraknbar: boolean;
+  /** The slider value actually shown (0 when locked). */
+  visadDelta: 0 | 1 | 2 | 3;
+  vanster: { etikett: string; varde: string; under: string; tryck?: Tryck };
+  hoger: { etikett: string; varde: string; under: string } | { etikett: string; saknas: string };
+  kommentar: string;
+}
+
+/** True when the expected fee exists and the two tabs should be offered. */
+export function harRantestressFlikar(analys: Pick<AnalysisResult, "avgiftsprognos">): boolean {
+  return typeof analys.avgiftsprognos?.totalKrPerManad === "number";
+}
+
+/**
+ * Texts for the rate slider. The same slider value (`delta`) drives both tabs;
+ * the stressed fee is always the base fee plus the SAME per-p.e. increment
+ * (`scenarier[].avgiftsokningKrPerManad`), so the web and the PDF fee table
+ * agree. Nothing is recomputed here beyond today's fee + the expected rise.
+ */
+export function rantestressVy(
+  analys: Pick<AnalysisResult, "rantestress" | "avgiftsprognos">,
+  onskadFlik: RantestressFlik,
+  delta: 0 | 1 | 2 | 3,
+): RantestressVy {
+  const r = analys.rantestress;
+  const total = analys.avgiftsprognos?.totalKrPerManad;
+  const harPrognos = typeof total === "number";
+  const flik: RantestressFlik = harPrognos ? onskadFlik : "idag";
+  const ejBeraknbar = r.rantekanslighetProcent === null;
+  const visadDelta = ejBeraknbar ? 0 : delta;
+  const scenario = r.scenarier.find((s) => s.okningPe === visadDelta);
+  const okning = scenario?.avgiftsokningKrPerManad.value ?? null;
+  const dagens = r.nuvarandeManadsavgift.value;
+
+  if (flik === "forvantad" && typeof total === "number" && dagens !== null) {
+    const forvantad = dagens + total;
+    const tryck = analys.avgiftsprognos?.tryck;
+    const horisont = analys.avgiftsprognos?.horisontManader;
+    const inledning =
+      `Förväntad avgift är dagens avgift plus den höjning som väntas inom ${horisont} månader. ` +
+      `Reglaget lägger en ränteökning på föreningens hela skuld, via räntekänsligheten, ovanpå den förväntade avgiften.`;
+    return {
+      harPrognos,
+      flik,
+      ejBeraknbar,
+      visadDelta,
+      vanster: {
+        etikett: "Förväntad avgift",
+        varde: kr(forvantad),
+        under: `per månad · ${formatForandringKr(total)} kr mot i dag`,
+        ...(tryck ? { tryck } : {}),
+      },
+      hoger: ejBeraknbar
+        ? {
+            etikett: "Stressad avgift",
+            saknas: "Inte möjligt att räkna då räntekänslighet saknas i rapporten.",
+          }
+        : {
+            etikett: "Stressad avgift",
+            varde: okning === null ? "Uppgift saknas" : kr(forvantad + okning),
+            under: `per månad · +${okning === null ? "okänt" : kr(okning)} mot förväntad avgift`,
+          },
+      // Missing or zero räntekänslighet: the slider sentence would mislead, so
+      // the stored comment (why there is no effect) follows instead.
+      kommentar:
+        r.rantekanslighetProcent === null || r.rantekanslighetProcent === 0
+          ? `Förväntad avgift är dagens avgift plus den höjning som väntas inom ${horisont} månader. ${r.kommentar}`
+          : inledning,
+    };
+  }
+
+  return {
+    harPrognos,
+    flik: "idag",
+    ejBeraknbar,
+    visadDelta,
+    vanster: {
+      etikett: "Dagens avgift",
+      varde: formatFigureVarde(r.nuvarandeManadsavgift),
+      under: "per månad",
+    },
+    hoger: ejBeraknbar
+      ? {
+          etikett: "Stressad avgift",
+          saknas: "Inte möjligt att räkna då räntekänslighet saknas i rapporten.",
+        }
+      : {
+          etikett: "Stressad avgift",
+          varde: scenario ? formatFigureVarde(scenario.nyManadsavgift) : "Uppgift saknas",
+          under: `per månad · +${scenario ? formatFigureVarde(scenario.avgiftsokningKrPerManad) : "okänt"}`,
+        },
+    kommentar: r.kommentar,
+  };
+}

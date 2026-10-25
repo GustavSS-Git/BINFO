@@ -136,26 +136,25 @@ export function beraknaRantestress(forening: Forening, nuvarandeManadsavgift: nu
 }
 
 // ---------------------------------------------------------------------------
-// Fee table (round 2026-10-24b): today / expected / +1 pp / +2 pp
+// Fee table (round 2026-10-24b): today / expected / expected +1 pp / +2 pp
 // ---------------------------------------------------------------------------
 
 /**
  * Rows: "idag", "forvantad" (= fee + expected rise at unchanged rates), and
- * "plus1"/"plus2" = forvantad + round(repricing debt × pp ÷ 100 × andel ÷ 12).
- * Only the debt that reprices within the horizon feels a higher rate in the
- * period, so +1/+2 are built on that debt alone. Returns null when the
- * expected rise is unknown (share unknown); the plus rows are omitted when the
- * repricing debt or the share is unknown.
+ * "plus1"/"plus2" = forvantad + the räntekänslighet scenario increment for
+ * 1 and 2 percentage points (`rantestressScenario`, the SAME kr/month the
+ * slider's "Förväntad avgift" tab adds). The increment applies to the whole
+ * debt via räntekänslighet and sits on top of the expected fee. Returns null
+ * when the expected rise is unknown (share unknown); the plus rows are omitted
+ * when räntekänslighet is null; debt-free (0) gives +0.
  */
 export function byggPrognosTabell(
   manadsavgift: number,
   prognos: AvgiftsprognosResultat,
+  rantekanslighetProcent: number | null,
 ): NonNullable<Rantestress["prognosTabell"]> | null {
   const total = prognos.prognos.totalKrPerManad;
   if (total === null) return null;
-  const andel = prognos.prognos.andel?.varde ?? null;
-  const skuld = prognos.omsattningsbarSkuld;
-  const horisont = prognos.prognos.horisontManader;
 
   const rad = (
     id: "idag" | "forvantad" | "plus1" | "plus2",
@@ -168,24 +167,28 @@ export function byggPrognosTabell(
   ];
 
   let kommentar: string;
-  if (skuld !== null && andel !== null) {
+  if (rantekanslighetProcent === null) {
+    kommentar =
+      "Räntekänslighet saknas i årsredovisningen, så vi visar inga rader för högre ränta.";
+  } else {
     for (const [id, label, pp] of [
       ["plus1", "+1 procentenhet", 1],
       ["plus2", "+2 procentenheter", 2],
     ] as const) {
-      const tillagg = Math.round((((skuld * pp) / 100) * andel) / 12);
-      rader.push(rad(id, label, total + (tillagg === 0 ? 0 : tillagg)));
+      const tillagg = rantestressScenario(
+        manadsavgift,
+        rantekanslighetProcent,
+        pp,
+      ).avgiftsokningKrPerManad;
+      rader.push(rad(id, label, total + tillagg));
     }
     const antaget = prognos.totalSpannVidAntagande
-      ? " Årsredovisningen anger inte när lånen ska omsättas, så beloppet är ett antagande."
+      ? " Årsredovisningen anger inte när lånen ska omsättas, så den förväntade avgiften bygger på ett antagande."
       : "";
     kommentar =
-      skuld === 0
-        ? `Ingen del av skulden prissätts om inom ${horisont} månader, så högre ränta ändrar inte avgiften under perioden.`
-        : `Raderna +1 och +2 procentenheter gäller bara den del av skulden som prissätts om inom ${horisont} månader, ` +
-          `${kr(skuld)} kr, och läggs ovanpå den förväntade avgiften.${antaget}`;
-  } else {
-    kommentar = `Vi vet inte hur stor del av skulden som prissätts om inom ${horisont} månader, så vi visar inga rader för högre ränta.`;
+      rantekanslighetProcent === 0
+        ? `Föreningen har inga räntebärande lån, så högre ränta ändrar inte avgiften.${antaget}`
+        : `Raderna +1 och +2 procentenheter läggs ovanpå den förväntade avgiften och gäller hela skulden via räntekänsligheten.${antaget}`;
   }
   return { rader, kommentar };
 }

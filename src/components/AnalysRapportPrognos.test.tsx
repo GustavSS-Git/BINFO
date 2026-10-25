@@ -65,12 +65,26 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     expect(html).not.toContain("Lån som omsätts inom horisonten");
   });
 
-  it("ersätter reglaget med en tabell med fyra rader när prognosTabell finns", () => {
+  it("visar reglaget med flikarna när avgiftsprognos finns, utan tabell", () => {
     const html = rita();
-    expect(html).not.toContain('type="range"');
-    expect(html).toContain("TABELLKOMMENTAR");
-    expect((html.match(/<tr>/g) ?? []).length).toBe(4);
-    expect(html).toContain("+500");
+    expect(html).toContain('type="range"');
+    expect(html).not.toContain("TABELLKOMMENTAR");
+    const avsnitt = html.slice(html.indexOf("Vad händer om räntan stiger?"));
+    expect((avsnitt.match(/<tr>/g) ?? []).length).toBe(0);
+    // Toggle: two buttons, default tab "Dagens avgift" (the selected one has bg-card).
+    expect(avsnitt).toMatch(/<button[^>]*bg-card[^>]*>Dagens avgift<\/button>/);
+    expect(avsnitt).toMatch(/<button[^>]*>Förväntad avgift<\/button>/);
+    expect(avsnitt).not.toMatch(/<button[^>]*bg-card[^>]*>Förväntad avgift<\/button>/);
+    // Default tab: today's slider element.
+    expect(avsnitt).toContain("Stressad avgift");
+    expect(avsnitt).not.toContain("mot i dag");
+  });
+
+  it("gamla resultat utan prognos får bara reglaget, ingen flikväxlare", () => {
+    const html = rita(analysUtanPrognos());
+    const avsnitt = html.slice(html.indexOf("Vad händer om räntan stiger?"));
+    expect(avsnitt).toContain('type="range"');
+    expect(avsnitt).not.toMatch(/<button[^>]*>Förväntad avgift<\/button>/);
   });
 
   it("visar byggårets avvikelse i objektsammanfattningen, inte som egen sektion", () => {
