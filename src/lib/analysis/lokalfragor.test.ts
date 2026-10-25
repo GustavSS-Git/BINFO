@@ -133,6 +133,36 @@ describe("lokalFragor: one question per lease ending in the window without forny
     expect(new Set(q.map((f) => f.id)).size).toBe(2);
     expect(q[1]?.fraga).toContain("förrådet");
   });
+  it("at most three questions, largest rents first: 50 000 / 200 000 / 120 000 / 80 000 / no rent → 200 000, 120 000, 80 000", () => {
+    const q = kor(
+      forening({
+        kontrakt: [
+          avtal("2026-12-31", 50_000, { text: "förrådet" }),
+          avtal("2027-01-31", 200_000, { text: "butiken" }),
+          avtal("2027-02-28", 120_000, { text: "kontoret" }),
+          avtal("2027-03-31", 80_000, { text: "garaget" }),
+          avtal("2027-04-30", undefined, { text: "ateljén" }),
+        ],
+      }),
+    );
+    expect(q).toHaveLength(3);
+    expect(q[0]?.fraga).toContain("butiken");
+    expect(q[1]?.fraga).toContain("kontoret");
+    expect(q[2]?.fraga).toContain("garaget");
+  });
+  it("a signal competes with leases on rent: signal 300 000 comes first, then the two largest leases", () => {
+    const q = kor(
+      forening({
+        forlustsignaler: [signal(300_000)],
+        kontrakt: [
+          avtal("2026-12-31", 50_000, { text: "förrådet" }),
+          avtal("2027-01-31", 100_000, { text: "butiken" }),
+          avtal("2027-02-28", 90_000, { text: "kontoret" }),
+        ],
+      }),
+    );
+    expect(q.map((f) => f.id)).toEqual(["lokal-signal-0", "lokal-avtal-1", "lokal-avtal-2"]);
+  });
   it("a lease with zero rent gets no question", () => {
     expect(kor(forening({ hyresintakter: fig(0), kontrakt: [avtal("2026-12-31")] }))).toEqual([]);
   });

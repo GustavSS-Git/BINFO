@@ -139,8 +139,10 @@ describe("assembly with the fee prognosis", () => {
       const ex = structuredClone(extraktion);
       delete ex.forening.lokaler!.kontrakt![0]!.fornyelse;
       const r = await montera(ex);
-      expect(lokalFraga(r).map((f) => f.id)).toEqual(["lokal-signal-0", "lokal-avtal-0"]);
-      const avtal = lokalFraga(r)[1]!;
+      // Largest rent first (max three, owner 2026-10-25): the lease's share of
+      // hyresintakter is larger than the signal's 120 000.
+      expect(lokalFraga(r).map((f) => f.id)).toEqual(["lokal-avtal-0", "lokal-signal-0"]);
+      const avtal = lokalFraga(r)[0]!;
       expect(avtal.fraga).toBe(
         "Vad händer med hyresavtalet för kontoret (130,5 kvm) som löper ut 31 december 2026? Har föreningen och hyresgästen kommit överens om att förlänga, eller finns en ny hyresgäst?",
       );

@@ -26,7 +26,7 @@ Result:
   when the model already asks). Volontären (paid run 124): kontoret (130,5 kvm) ended 2024-12-31,
   no renewal → 122 190 kr/yr; the model asked about the lease itself. The run showed the share used
   pre-raise årsavgifter; fixed (share and fee-deviation question use the raised level): 363 kr/mån,
-  price −113 000 kr, no deviation question. Open: no cap on the number of lease questions.
+  price −113 000 kr, no deviation question. At most three lokal questions, the largest rents first (owner).
 - `/exempel` re-assembled for free (`monteraOm`): +1/+2 rows now 4 022 / 4 169 kr, the new
   `beslutad_hojning` component (Pontonjären's 22 % raise was before the balance date, so ignored).
 - For Lovable to polish: the Toggle above the slider (`mb-6` wrapper; two `px-5` buttons may be

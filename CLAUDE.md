@@ -53,7 +53,8 @@ per-apartment cost in kronor, and what to do before bidding.
   lowers the expected fee by 100 % on a cited loss signal
   (`lokaler.forlustsignaler`) and by 50 % for a lease ending within the horizon
   without a cited renewal (`kontrakt[].fornyelse`), each lease named in the
-  text and asked about (`lokalfragor.ts`, `calc/lokalrisk.ts`); stated
+  text and asked about (at most three questions, largest rents first;
+  `lokalfragor.ts`, `calc/lokalrisk.ts`); stated
   årsavgift changes (`avgiftsandringar`) get an INTERNAL check (date vs today +
   the buyer's fee vs årsavgift/m² × boarea ÷ 12) stored as
   `avgiftsprognos.avgiftsandringKontroll`, never rendered; a raise not yet in
