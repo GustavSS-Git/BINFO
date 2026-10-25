@@ -18,7 +18,7 @@ describe("AnalysRapport — sparsteg, lån och färger (2026-10-24c)", () => {
   it("märker de två priserna och visar vattenfallet med delbelopp", () => {
     const html = rita();
     expect(html).toContain("Vad jämförbara lägenheter säljs för");
-    expect(html).toContain("Värde med hänsyn till föreningens ekonomi");
+    expect(html).toContain("Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift");
     expect(html).toContain('data-slot="pris-vattenfall"');
     // 300 kr/mån × 300 = 90 000, 500 × 300 = 150 000
     expect(html).toContain("−90 000 kr");
@@ -118,7 +118,7 @@ describe("AnalysRapport — sparsteg, lån och färger (2026-10-24c)", () => {
       <Prisrimlighet prisanalys={analysUtanPrognos().prisanalys} />,
     );
     expect(html).toContain("Vad jämförbara lägenheter säljs för");
-    expect(html).not.toContain("Värde med hänsyn till föreningens ekonomi");
+    expect(html).not.toContain("Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift");
     expect(html).not.toContain("pris-vattenfall");
   });
 });

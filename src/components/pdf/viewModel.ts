@@ -20,6 +20,7 @@ import {
   komponentKalla,
   lanRader,
   PRIS_LABEL_JUSTERAD,
+  byggarPrisNotis,
   RANTEKANSLIGHET_RAD,
   referensrantaRad,
   REFI_FASTRAD,
@@ -157,6 +158,8 @@ export interface PdfPrisanalys {
   andelAvSkuld: PdfAndelAvSkuld | undefined;
   /** Task 5: hur mycket bostäder i området sålts över/under utgångspriset. */
   budpremieText: string | undefined;
+  /** Vilket byggår värderingen räknat med, när det inte är det köparen angav. */
+  byggarNotis: string | undefined;
   slutsats: string;
   konfidensNiva: string;
   konfidensSkal: string[];
@@ -438,6 +441,12 @@ function buildVarderingsunderlag(
   };
 }
 
+function byggarNotisText(analys: AnalysisResult): string | undefined {
+  const n = byggarPrisNotis(analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar"));
+  if (!n) return undefined;
+  return n.sida ? `${n.text.replace(/\.$/, "")} (${n.sida}).` : n.text;
+}
+
 function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
   const p = analys.prisanalys;
   const skuld = andelAvSkuldRad(analys);
@@ -483,6 +492,7 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
       : undefined,
     varderingsunderlag: buildVarderingsunderlag(p),
     budpremieText: p.budpremie ? formatBudpremieText(p.budpremie) : undefined,
+    byggarNotis: byggarNotisText(analys),
     slutsats: p.slutsats,
     konfidensNiva: KONFIDENS_LABEL[p.konfidens.niva],
     // Same condition AnalysRapport uses to show the "why" behind low confidence.

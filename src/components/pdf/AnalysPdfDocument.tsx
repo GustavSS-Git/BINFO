@@ -666,7 +666,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
         )}
         {p.justeradVardering ? (
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>{p.justeradVardering.label} (estimat)</Text>
+            <Text style={[styles.priceLabel, { flex: 1, paddingRight: 12 }]}>
+              {p.justeradVardering.label} (estimat)
+            </Text>
             <View>
               <Text style={styles.priceValue}>{p.justeradVardering.value}</Text>
               {p.justeradVardering.avvikelseText ? (
@@ -691,6 +693,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
               </View>
             ))}
           </View>
+        ) : null}
+        {p.byggarNotis ? (
+          <Text style={[styles.summaryLabel, { marginTop: 6 }]}>{p.byggarNotis}</Text>
         ) : null}
         {p.andelAvSkuld ? (
           <View style={{ marginTop: 8 }}>

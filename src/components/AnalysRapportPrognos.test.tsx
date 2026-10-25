@@ -15,9 +15,23 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
   it("visar två prisrader och jämför mot den justerade värderingen", () => {
     const html = rita();
     expect(html).toContain("Vad jämförbara lägenheter säljs för");
-    expect(html).toContain("Värde med hänsyn till föreningens ekonomi");
+    expect(html).toContain("Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift");
     expect(html).toContain("den justerade värderingen");
     expect(html).not.toContain("(jämfört per m²)");
+  });
+
+  it("visar byggårsnotisen vid priset i den fullständiga analysen, inte på Priskollen", () => {
+    const html = rita();
+    expect(html).toContain('data-slot="pris-byggar"');
+    expect(html).toContain(
+      "Värderingen räknar med byggår 1958 enligt årsredovisningen, inte 1962 som du angav.",
+    );
+    // Priskollen skickar ingen uppgiftsjamforelse.
+    const koll = plattaUt(
+      renderToStaticMarkup(<Prisrimlighet prisanalys={analysMedPrognos().prisanalys} />),
+    );
+    expect(koll).not.toContain("pris-byggar");
+    expect(koll).not.toContain("Värderingen räknar med byggår");
   });
 
   it("behåller exakt två dolda element (värderingsleverantören och intervallet)", () => {
@@ -107,7 +121,7 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
   it("renderar som förut när de nya fälten saknas (gamla resultat)", () => {
     const html = rita(analysUtanPrognos());
     for (const t of [
-      "Värde med hänsyn till föreningens ekonomi",
+      "Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift",
       "Justerat för väntad",
       "Sammanfattning",
       "Väntad avgiftsutveckling",

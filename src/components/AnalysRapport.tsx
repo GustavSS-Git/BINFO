@@ -37,6 +37,7 @@ import {
   prisEffektTexter,
   PRIS_LABEL_BAS,
   PRIS_LABEL_JUSTERAD,
+  byggarPrisNotis,
   PRISEFFEKT_CAVEAT,
   RAKNA_FAKTORER,
   RAKNA_PROGNOS_RUBRIK,
@@ -66,6 +67,7 @@ import { veljRantekanslighetForSok, type BolanekalkylSearch } from "@/lib/bolane
 import type {
   AnalysisResult,
   Avgiftsprognos,
+  Faltjamforelse,
   FeeInclusion,
   Figure,
   Fraga,
@@ -157,6 +159,7 @@ export function AnalysRapport({
         prisanalys={analys.prisanalys}
         skuldrad={andelAvSkuldRad(analys)}
         avgiftsprognos={analys.avgiftsprognos}
+        byggarJamforelse={analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar")}
       />
       <Rantestress analys={analys} />
       <Fragor analys={analys} />
@@ -498,12 +501,16 @@ export function Prisrimlighet({
   prisanalys: p,
   skuldrad,
   avgiftsprognos,
+  byggarJamforelse,
 }: {
   prisanalys: PrisanalysUtanForening;
   skuldrad?: AndelAvSkuldRad | undefined;
   /** Bara i den fullständiga analysen (och bara när servern räknat fram den). */
   avgiftsprognos?: Avgiftsprognos | undefined;
+  /** Raden `falt === "byggar"` ur `uppgiftsjamforelse`; bara i den fullständiga analysen. */
+  byggarJamforelse?: Faltjamforelse | undefined;
 }) {
+  const byggarNotis = byggarPrisNotis(byggarJamforelse);
   const u = p.varderingsunderlag;
   const tackningText = u ? varderingsTackningText(u) : null;
   const varderingslabel =
@@ -619,6 +626,16 @@ export function Prisrimlighet({
 
           {p.justeradVardering && avgiftsprognos ? (
             <PrisVattenfall prisanalys={p} prognos={avgiftsprognos} />
+          ) : null}
+
+          {byggarNotis ? (
+            <div
+              className="flex flex-wrap items-center gap-2 py-4 first:pt-0 last:pb-0"
+              data-slot="pris-byggar"
+            >
+              <p className="text-xs text-muted-foreground">{byggarNotis.text}</p>
+              {byggarNotis.sida ? <Tag>{byggarNotis.sida}</Tag> : null}
+            </div>
           ) : null}
 
           {skuldrad ? (

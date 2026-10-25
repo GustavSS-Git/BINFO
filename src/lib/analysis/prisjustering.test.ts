@@ -78,6 +78,9 @@ describe("byggPrisjustering", () => {
     expect(Object.is(r?.justeringar?.[0]?.belopp.value, 0)).toBe(true);
     expect(r?.justeradVardering?.value).toBe(6_000_000);
     expect(r?.justeradVardering?.range).toEqual({ low: 5_400_000, high: 6_600_000 });
+    expect(r?.justeringar?.[0]?.forklaring).toBe(
+      "Årsredovisningen pekar inte på någon förändring av avgiften inom 24 månader, så vi justerar inte värderingen. Dagens avgift ingår redan i värderingen.",
+    );
   });
 
   it("two missing components: point unchanged by them; low −2 × 3 % × 6 000 000 = −360 000", () => {

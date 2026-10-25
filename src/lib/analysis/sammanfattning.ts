@@ -51,6 +51,53 @@ function betygText(r: Underlag): string {
   return delar.join(" ");
 }
 
+/** Under ±10 kr/månad counts as "no change", the same line avgiftText draws. */
+const INGEN_FORANDRING_KR = 10;
+
+/** Betyg whose own comment (BETYGSKOMMENTAR) speaks of weaknesses. */
+const SVAGA_BETYG: readonly Grade[] = ["C", "D", "E"];
+
+function listaOch(delar: string[]): string {
+  return delar.length > 1
+    ? `${delar.slice(0, -1).join(", ")} och ${delar[delar.length - 1]}`
+    : (delar[0] ?? "");
+}
+
+/**
+ * The association looks weak but the price is not adjusted: its economy shows
+ * weaknesses, yet the fee prognosis finds no rise beyond today's fee, and
+ * today's fee is already part of the valuation. Said outright so a grade D next
+ * to an unchanged price does not read as a mistake. Empty when it does not apply.
+ */
+function utanJusteringText(r: Underlag): string {
+  const prognos = r.avgiftsprognos;
+  const total = prognos?.totalKrPerManad ?? null;
+  if (!prognos || total === null) return "";
+  if (!SVAGA_BETYG.includes(r.betyg) || Math.abs(total) >= INGEN_FORANDRING_KR) return "";
+
+  const delar = [
+    `Föreningens ekonomi har brister (betyg ${r.betyg}), men inget i årsredovisningen tyder på att ` +
+      `avgiften behöver höjas mer än i dag de närmaste ${prognos.horisontManader} månaderna. ` +
+      "Dagens avgift ingår redan i värderingen, så vi justerar inte priset.",
+  ];
+  // "Hög" only where the key figure itself is graded svag/kritisk (benchmarks.ts).
+  const avgiftKf = r.forening.keyFigures.find((kf) => kf.id === "arsavgift_per_m2_brf_yta");
+  const perM2 = avgiftKf?.figure.value ?? null;
+  if (avgiftKf && (avgiftKf.status === "svag" || avgiftKf.status === "kritisk") && perM2 !== null) {
+    delar.push(`Avgiften är redan hög, ${sv0(perM2)} kr/m² per år.`);
+  }
+  const saknas = prognos.komponenter
+    .filter((k) => k.status === "saknar_underlag")
+    .map((k) => k.label.toLowerCase());
+  if (saknas.length > 0) {
+    delar.push(
+      `Några uppgifter saknas i årsredovisningen eller är för gamla (${listaOch(saknas)}), ` +
+        "så priset kan vara lägre än värderingen.",
+    );
+  }
+  return delar.join(" ");
+}
+
 function prisText(r: Underlag): string {
   const p = r.prisanalys;
   const bas = p.externVardering?.value ?? null;
@@ -75,6 +122,8 @@ function prisText(r: Underlag): string {
   } else {
     delar.push(`Binfos värdering är ${caPris(vardering)}.`);
   }
+  const utanJustering = utanJusteringText(r);
+  if (utanJustering) delar.push(utanJustering);
 
   const utgangspris = p.utgangspris?.value ?? null;
   if (utgangspris === null) {

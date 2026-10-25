@@ -60,7 +60,9 @@ per-apartment cost in kronor, and what to do before bidding.
   `avgiftsprognos.avgiftsandringKontroll`, never rendered; a raise not yet in
   effect is the component `beslutad_hojning`, and every relevant raise offsets
   the savings gap; a raise in effect also scales the report's fee income in
-  the flat's share and in the fee-deviation question.
+  the flat's share and in the fee-deviation question. Price label "Värde med hänsyn
+  till föreningens ekonomi utöver nuvarande avgift"; a byggår line at the price
+  (`byggarPrisNotis`); the summary explains a weak grade with an unchanged price.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 

@@ -27,6 +27,12 @@ Result:
   no renewal → 122 190 kr/yr; the model asked about the lease itself. The run showed the share used
   pre-raise årsavgifter; fixed (share and fee-deviation question use the raised level): 363 kr/mån,
   price −113 000 kr, no deviation question. At most three lokal questions, the largest rents first (owner).
+- Owner test of Brf Näcken 2 (grade D, price unchanged): the adjusted-price label is now "Värde med
+  hänsyn till föreningens ekonomi utöver nuvarande avgift" (waterfall row: "Justerat värde"); the
+  summary says when grade C–E meets a zero rise that today's fee is already in the valuation (+ "hög"
+  only when the årsavgift/m² key figure is svag/kritisk, + the missing components); a byggår line at
+  the price says which year the valuation used (report year when sure, `byggarPrisNotis`). Byggår
+  already fed the valuation before; it just wasn't visible.
 - `/exempel` re-assembled for free (`monteraOm`): +1/+2 rows now 4 022 / 4 169 kr, the new
   `beslutad_hojning` component (Pontonjären's 22 % raise was before the balance date, so ignored).
 - For Lovable to polish: the Toggle above the slider (`mb-6` wrapper; two `px-5` buttons may be

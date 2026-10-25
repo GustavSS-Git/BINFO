@@ -33,7 +33,7 @@ describe("AnalysPdfDocument — avgiftsprognos", () => {
   it("innehåller de nya sektionerna", () => {
     for (const t of [
       "Så har vi räknat",
-      "Värde med hänsyn till föreningens ekonomi",
+      "Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift",
       "Sammanfattning",
       "SUMSLUTSATS",
       "TABELLKOMMENTAR",
@@ -41,6 +41,12 @@ describe("AnalysPdfDocument — avgiftsprognos", () => {
       expect(text).toContain(t);
     }
     expect(text).not.toContain("Dina uppgifter mot årsredovisningen");
+  });
+
+  it("har byggårsnotisen vid priset", () => {
+    expect(text.replace(/\s+/g, " ")).toContain(
+      "Värderingen räknar med byggår 1958 enligt årsredovisningen, inte 1962 som du angav (s. 3).",
+    );
   });
 
   it("noterar byggårets avvikelse vid Byggår i sammanfattningen", () => {

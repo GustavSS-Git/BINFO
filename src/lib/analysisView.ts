@@ -607,6 +607,39 @@ export function byggarMarkor(
   }
 }
 
+/** Den lilla raden under värderingen som säger vilket byggår priset räknats med
+ *  när det inte är det köparen angav (eller när köparen inte angav något).
+ *  Bara den fullständiga analysen har raden `uppgiftsjamforelse`; på Priskollen
+ *  och när året bekräftats/angivits manuellt blir det ingen rad. */
+export interface ByggarPrisNotis {
+  text: string;
+  /** Sidhänvisning i årsredovisningen, t.ex. "s. 4" (till källtaggen). */
+  sida?: string;
+}
+
+export function byggarPrisNotis(rad: Faltjamforelse | undefined): ByggarPrisNotis | undefined {
+  if (!rad || rad.falt !== "byggar") return undefined;
+  const sida = rad.ref ? `s. ${rad.ref.page}` : undefined;
+  const med = (text: string): ByggarPrisNotis => ({ text, ...(sida ? { sida } : {}) });
+  switch (rad.status) {
+    case "avviker":
+      if (rad.anvant === null || rad.anvandare === undefined) return undefined;
+      return med(
+        `Värderingen räknar med byggår ${rad.anvant} enligt årsredovisningen, inte ${rad.anvandare} som du angav.`,
+      );
+    case "endast_rapport":
+      if (rad.anvant === null) return undefined;
+      return med(`Värderingen räknar med byggår ${rad.anvant} enligt årsredovisningen.`);
+    case "osakert":
+      if (rad.anvandare === undefined || rad.rapport === undefined) return undefined;
+      return med(
+        `Du angav ${rad.anvandare}, årsredovisningen anger ${rad.rapport}. Vi använder ditt år och spannet täcker båda.`,
+      );
+    default:
+      return undefined;
+  }
+}
+
 /** Texten under det justerade värdet (jämförelse mot utgångspriset). */
 export function avvikelseJusteradText(avvikelse: number): string {
   return `Utgångspriset ligger ${Math.abs(avvikelse).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % ${avvikelse > 0 ? "över" : "under"} den justerade värderingen`;
@@ -624,7 +657,11 @@ export function formatForandringKr(v: number): string {
 // ---------------------------------------------------------------------------
 
 export const PRIS_LABEL_BAS = "Vad jämförbara lägenheter säljs för";
-export const PRIS_LABEL_JUSTERAD = "Värde med hänsyn till föreningens ekonomi";
+/** Short form for the waterfall's last row (its heading already names the
+ *  förening's economy; the long label wraps to four lines there). */
+export const PRIS_LABEL_JUSTERAD_KORT = "Justerat värde";
+export const PRIS_LABEL_JUSTERAD =
+  "Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift";
 
 export type Ton = "success" | "warning" | "danger" | "neutral";
 
@@ -805,7 +842,7 @@ export function vattenfall(
   }
   rader.push({
     id: "slut",
-    label: PRIS_LABEL_JUSTERAD,
+    label: PRIS_LABEL_JUSTERAD_KORT,
     typ: "slut",
     beloppText: formatVarde(slut, "kr"),
     vansterPct: pct(slut) - MIN_BREDD / 2,

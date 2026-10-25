@@ -8,7 +8,7 @@ describe("buildPdfViewModel — sparsteg och lån (2026-10-24c)", () => {
 
   it("märker priserna och tar med vattenfallet", () => {
     expect(vm.prisanalys.justeradVardering?.label).toBe(
-      "Värde med hänsyn till föreningens ekonomi",
+      "Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift",
     );
     expect(
       vm.prisanalys.justeradVardering?.vattenfall.map((r) => r.beloppText.replace(/\s/g, " ")),

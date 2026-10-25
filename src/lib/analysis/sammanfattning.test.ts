@@ -104,3 +104,113 @@ describe("byggSammanfattning", () => {
     expect(s.pris).toMatch(/kunde inte räknas fram/);
   });
 });
+
+describe("byggSammanfattning — svag förening utan prisjustering", () => {
+  const komp = (
+    id: "spargap" | "refinansiering" | "underhall",
+    label: string,
+    status: "beraknad" | "saknar_underlag",
+  ) => ({
+    id,
+    label,
+    status,
+    foreningKrPerAr: status === "beraknad" ? 0 : null,
+    krPerManad: status === "beraknad" ? 0 : null,
+    forklaring: "",
+  });
+  const prognos = (
+    total: number,
+    komponenter = [komp("spargap", "Sparande mot underhållsbehov", "beraknad")],
+  ): NonNullable<AnalysisResult["avgiftsprognos"]> => ({
+    horisontManader: 24,
+    berakningsdatum: "2026-10-25",
+    andel: { varde: 0.01, metod: "avgiftsandel" },
+    totalKrPerManad: total,
+    komponenter,
+  });
+  const medAvgiftsStatus = (status: "god" | "acceptabel" | "svag" | "kritisk") =>
+    sampleAnalysis.forening.keyFigures.map((kf) =>
+      kf.id === "arsavgift_per_m2_brf_yta"
+        ? { ...kf, status, figure: { ...kf.figure, value: 1234 } }
+        : kf,
+    );
+  const D = (over: Partial<AnalysisResult> = {}) =>
+    med({ betyg: "D", avgiftsprognos: prognos(0), ...over });
+  const MENING = "Föreningens ekonomi har brister (betyg D), men inget i årsredovisningen tyder på";
+
+  it("betyg D och ingen väntad höjning: förklarar att priset inte justeras", () => {
+    const s = byggSammanfattning(D());
+    expect(s.pris).toContain(
+      `${MENING} att avgiften behöver höjas mer än i dag de närmaste 24 månaderna. ` +
+        "Dagens avgift ingår redan i värderingen, så vi justerar inte priset.",
+    );
+  });
+
+  it("gäller också E och C, men inte A eller B", () => {
+    for (const b of ["C", "E"] as const)
+      expect(byggSammanfattning(D({ betyg: b })).pris).toContain(`(betyg ${b})`);
+    for (const b of ["A", "B"] as const)
+      expect(byggSammanfattning(D({ betyg: b })).pris).not.toContain("så vi justerar inte priset");
+  });
+
+  it("betyg B och ingen höjning: ingen mening", () => {
+    expect(byggSammanfattning(D({ betyg: "B" })).pris).not.toContain("har brister");
+  });
+
+  it("betyg D men en väntad höjning: ingen mening (priset justeras)", () => {
+    expect(byggSammanfattning(D({ avgiftsprognos: prognos(400) })).pris).not.toContain(
+      "så vi justerar inte priset",
+    );
+    expect(byggSammanfattning(D({ avgiftsprognos: prognos(-400) })).pris).not.toContain(
+      "så vi justerar inte priset",
+    );
+  });
+
+  it("ingen prognos eller ingen andel: ingen mening", () => {
+    const { avgiftsprognos: _a, ...utan } = D();
+    expect(byggSammanfattning(utan).pris).not.toContain("har brister");
+    expect(byggSammanfattning(D({ avgiftsprognos: prognos(0) })).pris).toContain("har brister");
+    const utanAndel = { ...prognos(0), totalKrPerManad: null };
+    expect(byggSammanfattning(D({ avgiftsprognos: utanAndel })).pris).not.toContain("har brister");
+  });
+
+  it("'Avgiften är redan hög' bara när nyckeltalet är svag eller kritisk", () => {
+    for (const status of ["svag", "kritisk"] as const) {
+      const s = byggSammanfattning(
+        D({ forening: { ...sampleAnalysis.forening, keyFigures: medAvgiftsStatus(status) } }),
+      );
+      expect(nbsp(s.pris)).toContain("Avgiften är redan hög, 1 234 kr/m² per år.");
+    }
+    for (const status of ["god", "acceptabel"] as const) {
+      const s = byggSammanfattning(
+        D({ forening: { ...sampleAnalysis.forening, keyFigures: medAvgiftsStatus(status) } }),
+      );
+      expect(s.pris).not.toContain("redan hög");
+    }
+  });
+
+  it("namnger komponenter som saknar underlag", () => {
+    const s = byggSammanfattning(
+      D({
+        avgiftsprognos: prognos(0, [
+          komp("spargap", "Sparande mot underhållsbehov", "beraknad"),
+          komp("refinansiering", "Lån som ska omsättas", "saknar_underlag"),
+          komp("underhall", "Underhåll utan finansiering", "saknar_underlag"),
+        ]),
+      }),
+    );
+    expect(s.pris).toContain(
+      "Några uppgifter saknas i årsredovisningen eller är för gamla " +
+        "(lån som ska omsättas och underhåll utan finansiering), så priset kan vara lägre än värderingen.",
+    );
+  });
+
+  it("ingen saknad-mening när inget underlag saknas", () => {
+    expect(byggSammanfattning(D()).pris).not.toContain("Några uppgifter saknas");
+  });
+
+  it("ger inga råd", () => {
+    const s = byggSammanfattning(D());
+    expect(Object.values(s).join(" ")).not.toMatch(/\b(köp|köpa|avstå|bör du|rekommenderar)\b/i);
+  });
+});

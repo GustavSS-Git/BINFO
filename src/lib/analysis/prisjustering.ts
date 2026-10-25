@@ -120,7 +120,7 @@ export function byggPrisjustering(input: PrisjusteringInput): Resultat | null {
     total === null
       ? ""
       : total === 0
-        ? `Årsredovisningen pekar inte på någon förändring av avgiften inom ${horisont} månader, så vi justerar inte värderingen.`
+        ? `Årsredovisningen pekar inte på någon förändring av avgiften inom ${horisont} månader, så vi justerar inte värderingen. Dagens avgift ingår redan i värderingen.`
         : `Årsredovisningen pekar på att din avgift kan ${riktning} med cirka ${kr(total)} kr i månaden inom ${horisont} månader. ` +
           `I Binfos data hänger en högre månadsavgift ihop med ett lägre pris, ungefär ${kr(krPerKrManadExakt)} kr per krona i månadsavgift för en lägenhet som den här. ` +
           `Det är ett statistiskt samband, inte ett orsakssamband.`;
