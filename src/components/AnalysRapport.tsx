@@ -269,9 +269,7 @@ export function Foreningsekonomi({ analys }: { analys: Pick<AnalysisResult, "for
           return (
             <Card
               key={kf.id}
-              className={
-                highlight ? "border-primary/40 bg-primary/[0.04] p-5 md:p-6" : "p-5 md:p-6"
-              }
+              className={`${highlight ? "border-primary/40 bg-primary/[0.04] " : ""}p-5 md:p-6${ograderat ? " pt-[2.625rem] md:pt-[2.875rem]" : ""}`}
             >
               {ograderat ? null : <StatusLabel status={kf.status} className="mb-3" />}
               <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -529,7 +527,7 @@ export function Prisrimlighet({
   const avvikelse = prisAvvikelseRad(p);
   const visat = p.externVardering?.source === "schablon" ? visatVarde(p) : null;
   const spannRad = visat ? (
-    <p className="text-xs text-muted-foreground" data-slot="vardespann">
+    <p className="mt-0.5 text-xs tabular-nums text-muted-foreground" data-slot="vardespann">
       {VARDESPANN_LABEL}: {formatVardespann(visat.exakt)}
     </p>
   ) : null;
@@ -591,7 +589,9 @@ export function Prisrimlighet({
                 </p>
                 {visat?.kalla === "bas" ? spannRad : null}
                 {avvikelse && p.justeradVardering === undefined ? (
-                  <p className={`text-xs ${TON_TEXT[avvikelse.ton]}`}>{avvikelse.text}</p>
+                  <p className={`mt-1.5 text-xs leading-snug ${TON_TEXT[avvikelse.ton]}`}>
+                    {avvikelse.text}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -616,7 +616,9 @@ export function Prisrimlighet({
                 </p>
                 {visat?.kalla === "justerad" ? spannRad : null}
                 {avvikelse && p.justeradVardering ? (
-                  <p className={`text-xs ${TON_TEXT[avvikelse.ton]}`}>{avvikelse.text}</p>
+                  <p className={`mt-1.5 text-xs leading-snug ${TON_TEXT[avvikelse.ton]}`}>
+                    {avvikelse.text}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -755,14 +757,17 @@ function PrisVattenfall({
   const v = vattenfall(prisanalys, prognos);
   if (!v) return null;
   return (
-    <div className="py-4 first:pt-0 last:pb-0" data-slot="pris-vattenfall">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-lg border border-border bg-card p-4" data-slot="pris-vattenfall">
+      <p className="mb-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Så påverkar föreningens ekonomi priset
       </p>
       <ul className="space-y-2">
         {v.rader.map((r: VattenfallRad) => (
-          <li key={r.id} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3">
-            <span className="text-xs text-foreground">{r.label}</span>
+          <li
+            key={r.id}
+            className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(0,9rem)_1fr_auto] sm:gap-3"
+          >
+            <span className="min-w-0 text-xs text-foreground">{r.label}</span>
             <span className="relative h-3 rounded bg-secondary" aria-hidden>
               <span
                 data-ton={r.ton}
@@ -885,7 +890,11 @@ function SparSteg({
         </VisaMer>
       ) : null}
       {/* The basis, so the kr/mån can be reproduced (owner 2026-10-26). */}
-      {komp ? <p className="text-xs text-muted-foreground">{komp.forklaring}</p> : null}
+      {komp ? (
+        <p className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+          {komp.forklaring}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -916,43 +925,60 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
         ) : null}
       </div>
       {rader.length > 0 ? (
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
-              <th className="pb-1 font-medium">Förfaller</th>
-              <th className="pb-1 text-right font-medium">Belopp</th>
-              <th className="pb-1 pr-3 text-right font-medium">Ränta</th>
-              <th className="pb-1 pl-3 font-medium">Period</th>
-              <th className="pb-1 text-right font-medium">Effekt</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rader.map((l) => (
-              <tr key={l.key} data-fas={l.forfallit ? "forfallit" : l.senare ? "senare" : "inom"}>
-                <td className="py-1.5 text-foreground">{l.forfaller}</td>
-                <td className="py-1.5 text-right text-foreground">{l.belopp}</td>
-                {l.forfallit ? (
-                  <td className="py-1.5 pl-3 text-muted-foreground" colSpan={3}>
-                    – {FORFALLIT_LAN_TEXT}
-                  </td>
-                ) : (
-                  <>
-                    <td className="py-1.5 pr-3 text-right text-muted-foreground">{l.ranta}</td>
-                    <td className="py-1.5 pl-3 text-muted-foreground">{l.fas}</td>
-                    <td className="py-1.5 text-right text-foreground">
-                      {l.effekt}
-                      {l.effektForening ? (
-                        <span className="block text-[11px] text-muted-foreground">
-                          {l.effektForening} (föreningen)
-                        </span>
-                      ) : null}
-                    </td>
-                  </>
-                )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border text-left uppercase tracking-wide text-muted-foreground">
+                <th className="pb-1 font-medium">Förfaller</th>
+                <th className="pb-1 text-right font-medium">Belopp</th>
+                <th className="pb-1 pr-3 text-right font-medium">Ränta</th>
+                <th className="pb-1 pl-3 font-medium">Period</th>
+                <th className="pb-1 text-right font-medium">Effekt</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rader.map((l) => (
+                <tr
+                  key={l.key}
+                  data-fas={l.forfallit ? "forfallit" : l.senare ? "senare" : "inom"}
+                  className={l.forfallit ? "opacity-70" : undefined}
+                >
+                  <td
+                    className={`py-1.5 align-top ${l.forfallit ? "text-muted-foreground" : "text-foreground"}`}
+                  >
+                    {l.forfaller}
+                  </td>
+                  <td
+                    className={`py-1.5 text-right align-top ${l.forfallit ? "text-muted-foreground" : "text-foreground"}`}
+                  >
+                    {l.belopp}
+                  </td>
+                  {l.forfallit ? (
+                    <td
+                      className="py-1.5 pl-3 italic leading-snug text-muted-foreground"
+                      colSpan={3}
+                    >
+                      – {FORFALLIT_LAN_TEXT}
+                    </td>
+                  ) : (
+                    <>
+                      <td className="py-1.5 pr-3 text-right text-muted-foreground">{l.ranta}</td>
+                      <td className="py-1.5 pl-3 text-muted-foreground">{l.fas}</td>
+                      <td className="py-1.5 text-right text-foreground">
+                        {l.effekt}
+                        {l.effektForening ? (
+                          <span className="block text-[11px] text-muted-foreground">
+                            {l.effektForening} (föreningen)
+                          </span>
+                        ) : null}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : null}
       {r && rader.some((l) => l.senare) ? (
         <p className="text-xs text-muted-foreground">{REFI_FASTRAD}</p>
