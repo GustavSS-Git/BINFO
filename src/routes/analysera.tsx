@@ -745,7 +745,10 @@ function Analysera() {
 
       {prisUtfall?.typ === "ok" ? (
         <div className="mt-10">
-          <Prisrimlighet prisanalys={prisUtfall.resultat.prisanalys} />
+          <Prisrimlighet
+            prisanalys={prisUtfall.resultat.prisanalys}
+            boarea={prisUtfall.resultat.input.boarea}
+          />
 
           {sparaStatus.typ === "sparad" ? null : (
             <Card className="mb-6">

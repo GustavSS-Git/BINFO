@@ -43,6 +43,7 @@ import {
   formatSkapadDatum,
   formatVarde,
   formatVardeFigurAvrundat,
+  kvmPrisForVardering,
   formatVardespann,
   arOgraderatNyckeltal,
   visasNyckeltal,
@@ -149,6 +150,8 @@ export interface PdfPrisanalys {
         value: string;
         leverantor: string;
         isSchablon: boolean;
+        /** "ca 118 300 kr/m²" from the shown value and the boarea. */
+        kvmPris: string | undefined;
         /** "Ungefärligt spann (±10 %): a – b kr"; only under the main shown value. */
         vardespann: string | undefined;
       }
@@ -175,6 +178,8 @@ export interface PdfPrisanalys {
 export interface PdfJusteradVardering {
   label: string;
   value: string;
+  /** "ca 115 600 kr/m²" from the shown value and the boarea. */
+  kvmPris: string | undefined;
   /** "Ungefärligt spann (±10 %): a – b kr"; only under the main shown value. */
   vardespann: string | undefined;
   avvikelseText: string | undefined;
@@ -472,6 +477,7 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
           value: formatVardeFigurAvrundat(p.externVardering),
           leverantor: p.externVardering.leverantor,
           isSchablon: p.externVardering.source === "schablon",
+          kvmPris: kvmPrisForVardering(p.externVardering.value, analys.input.boarea),
           vardespann: visat?.kalla === "bas" ? spannText : undefined,
         }
       : undefined,
@@ -488,6 +494,7 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
               }))
             : [],
           value: formatVardeFigurAvrundat(p.justeradVardering),
+          kvmPris: kvmPrisForVardering(p.justeradVardering.value, analys.input.boarea),
           vardespann: visat?.kalla === "justerad" ? spannText : undefined,
           avvikelseText: avvikelse?.text,
         }

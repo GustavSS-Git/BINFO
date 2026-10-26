@@ -20,6 +20,7 @@ import {
   formatFigureVarde,
   formatVarde,
   formatVardeFigurAvrundat,
+  kvmPrisForVardering,
   formatVardespann,
   arOgraderatNyckeltal,
   visasNyckeltal,
@@ -163,6 +164,7 @@ export function AnalysRapport({
       <OvrigInfo analys={analys} />
       <Prisrimlighet
         prisanalys={analys.prisanalys}
+        boarea={analys.input.boarea}
         skuldrad={andelAvSkuldRad(analys)}
         avgiftsprognos={analys.avgiftsprognos}
         byggarJamforelse={analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar")}
@@ -509,8 +511,11 @@ export function Prisrimlighet({
   skuldrad,
   avgiftsprognos,
   byggarJamforelse,
+  boarea,
 }: {
   prisanalys: PrisanalysUtanForening;
+  /** The flat's boarea, for the small kr/m² line under each estimate. */
+  boarea?: number | undefined;
   skuldrad?: AndelAvSkuldRad | undefined;
   /** Bara i den fullständiga analysen (och bara när servern räknat fram den). */
   avgiftsprognos?: Avgiftsprognos | undefined;
@@ -526,6 +531,14 @@ export function Prisrimlighet({
   // baseline) and only for Binfo's own estimate; it is ±10 % of the exact value.
   const avvikelse = prisAvvikelseRad(p);
   const visat = p.externVardering?.source === "schablon" ? visatVarde(p) : null;
+  const kvmRad = (varde: number | null | undefined) => {
+    const text = kvmPrisForVardering(varde, boarea);
+    return text ? (
+      <p className="mt-0.5 text-xs tabular-nums text-muted-foreground" data-slot="kvmpris">
+        {text}
+      </p>
+    ) : null;
+  };
   const spannRad = visat ? (
     <p className="mt-0.5 text-xs tabular-nums text-muted-foreground" data-slot="vardespann">
       {VARDESPANN_LABEL}: {formatVardespann(visat.exakt)}
@@ -554,17 +567,20 @@ export function Prisrimlighet({
           {p.utgangspris ? (
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <p className="text-sm font-medium text-foreground">Utgångspris</p>
-              <p className="font-display text-xl text-foreground">
-                {formatFigureVarde(p.utgangspris)}
-              </p>
-            </div>
-          ) : null}
-          {p.prisPerM2 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
-              <p className="text-sm font-medium text-foreground">Pris per kvadratmeter</p>
-              <p className="font-display text-xl text-foreground">
-                {formatFigureVarde(p.prisPerM2)}
-              </p>
+              <div className="text-right">
+                <p className="font-display text-xl text-foreground">
+                  {formatFigureVarde(p.utgangspris)}
+                </p>
+                {/* Price per m² as a small line, not its own row (owner 2026-10-26). */}
+                {p.prisPerM2 ? (
+                  <p
+                    className="mt-0.5 text-xs tabular-nums text-muted-foreground"
+                    data-slot="kvmpris"
+                  >
+                    {formatFigureVarde(p.prisPerM2)}
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
@@ -587,6 +603,7 @@ export function Prisrimlighet({
                 <p className="font-display text-xl text-foreground">
                   {formatVardeFigurAvrundat(p.externVardering)}
                 </p>
+                {kvmRad(p.externVardering.value)}
                 {visat?.kalla === "bas" ? spannRad : null}
                 {avvikelse && p.justeradVardering === undefined ? (
                   <p className={`mt-1.5 text-xs leading-snug ${TON_TEXT[avvikelse.ton]}`}>
@@ -614,6 +631,7 @@ export function Prisrimlighet({
                 <p className="font-display text-xl text-foreground">
                   {formatVardeFigurAvrundat(p.justeradVardering)}
                 </p>
+                {kvmRad(p.justeradVardering.value)}
                 {visat?.kalla === "justerad" ? spannRad : null}
                 {avvikelse && p.justeradVardering ? (
                   <p className={`mt-1.5 text-xs leading-snug ${TON_TEXT[avvikelse.ton]}`}>

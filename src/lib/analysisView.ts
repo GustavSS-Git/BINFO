@@ -96,6 +96,23 @@ export function formatVardeFigurAvrundat(f: Pick<Figure, "value">): string {
 }
 
 /**
+ * "ca 115 600 kr/m²": the price per m² an estimate corresponds to (owner
+ * 2026-10-26), shown as a small line under it. Computed from the SHOWN value
+ * (rounded to 10 000 kr) so it can be reproduced from the page, rounded to
+ * 100 kr. Undefined without a value or a boarea.
+ */
+export function kvmPrisForVardering(
+  varde: number | null | undefined,
+  boarea: number | undefined,
+): string | undefined {
+  if (varde === null || varde === undefined || boarea === undefined || !(boarea > 0)) {
+    return undefined;
+  }
+  const perM2 = Math.round(avrundaVardering(varde) / boarea / 100) * 100;
+  return `ca ${perM2.toLocaleString("sv-SE")} kr/m²`;
+}
+
+/**
  * Priset som förifyller bolånekalkylen: det VISADE värdet (justerat om det
  * finns, annars Binfos värdering, avrundat till 10 000 kr som på sidan) hellre
  * än utgångspriset, och inget alls (undefined) om varken värdering eller

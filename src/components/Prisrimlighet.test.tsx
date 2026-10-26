@@ -12,12 +12,29 @@ const plattaUt = (html: string) => html.replace(/\s/g, " ");
 describe("Prisrimlighet — delad av rapporten och priskollen på /analysera", () => {
   it("visar prisjämförelsen när utgångspris finns", () => {
     const html = plattaUt(
-      renderToStaticMarkup(<Prisrimlighet prisanalys={sampleAnalysis.prisanalys} />),
+      renderToStaticMarkup(
+        <Prisrimlighet
+          prisanalys={sampleAnalysis.prisanalys}
+          boarea={sampleAnalysis.input.boarea}
+        />,
+      ),
     );
     expect(html).toContain("Är priset rimligt?");
     expect(html).toContain("Utgångspris");
-    expect(html).toContain("Pris per kvadratmeter");
     expect(html).toContain("Utgångspriset ligger");
+    // Price per m² is a small line under each price, not its own row (owner 2026-10-26):
+    // the asking price exactly (4 995 000 / 48), the estimates from the SHOWN value.
+    expect(html).not.toContain("Pris per kvadratmeter");
+    expect(html).toContain("104 063 kr/m²");
+    expect(html).toContain("ca 118 300 kr/m²"); // 5 680 000 / 48
+    expect(html).toContain("ca 115 600 kr/m²"); // 5 550 000 / 48
+  });
+
+  it("visar inget kvadratmeterpris för värderingen utan boarea", () => {
+    const html = plattaUt(
+      renderToStaticMarkup(<Prisrimlighet prisanalys={sampleAnalysis.prisanalys} />),
+    );
+    expect(html).not.toContain("ca 118 300 kr/m²");
   });
 
   it("utelämnar prisraderna och jämförelsen utan utgångspris, men visar värderingen", () => {

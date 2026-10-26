@@ -92,7 +92,7 @@ export function SparadVardering({ id }: { id: string }) {
         </Card>
 
         {v.resultat !== null ? (
-          <Prisrimlighet prisanalys={v.resultat.prisanalys} />
+          <Prisrimlighet prisanalys={v.resultat.prisanalys} boarea={v.resultat.input.boarea} />
         ) : (
           <Callout variant="flag" title="Kan inte visas som den sparades">
             <p>
@@ -109,7 +109,10 @@ export function SparadVardering({ id }: { id: string }) {
             <h2 className="mb-4 font-display text-2xl text-foreground">
               Omräknat med dagens modell
             </h2>
-            <Prisrimlighet prisanalys={nyttResultat.prisanalys} />
+            <Prisrimlighet
+              prisanalys={nyttResultat.prisanalys}
+              boarea={nyttResultat.input.boarea}
+            />
           </div>
         ) : null}
       </div>

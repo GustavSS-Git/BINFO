@@ -632,13 +632,12 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
         {p.utgangspris !== undefined ? (
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Utgångspris</Text>
-            <Text style={styles.priceValue}>{p.utgangspris}</Text>
-          </View>
-        ) : null}
-        {p.prisPerM2 !== undefined ? (
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Pris per kvadratmeter</Text>
-            <Text style={styles.priceValue}>{p.prisPerM2}</Text>
+            <View>
+              <Text style={styles.priceValue}>{p.utgangspris}</Text>
+              {p.prisPerM2 !== undefined ? (
+                <Text style={styles.summaryLabel}>{p.prisPerM2}</Text>
+              ) : null}
+            </View>
           </View>
         ) : null}
         {p.externVardering ? (
@@ -654,6 +653,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </View>
             <View>
               <Text style={styles.priceValue}>{p.externVardering.value}</Text>
+              {p.externVardering.kvmPris ? (
+                <Text style={styles.summaryLabel}>{p.externVardering.kvmPris}</Text>
+              ) : null}
               {p.externVardering.vardespann ? (
                 <Text style={styles.summaryLabel}>{p.externVardering.vardespann}</Text>
               ) : null}
@@ -675,6 +677,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </Text>
             <View>
               <Text style={styles.priceValue}>{p.justeradVardering.value}</Text>
+              {p.justeradVardering.kvmPris ? (
+                <Text style={styles.summaryLabel}>{p.justeradVardering.kvmPris}</Text>
+              ) : null}
               {p.justeradVardering.vardespann ? (
                 <Text style={styles.summaryLabel}>{p.justeradVardering.vardespann}</Text>
               ) : null}

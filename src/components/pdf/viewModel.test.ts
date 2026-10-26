@@ -634,3 +634,12 @@ describe("buildPdfViewModel — utan utgångspris", () => {
     expect(vm.prisanalys.titel).toBe("Är priset rimligt?");
   });
 });
+
+describe("buildPdfViewModel — kr/m² under the estimates (owner 2026-10-26)", () => {
+  it("adds 'ca … kr/m²' from the shown value and the boarea under both estimates", () => {
+    const vm = buildPdfViewModel(sampleAnalysis);
+    const mellanslag = (t: string | undefined) => t?.replace(/\u00a0/g, " ");
+    expect(mellanslag(vm.prisanalys.externVardering?.kvmPris)).toBe("ca 118 300 kr/m²");
+    expect(mellanslag(vm.prisanalys.justeradVardering?.kvmPris)).toBe("ca 115 600 kr/m²");
+  });
+});
