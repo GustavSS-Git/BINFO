@@ -929,7 +929,7 @@ function Analysera() {
         <p className="mt-2 text-sm text-muted-foreground">
           Resten av uppgifterna (boarea, våning, avgift med mera) tar vi från steg 1.
         </p>
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
+        <div className="mt-6 grid gap-5">
           <Field
             id="falt-adress"
             label="Adress"
