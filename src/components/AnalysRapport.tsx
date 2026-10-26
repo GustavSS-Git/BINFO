@@ -567,7 +567,9 @@ export function Prisrimlighet({
           {p.utgangspris ? (
             <div className="flex flex-wrap items-center justify-between gap-2 py-4 first:pt-0 last:pb-0">
               <p className="text-sm font-medium text-foreground">Utgångspris</p>
-              <div className="text-right">
+              {/* ml-auto: value stays at the right edge also when the row wraps (owner 2026-10-26). */}
+              <div className="ml-auto text-right">
+
                 <p className="font-display text-xl text-foreground">
                   {formatFigureVarde(p.utgangspris)}
                 </p>
@@ -599,9 +601,10 @@ export function Prisrimlighet({
                   {p.externVardering.leverantor}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="ml-auto text-right">
                 <p className="font-display text-xl text-foreground">
                   {formatVardeFigurAvrundat(p.externVardering)}
+
                 </p>
                 {kvmRad(p.externVardering.value)}
                 {visat?.kalla === "bas" ? spannRad : null}
@@ -627,9 +630,10 @@ export function Prisrimlighet({
                 {PRIS_LABEL_JUSTERAD}
                 <Tag>Estimat</Tag>
               </p>
-              <div className="text-right">
+              <div className="ml-auto text-right">
                 <p className="font-display text-xl text-foreground">
                   {formatVardeFigurAvrundat(p.justeradVardering)}
+
                 </p>
                 {kvmRad(p.justeradVardering.value)}
                 {visat?.kalla === "justerad" ? spannRad : null}
