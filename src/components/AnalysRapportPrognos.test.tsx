@@ -16,8 +16,23 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     const html = rita();
     expect(html).toContain("Vad jämförbara lägenheter säljs för");
     expect(html).toContain("Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift");
-    expect(html).toContain("den justerade värderingen");
+    // Inside the ±10 % span: neutral wording, no over/under verdict colour.
+    expect(html).toContain("3,2 % över värdet, inom spannet");
     expect(html).not.toContain("(jämfört per m²)");
+  });
+
+  it("utanför spannet: över/under med färg och den justerade värderingen som jämförelse", () => {
+    const a = analysMedPrognos();
+    const html = rita({
+      ...a,
+      prisanalys: {
+        ...a.prisanalys,
+        utgangspris: { value: 9_000_000, unit: "kr", source: "anvandare" },
+        avvikelseMotJusteradVardering: 60,
+      },
+    });
+    expect(html).toContain("60 % över den justerade värderingen");
+    expect(html).toMatch(/text-danger">Utgångspriset ligger 60 %/);
   });
 
   it("visar byggårsnotisen vid priset i den fullständiga analysen, inte på Priskollen", () => {
@@ -34,14 +49,14 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     expect(koll).not.toContain("Värderingen räknar med byggår");
   });
 
-  it("behåller exakt två dolda element (värderingsleverantören och intervallet)", () => {
+  it("behåller exakt ett dolt element (värderingsleverantören)", () => {
     const html = renderToStaticMarkup(
       <Prisrimlighet
         prisanalys={analysMedPrognos().prisanalys}
         avgiftsprognos={analysMedPrognos().avgiftsprognos}
       />,
     );
-    expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(2);
+    expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(1);
   });
 
   it("har 'Så har vi räknat' hopfälld, med faktorlistan och källan inuti", () => {

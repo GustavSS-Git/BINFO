@@ -48,9 +48,10 @@ describe("/analysera: priskoll och BRF-analys på en sida", () => {
     expect(html).toContain("Steg 2: Granska föreningen (valfritt)");
     expect(html).toContain("Dra och släpp årsredovisningen här");
     expect(html).toContain(">Analysera<");
-    // Adress och ort hör till steg 2; resten av fälten finns bara en gång.
+    // Adress hör till steg 2 (ort har inget fält, ägarbeslut 2026-10-26); resten av fälten finns bara en gång.
     expect(html).toContain("Adress");
-    expect(html).toContain("Ort");
+    expect(html).not.toContain("falt-ort");
+    expect(html).not.toMatch(/>Ort</);
     expect(html.match(/placeholder="116 25"/g)).toHaveLength(1);
     expect(html.match(/placeholder="58"/g)).toHaveLength(1);
     expect(html).toContain('id="vet-ej"');

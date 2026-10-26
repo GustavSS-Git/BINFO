@@ -198,8 +198,11 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
   it("forklaring is one Swedish sentence with target, source, sparande and gap", () => {
     const k = med(sparande(150));
     // 300 − 150 = 150 kr/m²
-    expect(k.forklaring).toBe(
-      "Behovet är cirka 300 kr/m² per år (schablon), föreningen sparar 150 kr/m², ett glapp på 150 kr/m², varav 50 % räknas med.",
+    // 150 × 2 000 m² × 0,5 = 150 000 kr/år; andel 4 000 × 12 / 4 800 000 = 1 % → 125 kr/mån
+    expect(k.forklaring.replace(/\s/g, " ")).toBe(
+      "Sparandet är 150 kr/m² mot Binfos mål 300 kr/m² (schablon) – ett glapp på 150 kr/m². " +
+        "Vi räknar halva glappet på föreningens totalyta 2 000 m²: 150 000 kr/år. " +
+        "Din andel är 1 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 4,8 mkr), alltså ca 125 kr/mån.",
     );
   });
   it("value null with tecken negativ: saknar_underlag", () => {
@@ -270,8 +273,39 @@ describe("refinansiering", () => {
     const k = komp(med(lanebok(1_000_000, [lan(1_000_000, 4.0, "2027-01-15")])), "refinansiering");
     expect(k).toMatchObject({ foreningKrPerAr: -13_520, krPerManad: -11 });
   });
-  it("date already passed after the balance date counts", () => {
-    const k = komp(med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2026-05-01")])), "refinansiering");
+  it("a date already passed (2026-05-01 ≤ idag) is MATURED: listed as forfallit, never priced", () => {
+    const r = med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2026-05-01")]));
+    const k = komp(r, "refinansiering");
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 0, krPerManad: 0 });
+    expect(k.forklaring).toMatch(/Lån på 1\s000\s000 kr hade villkorsändringsdag 1 maj 2026/);
+    expect(k.forklaring).toMatch(/troligen redan fått nya villkor som vi inte känner till/);
+    expect(r.omsattningsbarSkuld).toBe(0);
+    expect(r.prognos.refinansiering?.forfallandeBelopp).toBe(0);
+    expect(r.prognos.refinansiering?.lan).toEqual([
+      expect.objectContaining({
+        fas: "forfallit",
+        belopp: 1_000_000,
+        dag: "2026-05-01",
+        foreningKrPerAr: null,
+        vikt: 0,
+      }),
+    ]);
+    // not "uncovered debt": no 50 % assumption on top
+    expect(r.prognos.refinansiering?.antagenAndelProcent).toBeUndefined();
+    expect(r.totalSpannVidAntagande).toBeUndefined();
+  });
+  it("a maturity ON idag is matured; the day after is priced", () => {
+    const pa = med(lanebok(1_000_000, [lan(1_000_000, 2.0, IDAG)]));
+    expect(komp(pa, "refinansiering").foreningKrPerAr).toBe(0);
+    expect(pa.prognos.refinansiering?.lan?.[0]?.fas).toBe("forfallit");
+    const efter = med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2026-10-25")]));
+    expect(komp(efter, "refinansiering").foreningKrPerAr).toBe(6480);
+  });
+  it("a rörlig loan with a passed date is not matured (it reprices continuously)", () => {
+    const k = komp(
+      med(lanebok(1_000_000, [lan(1_000_000, 2.0, "2026-05-01", "rorlig")])),
+      "refinansiering",
+    );
     expect(k.foreningKrPerAr).toBe(6480);
   });
   it("horizon edge: 2028-10-24 is in, 2028-10-25 is out", () => {
@@ -325,7 +359,11 @@ describe("refinansiering", () => {
     });
     const k = komp(r, "refinansiering");
     expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: -166_660 });
-    expect(k.forklaring).toMatch(/Lån på 16\s576\s000 kr har troligen redan fått en ny ränta/);
+    expect(k.forklaring).toMatch(
+      /Lån på 16\s576\s000 kr hade villkorsändringsdag 28 juni 2025 och 28 september 2025/,
+    );
+    expect(k.forklaring).toMatch(/troligen redan fått nya villkor som vi inte känner till/);
+    expect(r.prognos.refinansiering?.lan?.filter((l) => l.fas === "forfallit")).toHaveLength(2);
     expect(k.forklaring).toMatch(/de 2 lån \(15\s392\s000 kr\) som omsätts efter i dag/);
     expect(r.omsattningsbarSkuld).toBe(15_392_000);
     expect(r.totalSpannVidAntagande).toBeUndefined();
@@ -348,6 +386,24 @@ describe("refinansiering", () => {
     });
     expect(komp(r, "refinansiering")).toMatchObject({ foreningKrPerAr: -3520, krPerManad: -3 });
     expect(r.omsattningsbarSkuld).toBe(1_000_000);
+  });
+  it("old extraction, year-only maturity: a past YEAR (2025) is matured and the text says 'under 2025'; the current year (2026) is still priced", () => {
+    const r = med({
+      lanebok: {
+        totalSkuld: fig(3_000_000),
+        forfalloprofil: [
+          { ar: 2025, belopp: fig(1_000_000), ranta: fig(3.0, { unit: "procent" }) },
+          { ar: 2026, belopp: fig(2_000_000), ranta: fig(3.0, { unit: "procent" }) },
+        ],
+      },
+    });
+    const k = komp(r, "refinansiering");
+    expect(k.forklaring).toMatch(/hade villkorsändringsdag under 2025 och/);
+    expect(k.forklaring).not.toMatch(/1 juli/);
+    expect(r.omsattningsbarSkuld).toBe(2_000_000);
+    const rader = r.prognos.refinansiering?.lan ?? [];
+    expect(rader[0]).toMatchObject({ fas: "forfallit", belopp: 1_000_000, endastAr: true });
+    expect(rader[1]).toMatchObject({ fas: "inom_horisont", belopp: 2_000_000, endastAr: true });
   });
   it("missing maturities: 50 % of 2 000 000 @2,0 (snittränta) → 1 000 000 × 0,648 % = 6 480 → 5; spann 0 / 12 960/1200 = 10,8 → 11", () => {
     const r = med(lanebok(2_000_000, undefined, { snittranta: fig(2.0, { unit: "procent" }) }));
@@ -392,15 +448,12 @@ describe("refinansiering", () => {
     expect(r.omsattningsbarSkuld).toBeNull();
   });
 
-  it("Pontonjären-like: 4 of 5 loans reprice (the 2028-10-28 one is out)", () => {
-    // new rate 2,648. Per loan (new − current) × belopp / 100:
-    //  683 080 @2,51: 0,138 → +942,6504
-    //  1 180 000 @4,49: −1,842 → −21 735,60
-    //  970 000 @2,43: 0,218 → +2 114,60
-    //  2 926 011 @2,53: 0,118 → +3 452,69298
-    //  sum = −15 225,65662 → −15 226/year; 2 000 000 @2,98 2028-10-28 is outside 2028-10-24.
-    // flat: −15 226 × 0,01 / 12 = −12,69 → −13. Amount repricing 5 759 091.
-    // weighted current rate: 16 772 638,63 / 5 759 091 = 2,9124 → 2,91
+  it("Pontonjären-like (idag 2026-10-26, balansdag 2025-12-31): two loans matured, only the last two are priced → a small RISE", () => {
+    // new rate 2,648. Matured (not priced): 2 926 011 @2,53 on 2026-03-28, 1 180 000 @4,49 on 2026-09-28.
+    // Priced: 683 080 @2,51 (2026-11-28): 0,138 → +942,6504; 970 000 @2,43 (2026-12-28): 0,218 → +2 114,60
+    //  sum = +3 057,2504 → 3 057 kr/year; flat 3 057 × 0,01 / 12 = 2,55 → 3 kr/month.
+    // 2 000 000 @2,98 2028-10-28 is month 25 and dearer than 2,648 → not counted.
+    // amount repricing 1 653 080; weighted rate (683 080×2,51 + 970 000×2,43) / 1 653 080 = 2,4630 → 2,46
     const r = med(
       lanebok(7_759_091, [
         lan(683_080, 2.51, "2026-11-28"),
@@ -409,17 +462,38 @@ describe("refinansiering", () => {
         lan(2_000_000, 2.98, "2028-10-28"),
         lan(2_926_011, 2.53, "2026-03-28"),
       ]),
+      { idag: "2026-10-26" },
     );
     const k = komp(r, "refinansiering");
-    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: -15_226, krPerManad: -13 });
-    expect(r.omsattningsbarSkuld).toBe(5_759_091);
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 3057, krPerManad: 3 });
+    expect(r.omsattningsbarSkuld).toBe(1_653_080);
     expect(r.prognos.refinansiering).toMatchObject({
-      forfallandeBelopp: 5_759_091,
-      nuvarandeRantaProcent: 2.91,
+      forfallandeBelopp: 1_653_080,
+      nuvarandeRantaProcent: 2.46,
       nyRantaProcent: 2.648,
-      antalLan: 4,
+      antalLan: 2,
     });
+    const rader = r.prognos.refinansiering?.lan ?? [];
+    expect(rader.filter((l) => l.fas === "forfallit").map((l) => [l.dag, l.belopp])).toEqual([
+      ["2026-03-28", 2_926_011],
+      ["2026-09-28", 1_180_000],
+    ]);
+    expect(rader.filter((l) => l.fas === "inom_horisont")).toHaveLength(2);
+    expect(
+      rader.filter((l) => l.fas === "forfallit").every((l) => l.foreningKrPerAr === null),
+    ).toBe(true);
+    expect(k.forklaring).toMatch(
+      /Lån på 4\s106\s011 kr hade villkorsändringsdag 28 mars 2026 och 28 september 2026/,
+    );
+    expect(k.forklaring).toMatch(/höjer föreningens kostnad med cirka 3\s057 kr per år/);
     expect(r.totalSpannVidAntagande).toBeUndefined();
+  });
+  it("matured loans are not 'uncovered debt': total debt = rows → no assumed 50 % share", () => {
+    const r = med(
+      lanebok(3_000_000, [lan(1_000_000, 2.0, "2026-01-01"), lan(2_000_000, 2.0, "2027-01-01")]),
+    );
+    expect(r.prognos.refinansiering?.antagenAndelProcent).toBeUndefined();
+    expect(r.omsattningsbarSkuld).toBe(2_000_000);
   });
 });
 
@@ -551,7 +625,8 @@ describe("lokaler (owner 2026-10-25: signal 100 %, unrenewed lease ending in the
     ...(arshyra !== undefined ? { arshyra: fig(arshyra) } : {}),
     ref: { page: 8, excerpt: text },
   });
-  const ren = (t: string) => t.replace(/\s/g, " ");
+  // Whitespace normalised; the closing "Din andel är …" sentence is tested separately.
+  const ren = (t: string) => t.replace(/\s/g, " ").replace(/ Din andel är .*$/, "");
 
   it("no lokaler: ej_aktuell", () => {
     expect(komp(kor(forening()), "lokaler").status).toBe("ej_aktuell");
@@ -1614,5 +1689,72 @@ describe("a decided raise answers the savings gap (offset on spargap)", () => {
     const r = med([andring(5, "2027-01-01")]);
     expect(komp(r, "beslutad_hojning").krPerManad).toBe(200);
     expect(r.prognos.totalKrPerManad).toBe(133 + 200);
+  });
+});
+
+describe("the flat's share is stated in every component text (round 2026-10-26)", () => {
+  const sol = (belopp: number) => ({
+    text: "Solceller",
+    finansierat: "nej" as const,
+    belopp: fig(belopp),
+    ref: { page: 3, excerpt: "sol" },
+  });
+  it("energi: per-year amount, then andel 1 % with its basis and kr/mån", () => {
+    const k = komp(kor(forening({ energiprojekt: [sol(1_000_000)] })), "energi");
+    expect(k.forklaring.replace(/\s/g, " ")).toBe(
+      "Energiprojekt för 1 000 000 kr saknar finansiering, fördelat på 10 år: 100 000 kr per år. " +
+        "Din andel är 1 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 4,8 mkr), alltså ca 83 kr/mån.",
+    );
+  });
+  it("ytandel: the basis is the boarea ÷ bostadsrättsyta", () => {
+    const k = komp(
+      kor(
+        forening({ bostadsrattsyta: fig(5000, { unit: "m2" }), energiprojekt: [sol(1_000_000)] }),
+        {
+          kontrollsummor: {},
+        },
+      ),
+      "energi",
+    );
+    expect(k.forklaring).toContain("(din boarea 50 m² ÷ föreningens bostadsrättsyta ≈ 5");
+    expect(k.forklaring).toMatch(/alltså ca 83 kr\/mån\.$/);
+  });
+  it("a zero amount gets no share sentence; an unknown share neither", () => {
+    expect(komp(kor(forening({ energiprojekt: [] })), "energi").forklaring).not.toMatch(/andel/);
+    const utan = komp(
+      kor(forening({ energiprojekt: [sol(1_000_000)] }), { kontrollsummor: {} }),
+      "energi",
+    );
+    expect(utan.forklaring).not.toMatch(/Din andel/);
+  });
+  it("refinansiering: the share sentence follows the per-year amount", () => {
+    const k = komp(
+      kor(forening(lanebok(1_000_000, [lan(1_000_000, 2.0, undefined, "rorlig")]))),
+      "refinansiering",
+    );
+    expect(k.forklaring.replace(/\s/g, " ")).toMatch(
+      /cirka 6 480 kr per år\. Din andel är 1 % \(.*\), alltså ca 5 kr\/mån\.$/,
+    );
+  });
+  it("a decided raise shows its own arithmetic (fee × %)", () => {
+    const k = komp(
+      kor(
+        forening({
+          avgiftsandringar: [
+            {
+              status: "beslutad",
+              text: "Höjning",
+              procent: fig(10, { unit: "procent" }),
+              fran: "2027-01-01",
+              ref: { page: 3, excerpt: "höjning" },
+            },
+          ],
+        }),
+      ),
+      "beslutad_hojning",
+    );
+    expect(k.forklaring.replace(/\s/g, " ")).toContain(
+      "Vi räknar din avgift 4 000 kr × 10 % = cirka 400 kr i månaden.",
+    );
   });
 });

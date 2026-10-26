@@ -217,6 +217,47 @@ function raknaAndel(input: AvgiftsprognosInput, faktor = 1): Avgiftsprognos["and
 }
 
 // ---------------------------------------------------------------------------
+// The flat's share, in words (round 2026-10-26): a reader can reproduce kr/month
+// ---------------------------------------------------------------------------
+
+function mkr(n: number): string {
+  return n >= 1_000_000
+    ? `${(n / 1_000_000).toLocaleString("sv-SE", { maximumFractionDigits: 2 })} mkr`
+    : `${kr(n)} kr`;
+}
+
+/**
+ * "Din andel är 2,37 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 1,78 mkr),
+ * alltså ca 402 kr/mån." Appended to every calculated component that adds a
+ * BRF cost (the decided raise states its own arithmetic). The implied basis is
+ * recomputed from the share so the numbers always agree with it.
+ */
+function andelMening(
+  k: AvgiftsKomponent,
+  andelObj: Avgiftsprognos["andel"],
+  input: AvgiftsprognosInput,
+): string {
+  if (
+    andelObj === null ||
+    k.status !== "beraknad" ||
+    k.krPerManad === null ||
+    k.foreningKrPerAr === null ||
+    k.foreningKrPerAr === 0 ||
+    k.id === "beslutad_hojning"
+  ) {
+    return "";
+  }
+  const a = andelObj.varde;
+  const grund =
+    andelObj.metod === "ytandel"
+      ? `din boarea ${pct(input.boarea)} m² ÷ föreningens bostadsrättsyta ≈ ${kr(input.boarea / a)} m²`
+      : andelObj.metod === "harledd_avgiftsandel"
+        ? `din avgift × 12 ÷ föreningens årsavgifter ≈ ${mkr((input.manadsavgift * 12) / a)}, uträknat ur skulden och räntekänsligheten`
+        : `din avgift × 12 ÷ föreningens årsavgifter ≈ ${mkr((input.manadsavgift * 12) / a)}`;
+  return ` Din andel är ${pct(a * 100)} % (${grund}), alltså ca ${krT(k.krPerManad)} kr/mån.`;
+}
+
+// ---------------------------------------------------------------------------
 // Components
 // ---------------------------------------------------------------------------
 
@@ -224,8 +265,29 @@ const MAL_TEXT: Record<string, string> = {
   investeringsbehov: "årsredovisningens investeringsbehov",
   rekommenderad_avsattning: "underhållsplanens rekommenderade avsättning",
   planerade_kostnader: "planerade kostnader i underhållsplanen",
-  schablon: "schablon",
 };
+
+/** "a", "a och b", "a, b och c" */
+function listaOch(delar: string[]): string {
+  return delar.length <= 1
+    ? (delar[0] ?? "")
+    : `${delar.slice(0, -1).join(", ")} och ${delar[delar.length - 1]}`;
+}
+
+/** Signed kr with a real minus sign ("−1 200"). */
+function krT(n: number): string {
+  return `${n < 0 ? "−" : ""}${kr(n)}`;
+}
+
+/** "Binfos mål 300 kr/m² (schablon)" or the förening's own plan, named. */
+function malText(sb: NonNullable<Avgiftsprognos["sparbehov"]>): string {
+  if (sb.malKalla === "schablon") {
+    return sb.malKrPerM2 === SPARMAL_SCHABLON_KR_PER_M2
+      ? `Binfos mål ${kr(sb.malKrPerM2)} kr/m² (schablon)`
+      : `Binfos mål ${kr(sb.malKrPerM2)} kr/m² (schablonen ${kr(SPARMAL_SCHABLON_KR_PER_M2)} kr/m², justerad för byggnadsdelarnas ålder)`;
+  }
+  return `föreningens mål ${kr(sb.malKrPerM2)} kr/m² (${MAL_TEXT[sb.malKalla]})`;
+}
 
 function sparandegap(
   input: AvgiftsprognosInput,
@@ -292,13 +354,23 @@ function sparandegap(
   const harledd = r.totalytaHarledd
     ? ` Totalytan (${kr(sb.totalyta as number)} m²) är beräknad ur skulden och skuldsättningen per kvadratmeter.`
     : "";
+  const nomen = glapp < 0 ? "överskottet" : "glappet";
   const skillnad =
     glapp > 0
       ? `ett glapp på ${kr(glapp)} kr/m²`
       : glapp < 0
         ? `ett överskott på ${kr(glapp)} kr/m²`
         : "ingen skillnad";
-  const dampText = sb.dampning < 1 ? `, varav ${pct(sb.dampning * 100)} % räknas med` : "";
+  const delText =
+    sb.dampning < 1
+      ? sb.dampning === 0.5
+        ? `halva ${nomen}`
+        : `${pct(sb.dampning * 100)} % av ${nomen}`
+      : `hela ${nomen}`;
+  const rakning =
+    glapp === 0
+      ? ""
+      : ` Vi räknar ${delText} på föreningens totalyta ${kr(sb.totalyta as number)} m²: ${krT(r.krPerAr)} kr/år.`;
   return {
     sparbehov: sb,
     komponent: komponent(
@@ -308,8 +380,8 @@ function sparandegap(
         status: "beraknad",
         foreningKrPerAr: r.krPerAr,
         forklaring:
-          `Behovet är cirka ${kr(sb.malKrPerM2)} kr/m² per år (${MAL_TEXT[sb.malKalla]}), ` +
-          `föreningen sparar ${sb.sparandeKrPerM2 < 0 ? "−" : ""}${kr(sb.sparandeKrPerM2)} kr/m², ${skillnad}${dampText}.` +
+          `Sparandet är ${krT(sb.sparandeKrPerM2)} kr/m² mot ${malText(sb)} – ${skillnad}.` +
+          rakning +
           uttag +
           forkastat +
           harledd,
@@ -325,6 +397,8 @@ interface Lanerad {
   ranta: number | null;
   dag?: string;
   rorlig: boolean;
+  /** The reset date is a placeholder for a year-only maturity (old extractions). */
+  endastAr?: boolean;
   ref?: PageRef;
 }
 
@@ -355,6 +429,7 @@ function laddaLan(forening: Forening): Lanerad[] {
             ranta: p.ranta?.value ?? null,
             dag: `${p.ar}-${DAG_FOR_FORFALLOAR}`,
             rorlig: false,
+            endastAr: true,
             ...(p.belopp.ref ? { ref: p.belopp.ref } : {}),
           },
         ],
@@ -379,10 +454,10 @@ function refinansiering(
   const { forening, referensranta } = input;
   const label = "Lån som ska omsättas";
   const lb = forening.lanebok;
-  let lan = laddaLan(forening);
+  const alla = laddaLan(forening);
   const totalSkuldFigur = lb?.totalSkuld;
   const totalSkuld =
-    varde(totalSkuldFigur) ?? (lan.length > 0 ? lan.reduce((s, l) => s + l.belopp, 0) : null);
+    varde(totalSkuldFigur) ?? (alla.length > 0 ? alla.reduce((s, l) => s + l.belopp, 0) : null);
   const nyRanta = referensranta.procent + BRF_MARGINAL_PROCENT;
 
   if (totalSkuld === null) {
@@ -419,24 +494,65 @@ function refinansiering(
     };
   }
 
-  // A stale report: loans that reset before today have most likely been
-  // refinanced at a rate we don't know. Loans whose reset date is still ahead
-  // keep the report's rate until then, so those are priced (owner 2026-10-25);
-  // without any, the component is missing data as before.
+  // MATURED loans (round 2026-10-26): a dated, non-rörlig loan whose reset date
+  // is on or before today has already been reset to terms we don't know, so it
+  // is never priced, whatever the report's age: listed with fas 'forfallit'
+  // (foreningKrPerAr null), left out of forfallandeBelopp, the sum and `otackt`.
+  // A year-only maturity (old extraction, placeholder day) is matured only when
+  // its YEAR is over; within the current year it is still priced as before.
+  const forfallna = alla.filter(
+    (l) =>
+      !l.rorlig &&
+      l.dag !== undefined &&
+      (l.endastAr ? l.dag.slice(0, 4) < input.idag.slice(0, 4) : l.dag <= input.idag),
+  );
+  const forfallnaRader: RefinansieringsLan[] = [...forfallna]
+    .sort((x, y) => (x.dag as string).localeCompare(y.dag as string))
+    .map((l) => ({
+      belopp: l.belopp,
+      rantaProcent: l.ranta,
+      ...(l.dag !== undefined ? { dag: l.dag } : {}),
+      rorlig: false,
+      fas: "forfallit" as const,
+      vikt: 0,
+      foreningKrPerAr: null,
+      ...(l.endastAr ? { endastAr: true as const } : {}),
+      ...(l.ref ? { ref: l.ref } : {}),
+    }));
+  const forfallnaSumma = forfallna.reduce((s, l) => s + l.belopp, 0);
+  // A year-only maturity (old extraction) has a placeholder day: say "under 2026".
+  const forfallnaDatum = listaOch(
+    [...forfallna]
+      .sort((x, y) => (x.dag as string).localeCompare(y.dag as string))
+      .map((l) =>
+        l.endastAr ? `under ${(l.dag as string).slice(0, 4)}` : datumText(l.dag as string),
+      ),
+  );
+  const forfallnaText =
+    forfallna.length === 0
+      ? ""
+      : `Lån på ${kr(forfallnaSumma)} kr hade villkorsändringsdag ${forfallnaDatum} och har troligen redan fått nya villkor som vi inte känner till; de räknas inte. `;
+  let lan = alla.filter((l) => !forfallna.includes(l));
+
+  // A stale report: loans that are not matured but have no date, or a rörlig
+  // rate, are most likely refinanced too (the report is old); loans whose reset
+  // date is still ahead keep the report's rate until then, so those are priced
+  // (owner 2026-10-25); without any, the component is missing data as before.
   const balansdag = forening.balansdag ?? `${forening.rakenskapsar}-12-31`;
   const inaktuell = laggTillManader(balansdag, MAX_RAPPORTALDER_MANADER) < input.idag;
-  const kvarstaende = lan.filter((l) => !l.rorlig && l.dag !== undefined && l.dag > input.idag);
+  const kvarstaende = lan.filter((l) => !l.rorlig && l.dag !== undefined);
   let inaktuellText = "";
   if (inaktuell && kvarstaende.length > 0) {
     const kvarSumma = kvarstaende.reduce((s, l) => s + l.belopp, 0);
-    const passerat = Math.max(0, totalSkuld - kvarSumma);
+    const ovrigt = Math.max(0, totalSkuld - kvarSumma - forfallnaSumma);
     inaktuellText =
       `Årsredovisningen gäller räkenskapsåret som slutade ${balansdag}, mer än ` +
-      `${MAX_RAPPORTALDER_MANADER} månader sedan.` +
-      (passerat > totalSkuld * 0.02
-        ? ` Lån på ${kr(passerat)} kr har troligen redan fått en ny ränta som vi inte känner till och räknas inte.`
+      `${MAX_RAPPORTALDER_MANADER} månader sedan. ` +
+      forfallnaText +
+      (ovrigt > totalSkuld * 0.02
+        ? `Ytterligare lån på ${kr(ovrigt)} kr (rörlig ränta eller utan villkorsändringsdag) har troligen också fått nya villkor som vi inte känner till och räknas inte. `
         : "") +
-      ` Vi räknar på ${kvarstaende.length === 1 ? "det lån" : `de ${kvarstaende.length} lån`} (${kr(kvarSumma)} kr) som omsätts efter i dag, med räntan i årsredovisningen. `;
+      `Vi räknar på ${kvarstaende.length === 1 ? "det lån" : `de ${kvarstaende.length} lån`} (${kr(kvarSumma)} kr) som omsätts efter i dag, med räntan i årsredovisningen. `;
     lan = kvarstaende;
   } else if (inaktuell) {
     return {
@@ -448,15 +564,31 @@ function refinansiering(
           foreningKrPerAr: null,
           forklaring:
             `Årsredovisningen gäller räkenskapsåret som slutade ${balansdag}, mer än ` +
-            `${MAX_RAPPORTALDER_MANADER} månader sedan. Lånen har troligen redan omsatts, så vi ` +
+            `${MAX_RAPPORTALDER_MANADER} månader sedan. ${forfallnaText}Lånen har troligen redan omsatts, så vi ` +
             "räknar inte på omsättningen utifrån den.",
         },
         andel,
         totalSkuldFigur?.ref,
       ),
       omsattningsbarSkuld: null,
+      ...(forfallnaRader.length > 0
+        ? {
+            underlag: {
+              forfallandeBelopp: 0,
+              nuvarandeRantaProcent: null,
+              nyRantaProcent: Math.round(nyRanta * 1000) / 1000,
+              referensranta,
+              marginalProcent: BRF_MARGINAL_PROCENT,
+              antalLan: 0,
+              lan: forfallnaRader,
+              senareHorisontManader: HORISONT_LANG_MANADER,
+            } satisfies Refinansieringsunderlag,
+          }
+        : {}),
       antagen: false,
     };
+  } else {
+    inaktuellText = forfallnaText;
   }
 
   // Fallback current rate for loans without their own rate.
@@ -466,7 +598,7 @@ function refinansiering(
     rantekostnader !== null && totalSkuld > 0 ? (rantekostnader / totalSkuld) * 100 : null;
   const allmanRanta = snittranta ?? harledd;
 
-  const utanDatum = !lan.some((l) => l.dag !== undefined || l.rorlig);
+  const utanDatum = !alla.some((l) => l.dag !== undefined || l.rorlig);
   if (utanDatum) {
     // Assumed share of the debt reprices; range 0-100 %.
     const viktad = (() => {
@@ -549,14 +681,18 @@ function refinansiering(
   const odaterat = lan
     .filter((l) => !l.rorlig && l.dag === undefined)
     .reduce((s, l) => s + l.belopp, 0);
-  const lanSumma = lan.reduce((s, l) => s + l.belopp, 0);
+  // Matured loans are covered rows (they are in `alla`), never "uncovered" debt.
+  const lanSumma = alla.reduce((s, l) => s + l.belopp, 0);
   const otackt =
     !inaktuell && totalSkuld - lanSumma > totalSkuld * 0.02 ? totalSkuld - lanSumma : 0;
   const okandTid = odaterat + otackt;
   const okandAntagen = avrunda(okandTid * REFINANSIERINGSANDEL_UTAN_FORFALL);
   const belopp = omsatts.reduce((s, l) => s + l.belopp, 0) + okandAntagen;
   const ref =
-    omsatts.find((l) => l.ref)?.ref ?? senare.find((x) => x.l.ref)?.l.ref ?? totalSkuldFigur?.ref;
+    omsatts.find((l) => l.ref)?.ref ??
+    senare.find((x) => x.l.ref)?.l.ref ??
+    forfallna.find((l) => l.ref)?.ref ??
+    totalSkuldFigur?.ref;
   if (omsatts.length === 0 && okandTid === 0 && senare.length === 0) {
     return {
       komponent: komponent(
@@ -565,12 +701,26 @@ function refinansiering(
           label,
           status: "beraknad",
           foreningKrPerAr: 0,
-          forklaring: `${inaktuellText}Inget lån ska omsättas inom ${HORISONT_MANADER} månader enligt årsredovisningen.`,
+          forklaring: `${inaktuellText}${forfallna.length > 0 ? "Inget av de övriga lånen" : "Inget lån"} ska omsättas inom ${HORISONT_MANADER} månader enligt årsredovisningen.`,
         },
         andel,
         ref,
       ),
       omsattningsbarSkuld: 0,
+      ...(forfallnaRader.length > 0
+        ? {
+            underlag: {
+              forfallandeBelopp: 0,
+              nuvarandeRantaProcent: null,
+              nyRantaProcent: Math.round(nyRanta * 1000) / 1000,
+              referensranta,
+              marginalProcent: BRF_MARGINAL_PROCENT,
+              antalLan: 0,
+              lan: forfallnaRader,
+              senareHorisontManader: HORISONT_LANG_MANADER,
+            } satisfies Refinansieringsunderlag,
+          }
+        : {}),
       antagen: false,
     };
   }
@@ -584,6 +734,7 @@ function refinansiering(
           okandAntagen * (allmanRanta ?? 0)) /
         belopp;
   const rader: RefinansieringsLan[] = [
+    ...forfallnaRader,
     ...omsatts.map((l): RefinansieringsLan => {
       const r = l.ranta ?? allmanRanta;
       return {
@@ -592,6 +743,7 @@ function refinansiering(
         ...(l.dag !== undefined ? { dag: l.dag } : {}),
         rorlig: l.rorlig,
         fas: "inom_horisont",
+        ...(l.endastAr ? { endastAr: true as const } : {}),
         vikt: 1,
         foreningKrPerAr: r === null ? null : avrunda((l.belopp * (nyRanta - r)) / 100),
         ...(l.ref ? { ref: l.ref } : {}),
@@ -603,6 +755,7 @@ function refinansiering(
       ...(l.dag !== undefined ? { dag: l.dag } : {}),
       rorlig: false,
       fas: "senare",
+      ...(l.endastAr ? { endastAr: true as const } : {}),
       vikt,
       foreningKrPerAr: avrunda(perAr),
       ...(l.ref ? { ref: l.ref } : {}),
@@ -664,6 +817,10 @@ function refinansiering(
         `(${referensranta.namn} ${pct(referensranta.procent)} % plus ${pct(BRF_MARGINAL_PROCENT)} procentenheter), ` +
         `vilket ${perArInom < 0 ? "sänker" : "höjer"} föreningens kostnad med cirka ${kr(perArInom)} kr per år.`
       : `Inget lån ska omsättas inom ${HORISONT_MANADER} månader enligt årsredovisningen.`;
+  const sammanlagtText =
+    senare.length > 0 || okandTid > 0
+      ? ` Sammanlagt ${perAr < 0 ? "sänker" : "höjer"} det föreningens kostnad med cirka ${kr(perAr)} kr per år.`
+      : "";
   return {
     komponent: komponent(
       {
@@ -671,7 +828,7 @@ function refinansiering(
         label,
         status: "beraknad",
         foreningKrPerAr: perAr,
-        forklaring: inaktuellText + inomText + okandText + senareText,
+        forklaring: inaktuellText + inomText + okandText + senareText + sammanlagtText,
       },
       andel,
       ref,
@@ -720,7 +877,7 @@ function underhall(forening: Forening, idag: string, andel: number | null): Avgi
       foreningKrPerAr: perAr,
       forklaring:
         perAr > 0
-          ? `Planerat underhåll på ${kr(ofinansierat)} kr de närmaste ${HORISONT_MANADER} månaderna saknar finansiering. Efter underhållsfond (${kr(fond)} kr) och planerade avsättningar (${kr(avsatt)} kr) återstår ${kr(rest)} kr, fördelat på ${UNDERHALL_FORDELNING_AR} år.`
+          ? `Planerat underhåll på ${kr(ofinansierat)} kr de närmaste ${HORISONT_MANADER} månaderna saknar finansiering. Efter underhållsfond (${kr(fond)} kr) och planerade avsättningar (${kr(avsatt)} kr) återstår ${kr(rest)} kr, fördelat på ${UNDERHALL_FORDELNING_AR} år: ${kr(perAr)} kr per år.`
           : `Det planerade underhållet de närmaste ${HORISONT_MANADER} månaderna verkar täckt av lån, fond, avsättningar eller beslut.`,
     },
     andel,
@@ -1076,7 +1233,7 @@ function beslutadHojning(
       foreningKrPerAr: perAr,
       forklaring:
         `Årsredovisningen visar ${ejIKraft.map(hojningObestamd).join(" och ")}, som ännu inte gäller i din avgift. ` +
-        `${ejIKraft.length === 1 ? "Den" : "De"} höjer avgiften med cirka ${kr(perManad)} kr i månaden.` +
+        `Vi räknar din avgift ${kr(manadsavgift)} kr × ${ejIKraft.map((r) => `${pct(r.procent)} %`).join(" + ")} = cirka ${kr(perManad)} kr i månaden.` +
         (iKraftText ? ` ${iKraftText}` : ""),
     },
     andel,
@@ -1130,10 +1287,11 @@ function motverkaSpargap(
       ? procentLista[0]
       : `${procentLista.slice(0, -1).join(", ")} och ${procentLista[procentLista.length - 1]}`;
   const tackt = Math.min(glapp, avrunda(motverkan));
+  const kvar = ny === 0 ? "" : ` Kvar blir ${kr(ny)} kr per år.`;
   const mening =
     rel.length === 1
-      ? ` Den ${taxt} höjningen av årsavgiften på ${procentText} ger föreningen cirka ${kr(motverkan)} kr mer per år och täcker ${ny === 0 ? "hela glappet" : `${kr(tackt)} kr av glappet`}.`
-      : ` De ${taxt} höjningarna av årsavgiften på ${procentText} ger föreningen cirka ${kr(motverkan)} kr mer per år och täcker ${ny === 0 ? "hela glappet" : `${kr(tackt)} kr av glappet`}.`;
+      ? ` Den ${taxt} höjningen av årsavgiften på ${procentText} ger föreningen cirka ${kr(motverkan)} kr mer per år och täcker ${ny === 0 ? "hela glappet" : `${kr(tackt)} kr av glappet`}.${kvar}`
+      : ` De ${taxt} höjningarna av årsavgiften på ${procentText} ger föreningen cirka ${kr(motverkan)} kr mer per år och täcker ${ny === 0 ? "hela glappet" : `${kr(tackt)} kr av glappet`}.${kvar}`;
   return {
     ...gap,
     foreningKrPerAr: ny,
@@ -1187,7 +1345,7 @@ function energi(forening: Forening, andel: number | null): AvgiftsKomponent {
       foreningKrPerAr: perAr,
       forklaring:
         summa > 0
-          ? `Energiprojekt för ${kr(summa)} kr saknar finansiering, fördelat på ${UNDERHALL_FORDELNING_AR} år.`
+          ? `Energiprojekt för ${kr(summa)} kr saknar finansiering, fördelat på ${UNDERHALL_FORDELNING_AR} år: ${kr(perAr)} kr per år.`
           : "Energiprojekten som nämns är finansierade.",
     },
     andel,
@@ -1217,10 +1375,15 @@ export function beraknaAvgiftsprognos(input: AvgiftsprognosInput): Avgiftsprogno
     lokaler(forening, andel, idag, balansdag, horisontSlut),
     energi(forening, andel),
     beslutadHojning(hojningar, manadsavgift, andel),
-  ].map((k) => {
-    const t = k.status === "beraknad" ? tryckFor(k.krPerManad, manadsavgift) : undefined;
-    return t ? { ...k, tryck: t } : k;
-  });
+  ]
+    .map((k) => {
+      const mening = andelMening(k, andelObj, input);
+      return mening ? { ...k, forklaring: k.forklaring + mening } : k;
+    })
+    .map((k) => {
+      const t = k.status === "beraknad" ? tryckFor(k.krPerManad, manadsavgift) : undefined;
+      return t ? { ...k, tryck: t } : k;
+    });
 
   const total =
     andel === null

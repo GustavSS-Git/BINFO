@@ -120,7 +120,7 @@ const renText = (v: string | undefined): string | undefined => {
   return t ? t : undefined;
 };
 
-const TEXTFALT: Record<Exclude<AnnonsFalt, "hiss" | "balkong">, Formaterare> = {
+const TEXTFALT: Record<Exclude<AnnonsFalt, "hiss" | "balkong" | "ort">, Formaterare> = {
   boarea: (u) => (tal(u.boarea) ? formateraDecimal(u.boarea) : undefined),
   antalRum: (u) => (tal(u.antalRum) ? formateraDecimal(u.antalRum) : undefined),
   manadsavgift: (u) => (tal(u.manadsavgift) ? grupperaHeltal(u.manadsavgift) : undefined),
@@ -132,7 +132,6 @@ const TEXTFALT: Record<Exclude<AnnonsFalt, "hiss" | "balkong">, Formaterare> = {
   byggar: (u) => (tal(u.byggar) ? String(Math.trunc(u.byggar)) : undefined),
   utgangspris: (u) => (tal(u.utgangspris) ? grupperaHeltal(u.utgangspris) : undefined),
   adress: (u) => renText(u.adress),
-  ort: (u) => renText(u.ort),
 };
 
 /**
@@ -170,6 +169,12 @@ export function tillampaAnnons(
         if (varFranForraAnnonsen) nyaTristates[falt] = "okant";
         ursprung[falt] = "saknas";
       }
+      continue;
+    }
+    if (falt === "ort") {
+      // The form has no Ort field (owner 2026-10-26): the listing's ort is only used by the
+      // server's geocoder. Never shown, never copied into the form.
+      ursprung[falt] = "saknas";
       continue;
     }
     const varde = TEXTFALT[falt](u);
@@ -271,7 +276,7 @@ export function annonsFaltVisning(
   falt: AnnonsFalt,
   varde: string,
 ): { hint?: string; framhav?: boolean } {
-  if (lage === null) return {};
+  if (lage === null || falt === "ort") return {}; // Ort has no form field
   switch (lage.ursprung[falt]) {
     case "booli":
       return {

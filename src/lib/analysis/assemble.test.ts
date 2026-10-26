@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { RedFlag } from "@/types/analysis";
+import { REFINANSIERINGSFLAGGA_ID } from "./refinansieringsflagga";
+import { flaggarBaraOmSaknatByggar, utanByggarSaknasMeningar } from "./assemble";
 import {
   assembleraAnalys,
   avgiftsavvikelseFraga,
@@ -114,11 +117,14 @@ describe("assembleraAnalys", () => {
     });
 
     const saknadUppgift = resultat.fragor.filter((f) => f.ursprung === "saknad_uppgift");
-    // hiss + balkong + 5 avgiftInkluderar-poster = 7 okända Tristate-fält.
-    expect(saknadUppgift).toHaveLength(7);
-    expect(resultat.datakvalitet.uppgifterTotalt).toBe(9);
+    // hiss + balkong + 3 avgiftInkluderar-poster (el, bredband, tv) = 5 okända Tristate-fält.
+    // Värme och vatten ingår aldrig i analysen (ägarbeslut 2026-10-26).
+    expect(saknadUppgift).toHaveLength(5);
+    expect(saknadUppgift.some((f) => /varme|vatten/.test(f.id))).toBe(false);
+    expect(resultat.datakvalitet.uppgifterTotalt).toBe(7);
     expect(resultat.datakvalitet.uppgifterKanda).toBe(2); // vaning + byggar
-    expect(resultat.datakvalitet.saknadeFalt).toHaveLength(7);
+    expect(resultat.datakvalitet.saknadeFalt).toHaveLength(5);
+    expect(resultat.datakvalitet.saknadeFalt.join(" ")).not.toMatch(/varme|vatten/);
     // Varje fråga ska vara en riktig, avslutad svensk fråga, inte en platshållare.
     for (const fraga of saknadUppgift) {
       expect(fraga.fraga.length).toBeGreaterThan(0);
@@ -146,8 +152,9 @@ describe("assembleraAnalys", () => {
 
     const saknadUppgift = resultat.fragor.filter((f) => f.ursprung === "saknad_uppgift");
     // varme och el har redan definitiva svar i föreningen -> ingen fråga för dem.
-    // hiss, balkong, vatten, bredband, tv kvarstår = 5.
-    expect(saknadUppgift).toHaveLength(5);
+    // hiss, balkong, bredband, tv kvarstår = 4 (värme och vatten frågas aldrig i analysen).
+    expect(saknadUppgift).toHaveLength(4);
+    expect(saknadUppgift.some((f) => f.id.includes("vatten"))).toBe(false);
     expect(saknadUppgift.some((f) => f.id.includes("varme"))).toBe(false);
     expect(saknadUppgift.some((f) => f.id.includes("el"))).toBe(false);
   });
@@ -193,7 +200,13 @@ describe("assembleraAnalys", () => {
     it("säger i slutsatsen om utgångspriset ligger inom eller utanför modellens intervall", async () => {
       const prisanalys = await byggPrisanalys(inputKomplett, modellkalla());
 
-      expect(prisanalys.slutsats).toMatch(/(inom|utanför) modellens 90-procentiga intervall/);
+      // Owner 2026-10-26: inside the ±10 % span = in line with the model, otherwise
+      // over/under the span; never a 90 % interval, never "kan vara attraktivt".
+      expect(prisanalys.slutsats).toMatch(
+        /(i linje med modellen: det ligger inom|ligger (över|under)) det ungefärliga spannet [\d\s\u00a0]+ – [\d\s\u00a0]+ kr \(±10 %\)/,
+      );
+      expect(prisanalys.slutsats).not.toMatch(/90-procentiga|attraktivt/);
+      expect(prisanalys.slutsats).not.toMatch(/\d,\d % (över|under) Binfos värderingsmodell/);
     });
 
     it("räknar fram avvikelsen mot modellens punktskattning", async () => {
@@ -612,7 +625,11 @@ describe("assembleraAnalys", () => {
     expect(resultat.input).toEqual(inputKomplett);
     expect(resultat.forening).toEqual(extraktion.forening);
     expect(resultat.betyg).toBe("C");
-    expect(resultat.rodaFlaggor).toEqual(analysJudgement.rodaFlaggor);
+    // The model's flags pass through; with dated loans Binfo's own refinancing
+    // flag (round 2026-10-26) is added from the fee prognosis.
+    expect(resultat.rodaFlaggor.filter((f) => f.id !== REFINANSIERINGSFLAGGA_ID)).toEqual(
+      analysJudgement.rodaFlaggor,
+    );
     expect(resultat.analysisId).toBeTruthy();
     expect(() => new Date(resultat.skapad).toISOString()).not.toThrow();
   });
@@ -878,9 +895,14 @@ describe("andelAvForeningensSkuld — lägenhetens andel av föreningens lån (b
       justeradVardering: _jv,
       avvikelseMotJusteradVardering: _ajv,
       breddningsskal: _b,
+      slutsats: justeradSlutsats,
       ...rest
     } = resultat.prisanalys;
-    expect(rest).toEqual(utanBrf);
+    const { slutsats: _bas, ...utanBrfRest } = utanBrf;
+    expect(rest).toEqual(utanBrfRest);
+    // With an adjusted value the conclusion compares only with it (2026-10-26).
+    expect(justeradSlutsats).toContain("värdet med hänsyn till föreningens ekonomi");
+    expect(justeradSlutsats).not.toMatch(/90-procentiga|attraktivt/);
   });
 });
 
@@ -1146,7 +1168,7 @@ describe("deterministiska frågor — varför-texten säger vad svaret betyder f
   it("saknad uppgift (hiss, balkong, avgiftsposter): varför nämner pris/värde eller månadskostnad och svarssignal är utelämnad eller ifylld", async () => {
     const resultat = await kor(extraktion, inputAllaOkanda);
     const saknade = resultat.fragor.filter((f) => f.ursprung === "saknad_uppgift");
-    expect(saknade.length).toBe(7);
+    expect(saknade.length).toBe(5);
     for (const f of saknade) {
       expect(f.varfor).toMatch(/pris|värde|månadskostnad|budet/i);
       if ("svarssignal" in f) expect(f.svarssignal!.trim().length).toBeGreaterThan(0);
@@ -1201,5 +1223,39 @@ describe("deterministiska frågor — varför-texten säger vad svaret betyder f
     expect(fraga.varfor).toMatch(/lita på|avgiften|bedöm/i);
     expect(fraga.svarssignal).toMatch(/Bra svar:.*Varningssignal:/);
     expect(AnalysisResultSchema.safeParse(resultat).success).toBe(true);
+  });
+});
+
+describe("flaggarBaraOmSaknatByggar (round 2026-10-26)", () => {
+  it("matches a flag whose opening sentence says byggår is missing", () => {
+    expect(
+      flaggarBaraOmSaknatByggar({
+        titel: "Husets ålder framgår inte",
+        beskrivning:
+          "Byggår eller värdeår saknas i underlaget, så det går inte att bedöma hur gammalt huset är. Energikostnaden är 238 kr.",
+      }),
+    ).toBe(true);
+  });
+  it("keeps a flag that only mentions it later", () => {
+    expect(
+      flaggarBaraOmSaknatByggar({
+        titel: "Energikostnaden ligger över riksgenomsnittet",
+        beskrivning: "Energikostnaden är 238 kr per m². Byggår saknas i underlaget.",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("utanByggarSaknasMeningar (round 2026-10-26)", () => {
+  it("drops only the sentence that says byggår is missing", () => {
+    const f = utanByggarSaknasMeningar({
+      id: "energi",
+      titel: "Energikostnaden ligger över riktvärdet",
+      beskrivning:
+        "Energikostnaden är 238 kr per kvadratmeter. Byggåret saknas i underlaget, så det går inte att säga om husets ålder förklarar nivån.",
+      severity: "lag",
+      harledsFran: ["energikostnad_per_m2_totalyta"],
+    } as unknown as RedFlag);
+    expect(f.beskrivning).toBe("Energikostnaden är 238 kr per kvadratmeter.");
   });
 });

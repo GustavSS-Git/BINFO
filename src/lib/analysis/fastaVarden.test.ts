@@ -127,3 +127,131 @@ describe("formateraFastaVarden", () => {
     expect(formateraTal(0)).toBe("0");
   });
 });
+
+describe("lån relativt balansdagen (PROMPT_VERSION 13)", () => {
+  const lan = (
+    belopp: number,
+    dag: string | undefined,
+    rantetyp: "rorlig" | "bunden" | "okant" = "okant",
+  ) => ({
+    belopp: kr(belopp),
+    ranta: procent(2.5),
+    ...(dag ? { villkorsandringsdag: dag } : {}),
+    rantetyp,
+    ref: { page: 9, excerpt: "lån" },
+  });
+  function medLan(lanLista: ReturnType<typeof lan>[], total: number, balansdag = "2025-12-31") {
+    const e = medLanebok({ totalSkuld: kr(total), lan: lanLista });
+    e.forening.balansdag = balansdag;
+    return e;
+  }
+
+  it("bands loans by months after the balance date (2025-12-31)", () => {
+    const fasta = beraknaFastaVarden(
+      medLan(
+        [
+          lan(1_000_000, "2025-12-31"), // on the balance date
+          lan(2_000_000, "2026-03-28"), // ≤ 12 months
+          lan(2_000_000, "2026-12-31"), // exactly 12 months → in
+          lan(3_000_000, "2027-06-30"), // 13–24
+          lan(1_000_000, "2028-10-28"), // > 24
+          lan(500_000, undefined), // no date
+          lan(500_000, "2026-01-01", "rorlig"), // rörlig wins over date
+        ],
+        10_000_000,
+      ),
+    );
+    expect(fasta.lan?.efterBalansdag).toEqual({
+      balansdag: "2025-12-31",
+      band: [
+        { etikett: "vid eller före balansdagen", belopp: 1_000_000, andelProcent: 10, antalLan: 1 },
+        {
+          etikett: "inom 12 månader efter balansdagen",
+          belopp: 4_000_000,
+          andelProcent: 40,
+          antalLan: 2,
+        },
+        {
+          etikett: "13–24 månader efter balansdagen",
+          belopp: 3_000_000,
+          andelProcent: 30,
+          antalLan: 1,
+        },
+        {
+          etikett: "senare än 24 månader efter balansdagen",
+          belopp: 1_000_000,
+          andelProcent: 10,
+          antalLan: 1,
+        },
+        { etikett: "rörlig ränta", belopp: 500_000, andelProcent: 5, antalLan: 1 },
+        {
+          etikett: "ingen villkorsändringsdag angiven",
+          belopp: 500_000,
+          andelProcent: 5,
+          antalLan: 1,
+        },
+      ],
+    });
+  });
+
+  it("renders the bands relative to the balance date, with no calendar-year ladder", () => {
+    const text = formateraFastaVarden(
+      beraknaFastaVarden(
+        medLan([lan(2_000_000, "2026-03-28"), lan(1_000_000, "2028-10-28")], 3_000_000),
+      ),
+    );
+    expect(text).toContain("räknade från balansdagen 2025-12-31 (inte från i dag");
+    expect(text).toContain(
+      "inom 12 månader efter balansdagen: 2 000 000 kr (66,7 % av totala skulden), 1 lån",
+    );
+    expect(text).not.toMatch(/\b2026: /);
+    expect(text).not.toContain("Förfalloprofil");
+  });
+
+  it("without dated loan rows the year ladder stays, but is labelled as counted from the balance date", () => {
+    const text = formateraFastaVarden(
+      beraknaFastaVarden(
+        medLanebok({
+          totalSkuld: kr(7_759_091),
+          forfalloprofil: [{ ar: 2026, belopp: kr(5_759_091) }],
+        }),
+      ),
+    );
+    expect(text).toContain("tiden räknas från balansdagen, inte från i dag");
+    expect(text).toContain("2026: 5 759 091 kr (74,2 % av totala skulden)");
+  });
+
+  it("no dates at all → no bands", () => {
+    expect(
+      beraknaFastaVarden(medLan([lan(1_000_000, undefined)], 1_000_000)).lan?.efterBalansdag,
+    ).toBeUndefined();
+  });
+});
+
+describe("byggår vs värdeår i fasta värden", () => {
+  const medByggar = (value: number | null, excerpt: string) => {
+    const e = structuredClone(extraktion) as ExtractionResult;
+    e.forening.byggar = {
+      value,
+      unit: "ar",
+      source: "arsredovisning",
+      ref: { page: 4, excerpt },
+    };
+    return beraknaFastaVarden(e);
+  };
+  it("a cited 'Värdeåret är 1931' is marked as värdeår, not byggår", () => {
+    const fasta = medByggar(1931, "Värdeåret är 1931.");
+    expect(fasta.byggar).toEqual({ value: 1931, arTyp: "varde" });
+    const text = formateraFastaVarden(fasta);
+    expect(text).toContain("Värdeår (INTE byggår): 1931");
+    expect(text).toContain('"värdeår 1931"');
+  });
+  it("a construction year is stated plainly", () => {
+    const fasta = medByggar(1965, "Byggnaden uppfördes 1965");
+    expect(fasta.byggar).toEqual({ value: 1965, arTyp: "bygg" });
+    expect(formateraFastaVarden(fasta)).toContain("Byggår: 1965.");
+  });
+  it("no value → nothing", () => {
+    expect(medByggar(null, "x").byggar).toBeUndefined();
+  });
+});

@@ -9,7 +9,7 @@ import { beraknaFastaVarden, formateraFastaVarden, type FastaVarden } from "./fa
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "12";
+export const PROMPT_VERSION = "13";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -470,7 +470,7 @@ Så gör du i praktiken:
 const BETYGSSKALA = `- "A": inget nyckeltal har status "svag" eller "kritisk", och inget i lånebilden eller underhållsplanen pekar mot en betydande kostnad som inte redan är finansierad.
 - "B": högst ett nyckeltal med status "svag", inget "kritisk", och kommande åtgärder framstår som hanterbara.
 - "C": flera nyckeltal med status "svag", ELLER ett med "kritisk" som inte förstärks av något annat, ELLER en stor planerad åtgärd utan att rapporten säger hur den ska finansieras.
-- "D": ett eller flera nyckeltal med status "kritisk" som förstärks av något annat i underlaget — till exempel att en stor del av lånen omsätts inom kort, eller en stor åtgärd i underhållsplanen.
+- "D": ett eller flera nyckeltal med status "kritisk" som förstärks av något annat i underlaget — till exempel en stor åtgärd i underhållsplanen som inte är finansierad.
 - "E": flera nyckeltal med status "kritisk" som förstärker varandra, eller ett nyckeltal med status "kritisk" tillsammans med en uttalad risk i väsentliga händelser som föreningen inte visar sig kunna bära.
 En allvarlig risk i väsentliga händelser utan något nyckeltal med status "kritisk" ger som mest betyget C, och ska beskrivas i en röd flagga med severity "hog".`;
 
@@ -486,14 +486,22 @@ De sju lagstadgade nyckeltalen är redan bedömda. Varje nyckeltal i underlaget 
 ${buildEjGraderadeAvsnitt()}
 
 Det du tillför är KOMBINATIONEN. Ett enskilt tal säger sällan särskilt mycket. Det är sammanställningen som är analysen, till exempel:
-- hög skuldsättning tillsammans med att en stor del av lånen i "lanebok.forfalloprofil" förfaller de närmaste ett till två år, till en ränta som är betydligt lägre än dagens — då slår omsättningen igenom på avgiften.
+- hög skuldsättning tillsammans med hög räntekänslighet — då slår en räntehöjning igenom på avgiften.
 - lågt sparande tillsammans med en stor åtgärd i "underhallsplan.kommandeAtgarder", till exempel ett stambyte — pengarna måste komma någonstans ifrån.
 - en gammal eller inaktuell underhållsplan tillsammans med ett gammalt byggår.
 - något i "vasentligaHandelser" — en beslutad avgiftshöjning, en tvist, en skada — som förändrar hur de andra talen ska läsas.
 
 Räntekänsligheten är det bärande talet: den anger direkt hur många procent avgifterna måste höjas per procentenhet som räntan stiger. Har du talet får du säga precis det, med talets egen siffra. Bygg ingen egen modell vid sidan av.
 
-Alla andelar och summor du behöver är redan uträknade av Binfo och står under "Fasta värden" i användarmeddelandet (till exempel hur stor del av "lanebok.totalSkuld" som förfaller ett visst år enligt "lanebok.forfalloprofil"). Varje tal i "betygMotivering" (och i flaggornas "beskrivning" och frågornas "varfor") ska komma från underlaget eller från de fasta värdena och kopieras därifrån; att avrunda en procentsats till heltal (74,2 blir 74 %) är tillåtet. Räkna aldrig själv — ingen egen addition, subtraktion, division eller procentberäkning — och för aldrig in en siffra utifrån.
+Alla andelar och summor du behöver är redan uträknade av Binfo och står under "Fasta värden" i användarmeddelandet (till exempel hur stor del av "lanebok.totalSkuld" som har villkorsändringsdag inom 12 månader efter balansdagen). Varje tal i "betygMotivering" (och i flaggornas "beskrivning" och frågornas "varfor") ska komma från underlaget eller från de fasta värdena och kopieras därifrån; att avrunda en procentsats till heltal (74,2 blir 74 %) är tillåtet. Räkna aldrig själv — ingen egen addition, subtraktion, division eller procentberäkning — och för aldrig in en siffra utifrån.
+
+## Lånens omsättning räknar Binfo själv
+
+Rapporten läses senare än den skrevs, ibland många månader efter balansdagen, och vilka lån som redan har fått nya villkor, och vad en omsättning kostar vid dagens ränta, räknar Binfo ut på nytt varje gång någon läser rapporten. Därför:
+- Skriv INGA röda flaggor och INGA frågor om lånens omsättning eller förfall, om hur en omsättning påverkar avgiften eller om avgiften kommer att stiga eller sjunka på grund av att lån förfaller eller byter villkor.
+- Påstå aldrig i "betygMotivering" att lånens förfall eller omsättning kommer att höja (eller sänka) avgiften.
+- Tidsangivelser om lån i de fasta värdena räknas från balansdagen, inte från i dag. Skriv aldrig ett årtal för ett lånförfall som om det låg i framtiden.
+- Du får fortfarande ta upp skuldens storlek ("lanebok.totalSkuld", skuldsättningen per kvadratmeter) och räntekänsligheten, och vad en räntehöjning betyder för avgiften enligt räntekänslighetens egen siffra.
 
 ${buildForbehallAvsnitt()}
 
@@ -504,6 +512,7 @@ ${buildForbehallAvsnitt()}
 3. Argumentera aldrig om ett okänt tal som om det vore ett dåligt tal. Okänt är inte detsamma som dåligt. Ett nyckeltal vars "figure.value" är null saknas i rapporten — det är i sig värt en flagga eller en fråga ("uppgiften går inte att kontrollera"), aldrig en gissning om vad talet skulle ha varit.
 4. Skriv aldrig frågor om sådant köparen själv inte fyllt i — de genereras deterministiskt på annat håll och har ursprung "saknad_uppgift". Alla frågor du skriver har ursprung "analys" och ska handla om något i årsredovisningen.
 5. Påstå aldrig något om lagfart eller pantbrev: det gäller hus, aldrig bostadsrätter.
+6. Skriv aldrig att huset är "byggt" eller "från" ett år när underlaget bara anger ett värdeår. Står det "Värdeår (INTE byggår)" under "Fasta värden", eller säger "forening.byggar"-citatet "värdeår", kalla året "värdeår" ("värdeår 1931") — värdeåret kan skilja sig från byggåret efter en större renovering.
 
 ## Betygsskalan
 
@@ -532,13 +541,13 @@ Svara med EXAKT denna JSON-struktur — samma nycklar, samma nästling, inga ext
   ],
   "fragor": [
     {
-      "id": "fraga-omsattning",
+      "id": "fraga-underhallsplan",
       "fraga": "En konkret fråga som går att besvara med ja, nej eller en siffra.",
       "ursprung": "analys",
       "riktadTill": "styrelsen",
-      "varfor": "Avgiften har inte höjts sedan 2022, men 60 % av lånen förfaller 2026.",
-      "svarssignal": "Bra svar: styrelsen har räknat på avgiften med dagens ränta för lånen som förfaller. Varningssignal: att styrelsen inte vet vad de nya lånen kommer att kosta.",
-      "ref": { "page": 12, "excerpt": "SBAB 1,1 % 2026-03-01" }
+      "varfor": "Avgiften har inte höjts sedan 2022, men stambytet i underhållsplanen saknar finansiering.",
+      "svarssignal": "Bra svar: styrelsen har räknat på avgiften med bytets kostnad. Varningssignal: att styrelsen inte vet vad bytet kommer att kosta.",
+      "ref": { "page": 12, "excerpt": "Stambyte planeras 2028" }
     }
   ]
 }
@@ -552,7 +561,7 @@ ${ALLA_NYCKELTAL.map((n) => `  - "${n.id}"`).join("\n")}
 - "ursprung" är alltid exakt "analys". Värdet "saknad_uppgift" får aldrig förekomma i ditt svar.
 - "riktadTill" är exakt "styrelsen", "maklaren" eller "banken".
 - "id" är en kort, läsbar sträng i gemener med bindestreck, unik inom sin lista.
-- "varfor" på en fråga är en eller två korta meningar som namnger det specifika fyndet och de konkreta siffrorna i underlaget som gör frågan nödvändig, till exempel "Avgiften har inte höjts sedan 2022, men 60 % av lånen förfaller 2026." Skriv aldrig ett tal som inte står i underlaget (se regel 1 ovan). Är frågan inte kopplad till ett enskilt fynd ska "varfor" i stället säga varför frågan spelar roll och hur svaret påverkar köparen — avgift, budnivå eller risk.
+- "varfor" på en fråga är en eller två korta meningar som namnger det specifika fyndet och de konkreta siffrorna i underlaget som gör frågan nödvändig, till exempel "Avgiften har inte höjts sedan 2022, men stambytet i underhållsplanen saknar finansiering." Skriv aldrig ett tal som inte står i underlaget (se regel 1 ovan). Är frågan inte kopplad till ett enskilt fynd ska "varfor" i stället säga varför frågan spelar roll och hur svaret påverkar köparen — avgift, budnivå eller risk.
 - "svarssignal" är valfri och bara på frågor. Skriv en enda rad på formen "Bra svar: … Varningssignal: …" (eller bara en av delarna) som säger hur ett lugnande respektive oroande svar låter, konkret och utan nya siffror. Finns inget användbart att säga: utelämna nyckeln helt.
 - Alla textfält som du skriver ska vara ifyllda. Skriv hellre färre flaggor och färre frågor än tomma. Valfria fält utelämnas helt, de skrivs aldrig som tom sträng eller null.
 - "ref" är valfritt överallt och utelämnas helt när ingen sida i underlaget kan pekas ut.

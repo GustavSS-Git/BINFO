@@ -56,9 +56,11 @@ export type SidaFalt =
 
 export type SidaFel = Partial<Record<SidaFalt, string>>;
 
+/** Värme och vatten ingår normalt i avgiften i en bostadsrätt: förvalt "ja" (0 kr),
+ *  köparen väljer "nej" när de betalas separat. Övriga poster är okända. */
 const OKANT_ALLA: FeeInclusion = {
-  varme: "okant",
-  vatten: "okant",
+  varme: "ja",
+  vatten: "ja",
   el: "okant",
   bredband: "okant",
   tv: "okant",

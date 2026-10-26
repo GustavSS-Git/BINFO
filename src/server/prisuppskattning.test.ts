@@ -82,8 +82,16 @@ describe("prisuppskattning — paritet med den fullständiga analysen", () => {
       });
       const fristaende = await prisuppskattning(tillPrisInput(input), { nu: NU });
 
+      const justerad = full.prisanalys.justeradVardering?.value ?? null;
       for (const falt of VARDERINGSFALT) {
+        // With an adjusted value the full analysis compares the asking price
+        // only with it (owner 2026-10-26); the price check has no adjustment.
+        if (falt === "slutsats" && justerad !== null) continue;
         expect(fristaende.prisanalys[falt], falt).toEqual(full.prisanalys[falt]);
+      }
+      if (justerad !== null) {
+        expect(full.prisanalys.slutsats).toMatch(/värdet med hänsyn till föreningens ekonomi/);
+        expect(full.prisanalys.slutsats).not.toMatch(/Binfos värderingsmodell/);
       }
       // BRF-lagret finns bara i den fullständiga analysen.
       expect("andelAvForeningensSkuld" in fristaende.prisanalys).toBe(false);

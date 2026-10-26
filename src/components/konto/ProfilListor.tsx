@@ -13,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SparadKalkylExport } from "@/components/konto/SparadKalkylExport";
-import { formatSkapadDatum } from "@/lib/analysisView";
+import { formatSkapadDatum, formatVardeAvrundat } from "@/lib/analysisView";
 import type { AnalysPost, SparadKalkylPost, SparadVarderingPost } from "@/lib/kontoTyper";
 
 const kr = (n: number) => `${Math.round(n).toLocaleString("sv-SE")} kr`;
@@ -228,7 +228,9 @@ export function VarderingLista({
                 }
                 badges={kanOppnas ? null : KAN_INTE_OPPNAS}
                 detaljer={[
-                  ...(v.vardering !== null ? [`Värdering ${kr(v.vardering)}`] : []),
+                  ...(v.vardering !== null
+                    ? [`Värdering ${formatVardeAvrundat(v.vardering)}`]
+                    : []),
                   ...(v.input !== null
                     ? [
                         `${v.input.boarea.toLocaleString("sv-SE")} m²`,

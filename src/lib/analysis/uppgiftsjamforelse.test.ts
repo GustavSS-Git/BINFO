@@ -40,10 +40,10 @@ describe("byggår", () => {
     expect(byggarRad(r)).toBeUndefined();
     expect(r.byggarForVardering).toBeUndefined();
   });
-  it("same year at hög confidence: bekräftat, report used", () => {
+  it("same year: manuellt (never bekräftat), buyer's year used", () => {
     const r = kor(1958, forening({ byggar: fig(1958) }));
     expect(byggarRad(r)).toMatchObject({
-      status: "bekraftat",
+      status: "manuellt",
       anvant: 1958,
       anvandare: 1958,
       rapport: 1958,
@@ -51,51 +51,55 @@ describe("byggår", () => {
     expect(byggarRad(r)?.ref?.page).toBe(4);
     expect(r.byggarForVardering).toBe(1958);
   });
-  it("one year apart at hög: bekräftat, report year used", () => {
+  it("one year apart at hög: manuellt, the buyer's year used (not the report's)", () => {
     const r = kor(1959, forening({ byggar: fig(1958) }));
-    expect(byggarRad(r)).toMatchObject({ status: "bekraftat", anvant: 1958 });
-  });
-  it("medium confidence match (scan): bekräftat, user's year used", () => {
-    const r = kor(1959, forening({ byggar: fig(1958) }), dk("hog", "skannad"));
-    expect(byggarRad(r)).toMatchObject({ status: "bekraftat", anvant: 1959 });
+    expect(byggarRad(r)).toMatchObject({ status: "manuellt", anvant: 1959 });
     expect(r.byggarForVardering).toBe(1959);
   });
-  it("differs at hög: avviker, report used, with the standard sentence", () => {
+  it("one year apart on a scan: manuellt, buyer's year used", () => {
+    const r = kor(1959, forening({ byggar: fig(1958) }), dk("hog", "skannad"));
+    expect(byggarRad(r)).toMatchObject({ status: "manuellt", anvant: 1959 });
+    expect(r.byggarForVardering).toBe(1959);
+  });
+  it("differs at hög: avviker, BUYER's year used, no range widening", () => {
     const r = kor(1962, forening({ byggar: fig(1958) }));
     const rad = byggarRad(r);
-    expect(rad).toMatchObject({ status: "avviker", anvant: 1958 });
-    expect(rad?.text).toContain("Du angav 1962, årsredovisningen anger 1958, vi använder 1958.");
+    expect(rad).toMatchObject({ status: "avviker", anvant: 1962, anvandare: 1962, rapport: 1958 });
+    expect(rad?.text).toContain("Du angav 1962, årsredovisningen anger 1958.");
+    expect(rad?.text).toContain("Vi använder ditt år, 1962.");
     expect(rad?.text).toMatch(/ombyggnad/);
-    expect(r.byggarForVardering).toBe(1958);
+    expect(r.byggarForVardering).toBe(1962);
     expect(r.byggarAlternativ).toBeUndefined();
   });
-  it("differs at medel (scan): osäkert, user's year used, alternative = report", () => {
-    const r = kor(1962, forening({ byggar: fig(1958) }), dk("hog", "skannad"));
-    const rad = byggarRad(r);
-    expect(rad).toMatchObject({ status: "osakert", anvant: 1962 });
-    expect(rad?.text).toMatch(/1962/);
-    expect(rad?.text).toMatch(/1958/);
-    expect(rad?.text).toMatch(/bredare/);
-    expect(r.byggarForVardering).toBe(1962);
-    expect(r.byggarAlternativ).toBe(1958);
+  it("differs, whatever the report's confidence: avviker, buyer's year, never osäkert", () => {
+    const fall: Array<[string, Forening, ReturnType<typeof dk>]> = [
+      ["scan", forening({ byggar: fig(1958) }), dk("hog", "skannad")],
+      ["låg extraction confidence", forening({ byggar: fig(1958) }), dk("lag")],
+      ["derived value", forening({ byggar: fig(1958, { source: "berakning" }) }), dk()],
+      ["osaker mark", forening({ byggar: fig(1958, { osaker: "Värdeår" }) }), dk()],
+      [
+        "no excerpt",
+        forening({ byggar: { value: 1958, unit: "ar", source: "arsredovisning" } }),
+        dk(),
+      ],
+    ];
+    for (const [namn, f, d] of fall) {
+      const r = kor(1962, f, d);
+      expect(byggarRad(r), namn).toMatchObject({ status: "avviker", anvant: 1962 });
+      expect(r.byggarForVardering, namn).toBe(1962);
+      expect(r.byggarAlternativ, namn).toBeUndefined();
+    }
   });
-  it("differs with low extraction confidence or a derived value: osäkert", () => {
-    expect(byggarRad(kor(1962, forening({ byggar: fig(1958) }), dk("lag")))?.status).toBe(
-      "osakert",
-    );
-    expect(
-      byggarRad(kor(1962, forening({ byggar: fig(1958, { source: "berakning" }) })))?.status,
-    ).toBe("osakert");
-  });
-  it("differs with an excerpt-less report figure: medel → osäkert", () => {
-    const f = fig(1958);
-    delete f.ref;
-    expect(byggarRad(kor(1962, forening({ byggar: f })))?.status).toBe("osakert");
-  });
-  it("differs at låg (osaker mark): osäkert", () => {
-    const r = kor(1962, forening({ byggar: fig(1958, { osaker: "Värdeår" }) }));
-    expect(byggarRad(r)).toMatchObject({ status: "osakert", anvant: 1962 });
-    expect(r.byggarAlternativ).toBe(1958);
+  it("never produces bekraftat or osakert", () => {
+    for (const [a, b] of [
+      [1958, 1958],
+      [1959, 1958],
+      [1962, 1958],
+    ] as const) {
+      const status = byggarRad(kor(a, forening({ byggar: fig(b) })))?.status;
+      expect(status).not.toBe("bekraftat");
+      expect(status).not.toBe("osakert");
+    }
   });
   it("user only: manuellt", () => {
     const r = kor(1962, forening());

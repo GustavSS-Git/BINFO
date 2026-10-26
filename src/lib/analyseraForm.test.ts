@@ -26,7 +26,6 @@ function tomtFormulär(overrides: Partial<AnalyseraFormFields> = {}): AnalyseraF
     organisationsnummer: "",
     adress: "",
     postnummer: "",
-    ort: "",
     antalRum: "",
     byggar: "",
     ...overrides,
@@ -154,7 +153,7 @@ describe("validateraAnalyseraForm", () => {
     expect(fel.antalRum).not.toBeNull();
     expect(fel.adress).not.toBeNull();
     expect(fel.postnummer).not.toBeNull();
-    expect(fel.ort).not.toBeNull();
+    expect("ort" in fel).toBe(false);
   });
 
   it("utgångspris är valfritt: tomt eller blanksteg är giltigt", () => {
@@ -197,7 +196,6 @@ describe("validateraAnalyseraForm", () => {
         organisationsnummer: "769612-3456",
         adress: "Kapellgränd 12",
         postnummer: "116 25",
-        ort: "Stockholm",
       }),
     );
     expect(harValideringsfel(fel)).toBe(false);
@@ -213,7 +211,6 @@ describe("validateraAnalyseraForm", () => {
         antalRum: "3",
         adress: "Kapellgränd 12",
         postnummer: "116 25",
-        ort: "Stockholm",
       }),
     );
     expect(harValideringsfel(fel)).toBe(false);
@@ -261,7 +258,6 @@ describe("buildPropertyInput", () => {
         organisationsnummer: "769612-3456",
         adress: "Kapellgränd 12",
         postnummer: "116 25",
-        ort: "Stockholm",
         byggar: "1931",
       }),
       uppgifter,
@@ -277,7 +273,6 @@ describe("buildPropertyInput", () => {
       orgnr: "",
       adress: "Kapellgränd 12",
       postnummer: "116 25",
-      ort: "Stockholm",
       vaning: 4,
       byggar: 1931,
       hiss: "okant",
@@ -294,7 +289,6 @@ describe("buildPropertyInput", () => {
       antalRum: "3",
       adress: "Kapellgränd 12",
       postnummer: "116 25",
-      ort: "Stockholm",
     };
     const utan = buildPropertyInput("brf", tomtFormulär({ ...bas, utgangspris: "  " }), uppgifter);
     expect("utgangspris" in utan).toBe(false);
@@ -313,7 +307,6 @@ describe("buildPropertyInput", () => {
       antalRum: "3",
       adress: "Kapellgränd 12",
       postnummer: "116 25",
-      ort: "Stockholm",
     });
     const kalla: AnnonsKalla = {
       typ: "booli",
@@ -343,7 +336,6 @@ describe("buildPropertyInput", () => {
         organisationsnummer: "769612-3456",
         adress: "a",
         postnummer: "a",
-        ort: "a",
       }),
       uppgifter,
     );
@@ -362,7 +354,6 @@ describe("buildPropertyInput", () => {
         organisationsnummer: "769612-3456",
         adress: "Kapellgränd 12",
         postnummer: "116 25",
-        ort: "Stockholm",
       }),
       uppgifter,
     );

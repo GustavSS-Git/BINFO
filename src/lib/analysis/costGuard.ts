@@ -22,6 +22,14 @@ export interface ModelPricing {
   inputPerMtok: number;
   /** USD per 1,000,000 output tokens. */
   outputPerMtok: number;
+  /**
+   * Tiered price (Claude Haiku 5.5): a call whose PROMPT (input + cache write +
+   * cache read tokens) exceeds `overPromptTokens` is billed at this tier.
+   * ASSUMPTION (owner's brief 2026-10-26, not confirmed from the docs): the tier
+   * applies to the whole request, input and output. Pre-flight reservations
+   * (`estimateCostSek`) therefore always use this tier when it exists.
+   */
+  hogNiva?: { overPromptTokens: number; inputPerMtok: number; outputPerMtok: number };
 }
 
 /**
@@ -33,6 +41,13 @@ export interface ModelPricing {
 export const SONNET_5_PRISSATTNING: ModelPricing = { inputPerMtok: 2, outputPerMtok: 10 };
 export const SONNET_5_5_PRISSATTNING: ModelPricing = { inputPerMtok: 2, outputPerMtok: 10 };
 export const HAIKU_4_5_PRISSATTNING: ModelPricing = { inputPerMtok: 1, outputPerMtok: 5 };
+/** claude-haiku-5-5: $0.10/$0.50 per MTok up to 100K prompt tokens, $0.50/$2.50 above
+ *  (owner's brief 2026-10-26; not yet verified against the platform pricing page). */
+export const HAIKU_5_5_PRISSATTNING: ModelPricing = {
+  inputPerMtok: 0.1,
+  outputPerMtok: 0.5,
+  hogNiva: { overPromptTokens: 100_000, inputPerMtok: 0.5, outputPerMtok: 2.5 },
+};
 
 /** Prompt-cache multipliers on the base input price (Anthropic prompt caching
  *  docs): 5-minute TTL cache write = 1.25x, cache read = 0.1x. */
@@ -53,6 +68,7 @@ const PRISSATTNING_PER_MODELL: Record<string, ModelPricing> = {
   "claude-sonnet-5": SONNET_5_PRISSATTNING,
   "claude-sonnet-5-5": SONNET_5_5_PRISSATTNING,
   "claude-haiku-4-5": HAIKU_4_5_PRISSATTNING,
+  "claude-haiku-5-5": HAIKU_5_5_PRISSATTNING,
 };
 
 /** Pricing for a model id. A dated snapshot id (`-YYYYMMDD` suffix) resolves
@@ -80,28 +96,61 @@ export interface CostUsage {
  * Not for pre-flight checks — see `enforceCostLimit`, which assumes no cache hit.
  */
 export function estimateCostFromUsageSek(usage: CostUsage, pricing: ModelPricing): number {
-  const usd =
-    (usage.input_tokens / 1_000_000) * pricing.inputPerMtok +
+  return kostnadForNiva(usage, valjNiva(usage, pricing)) * USD_TILL_SEK;
+}
+
+/** The price tier a call falls in, from its real prompt size. */
+function valjNiva(
+  usage: CostUsage,
+  pricing: ModelPricing,
+): Pick<ModelPricing, "inputPerMtok" | "outputPerMtok"> {
+  const prompt =
+    usage.input_tokens +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0);
+  const hog = pricing.hogNiva;
+  return hog && prompt > hog.overPromptTokens ? hog : pricing;
+}
+
+function kostnadForNiva(
+  usage: CostUsage,
+  niva: Pick<ModelPricing, "inputPerMtok" | "outputPerMtok">,
+): number {
+  return (
+    (usage.input_tokens / 1_000_000) * niva.inputPerMtok +
     ((usage.cache_creation_input_tokens ?? 0) / 1_000_000) *
-      pricing.inputPerMtok *
+      niva.inputPerMtok *
       CACHE_WRITE_MULTIPLIER +
-    ((usage.cache_read_input_tokens ?? 0) / 1_000_000) *
-      pricing.inputPerMtok *
-      CACHE_READ_MULTIPLIER +
-    (usage.output_tokens / 1_000_000) * pricing.outputPerMtok;
-  return usd * USD_TILL_SEK;
+    ((usage.cache_read_input_tokens ?? 0) / 1_000_000) * niva.inputPerMtok * CACHE_READ_MULTIPLIER +
+    (usage.output_tokens / 1_000_000) * niva.outputPerMtok
+  );
+}
+
+/** The same completed call priced at the low and at the high tier (equal for an
+ *  untiered model), for logging both while the tier rule is unconfirmed. */
+export function estimateCostBothTiersSek(
+  usage: CostUsage,
+  pricing: ModelPricing,
+): { lag: number; hog: number } {
+  const hog = pricing.hogNiva ?? pricing;
+  return {
+    lag: kostnadForNiva(usage, pricing) * USD_TILL_SEK,
+    hog: kostnadForNiva(usage, hog) * USD_TILL_SEK,
+  };
 }
 
 /** Pre-flight worst case: every input token at full price (assumes NO cache
- *  read), `maxOutputTokens` as output. */
+ *  read), `maxOutputTokens` as output. A tiered model is reserved at its HIGH
+ *  tier (conservative: the tokenizer count of the estimate is approximate). */
 export function estimateCostSek(
   inputTokens: number,
   maxOutputTokens: number,
   pricing: ModelPricing,
 ): number {
+  const niva = pricing.hogNiva ?? pricing;
   const usd =
-    (inputTokens / 1_000_000) * pricing.inputPerMtok +
-    (maxOutputTokens / 1_000_000) * pricing.outputPerMtok;
+    (inputTokens / 1_000_000) * niva.inputPerMtok +
+    (maxOutputTokens / 1_000_000) * niva.outputPerMtok;
   return usd * USD_TILL_SEK;
 }
 

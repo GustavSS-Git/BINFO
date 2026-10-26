@@ -4,6 +4,7 @@ import {
   bedomStatus,
   berikaNyckeltal,
   implausibelNegativAnmarkning,
+  omgraderaNyckeltal,
   visasIHuvudanalys,
 } from "./benchmarks";
 import { KeyFigureIdSchema } from "./schema";
@@ -90,10 +91,13 @@ describe("BENCHMARKS", () => {
     }
   });
 
-  it("sparande har exakt två band; övriga graderade har fyra", () => {
-    // BENCHMARKS.md ger sparande bara God/Svag — ingen acceptabel, ingen
-    // kritisk. Modellen måste kunna uttrycka det.
-    expect(BENCHMARKS.sparande_per_m2_totalyta.band!.map((b) => b.status)).toEqual(["god", "svag"]);
+  it("sparande har tre band (god/acceptabel/svag, ingen kritisk); övriga graderade har fyra", () => {
+    // BENCHMARKS.md §5 (ägare 2026-10-26): God > 300, Acceptabel 0–300, Svag < 0.
+    expect(BENCHMARKS.sparande_per_m2_totalyta.band!.map((b) => b.status)).toEqual([
+      "god",
+      "acceptabel",
+      "svag",
+    ]);
     for (const id of [
       "arsavgift_per_m2_brf_yta",
       "skuldsattning_per_m2_totalyta",
@@ -110,22 +114,16 @@ describe("BENCHMARKS", () => {
 });
 
 describe("visasIHuvudanalys", () => {
-  it("döljer exakt ett nyckeltal i huvudanalysen: avgiftsandelen", () => {
+  it("visar alla sju nyckeltal (avgiftsandelen visas sedan 2026-10-26, ograderad)", () => {
     const dolda = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter((id) => !visasIHuvudanalys(id));
-    expect(dolda).toEqual(["arsavgift_andel_av_rorelseintakter"]);
+    expect(dolda).toEqual([]);
   });
 
-  it("visar de övriga sex", () => {
-    const visade = (Object.keys(BENCHMARKS) as KeyFigureId[]).filter((id) => visasIHuvudanalys(id));
-    expect(visade.length).toBe(6);
-    expect(visade).not.toContain("arsavgift_andel_av_rorelseintakter");
-  });
-
-  it("det dolda nyckeltalet finns kvar i tabellen och bedöms som vanligt", () => {
-    // Att dölja ett kort är presentation; att inte gradera är bedömning. De
-    // två sammanfaller för just det här talet idag, men är oberoende.
-    expect(BENCHMARKS.arsavgift_andel_av_rorelseintakter).toBeDefined();
+  it("avgiftsandelen är fortfarande informativ: aldrig graderad, aldrig en statusetikett", () => {
+    expect(BENCHMARKS.arsavgift_andel_av_rorelseintakter.riktning).toBe("informativ");
+    expect(BENCHMARKS.arsavgift_andel_av_rorelseintakter.band).toBeUndefined();
     expect(bedomStatus("arsavgift_andel_av_rorelseintakter", 90).status).toBe("okant");
+    expect(BENCHMARKS.arsavgift_andel_av_rorelseintakter.source).not.toMatch(/Visas inte/);
   });
 
   it("skiljer visning från gradering — alla graderade nyckeltal visas, och ett visat får vara informativt", () => {
@@ -229,18 +227,22 @@ describe("bedomStatus", () => {
       expect(bedomStatus(id, 10001).status).toBe("kritisk");
     });
 
-    it("sparande_per_m2_totalyta: noll räknas som svag", () => {
-      // BENCHMARKS.md lämnar exakt 0 ospecificerat (God > 0, Svag < 0).
-      // Beslutad läsning: inget sparande är inte gott sparande.
+    it("sparande_per_m2_totalyta: god > 300, acceptabel 0–300 (båda ändar inklusive), svag < 0", () => {
+      // Ägarbeslut 2026-10-26 (omvänt mot tidigare "0 = svag").
       const id = "sparande_per_m2_totalyta";
-      expect(bedomStatus(id, 1).status).toBe("god");
-      expect(bedomStatus(id, 0).status).toBe("svag");
+      expect(bedomStatus(id, 301).status).toBe("god");
+      expect(bedomStatus(id, 300.01).status).toBe("god");
+      expect(bedomStatus(id, 300).status).toBe("acceptabel");
+      expect(bedomStatus(id, 125).status).toBe("acceptabel");
+      expect(bedomStatus(id, 1).status).toBe("acceptabel");
+      expect(bedomStatus(id, 0).status).toBe("acceptabel");
       expect(bedomStatus(id, -1).status).toBe("svag");
+      expect(bedomStatus(id, -0.01).status).toBe("svag");
     });
 
-    it("sparande_per_m2_totalyta ger aldrig 'acceptabel' eller 'kritisk'", () => {
-      for (const v of [-100000, -1, 0, 1, 64, 337, 100000]) {
-        expect(["god", "svag"], `@ ${v}`).toContain(
+    it("sparande_per_m2_totalyta ger aldrig 'kritisk'", () => {
+      for (const v of [-100000, -1, 0, 1, 64, 300, 337, 100000]) {
+        expect(["god", "acceptabel", "svag"], `@ ${v}`).toContain(
           bedomStatus("sparande_per_m2_totalyta", v).status,
         );
       }
@@ -288,15 +290,14 @@ describe("bedomStatus", () => {
     });
 
     it("lägre sparande får inte betygsättas bättre (SBC 141 vs Riksbyggen 296)", () => {
-      // Med BENCHMARKS.md:s tvåbandsmodell är båda 'god' — inversionen är
-      // utesluten, men skillnaden syns inte längre i statusen.
+      // 296 ligger i bandet 0–300 (acceptabel), 141 likaså.
       const riksbyggen = bedomStatus("sparande_per_m2_totalyta", 296).status;
       const sbc = bedomStatus("sparande_per_m2_totalyta", 141).status;
       expect(RANG[sbc as Exclude<Status, "okant">]).toBeGreaterThanOrEqual(
         RANG[riksbyggen as Exclude<Status, "okant">],
       );
-      expect(sbc).toBe("god");
-      expect(riksbyggen).toBe("god");
+      expect(sbc).toBe("acceptabel");
+      expect(riksbyggen).toBe("acceptabel");
     });
   });
 
@@ -446,7 +447,7 @@ describe("bedomStatus — tecken (Q1: negativt sparande graderas 'svag', inte 'k
       if (BENCHMARKS[id].riktning === "informativ") {
         expect(r.status, id).toBe("okant");
       } else if (id === "sparande_per_m2_totalyta") {
-        expect(r.status, id).toBe("svag"); // beslutad läsning, se ovan
+        expect(r.status, id).toBe("acceptabel"); // exakt 0 = acceptabel (2026-10-26)
       } else {
         expect(r.status, id).not.toBe("okant");
       }
@@ -473,8 +474,8 @@ describe("bedomStatus — tecken (Q1: negativt sparande graderas 'svag', inte 'k
     expect(bedomStatus("sparande_per_m2_totalyta", null, "negativ").status).toBe("svag");
   });
 
-  it("tecken 'positiv' med value null: sparande blir 'god' (bandets tröskel är exakt noll — ett bart tecken räcker), övriga förblir 'okant'", () => {
-    expect(bedomStatus("sparande_per_m2_totalyta", null, "positiv").status).toBe("god");
+  it("tecken 'positiv' med value null: sparande blir 'okant' (kan vara acceptabel eller god), övriga förblir 'okant'", () => {
+    expect(bedomStatus("sparande_per_m2_totalyta", null, "positiv").status).toBe("okant");
     for (const id of LAGRE_BATTRE) {
       expect(bedomStatus(id, null, "positiv").status, id).toBe("okant");
     }
@@ -486,7 +487,8 @@ describe("bedomStatus — tecken (Q1: negativt sparande graderas 'svag', inte 'k
     }
   });
 
-  it("sparande med tecken 'positiv' får inget benchmark (sparande har ingen referenspunkt)", () => {
+  it("sparande har ingen referenspunkt, så inget benchmark följer med ett tecken", () => {
+    expect(bedomStatus("sparande_per_m2_totalyta", null, "negativ").benchmark).toBeUndefined();
     expect(bedomStatus("sparande_per_m2_totalyta", null, "positiv").benchmark).toBeUndefined();
   });
 });
@@ -558,5 +560,46 @@ describe("berikaNyckeltal — för med tecken vidare till bedomStatus", () => {
     };
     const [berikad] = berikaNyckeltal([kf]);
     expect(berikad!.status).toBe("svag");
+  });
+});
+
+describe("omgraderaNyckeltal (re-grade on read, 2026-10-26)", () => {
+  const kf = (id: KeyFigureId, value: number | null, status: Status, extra = {}): KeyFigure => ({
+    id,
+    label: "L",
+    figure: { value, unit: "kr/m2", source: "arsredovisning", ...extra },
+    status,
+    forklaring: "oförändrad",
+  });
+
+  it("sparande 125 stored as 'god' (old bands) becomes 'acceptabel'; nothing else changes", () => {
+    const [ut] = omgraderaNyckeltal([kf("sparande_per_m2_totalyta", 125, "god")]);
+    expect(ut?.status).toBe("acceptabel");
+    expect(ut?.forklaring).toBe("oförändrad");
+    expect(ut?.figure.value).toBe(125);
+  });
+  it("exact 0 stored as 'svag' becomes 'acceptabel'; 301 and -1 stay god / svag", () => {
+    const ut = omgraderaNyckeltal([
+      kf("sparande_per_m2_totalyta", 0, "svag"),
+      kf("sparande_per_m2_totalyta", 301, "god"),
+      kf("sparande_per_m2_totalyta", -1, "svag"),
+    ]);
+    expect(ut.map((k) => k.status)).toEqual(["acceptabel", "god", "svag"]);
+  });
+  it("a stored sign-only positive sparande ('god' under the old rule) becomes 'okant'", () => {
+    const [ut] = omgraderaNyckeltal([
+      kf("sparande_per_m2_totalyta", null, "god", { tecken: "positiv" }),
+    ]);
+    expect(ut?.status).toBe("okant");
+  });
+  it("the other bands and the ungraded fee share are unchanged; the input is not mutated", () => {
+    const inn = [
+      kf("rantekanslighet", 4.2, "acceptabel"),
+      kf("arsavgift_andel_av_rorelseintakter", 99.7, "okant"),
+    ];
+    const kopia = structuredClone(inn);
+    const ut = omgraderaNyckeltal(inn);
+    expect(ut.map((k) => k.status)).toEqual(["acceptabel", "okant"]);
+    expect(inn).toEqual(kopia);
   });
 });

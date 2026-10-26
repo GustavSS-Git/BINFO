@@ -95,7 +95,7 @@ describe("assembly with the fee prognosis", () => {
       "plus2",
     ]);
     expect(r.sammanfattning?.slutsats).toMatch(/^Sammantaget: betyg C/);
-    expect(r.uppgiftsjamforelse?.find((x) => x.falt === "byggar")?.status).toBe("bekraftat");
+    expect(r.uppgiftsjamforelse?.find((x) => x.falt === "byggar")?.status).toBe("manuellt");
   });
 
   it("PROMPT_VERSION 11 fields: the fixture's 12 % raise from 2026-01-01 is checked (780 × 62 ÷ 12 = 4 030 vs fee 4 200), stored and validates", async () => {
@@ -226,12 +226,14 @@ describe("assembly with the fee prognosis", () => {
       forening: { ...extraktion.forening, lanebok: lanebokUtanLan },
     };
     const r = await montera(gammal);
-    // 2026 → assumed 2026-07-01 (already passed, inside the horizon); 2029 outside.
+    // 2026 → placeholder 2026-07-01 (year-only: matured only when the YEAR is over, so still
+    // priced in 2026), inside the horizon; 2029 is the later phase.
     expect(r.avgiftsprognos?.refinansiering?.forfallandeBelopp).toBe(31_000_000);
+    expect(r.avgiftsprognos?.refinansiering?.lan?.[0]).toMatchObject({ endastAr: true });
     expect(AnalysisResultSchema.safeParse(r).success).toBe(true);
   });
 
-  it("the report's byggår wins at high confidence and feeds the valuation", async () => {
+  it("the buyer's byggår is always used; a different report year is only a note", async () => {
     const ex: ExtractionResult = {
       ...extraktion,
       forening: {
@@ -247,9 +249,10 @@ describe("assembly with the fee prognosis", () => {
     const r = await montera(ex);
     const rad = r.uppgiftsjamforelse?.find((x) => x.falt === "byggar");
     expect(rad?.status).toBe("avviker");
-    expect(rad?.anvant).toBe(1931);
-    const med1931 = await byggPrisanalys({ ...input, byggar: 1931 }, new ModellPrisdatakalla());
-    expect(r.prisanalys.externVardering?.value).toBe(med1931.externVardering?.value);
+    expect(rad?.anvant).toBe(1962);
+    expect(rad?.rapport).toBe(1931);
+    const med1962 = await byggPrisanalys({ ...input, byggar: 1962 }, new ModellPrisdatakalla());
+    expect(r.prisanalys.externVardering?.value).toBe(med1962.externVardering?.value);
     // The stored buyer input is untouched.
     expect(r.input.byggar).toBe(1962);
   });

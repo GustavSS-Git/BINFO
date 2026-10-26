@@ -12,6 +12,11 @@
  *     säger nu uttryckligen att det förutsätter skatt.
  *  3. Saknas boarea finns inget schablonvärde (förut: 58 m² från mockData).
  *     Fixturen har alltid boarea, så ingen skillnad här.
+ *  4. Driftschablonerna byttes 2026-10-26 (Konsumentverket/Nils Holgersson i
+ *     stället för Binfos gamla formler). Fixturen fryser de GAMLA beloppen, så
+ *     testet skriver över varje drift-post med fixturens gamla belopp (som "eget
+ *     värde") och jämför resten av matematiken: spann, summor och scenarier
+ *     förskjuts exakt med skillnaden mot den nya schablonen.
  */
 import { describe, expect, it } from "vitest";
 import fixtur from "./paritet.fixtur.json";
@@ -63,7 +68,11 @@ interface GammaltUtfall {
 
 const fall = fixtur as unknown as Array<{ fall: GammaltFall; ut: GammaltUtfall }>;
 
-function sidaFran(f: GammaltFall): KalkylSida {
+function sidaFran(f: GammaltFall, ut: GammaltUtfall): KalkylSida {
+  // Skillnad 4: fixturens gamla schablonbelopp som egna värden (egna värden i fixturen vinner).
+  const egna: KalkylSida["egnaKostnader"] = {};
+  for (const p of ut.driftPoster) egna[p.id as keyof typeof egna] = p.value;
+  Object.assign(egna, f.egna);
   return {
     ...tomSida(),
     lanebelopp: f.lanebelopp,
@@ -78,7 +87,7 @@ function sidaFran(f: GammaltFall): KalkylSida {
     avgiftInkluderar: f.ingar,
     rantestressPp: f.delta,
     rantekanslighetProcent: f.rantekanslighet,
-    egnaKostnader: f.egna,
+    egnaKostnader: egna,
   };
 }
 
@@ -92,7 +101,7 @@ const SKATTEN_RACKER_INTE = new Set([
 describe("paritet med gamla route-matematiken", () => {
   for (const { fall: f, ut: gammalt } of fall) {
     describe(f.namn, () => {
-      const { underlag } = underlagFranSida(sidaFran(f));
+      const { underlag } = underlagFranSida(sidaFran(f, gammalt));
       const r = beraknaKalkyl(underlag);
       const begransad = SKATTEN_RACKER_INTE.has(f.namn);
 
@@ -120,7 +129,8 @@ describe("paritet med gamla route-matematiken", () => {
         expect(r.nu.drift).toBe(gammalt.drift);
         for (const p of gammalt.driftPoster) {
           const rad = r.drift.find((x) => x.id === p.id);
-          expect(rad?.schablon).toBe(p.value);
+          // Skillnad 4: schablonen är ny; beloppet som räknas är fixturens gamla (eller eget).
+          expect(rad?.belopp).toBe((f.egna as Record<string, number>)[p.id] ?? p.value);
           expect(rad?.ingarIAvgift).toBe(p.ingarIAvgift);
         }
         expect(r.nu.betalarPerManad).toBe(gammalt.betalarPerManad);

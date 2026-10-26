@@ -66,7 +66,8 @@ describe("AnalysRapport — sparsteg, lån och färger (2026-10-24c)", () => {
   it("visar lånelistan med fas, vikt och den fasta försiktighetsraden", () => {
     const html = rita();
     expect(html).toContain("1 mars 2027");
-    expect(html).toContain("Rörligt");
+    expect(html).toContain("Rörlig ränta");
+    expect(html).not.toContain("Rörligt");
     expect(html).toContain("2,5 % → 3,1 %");
     expect(html).toContain("≤ 24 mån");
     expect(html).toContain("År 3–5 · väger 50 %");

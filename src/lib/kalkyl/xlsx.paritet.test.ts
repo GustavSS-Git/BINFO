@@ -330,7 +330,7 @@ describe("Excel-export: paritet med beraknaKalkyl", () => {
       "Skiktgrans",
       "Statlig_Skatt",
       "KV_Mat",
-      "Schablon_El_Grund",
+      "Schablon_Varme_Per_M2",
     ]) {
       expect(m.namn.has(n), `namn ${n}`).toBe(true);
     }

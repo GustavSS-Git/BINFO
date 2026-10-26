@@ -116,7 +116,6 @@ describe("tillVarderingForm (steg 1 ur det gemensamma analysformuläret)", () =>
     organisationsnummer: "",
     adress: "Kapellgränd 12",
     postnummer: "116 25",
-    ort: "Stockholm",
     antalRum: "3",
     byggar: "1931",
   };

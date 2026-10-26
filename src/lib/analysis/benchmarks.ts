@@ -27,7 +27,8 @@ import type { KeyFigure, KeyFigureId, Status } from "@/types/analysis";
  * One of the seven figures (the fee's share of revenue) is deliberately NOT
  * graded: BENCHMARKS.md supplies no thresholds for it, and it is not reliably
  * better in either direction — a low share can mean healthy commercial income
- * or fragile reliance on unstable non-fee income.
+ * or fragile reliance on unstable non-fee income. It IS shown (unrated, no
+ * status label) in the report, the PDF and the register since 2026-10-26.
  */
 
 export type Riktning = "lagre_battre" | "hogre_battre" | "informativ";
@@ -57,13 +58,15 @@ export interface Benchmark {
   /** Always set — every entry must say where its thresholds come from. */
   source: string;
   /**
-   * Whether the figure appears as a headline card in the main "Föreningens
-   * ekonomi" view. Presentation policy, owned by BENCHMARKS.md — deliberately
-   * NOT part of src/types/analysis.ts, since hiding a card says nothing about
-   * the analysis itself. All seven figures are extracted regardless.
+   * Whether the figure appears as a card in the main "Föreningens ekonomi"
+   * view. Presentation policy — deliberately NOT part of
+   * src/types/analysis.ts, since hiding a card says nothing about the
+   * analysis itself. All seven figures are extracted regardless.
    *
    * Independent of `riktning`: showing is about display, grading is about
-   * judgement. They happen to coincide for one figure today.
+   * judgement. Since 2026-10-26 all seven are shown; the ungraded fee share
+   * is shown as a plain number WITHOUT a status label (callers use
+   * `riktning === 'informativ'` for that).
    */
   visasIHuvudanalys: boolean;
   /** Grading scale, best-to-worst. Absent only when riktning is 'informativ'. */
@@ -96,13 +99,13 @@ export const BENCHMARKS: Record<KeyFigureId, Benchmark> = {
   },
 
   // Deliberately not graded: BENCHMARKS.md gives no thresholds for this one.
-  // Hidden from the main view as well, but for a separate reason — see
-  // `visasIHuvudanalys` on the Benchmark interface.
+  // Shown anyway (owner 2026-10-26, round "consistency"): as a plain figure
+  // without a status label — see `visasIHuvudanalys` on the Benchmark interface.
   arsavgift_andel_av_rorelseintakter: {
     riktning: "informativ",
-    visasIHuvudanalys: false,
+    visasIHuvudanalys: true,
     source:
-      "Graderas inte: BENCHMARKS.md anger inga tröskelvärden, och riktningen är tvetydig — en låg andel kan betyda betydande hyresintäkter snarare än sämre ekonomi. Visas inte som eget nyckeltal i huvudanalysen.",
+      "Graderas inte: BENCHMARKS.md anger inga tröskelvärden, och riktningen är tvetydig — en låg andel kan betyda betydande hyresintäkter snarare än sämre ekonomi. Visas som ett vanligt tal utan statusetikett.",
   },
 
   skuldsattning_per_m2_totalyta: {
@@ -138,12 +141,16 @@ export const BENCHMARKS: Record<KeyFigureId, Benchmark> = {
   sparande_per_m2_totalyta: {
     riktning: "hogre_battre",
     visasIHuvudanalys: true,
-    // Two bands only — BENCHMARKS.md gives this figure no acceptabel and no
-    // kritisk. Exactly 0 is left unspecified by the document ("God > 0",
-    // "Svag < 0"); the decided reading is that no saving is not good saving,
-    // so 0 falls through to 'svag'.
-    source: `${TROSKELKALLA} Endast två band (god/svag); ingen referenspunkt angiven.`,
-    band: [{ status: "god", jamforelse: ">", grans: 0 }, { status: "svag" }],
+    // Three bands (owner 2026-10-26, BENCHMARKS.md §5): God > 300, Acceptabel
+    // 0–300 with BOTH ends inclusive (exact 0 and exact 300 are 'acceptabel';
+    // this reverses the earlier "0 = svag"), Svag < 0. No 'kritisk' band.
+    // First match wins: ">300" then ">=0" then the catch-all.
+    source: `${TROSKELKALLA} Tre band (god > 300, acceptabel 0–300 inklusive, svag < 0); ingen referenspunkt angiven.`,
+    band: [
+      { status: "god", jamforelse: ">", grans: 300 },
+      { status: "acceptabel", jamforelse: ">=", grans: 0 },
+      { status: "svag" },
+    ],
     kommentar:
       "Ett negativt sparande är vanligt och inte automatiskt kritiskt om det är ett planerat och redovisat uttag ur kassan för renovering. Stäm av mot väsentliga händelser (vasentligaHandelser) och underhållsplanen innan det flaggas rött — tröskeln ensam räcker inte som grund.",
   },
@@ -241,14 +248,15 @@ function medReferenspunkt(benchmark: Benchmark, status: Status): StatusResultat 
  *      (runExtraction.ts) records why in datakvalitet.
  *
  *   2. A sign-only reading (varde null, tecken set) on a "higher is better"
- *      figure (today: only sparande) CAN be graded, because that figure's
- *      best band's own threshold sits exactly at zero ("> 0" is "god") — a
- *      bare sign is then enough to know which side of that one threshold
- *      the true number falls on, without claiming to know its magnitude.
- *      This does not generalize to the "lower is better" figures: their
- *      bands have several positive thresholds, so a sign alone can't say
- *      which band a POSITIVE reading of unknown magnitude would land in —
- *      those stay "okant" (rule 1 above already covers the negative case).
+ *      figure (today: only sparande) is graded only when the sign settles the
+ *      band: the status the band lookup gives for the smallest positive number
+ *      (or, for "negativ", for a number just below zero) must equal the one it
+ *      gives for an arbitrarily large number (or, for "negativ", an
+ *      arbitrarily negative one). Sparande has bands god > 300, acceptabel
+ *      0–300, svag < 0: a negative sign is always 'svag'; a positive sign could
+ *      be 'acceptabel' or 'god' → 'okant' (changed 2026-10-26; before, "> 0"
+ *      was god and a bare positive sign was enough). The "lower is better"
+ *      figures stay "okant" (rule 1 above covers the negative case).
  */
 export function bedomStatus(
   id: KeyFigureId,
@@ -270,19 +278,14 @@ export function bedomStatus(
     if (tecken === undefined) return { status: "okant" };
 
     if (benchmark.riktning === "hogre_battre") {
-      const bastaBandet = benchmark.band[0];
-      const bastaBandetHarNolltroskel =
-        bastaBandet !== undefined &&
-        "jamforelse" in bastaBandet &&
-        (bastaBandet.jamforelse === ">" || bastaBandet.jamforelse === ">=") &&
-        bastaBandet.grans === 0;
-      if (bastaBandetHarNolltroskel) {
-        const sistaBandet = benchmark.band[benchmark.band.length - 1]!;
-        return medReferenspunkt(
-          benchmark,
-          tecken === "positiv" ? bastaBandet.status : sistaBandet.status,
-        );
-      }
+      const statusVid = (v: number): Status =>
+        benchmark.band!.find((band) => uppfyller(band, v))?.status ?? "okant";
+      const [narmast, bortast] =
+        tecken === "positiv"
+          ? [Number.MIN_VALUE, Number.POSITIVE_INFINITY]
+          : [-Number.MIN_VALUE, Number.NEGATIVE_INFINITY];
+      const s1 = statusVid(narmast);
+      if (s1 !== "okant" && s1 === statusVid(bortast)) return medReferenspunkt(benchmark, s1);
     }
     return { status: "okant" };
   }
@@ -325,4 +328,17 @@ export function berikaNyckeltal(keyFigures: KeyFigure[]): KeyFigure[] {
     const { benchmark: _gammaltBenchmark, ...utanBenchmark } = kf;
     return benchmark ? { ...utanBenchmark, status, benchmark } : { ...utanBenchmark, status };
   });
+}
+
+/**
+ * Re-grades stored key figures with the CURRENT bands (round 2026-10-26: the
+ * sparande bands changed, and statuses are otherwise stored at extraction).
+ * Each status/benchmark is recomputed from the figure's stored value and sign,
+ * exactly as `berikaNyckeltal` did at extraction; everything else on the key
+ * figure (figure, label, forklaring, ...) is untouched. The sanity checks
+ * (`rimlighet.ts`) never change a status, so nothing is resurrected. Pure, no
+ * mutation; apply on read wherever a stored status is shown or counted.
+ */
+export function omgraderaNyckeltal(keyFigures: KeyFigure[]): KeyFigure[] {
+  return berikaNyckeltal(keyFigures);
 }

@@ -301,7 +301,7 @@ export function KalkylPdfDocument({ vm }: { vm: KalkylPdfViewModel }) {
             <View key={r.namn} wrap={false}>
               {i === 0 || vm.regler[i - 1]?.kalla !== r.kalla ? (
                 <Text style={styles.kallaRad}>
-                  {/ingen källa/i.test(r.kalla) ? r.kalla : `Källa: ${r.kalla}`}
+                  {/ingen (publicerad )?källa/i.test(r.kalla) ? r.kalla : `Källa: ${r.kalla}`}
                 </Text>
               ) : null}
               <View style={styles.rulesRow}>

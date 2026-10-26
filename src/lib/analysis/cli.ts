@@ -11,6 +11,7 @@ import {
   type ModelEffort,
 } from "./runExtraction";
 import { korExtraktion } from "./korExtraktion";
+import { lasMaxTokens, lasModellPerSteg } from "./modellPerSteg";
 import { sammanfattaSidreferenser } from "./sidreferenser";
 import { TranskriberingMarkorFelError } from "./transkribering";
 import { AnalysValidationError, runAnalys } from "./analyze";
@@ -152,10 +153,14 @@ async function main() {
   // Before the first byte is sent anywhere: an invalid object file fails here, for free.
   const input = inputPath ? await lasOchKontrolleraInputfil(inputPath) : undefined;
 
-  const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
+  const { extraktion: model, bedomning: modelBedomning } = lasModellPerSteg(
+    process.env,
+    STANDARD_MODELL,
+  );
   const effortTranskribering = lasEffort("ANTHROPIC_EFFORT_TRANSKRIBERING");
   const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
   const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
+  const maxOutputTokensExtraction = lasMaxTokens(process.env, "ANTHROPIC_MAX_TOKENS_EXTRACTION");
   const effortJudging = lasEffort("ANTHROPIC_EFFORT_JUDGING");
   const promptCache = lasPromptCache();
 
@@ -169,7 +174,7 @@ async function main() {
   const maxCostSekSkannad = Number(maxCostEnv ?? "25");
 
   console.error(
-    `Läser ${pdfPath} (modell: ${model}, kostnadstak: ${maxCostSek} kr (skannad: ${maxCostSekSkannad} kr), promptcache: ${promptCache ? "på" : "av"})...`,
+    `Läser ${pdfPath} (modell: ${model}${modelBedomning !== model ? `, bedömning: ${modelBedomning}` : ""}, kostnadstak: ${maxCostSek} kr (skannad: ${maxCostSekSkannad} kr), promptcache: ${promptCache ? "på" : "av"})...`,
   );
 
   const wallClockStart = performance.now();
@@ -186,6 +191,7 @@ async function main() {
     effortGrounding,
     effortExtraction,
     promptCache,
+    maxOutputTokensExtraction,
     transkriptionsFil: process.env["TRANSKRIPTION_CACHE"],
     logg: (rad) => console.error(rad),
   });
@@ -218,7 +224,7 @@ async function main() {
   );
 
   const { analys, calls: analysCalls } = await runAnalys(extraction, {
-    model,
+    model: modelBedomning,
     maxCostSek: korning.tak - spentExtraktion,
     effort: effortJudging,
     promptCache,

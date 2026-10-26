@@ -21,8 +21,16 @@ export type UppgifterState = {
 let current: UppgifterState = {
   hiss: osakraUppgifter.hiss.varde,
   balkong: osakraUppgifter.balkong.varde,
+  // Värme och vatten ingår normalt i avgiften i en bostadsrätt (owner 2026-10-26):
+  // förvalt "ja" = 0 kr. Köparen väljer "nej" när de betalas separat; övriga poster är okända.
   ingar: avgiftPoster.reduce(
-    (acc, p) => ({ ...acc, [p.id]: osakraUppgifter.ingarIAvgiften[p.id].varde }),
+    (acc, p) => ({
+      ...acc,
+      [p.id]:
+        p.id === "varme" || p.id === "vatten"
+          ? ("ja" as Tristate)
+          : osakraUppgifter.ingarIAvgiften[p.id].varde,
+    }),
     {} as Record<AvgiftPostId, Tristate>,
   ),
   boarea: property.boarea,

@@ -6,14 +6,13 @@
  * flattened". AnalysPdfDocument.tsx turns this into JSX; it should not need
  * to re-decide what belongs on the report.
  */
-import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   andelAvSkuldRad,
   byggarMarkor,
   antagenAndelText,
   arSkannad,
   avgiftsHuvud,
-  avvikelseJusteradText,
+  prisAvvikelseRad,
   BYGGDEL_KALLA_TEXT,
   byggdelNot,
   byggdelRader,
@@ -43,6 +42,12 @@ import {
   formatFigureVarde,
   formatSkapadDatum,
   formatVarde,
+  formatVardeFigurAvrundat,
+  formatVardespann,
+  arOgraderatNyckeltal,
+  visasNyckeltal,
+  visatVarde,
+  VARDESPANN_LABEL,
   SKANNAD_NOTIS,
   varderingsKallaText,
   varderingsTackningText,
@@ -122,7 +127,6 @@ export interface PdfVarderingsunderlag {
   disclaimerText: string | undefined;
   /** 'lan' only: method note shown with the data basis. */
   metodText: string | undefined;
-  intervallText: string | undefined;
   metadataText: string;
   kallaText: string;
 }
@@ -145,6 +149,8 @@ export interface PdfPrisanalys {
         value: string;
         leverantor: string;
         isSchablon: boolean;
+        /** "Ungefärligt spann (±10 %): a – b kr"; only under the main shown value. */
+        vardespann: string | undefined;
       }
     | undefined;
   avvikelseText: string | undefined;
@@ -169,6 +175,8 @@ export interface PdfPrisanalys {
 export interface PdfJusteradVardering {
   label: string;
   value: string;
+  /** "Ungefärligt spann (±10 %): a – b kr"; only under the main shown value. */
+  vardespann: string | undefined;
   avvikelseText: string | undefined;
   /** Baslinje -> komponenternas prisbidrag -> justerat värde (tomt utan prognos). */
   vattenfall: Array<{ label: string; beloppText: string; ton: Ton; typ: "bas" | "steg" | "slut" }>;
@@ -211,6 +219,8 @@ export interface PdfRakning {
               }>;
               byggdelNot: string;
               byggdelKalla: string;
+              /** How the kr/mån is computed (area basis + the flat's share). */
+              forklaring: string | undefined;
             }
           | undefined;
         lan:
@@ -374,10 +384,8 @@ function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
     input.byggar,
   );
   const byggarText = byggar.pdfNotis ? `${byggar.varde} (${byggar.pdfNotis})` : byggar.varde;
-  const adressLabel =
-    input.adress !== ""
-      ? `${input.adress}, ${input.ort}`
-      : `Adressen raderad efter 12 månader · ${input.ort}`;
+  // Only the address (owner 2026-10-26): the area comes from the postnummer.
+  const adressLabel = input.adress !== "" ? input.adress : "Adressen raderad efter 12 månader";
   return [
     ...(input.utgangspris !== undefined
       ? [{ label: "Utgångspris", value: formatVarde(input.utgangspris, "kr") }]
@@ -391,26 +399,27 @@ function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
   ];
 }
 
-/** Same filter AnalysRapport's Foreningsekonomi section applies: only the
- *  key figures the product surfaces in the main analysis, and only when a
- *  status was actually judged (not 'okant'). */
+/** Same filter AnalysRapport's Foreningsekonomi section applies (visasNyckeltal):
+ *  the graded key figures the product surfaces, when a status was judged, plus the
+ *  informative one unrated when it has a value. */
 function buildKeyFigures(analys: AnalysisResult): PdfKeyFigure[] {
-  return analys.forening.keyFigures
-    .filter((kf) => visasIHuvudanalys(kf.id) && kf.status !== "okant")
-    .map((kf) => ({
-      id: kf.id,
-      label: kf.label,
-      valueText: formatFigureVarde(kf.figure),
-      status: kf.status,
-      statusLabel: STATUS_LABEL[kf.status],
-      benchmarkText: kf.benchmark
+  return analys.forening.keyFigures.filter(visasNyckeltal).map((kf) => ({
+    id: kf.id,
+    label: kf.label,
+    valueText: formatFigureVarde(kf.figure),
+    status: kf.status,
+    statusLabel: STATUS_LABEL[kf.status],
+    // Ungraded figures (the informative seventh nyckeltal) have no status label
+    // and no benchmark; the document skips the label when status is "okant".
+    benchmarkText:
+      kf.benchmark && !arOgraderatNyckeltal(kf)
         ? `${kf.benchmark.label}: ${formatVarde(kf.benchmark.value, kf.figure.unit)}`
         : undefined,
-      forklaring: kf.forklaring,
-      pageRef: formatPageRef(kf.figure.ref),
-      isSchablon: kf.figure.source === "schablon",
-      osaker: kf.figure.osaker,
-    }));
+    forklaring: kf.forklaring,
+    pageRef: formatPageRef(kf.figure.ref),
+    isSchablon: kf.figure.source === "schablon",
+    osaker: kf.figure.osaker,
+  }));
 }
 
 /** Mirrors AnalysRapport.tsx's Prisrimlighet-sektion, se dess filkommentar
@@ -420,10 +429,6 @@ function buildVarderingsunderlag(
 ): PdfVarderingsunderlag | undefined {
   const u = p.varderingsunderlag;
   if (!u) return undefined;
-
-  // The valuation range is not shown (owner: hidden on the web since
-  // 2026-10-09, "we don't show the range any more" 2026-10-24), in the PDF either.
-  const intervallText: string | undefined = undefined;
 
   const tackning = varderingsTackningText(u);
   return {
@@ -435,7 +440,6 @@ function buildVarderingsunderlag(
     tackningTitel: tackning?.typ === "utanfor_lan" ? tackning.titel : undefined,
     disclaimerText: tackning?.typ === "utanfor_lan" ? tackning.text : undefined,
     metodText: tackning?.typ === "lan" ? tackning.text : undefined,
-    intervallText,
     metadataText: `${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
     kallaText: varderingsKallaText(u.dataperiod),
   };
@@ -450,12 +454,11 @@ function byggarNotisText(analys: AnalysisResult): string | undefined {
 function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
   const p = analys.prisanalys;
   const skuld = andelAvSkuldRad(analys);
-  const avvikelseText =
-    p.avvikelseMotVardering !== undefined && p.justeradVardering === undefined
-      ? `Utgångspriset ligger ${Math.abs(p.avvikelseMotVardering).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % ${
-          p.avvikelseMotVardering > 0 ? "över" : "under"
-        } (jämfört per m²)`
-      : undefined;
+  const avvikelse = prisAvvikelseRad(p);
+  const avvikelseText = p.justeradVardering === undefined ? avvikelse?.text : undefined;
+
+  const visat = p.externVardering?.source === "schablon" ? visatVarde(p) : null;
+  const spannText = visat ? `${VARDESPANN_LABEL}: ${formatVardespann(visat.exakt)}` : undefined;
 
   return {
     titel: p.utgangspris ? "Är priset rimligt?" : "Binfos värdering",
@@ -466,9 +469,10 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
       : undefined,
     externVardering: p.externVardering
       ? {
-          value: formatFigureVarde(p.externVardering),
+          value: formatVardeFigurAvrundat(p.externVardering),
           leverantor: p.externVardering.leverantor,
           isSchablon: p.externVardering.source === "schablon",
+          vardespann: visat?.kalla === "bas" ? spannText : undefined,
         }
       : undefined,
     avvikelseText,
@@ -483,11 +487,9 @@ function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
                 typ: r.typ,
               }))
             : [],
-          value: formatFigureVarde(p.justeradVardering),
-          avvikelseText:
-            p.avvikelseMotJusteradVardering !== undefined
-              ? avvikelseJusteradText(p.avvikelseMotJusteradVardering)
-              : undefined,
+          value: formatVardeFigurAvrundat(p.justeradVardering),
+          vardespann: visat?.kalla === "justerad" ? spannText : undefined,
+          avvikelseText: avvikelse?.text,
         }
       : undefined,
     varderingsunderlag: buildVarderingsunderlag(p),
@@ -551,7 +553,8 @@ const AVGIFT_LABEL: Record<keyof FeeInclusion, string> = {
   tv: "Tv",
 };
 
-const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["varme", "vatten", "el", "bredband", "tv"];
+// Värme and vatten are not part of the analysis (owner 2026-10-26); mirrors AnalysRapport.tsx.
+const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["el", "bredband", "tv"];
 
 /** 'okant' (or the whole field being absent) renders as "the report doesn't
  *  say" — never as "nej". Unknown is not false, per CLAUDE.md. Mirrors
@@ -679,6 +682,7 @@ function buildRakning(analys: AnalysisResult): PdfRakning | undefined {
                   })),
                   byggdelNot: byggdelNot(),
                   byggdelKalla: BYGGDEL_KALLA_TEXT,
+                  forklaring: sparK?.forklaring,
                 }
               : undefined,
             lan:

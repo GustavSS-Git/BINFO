@@ -1,4 +1,11 @@
+import {
+  avrundaVardering,
+  formatVardespann,
+  lageMotVardespann,
+  VARDESPANN_PROCENT,
+} from "@/lib/analysisView";
 import type { AnalysisResult, Grade, Sammanfattning } from "@/types/analysis";
+import { refinansieringsMening } from "./refinansieringsflagga";
 
 /**
  * The closing summary at the end of the report (owner 2026-10-24b): grade +
@@ -13,9 +20,10 @@ import type { AnalysisResult, Grade, Sammanfattning } from "@/types/analysis";
 const sv0 = (n: number) => n.toLocaleString("sv-SE", { maximumFractionDigits: 0 });
 const sv1 = (n: number) => Math.abs(n).toLocaleString("sv-SE", { maximumFractionDigits: 1 });
 
-/** "ca 5 680 000 kr": prices rounded to the nearest 10 000 kr. */
+/** "ca 5 680 000 kr": the shared rounding rule for displayed valuations
+ *  (`avrundaVardering`, nearest 10 000 kr). */
 function caPris(kr: number): string {
-  return `ca ${sv0(Math.round(kr / 10_000) * 10_000)} kr`;
+  return `ca ${sv0(avrundaVardering(kr))} kr`;
 }
 
 /** Fee amounts rounded to the nearest 10 kr. */
@@ -30,9 +38,6 @@ const BETYGSKOMMENTAR: Record<Grade, string> = {
   D: "Ekonomin har allvarliga svagheter.",
   E: "Ekonomin är mycket ansträngd.",
 };
-
-/** Within ±3 % counts as "in line with" Binfo's valuation in the text. */
-const I_LINJE_PROCENT = 3;
 
 type Underlag = Omit<AnalysisResult, "sammanfattning">;
 
@@ -108,13 +113,12 @@ function prisText(r: Underlag): string {
   }
 
   const delar: string[] = [];
-  const avrundat = (kr: number) => Math.round(kr / 10_000) * 10_000;
-  if (justerad !== null && bas !== null && avrundat(justerad) === avrundat(bas)) {
+  if (justerad !== null && bas !== null && avrundaVardering(justerad) === avrundaVardering(bas)) {
     delar.push(
       `Värdet med hänsyn till föreningens ekonomi är ${caPris(justerad)}, i stort sett samma som ` +
-        `jämförbara lägenheter säljs för (skillnad ${sv0(Math.abs(justerad - bas))} kr).`,
+        "jämförbara lägenheter säljs för.",
     );
-  } else if (justerad !== null && bas !== null && justerad !== bas) {
+  } else if (justerad !== null && bas !== null) {
     delar.push(
       `Värdet med hänsyn till föreningens ekonomi är ${caPris(justerad)}. Jämförbara lägenheter ` +
         `säljs för ${caPris(bas)}.`,
@@ -131,29 +135,29 @@ function prisText(r: Underlag): string {
     return delar.join(" ");
   }
 
-  const avvikelse = ((utgangspris - vardering) / vardering) * 100;
+  // One comparison, against the shown value's ±10 % span (owner 2026-10-26):
+  // inside the span the price is in line with the model, otherwise over/under it.
+  const spann = formatVardespann(vardering);
+  const spannEtikett = `${spann} (±${VARDESPANN_PROCENT} %)`;
+  const lage = lageMotVardespann(utgangspris, vardering);
   delar.push(
-    Math.abs(avvikelse) < 0.5
-      ? `Utgångspriset ${sv0(utgangspris)} kr ligger i nivå med värderingen.`
-      : `Utgångspriset ${sv0(utgangspris)} kr ligger ${sv1(avvikelse)} % ` +
-          `${avvikelse > 0 ? "över" : "under"} värderingen.`,
+    lage === "inom"
+      ? `Utgångspriset ${sv0(utgangspris)} kr ligger i linje med modellen, inom det ungefärliga spannet ${spannEtikett}.`
+      : `Utgångspriset ${sv0(utgangspris)} kr ligger ${lage === "over" ? "över" : "under"} det ungefärliga spannet ${spannEtikett}.`,
   );
 
   const budpremie = p.budpremie;
   if (budpremie) {
     const plats = budpremie.omrade ?? "Stockholm";
     const slutpris = utgangspris * (1 + budpremie.medianProcent / 100);
-    const motVardering = ((slutpris - vardering) / vardering) * 100;
+    const slutLage = lageMotVardespann(slutpris, vardering);
     const riktning = budpremie.medianProcent >= 0 ? "över" : "under";
     delar.push(
       `Bostäder i ${plats} har i mitten sålts för ${sv1(budpremie.medianProcent)} % ${riktning} ` +
         `utgångspriset. Ett slutpris på den nivån, ${caPris(slutpris)}, ` +
-        (Math.abs(motVardering) <= I_LINJE_PROCENT
-          ? "skulle ligga i linje med Binfos värdering."
-          : `skulle ligga ${sv1(motVardering)} % ${motVardering > 0 ? "över" : "under"} Binfos värdering` +
-            (motVardering < 0
-              ? ", så priset kan vara attraktivt även efter en vanlig budgivning."
-              : ", så en vanlig budgivning skulle ta priset över värderingen.")),
+        (slutLage === "inom"
+          ? "skulle ligga i linje med modellen."
+          : `skulle ligga ${slutLage === "over" ? "över" : "under"} spannet.`),
     );
   }
   return delar.join(" ");
@@ -190,6 +194,9 @@ function avgiftText(r: Underlag): string {
       .sort((a, b) => Math.abs(b.krPerManad ?? 0) - Math.abs(a.krPerManad ?? 0))[0];
     if (storst) delar.push(`Störst påverkan: ${storst.label.toLowerCase()}.`);
   }
+  // Refinancing in the same numbers as the loan table and the flag (round 2026-10-26).
+  const refi = refinansieringsMening(prognos, r.forening.lanebok?.totalSkuld.value ?? null);
+  if (refi) delar.push(refi);
   const saknas = prognos.komponenter.filter((k) => k.status === "saknar_underlag").length;
   if (saknas > 0) {
     delar.push(

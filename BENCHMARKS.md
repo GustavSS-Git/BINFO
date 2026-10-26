@@ -68,7 +68,8 @@ national average is not itself a god/acceptabel/svag/kritisk boundary.
 
 | Status | Range |
 |---|---|
-| God | > 0 |
+| God | > 300 |
+| Acceptabel | 0 – 300 (exakt 0 och exakt 300 är acceptabel) |
 | Svag |  < 0 |
 
 Note: negative sparande is common and not automatically kritisk if it's a

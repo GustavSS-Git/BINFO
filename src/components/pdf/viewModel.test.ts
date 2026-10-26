@@ -19,13 +19,39 @@ describe("buildPdfViewModel — sample analysis", () => {
   });
 
   it("keeps each red flag's page reference", () => {
-    expect(vm.rodaFlaggor[0]?.pageRef).toBe("s. 18");
+    expect(vm.rodaFlaggor[0]?.pageRef).toBe("s. 7");
   });
 
-  it("includes only the six key figures the main analysis shows (visasIHuvudanalys, status !== okant)", () => {
-    // arsavgift_andel_av_rorelseintakter has status "okant" in the sample and must be excluded.
-    expect(vm.keyFigures.map((kf) => kf.id)).not.toContain("arsavgift_andel_av_rorelseintakter");
-    expect(vm.keyFigures).toHaveLength(6);
+  it("shows the six graded key figures plus the informative seventh, unrated", () => {
+    expect(vm.keyFigures).toHaveLength(7);
+    const sjunde = vm.keyFigures.find((kf) => kf.id === "arsavgift_andel_av_rorelseintakter");
+    expect(sjunde).toBeDefined();
+    // No status label shown (the document skips it for "okant"), no benchmark, but value + page.
+    expect(sjunde?.status).toBe("okant");
+    expect(sjunde?.benchmarkText).toBeUndefined();
+    expect(sjunde?.valueText).toContain("99,7");
+    expect(sjunde?.pageRef).toBe("s. 8");
+    // Graded figures still carry a status.
+    expect(vm.keyFigures.filter((kf) => kf.status === "okant")).toHaveLength(1);
+  });
+
+  it("hides a graded key figure whose status is okant, and the informative one without a value", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
+          kf.id === "sparande_per_m2_totalyta"
+            ? { ...kf, status: "okant" as const }
+            : kf.id === "arsavgift_andel_av_rorelseintakter"
+              ? { ...kf, figure: { ...kf.figure, value: null } }
+              : kf,
+        ),
+      },
+    };
+    const ids = buildPdfViewModel(analys).keyFigures.map((kf) => kf.id);
+    expect(ids).not.toContain("sparande_per_m2_totalyta");
+    expect(ids).not.toContain("arsavgift_andel_av_rorelseintakter");
   });
 
   it("labels a schablon-sourced key figure distinctly", () => {
@@ -42,8 +68,8 @@ describe("buildPdfViewModel — sample analysis", () => {
     expect(vm.prisanalys.varderingsunderlag).toBeDefined();
     const u = vm.prisanalys.varderingsunderlag;
     expect(u?.omradeText).toContain("Kungsholmen");
-    // The range is not shown any more (owner 2026-10-24).
-    expect(u?.intervallText).toBeUndefined();
+    // The hidden 90 % range is gone (owner 2026-10-26): the ±10 % span replaces it.
+    expect(u).not.toHaveProperty("intervallText");
     expect(u).not.toHaveProperty("drivare");
     expect(u?.metadataText).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
     expect(u?.kallaText).toContain("Svensk Mäklarstatistik");
@@ -193,8 +219,8 @@ describe("buildPdfViewModel — ovrigInfo edge cases", () => {
     const vm = buildPdfViewModel(analys);
     const el = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
     expect(el?.statusText).toBe("Framgår inte av årsredovisningen");
-    const vatten = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "vatten");
-    expect(vatten?.statusText).toBe("Ingår ej");
+    // Värme och vatten visas aldrig i analysen (ägarbeslut 2026-10-26).
+    expect(vm.ovrigInfo?.avgiftPoster.map((p) => p.post)).toEqual(["el", "bredband", "tv"]);
   });
 
   it("marks a väsentlig händelse without a ref distinctly (undefined pageRef), never invents a page", () => {
@@ -238,24 +264,29 @@ describe("buildPdfViewModel — ovrigInfo edge cases", () => {
 
 describe("buildPdfViewModel — edge cases", () => {
   it("shows the anonymisation notice, not a dangling ', <ort>', once adress/postnummer/orgnr are cleared", () => {
-    // Mirrors src/components/PropertySummary.tsx's exact rendering: after 30
-    // days the server clears adress/postnummer/orgnr (ort is retained), and
-    // the on-screen report falls back to a notice instead of `"${adress}, ${ort}"`.
+    // Mirrors src/components/PropertySummary.tsx's exact rendering: after 12
+    // months the server clears adress/postnummer/orgnr, and the on-screen report
+    // falls back to a notice. Only the address is shown, never the ort (2026-10-26).
     const anonymAnalys: AnalysisResult = {
       ...sampleAnalysis,
       input: { ...sampleAnalysis.input, adress: "", postnummer: "", orgnr: "" },
     };
     const vm = buildPdfViewModel(anonymAnalys);
     const adressRad = vm.summary.find((row) => row.label === "Adress");
-    expect(adressRad?.value).toBe("Adressen raderad efter 12 månader · Kungsholmen");
-    expect(adressRad?.value).not.toContain(", Kungsholmen");
+    expect(adressRad?.value).toBe("Adressen raderad efter 12 månader");
+    expect(adressRad?.value).not.toContain("Kungsholmen");
   });
 
-  it("still prints '<adress>, <ort>' when the address has not been anonymised", () => {
+  it("prints only the address (no ort) when the address has not been anonymised", () => {
     const adressRad = buildPdfViewModel(sampleAnalysis).summary.find(
       (row) => row.label === "Adress",
     );
-    expect(adressRad?.value).toBe("Baltzar von Platens gata 6, Kungsholmen");
+    expect(adressRad?.value).toBe("Baltzar von Platens gata 6");
+    const utanOrt = buildPdfViewModel({
+      ...sampleAnalysis,
+      input: (({ ort: _o, ...rest }) => rest)(sampleAnalysis.input),
+    }).summary.find((row) => row.label === "Adress");
+    expect(utanOrt?.value).toBe("Baltzar von Platens gata 6");
   });
 
   it("renders a figure with value null + tecken negativ via formatFigureVarde, not as 'Uppgift saknas'", () => {

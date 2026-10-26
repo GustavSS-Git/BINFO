@@ -287,6 +287,10 @@ function samlaKandidater(extraction: ExtractionResult, fasta: FastaVarden): Kand
       laggTillVarde(k, f.andelProcent, "procent");
       if (f.ranta) laggTillVarde(k, f.ranta.value, f.ranta.unit);
     }
+    for (const b of lan.efterBalansdag?.band ?? []) {
+      laggTillVarde(k, b.belopp, "kr");
+      laggTillVarde(k, b.andelProcent, "procent");
+    }
     for (const a of lan.perAr) {
       laggTillVarde(k, a.belopp, "kr");
       laggTillVarde(k, a.andelProcent, "procent");

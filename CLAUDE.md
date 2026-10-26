@@ -16,10 +16,11 @@ per-apartment cost in kronor, and what to do before bidding.
   `main` and **deployed to production on 2026-10-14** (both v3 migrations,
   `deploy:edge`, Lovable publish; the two pre-v3 register reports were re-run
   in production the same day, `docs/api-test-log.md` #104). Runbook:
-  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p12.i1.s1`
+  `docs/DEPLOY-v3.md`. Production `PIPELINE_VERSION` is `p7.i1.s1`; `main` has `p13.i1.s1`
   (p8 2026-10-23 question context, p9 2026-10-24 loans/maintenance/lokaler,
   p10 2026-10-24 past renovations + plan need figures, p11/p12 2026-10-25 lokal
-  loss signals, lease renewals + årsavgift changes) — not deployed yet,
+  loss signals, lease renewals + årsavgift changes, p13 2026-10-26 no model text on
+  refinancing direction + värdeår marker) — not deployed yet,
   see `PLAN.md`.
 - After v3 (on `main`, 2026-10-14): `/integritet` privacy page (controller
   "Binfo (binfo.slanesens.com)", no contact e-mail yet: `src/lib/kontakt.ts`),
@@ -63,6 +64,18 @@ per-apartment cost in kronor, and what to do before bidding.
   the flat's share and in the fee-deviation question. Price label "Värde med hänsyn
   till föreningens ekonomi utöver nuvarande avgift"; a byggår line at the price
   (`byggarPrisNotis`); the summary explains a weak grade with an unchanged price.
+- **Consistency round** (2026-10-26, on `main` uncommitted → see PLAN.md
+  changelog, NOT deployed; PROMPT_VERSION 13, no migration): matured loans
+  (`dag <= idag`) are `fas: "forfallit"`, never priced; Binfo's own refinancing
+  flag (`refinansieringsflagga.ts`) replaces model maturity flags on read;
+  sparande bands > 300 god / 0–300 acceptabel / < 0 svag, statuses RE-GRADED on
+  read (`omgraderaNyckeltal`); displayed valuations rounded to 10 000 kr with a
+  visible ±10 % span that alone decides "i linje med modellen"; one comparison
+  (adjusted value); one component price-effect function (`komponentPris`);
+  exact kronor only in "Så har vi räknat"; seventh nyckeltal shown unrated;
+  no TODO/ägarbeslut copy ("Binfos uppskattning"); värme/vatten default
+  "ingår"; buyer's byggår always wins, never "Bekräftat"; `PropertyInput.ort`
+  optional, no ort field. Findings: "Consistency audit" below.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -195,8 +208,14 @@ per-apartment cost in kronor, and what to do before bidding.
   - One ränteavdrag computation (per person, limited by tax) for the total and
     "Tillbaka i deklarationen"; one home for the 50/70 % thresholds
     (`calc/amortering.ts`).
-  - Drift schablons (`schabloner.ts`) and the 5× bank skuldkvot are still
-    unverified placeholders, labelled "Schablon"/"Antagande" everywhere.
+  - Drift schablons (2026-10-26, `REGELVERSION` "2026-10-26b"; `regler.ts` is
+    the single source, `calc/schabloner.ts` reads it; `docs/driftschabloner-kallor.md`):
+    hushållsel and hemförsäkring = Konsumentverket 2026 by persons (1–7);
+    värme 21 kr/m² and vatten 6 kr/m² boarea (Nils Holgersson 2026, Stockholm),
+    only when "Ingår ej" (default "Ingår"); bredband 349 kr and the 5× bank
+    skuldkvot stay "Binfos uppskattning"/"antagande" (no published source).
+    Värme and vatten exist ONLY in the kalkyl: the analysis/report never asks
+    about, counts or shows them (owner 2026-10-26).
 - `/kopguide`: Köpguide, the buying guide (checked steps in `useState` only).
   `/guide` is a 301 redirect to it (renamed 2026-10-23); nav label "Köpguide",
   running text "köpguiden".
@@ -265,9 +284,10 @@ per-apartment cost in kronor, and what to do before bidding.
 ## Example analysis (`/exempel`)
 
 - `src/data/sampleAnalysis.ts` is a pasted snapshot of real CLI output, not
-  regenerated automatically. Regenerated 2026-10-24 on PROMPT_VERSION 10 and re-assembled for free on
-  2026-10-25 (fee prognosis frozen at that day, SSVX 2.068 %; the extraction has
-  no p11 fields). Earlier example (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
+  regenerated automatically. Regenerated 2026-10-26 on PROMPT_VERSION 13 (fee
+  prognosis frozen at 2026-10-26, SSVX 2.068 %; input without ort, värme/vatten
+  "ingår"). Grounding varies run to run: 2 of 3 runs that day missed the cited
+  "Värdeåret är 1931" (p. 4). Earlier example (2026-10-12): Brf Pontonjären 3 (716420-0599), årsredovisning 2025 (PDF in
   `annual reports examples/exemple_analysis_report/`, gitignored) + the owner's
   real listing Baltzar von Platens gata 6, 112 42 (Kungsholmen: best training
   coverage, 644 sales, CV MAPE 7.6 %). Valuation v3.1.
@@ -364,7 +384,7 @@ per-apartment cost in kronor, and what to do before bidding.
      Buyer-level (assembled per read) = `input`, `prisanalys`, `rantestress`,
      missing-data questions, the fee-deviation question.
    - `PIPELINE_VERSION` = `p<PROMPT_VERSION>.i<IDENTITET_PROMPT_VERSION>.s<SCHEMA_MAJOR>`
-     (production since 2026-10-14: `p7.i1.s1`; `main`: `p12.i1.s1`). v3 adds `rapport.proveniens`
+     (production since 2026-10-14: `p7.i1.s1`; `main`: `p13.i1.s1`). v3 adds `rapport.proveniens`
      (`api` default). Each stage has pure `bygg*Request`/`tolka*Svar` (golden
      tests pin the request bodies).
 4. **Reads** re-assemble on every read from the rapport's extraction/judgement +
@@ -492,7 +512,7 @@ npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
 npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
-npm test                    # vitest run (2026-10-25b: 146 files, ~3090 tests, all passing)
+npm test                    # vitest run (2026-10-26: 149 files, ~3180 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
@@ -758,6 +778,81 @@ cd ml && .venv/bin/pytest                  # ML tests
   account and register links); a mobile menu is on the Lovable list.
 - The xlsx export has no cached formula values (`fullCalcOnLoad`): Excel and
   Numbers compute on open (verified in Excel), but Quick Look shows empty cells.
+
+## Consistency audit (2026-10-26; how numbers and texts are produced)
+
+Read before changing any report number or text; several sources can say the
+same thing in different ways. Written BEFORE the consistency round fixed most
+of it; each bullet ends with what holds now (→).
+
+- **Model text vs Binfo's calculations.** `rodaFlaggor`, `betygMotivering`
+  and the model's questions are written ONCE at judging (BRF-level, stored,
+  date-independent) from `fastaVarden.ts` (loan maturities per YEAR, no
+  "today"). Nothing ties them to the buyer-level fee prognosis. The only
+  per-read, date-aware place is `assemble.ts` (`beraknaAvgiftsprognos({idag})`,
+  deterministic questions, then `byggSammanfattning` last). `betygText` in
+  `sammanfattning.ts` copies the first high/first flag title.
+- **Refinancing** (`calc/avgiftsprognos.ts`): loans with `dag <= horisontSlut`
+  are priced; matured loans (`dag <= idag`) are dropped only when the report is
+  stale (> 18 months, commit 67e2e25). `RefinansieringsLan.fas` is
+  `"inom_horisont" | "senare"` (contract). Table: `lanRader`
+  (`analysisView.ts`) → `RefiSteg` (`AnalysRapport.tsx`), PDF `viewModel.ts`.
+  → matured = `fas: "forfallit"`, shown, never priced; the flag/summary sentence
+  come from `refinansieringsflagga.ts` over the same component.
+- **Statuses are stored, not re-graded.** `berikaNyckeltal` runs at extraction
+  (`slutfor.ts` `avstamExtraktion`); reads, the register summary and
+  `/brf/$slug` use the stored status. → re-graded on read in `assemble.ts` and
+  `registerPublik.ts` (`omgraderaNyckeltal`); stored grades untouched. Band values are not in any prompt, but
+  `BENCHMARKS[id].kommentar` is (`FORBEHALL` in `prompts.ts`), so changing a
+  kommentar or the informativ list forces a `PROMPT_VERSION` bump. Grade bands
+  (`tillatnaBetyg`) count only svag/kritisk.
+- **Sparande:** status band (benchmarks.ts) and the prognosis target
+  (`sparbehov.ts`: 300 kr/m² schablon moved 250–350 by building-part ages, or
+  the plan's own figure; gap counted 50 %, on TOTALYTA) are separate numbers.
+- **The seventh nyckeltal** (årsavgifternas andel av rörelseintäkter) is
+  `riktning: "informativ"` → always status `okant`, and hidden in the report and
+  PDF by `visasIHuvudanalys(id) && status !== "okant"` (`AnalysRapport.tsx`,
+  `pdf/viewModel.ts`). The register page shows it unrated.
+- **Valuation display:** every figure goes through `formatVarde`/`kr()`
+  (`analysisView.ts`) to the krona; only `sammanfattning.ts` `caPris` rounds
+  (10 000). The 90 % interval (`vardera.ts`, `targetCoveragePercent`) is
+  asymmetric (≈ −15/+17 %); its row is owner-hidden. Two comparisons exist:
+  `avvikelseMotVardering` (baseline; used in `byggModellSlutsats`,
+  `assemble.ts`) and `avvikelseMotJusteradVardering` (`prisjustering.ts`). The
+  summary's bid-premium sentence uses ±3 % (`I_LINJE_PROCENT`), not the interval.
+  Kalkyl prefill (`bolanekalkylPris`) passes the unrounded BASELINE. → one
+  rounding rule `avrundaVardering`, span `vardespann` (±10 % of the exact shown
+  value), `lageMotVardespann`; prefill = shown value.
+- **Component price effects:** the card (`komponentPris`) uses the ROUNDED
+  `krPerKrManad` × component kr/mån; the waterfall (`vattenfall`) adds the
+  rounding remainder to the largest step, so the two differ by the remainder.
+  The flat's share of a förening cost is the FEE share (`manadsavgift × 12 ÷
+  årsavgifter`, `raknaAndel`), not boarea ÷ yta; the texts don't say so. →
+  `komponentPris` (exact factor `belopp ÷ −total`, remainder once) feeds card,
+  waterfall and PDF; every component text states its basis and the share.
+- **Byggår:** extraction falls back to värdeår when no byggår exists (prompts
+  say so); `forening.byggar` carries no värdeår flag (only the excerpt).
+  `uppgiftsjamforelse.ts` marks ±1 year as `bekraftat`; at high confidence the
+  report year beats the buyer's. → buyer's year always used; `bekraftat`/`osakert`
+  never produced; badge "Värdeår enligt årsredovisningen" from the excerpt;
+  Fasta värden mark "Värdeår (INTE byggår)"; model flags claiming byggår is
+  missing are dropped/stripped on read when it is known.
+- **Ort** is required in `PropertyInput` (contract + `schema.ts`), shown as
+  "adress, ort", and used by the Booli/Nominatim geocoder. Postnummer maps to a
+  KOMMUN (`kommunForPostnummer`/`kommunNamn`), not a postort.
+- **User-visible rule notes:** `regler.ts` `anmarkning` is printed on
+  `/bolanekalkyl` ("Regler och antaganden") and in Excel; the driftschablon
+  note and the skuldkvot note contained "TODO: unverified placeholder", the
+  kalkylränta note "ägarbeslut".
+- **Models:** one model per job (`rad.model`; CLIs read `ANTHROPIC_MODEL`), so
+  a per-stage model mix needs code. Haiku 4.5 has no `effort` (the pipeline
+  sends it), 200K context, 100-page PDF limit, and was rejected for
+  transcription on 2026-10-09 (wrong page markers). Claude Haiku 5.5
+  (`claude-haiku-5-5`) has effort, 1M context, $0.10/$0.50 per MTok up to
+  100K prompt tokens and $0.50/$2.50 above; measured 2026-10-26
+  (`docs/haiku-matning-2026-10-26.md`): cheaper (≈ 0,34 kr/report) but less
+  accurate and overruns the 16k extraction cap → Sonnet 5.5 stays. CLI-only
+  knobs: `ANTHROPIC_MODEL_BEDOMNING`, `ANTHROPIC_MAX_TOKENS_EXTRACTION`.
 
 ## Workstreams
 

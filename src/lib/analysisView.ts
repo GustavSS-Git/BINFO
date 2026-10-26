@@ -6,6 +6,7 @@
  * domain figure — it selects, ranks, and formats.
  */
 import { kr } from "@/data/mockData";
+import { BENCHMARKS, visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   SPARMAL_SCHABLON_KR_PER_M2,
   SPARMAL_SCHABLON_MAX,
@@ -22,6 +23,7 @@ import type {
   FeeInclusion,
   Faltjamforelse,
   Figure,
+  KeyFigure,
   PageRef,
   Prisanalys,
   RedFlag,
@@ -32,14 +34,78 @@ import type {
   Varderingsunderlag,
 } from "@/types/analysis";
 
+// ---------------------------------------------------------------------------
+// Visad värdering: avrundning och spann (ägarbeslut 2026-10-26)
+// ---------------------------------------------------------------------------
+
+/** Every DISPLAYED valuation figure is rounded to the nearest 10 000 kr. */
+export const VARDE_AVRUNDNING_KR = 10_000;
+/** The span shown under the main value: ±10 % of the EXACT value. It is an
+ *  approximate span, never a confidence interval. */
+export const VARDESPANN_PROCENT = 10;
+export const VARDESPANN_LABEL = `Ungefärligt spann (±${VARDESPANN_PROCENT} %)`;
+
+/** The ONE rounding rule for displayed valuations (web, PDF, summary, texts). */
+export function avrundaVardering(belopp: number): number {
+  const r = Math.round(belopp / VARDE_AVRUNDNING_KR) * VARDE_AVRUNDNING_KR;
+  return r === 0 ? 0 : r;
+}
+
+/** "5 680 000 kr"; null renders as "Uppgift saknas" (unknown is not zero). */
+export function formatVardeAvrundat(belopp: number | null): string {
+  return belopp === null ? "Uppgift saknas" : kr(avrundaVardering(belopp));
+}
+
+/** ±10 % of the exact value, each end rounded to 10 000: 5 681 607 gives
+ *  5 110 000 and 6 250 000. */
+export function vardespann(exakt: number): { low: number; high: number } {
+  const f = VARDESPANN_PROCENT / 100;
+  return { low: avrundaVardering(exakt * (1 - f)), high: avrundaVardering(exakt * (1 + f)) };
+}
+
+/** "5 110 000 – 6 250 000 kr" */
+export function formatVardespann(exakt: number): string {
+  const { low, high } = vardespann(exakt);
+  return `${Math.round(low).toLocaleString("sv-SE")} – ${Math.round(high).toLocaleString("sv-SE")} kr`;
+}
+
+/** The asking price against the displayed span: inside (ends included, as
+ *  displayed) means "i linje med modellen". */
+export function lageMotVardespann(
+  utgangspris: number,
+  exaktVarde: number,
+): "inom" | "over" | "under" {
+  const { low, high } = vardespann(exaktVarde);
+  return utgangspris > high ? "over" : utgangspris < low ? "under" : "inom";
+}
+
+/** The main shown value: the adjusted value when it exists, else the baseline. */
+export function visatVarde(
+  p: Pick<Prisanalys, "externVardering" | "justeradVardering">,
+): { exakt: number; kalla: "justerad" | "bas" } | null {
+  const j = p.justeradVardering?.value;
+  if (j !== null && j !== undefined) return { exakt: j, kalla: "justerad" };
+  const b = p.externVardering?.value;
+  if (b !== null && b !== undefined) return { exakt: b, kalla: "bas" };
+  return null;
+}
+
+/** A Figure's valuation, rounded for display. */
+export function formatVardeFigurAvrundat(f: Pick<Figure, "value">): string {
+  return formatVardeAvrundat(f.value);
+}
+
 /**
- * Priset som förifyller bolånekalkylen: hellre Binfos/extern värdering än
- * utgångspriset, och inget alls (undefined) om varken värdering eller
+ * Priset som förifyller bolånekalkylen: det VISADE värdet (justerat om det
+ * finns, annars Binfos värdering, avrundat till 10 000 kr som på sidan) hellre
+ * än utgångspriset, och inget alls (undefined) om varken värdering eller
  * utgångspris finns — då länkas kalkylen utan `pris`.
  */
 export function bolanekalkylPris(prisanalys: AnalysisResult["prisanalys"]): number | undefined {
-  const figur = prisanalys.externVardering ?? prisanalys.utgangspris;
-  return figur?.value ?? undefined;
+  const visat = visatVarde(prisanalys);
+  if (visat) return avrundaVardering(visat.exakt);
+  if (prisanalys.externVardering) return undefined;
+  return prisanalys.utgangspris?.value ?? undefined;
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { hog: 0, medel: 1, lag: 2 };
@@ -239,6 +305,22 @@ export function formatFigureVarde(figure: Figure): string {
     return figure.tryckt ? `${tecken} ("${figure.tryckt}" i årsredovisningen)` : tecken;
   }
   return formatVarde(figure.value, figure.unit);
+}
+
+/**
+ * Does a key figure appear in the report's "Föreningens ekonomi" (web and PDF)?
+ * Graded figures: only when the product shows them and a status was judged. The
+ * informative one (årsavgifternas andel av rörelseintäkter, riktning "informativ",
+ * always status "okant") is shown unrated whenever it has a value.
+ */
+export function visasNyckeltal(kf: Pick<KeyFigure, "id" | "status" | "figure">): boolean {
+  if (BENCHMARKS[kf.id].riktning === "informativ") return kf.figure.value !== null;
+  return visasIHuvudanalys(kf.id) && kf.status !== "okant";
+}
+
+/** True for a figure shown without a status label or benchmark. */
+export function arOgraderatNyckeltal(kf: Pick<KeyFigure, "id" | "status">): boolean {
+  return BENCHMARKS[kf.id].riktning === "informativ" || kf.status === "okant";
 }
 
 /** "över" / "under" / "i linje med" — ±0,5 procentenheter räknas som "i
@@ -538,6 +620,18 @@ export interface ByggarMarkor {
   pdfNotis?: string;
 }
 
+/** Årsredovisningens uppgift är ett värdeår (utdraget säger det): då heter det så. */
+function arVardear(rad: Faltjamforelse): boolean {
+  return /värdeår/i.test(rad.ref?.excerpt ?? "");
+}
+
+/**
+ * Byggårsregeln (2026-10-26): köparens år används alltid när det angetts; ett
+ * annat år i årsredovisningen är en notis ("Årsredovisningen anger X"), aldrig
+ * en "bekräftelse". Utan köparens år visas och används årsredovisningens.
+ * Äldre lagrade resultat kan ha använt rapportens år trots att köparen angav ett
+ * annat (`anvant === rapport`); de behåller sin gamla ordalydelse.
+ */
 export function byggarMarkor(
   rad: Faltjamforelse | undefined,
   inputByggar: number | undefined,
@@ -548,31 +642,29 @@ export function byggarMarkor(
   const utdrag = rad.ref?.excerpt ? ` Ur årsredovisningen: "${rad.ref.excerpt}"` : "";
   const forklaring = `${rad.text}${sida ? ` (${sida})` : ""}${utdrag}`;
   const varde = fran(rad.anvant ?? inputByggar);
-  const motArsredovisning =
-    rad.rapport !== undefined && rad.anvandare !== undefined
-      ? `Årsredovisningen: ${rad.rapport} (du angav ${rad.anvandare})`
-      : undefined;
+  const vardear = arVardear(rad);
+  const rapportAr = rad.rapport !== undefined ? `${vardear ? "värdeår " : ""}${rad.rapport}` : "";
+  const harAvvikandeRapport =
+    rad.rapport !== undefined && rad.anvandare !== undefined && rad.rapport !== rad.anvandare;
+  const rapportAnvandes = harAvvikandeRapport && rad.anvant === rad.rapport;
+  const motArsredovisning = harAvvikandeRapport
+    ? rapportAnvandes
+      ? `Årsredovisningen: ${rapportAr} (du angav ${rad.anvandare})`
+      : `Årsredovisningen anger ${rapportAr}`
+    : undefined;
   const medSida = (t: string) => (sida ? `${t} · ${sida}` : t);
   const pdfMed = (t: string) => (sida ? `${t}, ${sida}` : t);
+  const pdfAvvikelse = rapportAnvandes
+    ? `årsredovisningen: ${rapportAr}, du angav ${rad.anvandare}`
+    : `årsredovisningen anger ${rapportAr}`;
   switch (rad.status) {
-    case "bekraftat":
-      return {
-        varde,
-        markor: { ton: "success", text: "✓ Bekräftat" },
-        forklaring: `Bekräftat av årsredovisningen. ${forklaring}`,
-        pdfNotis: pdfMed("bekräftat"),
-      };
     case "avviker":
       return {
         varde,
         markor: { ton: "warning", text: "Avviker" },
         rad: medSida(motArsredovisning ?? rad.text),
         forklaring,
-        pdfNotis: pdfMed(
-          motArsredovisning
-            ? `årsredovisningen: ${rad.rapport}, du angav ${rad.anvandare}`
-            : "avviker från årsredovisningen",
-        ),
+        pdfNotis: pdfMed(motArsredovisning ? pdfAvvikelse : "avviker från årsredovisningen"),
       };
     case "osakert":
       return {
@@ -582,7 +674,7 @@ export function byggarMarkor(
         forklaring,
         pdfNotis: pdfMed(
           rad.rapport !== undefined
-            ? `årsredovisningen: ${rad.rapport}, osäkert läst`
+            ? `årsredovisningen: ${rapportAr}, osäkert läst`
             : "osäkert mot årsredovisningen",
         ),
       };
@@ -593,24 +685,37 @@ export function byggarMarkor(
           markor: { ton: "warning", text: "Osäkert" },
           rad: rad.text,
           forklaring,
-          pdfNotis: pdfMed(`årsredovisningen: ${rad.rapport}, osäkert, används inte`),
+          pdfNotis: pdfMed(`årsredovisningen: ${rapportAr}, osäkert, används inte`),
         };
       }
       return {
         varde,
-        markor: { ton: "teal", text: "Från årsredovisningen" },
+        markor: {
+          ton: "teal",
+          text: vardear ? "Värdeår enligt årsredovisningen" : "Från årsredovisningen",
+        },
         forklaring,
-        pdfNotis: pdfMed("från årsredovisningen"),
+        pdfNotis: pdfMed(vardear ? "värdeår enligt årsredovisningen" : "från årsredovisningen"),
       };
+    // "bekraftat" is no longer produced; old data is shown like a manual entry.
+    case "bekraftat":
     case "manuellt":
-      return { varde };
+      return motArsredovisning
+        ? {
+            varde,
+            rad: medSida(motArsredovisning),
+            forklaring,
+            pdfNotis: pdfMed(pdfAvvikelse),
+          }
+        : { varde };
   }
 }
 
 /** Den lilla raden under värderingen som säger vilket byggår priset räknats med
- *  när det inte är det köparen angav (eller när köparen inte angav något).
- *  Bara den fullständiga analysen har raden `uppgiftsjamforelse`; på Priskollen
- *  och när året bekräftats/angivits manuellt blir det ingen rad. */
+ *  när det inte är det köparen angav (eller när köparen inte angav något), eller
+ *  när årsredovisningen anger ett annat år än det köparen angav. Bara den
+ *  fullständiga analysen har raden `uppgiftsjamforelse`; på Priskollen och när
+ *  året stämmer blir det ingen rad. */
 export interface ByggarPrisNotis {
   text: string;
   /** Sidhänvisning i årsredovisningen, t.ex. "s. 4" (till källtaggen). */
@@ -619,30 +724,76 @@ export interface ByggarPrisNotis {
 
 export function byggarPrisNotis(rad: Faltjamforelse | undefined): ByggarPrisNotis | undefined {
   if (!rad || rad.falt !== "byggar") return undefined;
+  if (rad.anvant === null) return undefined;
   const sida = rad.ref ? `s. ${rad.ref.page}` : undefined;
   const med = (text: string): ByggarPrisNotis => ({ text, ...(sida ? { sida } : {}) });
-  switch (rad.status) {
-    case "avviker":
-      if (rad.anvant === null || rad.anvandare === undefined) return undefined;
-      return med(
-        `Värderingen räknar med byggår ${rad.anvant} enligt årsredovisningen, inte ${rad.anvandare} som du angav.`,
-      );
-    case "endast_rapport":
-      if (rad.anvant === null) return undefined;
-      return med(`Värderingen räknar med byggår ${rad.anvant} enligt årsredovisningen.`);
-    case "osakert":
-      if (rad.anvandare === undefined || rad.rapport === undefined) return undefined;
-      return med(
-        `Du angav ${rad.anvandare}, årsredovisningen anger ${rad.rapport}. Vi använder ditt år och spannet täcker båda.`,
-      );
-    default:
-      return undefined;
+  const vardear = arVardear(rad);
+  const arNamn = vardear ? "värdeår" : "byggår";
+  if (rad.anvandare === undefined) {
+    return rad.status === "endast_rapport"
+      ? med(`Värderingen räknar med ${arNamn} ${rad.anvant} enligt årsredovisningen.`)
+      : undefined;
   }
+  if (rad.anvant !== rad.anvandare) {
+    // Older results: the report's year was used instead of the buyer's.
+    return med(
+      `Värderingen räknar med ${arNamn} ${rad.anvant} enligt årsredovisningen, inte ${rad.anvandare} som du angav.`,
+    );
+  }
+  if (rad.rapport !== undefined && rad.rapport !== rad.anvandare) {
+    return med(
+      `Värderingen räknar med ditt byggår ${rad.anvandare}. Årsredovisningen anger ${vardear ? "värdeår " : ""}${rad.rapport}.`,
+    );
+  }
+  return undefined;
 }
 
 /** Texten under det justerade värdet (jämförelse mot utgångspriset). */
 export function avvikelseJusteradText(avvikelse: number): string {
   return `Utgångspriset ligger ${Math.abs(avvikelse).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % ${avvikelse > 0 ? "över" : "under"} den justerade värderingen`;
+}
+
+/**
+ * The % line under the shown value. Its wording and colour follow the same
+ * ±10 % span as the summary: inside the span it is neutral and says so ("…, inom
+ * spannet"); outside it is over (danger) / under (success). The percentage is
+ * against the shown value (adjusted when present). Undefined when there is none.
+ */
+export function prisAvvikelseRad(
+  p: Pick<
+    Prisanalys,
+    | "externVardering"
+    | "justeradVardering"
+    | "utgangspris"
+    | "avvikelseMotVardering"
+    | "avvikelseMotJusteradVardering"
+  >,
+): { text: string; ton: Ton } | undefined {
+  const harJusterad = p.justeradVardering !== undefined;
+  const pct = harJusterad ? p.avvikelseMotJusteradVardering : p.avvikelseMotVardering;
+  if (pct === undefined) return undefined;
+  const visat = visatVarde(p);
+  const utgangspris = p.utgangspris?.value ?? null;
+  const lage =
+    visat && utgangspris !== null
+      ? lageMotVardespann(utgangspris, visat.exakt)
+      : pct > 0
+        ? "over"
+        : "under";
+  const procent = Math.abs(pct).toLocaleString("sv-SE", { maximumFractionDigits: 1 });
+  const riktning = pct > 0 ? "över" : "under";
+  if (lage === "inom") {
+    return {
+      text: `Utgångspriset ligger ${procent} % ${riktning} värdet, inom spannet`,
+      ton: "neutral",
+    };
+  }
+  return {
+    text: harJusterad
+      ? avvikelseJusteradText(pct)
+      : `Utgångspriset ligger ${procent} % ${riktning} (jämfört per m²)`,
+    ton: pct > 0 ? "danger" : "success",
+  };
 }
 
 /** Signerad förändring i kr/mån för tabellen: "+312", "−45", "0". */
@@ -731,11 +882,22 @@ export function komponentKalla(k: AvgiftsKomponent): { text: string; fakta: bool
     : { text: "Uppskattning", fakta: false };
 }
 
+/** Component price effects are allocated in steps of 10 kr. */
+const KOMPONENT_PRIS_STEG_KR = 10;
+
 /**
- * Prisbidrag per komponent (kr, signerat; negativt sänker priset). Med
- * justeringens kr-per-kr/mån-faktor: -krPerManad × faktor. Utan faktor delas
- * justeringens belopp proportionellt mot komponenternas kr/mån
- * (`proportionell: true`).
+ * Prisbidrag per komponent (kr, signerat; negativt sänker priset). The ONE place
+ * that computes them, used by the sparande card (`sparKedja`), the waterfall
+ * (`vattenfall`) and the PDF, so the same component shows the same number
+ * everywhere (owner 2026-10-26).
+ *
+ * Exact factor: justeringens belopp ÷ (−prognosens totala kr/mån), i.e. each
+ * component gets its share `belopp × komponentens kr/mån ÷ total` of the exact
+ * adjustment. Each share is rounded to the nearest 10 kr, and the rounding
+ * remainder (belopp − the rounded sum) goes once, here, to the component with the
+ * largest effect (first one on ties), so the components sum EXACTLY to the
+ * adjustment. Without a usable total (null or 0) the shares are taken of the
+ * components' own sum (`proportionell: true`).
  */
 export function komponentPris(
   prisanalys: Pick<Prisanalys, "justeringar">,
@@ -743,19 +905,29 @@ export function komponentPris(
 ): { bidrag: Record<string, number>; proportionell: boolean } {
   const j = prisanalys.justeringar?.find((x) => x.id === "forvantad_avgiftshojning");
   const bidrag: Record<string, number> = {};
-  if (!j) return { bidrag, proportionell: false };
+  const belopp = j?.belopp.value ?? null;
+  if (!j || belopp === null) return { bidrag, proportionell: false };
   const kmp = prognos.komponenter.filter(
-    (k) => k.status === "beraknad" && k.krPerManad !== null && Math.round(k.krPerManad) !== 0,
+    (k) => k.status === "beraknad" && k.krPerManad !== null && k.krPerManad !== 0,
   );
-  if (j.krPerKrManad !== undefined) {
-    for (const k of kmp) bidrag[k.id] = -(k.krPerManad ?? 0) * j.krPerKrManad;
-    return { bidrag, proportionell: false };
-  }
   const summa = kmp.reduce((a, k) => a + (k.krPerManad ?? 0), 0);
-  const total = j.belopp.value;
-  if (summa === 0 || total === null) return { bidrag, proportionell: true };
-  for (const k of kmp) bidrag[k.id] = (total * (k.krPerManad ?? 0)) / summa;
-  return { bidrag, proportionell: true };
+  const total = prognos.totalKrPerManad;
+  const harTotal = total !== null && total !== 0;
+  const namnare = harTotal ? total : summa;
+  if (kmp.length === 0 || namnare === 0) return { bidrag, proportionell: !harTotal };
+
+  const delar = kmp.map((k) => {
+    const exakt = (belopp * (k.krPerManad ?? 0)) / namnare;
+    const avrundat = Math.round(exakt / KOMPONENT_PRIS_STEG_KR) * KOMPONENT_PRIS_STEG_KR;
+    return { id: k.id, exakt, varde: avrundat === 0 ? 0 : avrundat };
+  });
+  const rest = belopp - delar.reduce((a, d) => a + d.varde, 0);
+  if (rest !== 0) {
+    const storst = delar.reduce((a, d) => (Math.abs(d.exakt) > Math.abs(a.exakt) ? d : a));
+    storst.varde += rest;
+  }
+  for (const d of delar) bidrag[d.id] = d.varde;
+  return { bidrag, proportionell: !harTotal };
 }
 
 export interface VattenfallRad {
@@ -782,7 +954,7 @@ export function vattenfall(
   const steg: Array<{ id: string; label: string; c: number; ton: Ton }> = [];
   for (const k of prognos.komponenter) {
     const c = bidrag[k.id];
-    if (c === undefined || Math.round(c) === 0) continue;
+    if (c === undefined || c === 0) continue;
     steg.push({
       id: k.id,
       label: k.label,
@@ -1038,12 +1210,26 @@ export interface LanRad {
   ranta: string;
   fas: string;
   senare: boolean;
+  /** The loan matured on or before the calculation date: shown, never priced. */
+  forfallit: boolean;
   /** This flat's share in kr/mån, or the förening's kr/år when the share is unknown. */
   effekt: string;
   /** The förening's kr/år, secondary; only when `effekt` is the flat's kr/mån. */
   effektForening?: string;
+  /** Whole row as one sentence, for a matured loan ("Förföll … – omsatt till …"). */
+  text?: string;
   ref?: PageRef;
 }
+
+/** Date column: "Rörlig ränta" (no date) for a floating loan, "under 2027" when the
+ *  report gave only the year, else the date. */
+function lanDatum(l: RefinansieringsLan): string {
+  if (l.rorlig) return "Rörlig ränta";
+  if (!l.dag) return "Datum saknas";
+  return l.endastAr ? `under ${l.dag.slice(0, 4)}` : formatDag(l.dag);
+}
+
+export const FORFALLIT_LAN_TEXT = "omsatt till villkor vi inte känner till";
 
 export function lanRader(
   r: NonNullable<Avgiftsprognos["refinansiering"]>,
@@ -1052,10 +1238,26 @@ export function lanRader(
 ): LanRad[] {
   const senareAr = Math.round((r.senareHorisontManader ?? 60) / 12);
   return (r.lan ?? []).map((l: RefinansieringsLan, i) => {
+    const key = `${i}-${l.dag ?? "rorlig"}-${l.belopp}`;
+    if (l.fas === "forfallit") {
+      const forfaller = l.rorlig ? "Rörlig ränta" : l.dag ? `Förföll ${lanDatum(l)}` : "Förföll";
+      return {
+        key,
+        forfaller,
+        belopp: formatVarde(l.belopp, "kr"),
+        ranta: "–",
+        fas: `Omsatt till villkor vi inte känner till`,
+        senare: false,
+        forfallit: true,
+        effekt: "–",
+        text: `${forfaller} – ${FORFALLIT_LAN_TEXT}`,
+        ...(l.ref ? { ref: l.ref } : {}),
+      };
+    }
     const senare = l.fas === "senare";
     return {
-      key: `${i}-${l.dag ?? "rorlig"}-${l.belopp}`,
-      forfaller: l.dag ? formatDag(l.dag) : l.rorlig ? "Rörligt" : "Datum saknas",
+      key,
+      forfaller: lanDatum(l),
       belopp: formatVarde(l.belopp, "kr"),
       ranta:
         l.rantaProcent === null
@@ -1065,6 +1267,7 @@ export function lanRader(
         ? `År ${Math.floor(horisontManader / 12) + 1}–${senareAr} · väger ${Math.round(l.vikt * 100)} %`
         : `≤ ${horisontManader} mån`,
       senare,
+      forfallit: false,
       effekt:
         l.foreningKrPerAr === null
           ? "–"

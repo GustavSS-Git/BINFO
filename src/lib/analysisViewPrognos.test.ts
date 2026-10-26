@@ -26,12 +26,51 @@ describe("analysisView — visuell prognos", () => {
     expect(proportionell).toBe(false);
   });
 
-  it("delar proportionellt när faktorn saknas", () => {
+  it("delar justeringen med den exakta faktorn även när kr-per-kr-fältet saknas", () => {
     const { krPerKrManad: _k, ...j } = a.prisanalys.justeringar![0]!;
     const { bidrag, proportionell } = komponentPris({ justeringar: [j] }, pg);
-    expect(proportionell).toBe(true);
-    expect(bidrag["spargap"]).toBeCloseTo(-90_000);
-    expect(bidrag["refinansiering"]).toBeCloseTo(-150_000);
+    expect(proportionell).toBe(false);
+    expect(bidrag).toEqual({ spargap: -90_000, refinansiering: -150_000 });
+  });
+
+  it("komponenterna summerar exakt till justeringen; restavrundningen går till största posten", () => {
+    // belopp −116 583 ≈ factor 145,72 per kr/mån; the parts round to 10 kr and the
+    // remainder lands once on the largest component.
+    const j = {
+      ...a.prisanalys.justeringar![0]!,
+      belopp: { value: -116_583, unit: "kr" as const, source: "schablon" as const },
+    };
+    const p3 = {
+      ...pg,
+      totalKrPerManad: 800,
+      komponenter: pg.komponenter.map((k) =>
+        k.id === "spargap"
+          ? { ...k, krPerManad: 301 }
+          : k.id === "refinansiering"
+            ? { ...k, krPerManad: 499 }
+            : k,
+      ),
+    };
+    const { bidrag } = komponentPris({ justeringar: [j] }, p3);
+    const summa = Object.values(bidrag).reduce((x, y) => x + y, 0);
+    expect(summa).toBe(-116_583);
+    // Everything but the largest step is a multiple of 10 kr.
+    expect(Math.abs(bidrag["spargap"]!) % 10).toBe(0);
+  });
+
+  it("kortet, vattenfallet och kedjan visar samma belopp per komponent", () => {
+    const { bidrag } = komponentPris(a.prisanalys, pg);
+    const v = vattenfall(a.prisanalys, pg)!;
+    const steg = v.rader.filter((r) => r.typ === "steg").map((r) => r.beloppText);
+    expect(steg).toEqual(
+      pg.komponenter
+        .filter((k) => bidrag[k.id] !== undefined)
+        .map((k) => `−${Math.abs(bidrag[k.id]!).toLocaleString("sv-SE")} kr`),
+    );
+    const kedja = sparKedja(pg, a.prisanalys)!;
+    expect(kedja.steg.find((x) => x.id === "pris")?.varde).toBe(
+      `−${Math.abs(bidrag["spargap"]!).toLocaleString("sv-SE")} kr`,
+    );
   });
 
   it("bygger vattenfallet från baslinje till justerat värde", () => {
@@ -79,5 +118,53 @@ describe("analysisView — visuell prognos", () => {
     expect(flat[0]!.effekt).toBe("+30 kr/mån");
     expect(flat[0]!.effektForening?.replace(/\s/g, " ")).toBe("+36 000 kr/år");
     expect(formatDag("2029-06-01")).toBe("1 juni 2029");
+  });
+
+  it("rörligt lån visas som 'Rörlig ränta' utan datum; endastAr ger 'under <år>'", () => {
+    const refi = pg.refinansiering!;
+    const bas = {
+      belopp: 1_000_000,
+      rantaProcent: 3,
+      rorlig: false,
+      vikt: 1,
+      foreningKrPerAr: 1000,
+    };
+    const rader = lanRader(
+      {
+        ...refi,
+        lan: [
+          { ...bas, rorlig: true, dag: "2026-01-05", fas: "inom_horisont" },
+          { ...bas, dag: "2027-07-01", endastAr: true, fas: "inom_horisont" },
+          { ...bas, dag: "2026-07-01", endastAr: true, fas: "forfallit", foreningKrPerAr: null },
+        ],
+      },
+      24,
+    );
+    expect(rader[0]!.forfaller).toBe("Rörlig ränta");
+    expect(rader[1]!.forfaller).toBe("under 2027");
+    expect(rader[2]!.forfaller).toBe("Förföll under 2026");
+  });
+
+  it("ett förfallet lån visas som 'Förföll … – omsatt till villkor vi inte känner till', utan effekt", () => {
+    const refi = pg.refinansiering!;
+    const forfallet = {
+      belopp: 1_500_000,
+      rantaProcent: 4.49,
+      dag: "2026-09-28",
+      rorlig: false,
+      fas: "forfallit" as const,
+      vikt: 0,
+      foreningKrPerAr: null,
+    };
+    const rader = lanRader({ ...refi, lan: [forfallet, ...(refi.lan ?? [])] }, 24, 0.01);
+    expect(rader[0]).toMatchObject({
+      forfallit: true,
+      senare: false,
+      forfaller: "Förföll 28 september 2026",
+      effekt: "–",
+      text: "Förföll 28 september 2026 – omsatt till villkor vi inte känner till",
+    });
+    expect(rader[0]!.effektForening).toBeUndefined();
+    expect(rader.slice(1).every((l) => !l.forfallit)).toBe(true);
   });
 });

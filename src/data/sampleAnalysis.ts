@@ -3,23 +3,21 @@ import type { AnalysisResult } from "@/types/analysis";
 /**
  * A real AnalysisResult from the real pipeline: Brf Pontonjären 3 (716420-0599),
  * årsredovisning 2025. The apartment input comes from a real listing on
- * Baltzar von Platens gata 6 (Kungsholmen), supplied by the owner.
+ * Baltzar von Platens gata 6 (Kungsholmen), supplied by the owner (sent without
+ * ort and with värme/vatten "ingår", as the form does since 2026-10-26).
  *
- * Generated 2026-10-24 (PROMPT_VERSION 10, sustainable-fee round 2026-10-24c) with
- *   EXTRACT_SPARA_UNDERLAG=<underlag.json> ANTHROPIC_MODEL=claude-sonnet-5-5 \
- *     npm run -s extract -- "<Årsredovisning 2025 (1).pdf>" <input.json>
- * then re-assembled for free with scripts/monteraOm.ts <underlag.json> (last on
- * 2026-10-25 for round 2026-10-25b: rate slider tabs, lokal signals, fee-change check;
- * the extraction is still PROMPT_VERSION 10, so it has no avgiftsandringar).
- * Model claude-sonnet-5-5, valuation model valuation-v3.1, reference rate SSVX
- * 3M 2,068 % (2026-10-23). The fee prognosis is FROZEN at 2026-10-25 here (a
- * live report recomputes it on every read). Regenerate rather than hand-edit.
- * Powers the static example report at src/routes/exempel.tsx.
+ * Generated 2026-10-26 (PROMPT_VERSION 13, consistency round 2026-10-26) with
+ *   EXTRACT_SPARA_UNDERLAG=<underlag.json> ANTHROPIC_MODEL=claude-sonnet-5-5  *     npm run -s extract -- "<Årsredovisning 2025 (1).pdf>" <input.json>
+ * then re-assembled for free with scripts/monteraOm.ts <underlag.json>.
+ * Model claude-sonnet-5-5, valuation model valuation-v3.1. The fee prognosis is
+ * FROZEN at the calculation date below (a live report recomputes it on every
+ * read, so loans past that date would show as matured). Regenerate rather than
+ * hand-edit. Powers the static example report at src/routes/exempel.tsx.
  */
 export const sampleAnalysis: AnalysisResult = {
   schemaVersion: "1.0.0",
   analysisId: "f1b94b65-feef-4efe-85c1-022d3522b202",
-  skapad: "2026-10-25T12:01:29.318Z",
+  skapad: "2026-10-26T20:21:24.533Z",
   input: {
     kind: "bostadsratt",
     utgangspris: 4995000,
@@ -30,14 +28,13 @@ export const sampleAnalysis: AnalysisResult = {
     orgnr: "",
     adress: "Baltzar von Platens gata 6",
     postnummer: "112 42",
-    ort: "Kungsholmen",
     vaning: 4,
     byggar: 1931,
     hiss: "ja",
     balkong: "nej",
     avgiftInkluderar: {
-      varme: "okant",
-      vatten: "okant",
+      varme: "ja",
+      vatten: "ja",
       el: "okant",
       bredband: "okant",
       tv: "okant",
@@ -48,15 +45,6 @@ export const sampleAnalysis: AnalysisResult = {
     namn: "Brf Pontonjären 3",
     orgnr: "716420-0599",
     akta: "ja",
-    byggar: {
-      value: 1931,
-      unit: "ar",
-      source: "arsredovisning",
-      ref: {
-        page: 4,
-        excerpt: "Värdeåret är 1931.",
-      },
-    },
     antalLagenheter: {
       value: 39,
       unit: "antal",
@@ -100,13 +88,13 @@ export const sampleAnalysis: AnalysisResult = {
           },
         },
         status: "acceptabel",
+        forklaring: "Vad du betalar per kvadratmeter och år i avgift.",
         benchmark: {
           value: 833,
           label: "Snitt Stockholm, årsavgift per m² bostadsrättsyta",
           source:
             "Tröskelvärden fastställda i BENCHMARKS.md (produktbeslut). Referenspunkt: Stockholmssnitt ~833 kr/m²/år (HSB Bostadsrättsbarometer 2025, 762 föreningar, räkenskapsår 2024).",
         },
-        forklaring: "Vad du betalar per kvadratmeter och år i avgift.",
       },
       {
         id: "arsavgift_andel_av_rorelseintakter",
@@ -151,13 +139,13 @@ export const sampleAnalysis: AnalysisResult = {
           },
         },
         status: "acceptabel",
+        forklaring: "Hur mycket föreningen har lånat per kvadratmeter bostadsyta.",
         benchmark: {
           value: 7117,
           label: "Riksgenomsnitt, skuldsättning per m² bostadsrättsyta",
           source:
             "Tröskelvärden fastställda i BENCHMARKS.md (produktbeslut). Referenspunkt: riksgenomsnitt ~7 117 kr/m² (2023, Nabo/SCB-härlett).",
         },
-        forklaring: "Hur mycket föreningen har lånat per kvadratmeter bostadsyta.",
       },
       {
         id: "sparande_per_m2_totalyta",
@@ -171,7 +159,7 @@ export const sampleAnalysis: AnalysisResult = {
             excerpt: "Sparande / kvm totalyta, kr 125 184 229 237",
           },
         },
-        status: "god",
+        status: "acceptabel",
         forklaring: "Hur mycket föreningen sparar per kvadratmeter totalyta och år.",
       },
       {
@@ -187,13 +175,14 @@ export const sampleAnalysis: AnalysisResult = {
           },
         },
         status: "acceptabel",
+        forklaring:
+          "Visar hur mycket avgiften skulle behöva höjas om räntan stiger med en procentenhet.",
         benchmark: {
           value: 10.3,
           label: "Riksgenomsnitt, räntekänslighet",
           source:
             "Tröskelvärden fastställda i BENCHMARKS.md (produktbeslut). Referenspunkt: riksgenomsnitt ~10,3 % (2023, Nabo).",
         },
-        forklaring: "Hur mycket avgiften skulle behöva höjas om räntan steg en procentenhet.",
       },
       {
         id: "energikostnad_per_m2_totalyta",
@@ -208,13 +197,13 @@ export const sampleAnalysis: AnalysisResult = {
           },
         },
         status: "acceptabel",
+        forklaring: "Vad föreningen betalar för energi per kvadratmeter och år.",
         benchmark: {
           value: 203,
           label: "Riksgenomsnitt, energikostnad per m² totalyta",
           source:
             "Tröskelvärden fastställda i BENCHMARKS.md (produktbeslut). Referenspunkt: riksgenomsnitt ~203 kr/m²/år (2023, SCB/Nabo).",
         },
-        forklaring: "Vad föreningen betalar för el, värme och vatten per kvadratmeter och år.",
       },
     ],
     avgiftInkluderarEnligtForening: {
@@ -377,15 +366,6 @@ export const sampleAnalysis: AnalysisResult = {
           },
         },
       ],
-      snittranta: {
-        value: 3.12,
-        unit: "procent",
-        source: "arsredovisning",
-        ref: {
-          page: 8,
-          excerpt: "Genomsnittlig skuldränta (%) 3,12 2,83 3,13 1,23",
-        },
-      },
       lan: [
         {
           kreditgivare: "SEB",
@@ -538,14 +518,14 @@ export const sampleAnalysis: AnalysisResult = {
       senastUppdaterad: 2025,
       kommandeAtgarder: [
         {
-          text: "Rensning av ventilations- och imkanaler i samtliga lägenheter och lokaler",
+          text: "Rensning av ventilations- och imkanaler i samtliga lägenheter och lokalen",
           ref: {
             page: 6,
             excerpt: "Rensning av ventilations- och imkanaler i samtliga lägenheter och lokeln.",
           },
         },
         {
-          text: "Balkongbyggnation mot Pontonjärgården (medlemsfinansierat)",
+          text: "Balkongbyggnation mot Pontonjärgården (medlemsfinansierat), planerad byggstart januari 2026",
           ref: {
             page: 6,
             excerpt:
@@ -553,7 +533,7 @@ export const sampleAnalysis: AnalysisResult = {
           },
         },
         {
-          text: "Planering och installation av fastighetsnära insamling (krav enligt lag 2027-01-01)",
+          text: "Planering och installation av fastighetsnära insamling (FNI)",
           ref: {
             page: 6,
             excerpt:
@@ -574,13 +554,6 @@ export const sampleAnalysis: AnalysisResult = {
             excerpt: "Kartläggning av undercentral och plan för byte",
           },
         },
-        {
-          text: "OVK-besiktning",
-          ref: {
-            page: 6,
-            excerpt: "OVK-besiktning",
-          },
-        },
       ],
       ref: {
         page: 5,
@@ -595,84 +568,21 @@ export const sampleAnalysis: AnalysisResult = {
           excerpt: "Fond för yttre underhåll 294 000 1 780 895",
         },
       },
+      arligAvsattning: {
+        value: 288000,
+        unit: "kr",
+        source: "arsredovisning",
+        ref: {
+          page: 9,
+          excerpt: "Reservering fond för yttre underhåll 288 000",
+        },
+      },
     },
     genomfordaAtgarder: [
       {
         byggdel: "stambyte",
-        ar: 1998,
-        text: "Stambyte i del av fastigheten",
-        ref: {
-          page: 6,
-          excerpt: "Stambyte i del av fastigheten",
-        },
-      },
-      {
-        byggdel: "tak",
-        ar: 1999,
-        text: "Takomläggning",
-        ref: {
-          page: 6,
-          excerpt: "Takomläggning",
-        },
-      },
-      {
-        byggdel: "fasad",
-        ar: 1999,
-        text: "Fasadrenovering etapp 1",
-        ref: {
-          page: 6,
-          excerpt: "Fasadrenovering etapp 1",
-        },
-      },
-      {
-        byggdel: "ventilation",
-        ar: 2001,
-        text: "Installation av frånluftventilation",
-        ref: {
-          page: 6,
-          excerpt: "Installation av frånluftventilation och renovering av öppna spisar",
-        },
-      },
-      {
-        byggdel: "fasad",
-        ar: 2005,
-        text: "Fasadrenovering etapp 2",
-        ref: {
-          page: 6,
-          excerpt: "Fasadrenovering etapp 2",
-        },
-      },
-      {
-        byggdel: "fonster",
-        ar: 2012,
-        text: "Fönsterrenovering fas 1",
-        ref: {
-          page: 6,
-          excerpt: "Fönsterrenovering fas 1",
-        },
-      },
-      {
-        byggdel: "fonster",
-        ar: 2013,
-        text: "Fönsterrenovering fas 2",
-        ref: {
-          page: 6,
-          excerpt: "Fönsterrenovering fas 2",
-        },
-      },
-      {
-        byggdel: "stambyte",
-        ar: 2017,
-        text: "Stambyte i del av fastigheten",
-        ref: {
-          page: 6,
-          excerpt: "Stambyte i del av fastigheten",
-        },
-      },
-      {
-        byggdel: "stambyte",
         ar: 2025,
-        text: "Köksstambyte",
+        text: "Köksstambyte avslutat och byte av avloppsstammar i källaren",
         ref: {
           page: 7,
           excerpt: "Köksstambytet avslutades med godkänd slutbesiktning i mars 2025.",
@@ -689,41 +599,66 @@ export const sampleAnalysis: AnalysisResult = {
           excerpt: "Hyresintäkter, lokaler 0 289 180",
         },
       },
+      forlustsignaler: [
+        {
+          text: "Föreningens lokal har inte varit uthyrd och det är en utmaning att hitta lokalhyresgäst",
+          ref: {
+            page: 7,
+            excerpt:
+              "Utmaning att hitta lokalhyresgäst och därför extrastämma under året med stadgeändring för att möjliggöra",
+          },
+        },
+      ],
     },
+    avgiftsandringar: [
+      {
+        procent: {
+          value: 22,
+          unit: "procent",
+          source: "arsredovisning",
+          ref: {
+            page: 7,
+            excerpt: "Årsavgifterna höjdes med 22 % från och med 1 maj 2025",
+          },
+        },
+        fran: "2025-05-01",
+        status: "beslutad",
+        text: "Årsavgifterna höjdes med 22 % från 1 maj 2025.",
+        ref: {
+          page: 7,
+          excerpt: "Årsavgifterna höjdes med 22 % från och med 1 maj 2025",
+        },
+      },
+    ],
     vasentligaHandelser: [
       {
-        text: "Årsavgifterna höjdes med 22 % från 1 maj 2025 på grund av uteblivna hyresintäkter då lokalen inte varit uthyrd.",
+        text: "Årsavgifterna höjdes med 22 % från 1 maj 2025 på grund av uteblivna hyresintäkter från lokalen.",
         ref: {
           page: 7,
           excerpt: "Årsavgifterna höjdes med 22 % från och med 1 maj 2025",
         },
       },
       {
-        text: "I april 2025 upptogs ett lån om 500 000 kr för att täcka återstående kostnader för genomfört stambyte.",
+        text: "Extra föreningsstämma 2025-03-31 beslutade om stadgeändring för lokaluthyrning.",
         ref: {
-          page: 7,
-          excerpt: "upptogs i april 2025 ett lån om 500 000 kr",
+          page: 5,
+          excerpt: "Extra föreningsstämma hölls 2025-03-31. Stadgeändring lokaluthyrning.",
         },
       },
       {
-        text: "Extrastämma hölls med stadgeändring för att möjliggöra bredare uthyrning av lokalen.",
+        text: "Köksstambytet avslutades i mars 2025 och lån om 500 000 kr upptogs i april 2025.",
         ref: {
           page: 7,
-          excerpt: "extrastämma under året med stadgeändring för att möjliggöra bredare uthyrning",
+          excerpt:
+            "I enlighet med fastställd plan upptogs i april 2025 ett lån om 500 000 kr för att täcka",
         },
       },
       {
-        text: "Planeringen av balkongprojektet är färdig, med planerad byggstart i januari 2026.",
+        text: "Ny mäklare för lokalen: avtalet med Nextor avslutades och nytt avtal slöts med Oruz Commercial.",
         ref: {
           page: 7,
-          excerpt: "planerad byggstart i januari 2026",
-        },
-      },
-      {
-        text: "Förstudie för eventuell vindskonvertering har genomförts.",
-        ref: {
-          page: 7,
-          excerpt: "Förstudie för eventuell vindskonvertering genomförd.",
+          excerpt:
+            "Avtal med mäklare Nextor avslutat 22 oktober 2025. Nytt mäklaravtal slöts med Oruz Commercial.",
         },
       },
     ],
@@ -739,37 +674,25 @@ export const sampleAnalysis: AnalysisResult = {
   },
   betyg: "B",
   betygMotivering:
-    "Inget av nyckeltalen är svagt eller kritiskt. Skuldsättningen är låg (3 332 kr/m² totalyta), sparandet är gott (125 kr/m²) och räntekänsligheten är 4,2 %, alltså måttlig. Betyget stannar på B för att 74 % av lånen förfaller redan 2026, för att avgiften nyss höjdes 22 % och nästan hela intäkten nu är avgifter (99,7 %) sedan lokalintäkterna föll bort, och för att huset är från 1931 med en undercentral som ska kartläggas inför byte utan att underhållsfonden (294 000 kr) är stor.",
+    "Alla sju nyckeltal är godkända eller ograderade: inget är svagt eller kritiskt. Skulden är låg (3 617 kr per kvadratmeter bostadsyta) och räntekänsligheten är 4,2 %. Det som håller tillbaka betyget är att avgiften nyligen höjdes med 22 % för att lokalen står tom. Avgiftsintäkterna är nästan hela föreningens intäkter (99,7 %), och lokalen kan fortfarande bli en kostnad för föreningen. Fonden för yttre underhåll är också liten jämfört med den årliga avsättningen. Underhållsplanen uppdaterades 2025 och inga stora, ofinansierade åtgärder syns, men byte av undercentralen är bara kartlagt och saknar kostnad.",
   rodaFlaggor: [
     {
-      id: "lan-forfaller-2026",
-      titel: "Tre fjärdedelar av lånen ska omsättas 2026",
+      id: "tom-lokal-och-avgiftshojning",
+      titel: "Tom lokal och 22 % avgiftshöjning",
       beskrivning:
-        "5 759 091 kr, 74 % av föreningens lån, förfaller 2026. Ett av lånen på 1 180 000 kr har redan 4,49 % ränta, medan övriga ligger på 2,43–2,53 %. Genomsnittsräntan är 3,12 %. Om lånen med lägre ränta omsätts till dyrare villkor ökar räntekostnaden (235 636 kr senaste året) och avgiften kan behöva höjas. Räntekänsligheten på 4,2 % visar att varje procentenhets ränteökning motsvarar cirka 4,2 % högre avgift.",
-      severity: "medel",
-      ref: {
-        page: 18,
-        excerpt: "SEB 2026-03-28 2,53 % 2 926 011",
-      },
-      harledsFran: ["rantekanslighet", "skuldsattning_per_m2_totalyta"],
-    },
-    {
-      id: "avgiftshojning-lokal-outhyrd",
-      titel: "Avgiften höjdes 22 % och lokalen står tom",
-      beskrivning:
-        "Årsavgiften höjdes 22 % från 1 maj 2025 eftersom lokalen inte varit uthyrd. Lokalhyran gav 0 kr, mot 289 180 kr året före. Avgifterna står nu för 99,7 % av intäkterna, så föreningen har ingen buffert om något annat går fel. Avgiften är 861 kr/m², något över Stockholmssnittet 833 kr/m². Eftersom höjningen gäller bara från maj slår den fullt ut först i nästa års siffror, och blir lokalen inte uthyrd kan ytterligare höjning bli aktuell.",
+        "Lokalen gav 0 kr i hyra under året, mot 289 180 kr året före. Föreningen höjde därför årsavgifterna med 22 % från 1 maj 2025. Nästan alla intäkter (99,7 %) kommer nu från medlemmarnas avgifter. Hittas ingen hyresgäst får medlemmarna fortsätta bära bortfallet, och ytterligare höjningar kan inte uteslutas. Hyrs lokalen ut kan trycket på avgiften minska.",
       severity: "medel",
       ref: {
         page: 7,
         excerpt: "Årsavgifterna höjdes med 22 % från och med 1 maj 2025",
       },
-      harledsFran: ["arsavgift_per_m2_brf_yta", "arsavgift_andel_av_rorelseintakter"],
+      harledsFran: ["arsavgift_andel_av_rorelseintakter", "arsavgift_per_m2_brf_yta"],
     },
     {
-      id: "undercentral-och-liten-fond",
-      titel: "Undercentral ska bytas, fonden är liten",
+      id: "undercentral-utan-kostnad",
+      titel: "Byte av undercentral utan kostnadsuppgift",
       beskrivning:
-        "Underhållsplanen nämner kartläggning av undercentralen och plan för byte, och dessutom krävs fastighetsnära insamling enligt lag från 2027-01-01. Fonden för yttre underhåll är 294 000 kr, ned från 1 780 895 kr året före. Kostnaden för bytet anges inte. Betalas det inte ur sparandet (125 kr/m² totalyta) kan det bli lån eller högre avgift för dig som köper.",
+        "Underhållsplanen nämner kartläggning av undercentralen och en plan för byte, men ingen kostnad eller finansiering anges. Fonden för yttre underhåll är 294 000 kr, och årets avsättning är 288 000 kr. Blir bytet dyrt kan pengarna behöva komma från högre avgifter eller nya lån, vilket du som köper då delar på.",
       severity: "medel",
       ref: {
         page: 6,
@@ -778,10 +701,22 @@ export const sampleAnalysis: AnalysisResult = {
       harledsFran: ["sparande_per_m2_totalyta", "skuldsattning_per_m2_totalyta"],
     },
     {
-      id: "energikostnad-aldre-hus",
+      id: "refinansiering-berakning",
+      titel: "59,0 % av lånen får ny ränta inom 24 månader",
+      beskrivning:
+        "4 579 091 kr av föreningens lån (59,0 % av skulden på 7 759 091 kr) får ny ränta inom 24 månader från 26 oktober 2026: rörliga lån på 2 926 011 kr, som följer marknaden löpande, och lån på 1 653 080 kr med villkorsändringsdag inom perioden. Räntan går från i snitt 2,51 % till 2,65 %. Lån på 1 180 000 kr (villkorsändringsdag 28 september 2026) har troligen redan fått nya villkor som vi inte känner till; de räknas inte i beräkningen. Vid dagens ränta höjer det avgiften med ca 13 kr/mån enligt Binfos beräkning.",
+      severity: "medel",
+      ref: {
+        page: 18,
+        excerpt: "SEB 2026-11-28 2,51 % 683 080 699 760",
+      },
+      harledsFran: ["rantekanslighet", "skuldsattning_per_m2_totalyta"],
+    },
+    {
+      id: "energikostnad-over-riktvarde",
       titel: "Energikostnaden ligger över riktvärdet",
       beskrivning:
-        "Energikostnaden är 238 kr/m² mot riktvärdet 203 kr/m². Huset är från 1931, och byggåret är sannolikt en del av förklaringen. Kostnaden betalas ändå via avgiften, och värme ingår i den, så stigande energipriser slår direkt på föreningens ekonomi och därmed på din avgift.",
+        "Energikostnaden är 238 kr per kvadratmeter, mot riktvärdet 203 kr. Statusen är acceptabel, men kostnaden ingår i avgiften, eftersom värme ingår.",
       severity: "lag",
       ref: {
         page: 8,
@@ -816,7 +751,7 @@ export const sampleAnalysis: AnalysisResult = {
     senasteForsaljningarIForeningen: [],
     avvikelseMotVardering: -12.1,
     slutsats:
-      "Utgångspriset ligger 12,1 % under Binfos värderingsmodell för Kungsholmen och ligger inom modellens 90-procentiga intervall. Värderingen speglar prisläget jan–aug 2026 och är en statistisk skattning — inte en besiktning av just den här lägenheten.",
+      "Utgångspriset är i linje med modellen: det ligger inom det ungefärliga spannet 4 990 000 – 6 100 000 kr (±10 %) kring värdet med hänsyn till föreningens ekonomi. Värderingen speglar prisläget jan–aug 2026 och är en statistisk skattning — inte en besiktning av just den här lägenheten.",
     konfidens: {
       niva: "medel",
       skal: [
@@ -889,27 +824,27 @@ export const sampleAnalysis: AnalysisResult = {
         id: "forvantad_avgiftshojning",
         label: "Föreningens ekonomi",
         belopp: {
-          value: -107750,
+          value: -134109,
           unit: "kr",
           source: "berakning",
         },
         krPerKrManad: 290,
         forklaring:
-          "Årsredovisningen pekar på att din avgift kan stiga med cirka 372 kr i månaden inom 24 månader. I Binfos data hänger en högre månadsavgift ihop med ett lägre pris, ungefär 290 kr per krona i månadsavgift för en lägenhet som den här. Det är ett statistiskt samband, inte ett orsakssamband.",
+          "Årsredovisningen pekar på att din avgift kan stiga med cirka 463 kr i månaden inom 24 månader. I Binfos data hänger en högre månadsavgift ihop med ett lägre pris, ungefär 290 kr per krona i månadsavgift för en lägenhet som den här. Det är ett statistiskt samband, inte ett orsakssamband.",
       },
     ],
     justeradVardering: {
-      value: 5573857,
+      value: 5547498,
       unit: "kr",
       source: "schablon",
       schablonBasis:
         "Binfos värdering justerad för den avgiftshöjning årsredovisningen pekar på, med modellens samband mellan månadsavgift och pris.",
       range: {
-        low: 4561451,
-        high: 6562290,
+        low: 4535092,
+        high: 6535931,
       },
     },
-    avvikelseMotJusteradVardering: -10.4,
+    avvikelseMotJusteradVardering: -10,
     breddningsskal: [
       "Spannet är bredare nedåt, med 3 % av värderingen, eftersom årsredovisningen saknar underlag för: underhåll utan finansiering. Det ändrar inte det beräknade värdet.",
     ],
@@ -988,20 +923,20 @@ export const sampleAnalysis: AnalysisResult = {
         {
           id: "forvantad",
           label: "Förväntad avgift (oförändrad ränta)",
-          manadsavgift: 3875,
-          forandringKr: 372,
+          manadsavgift: 3966,
+          forandringKr: 463,
         },
         {
           id: "plus1",
           label: "+1 procentenhet",
-          manadsavgift: 4022,
-          forandringKr: 519,
+          manadsavgift: 4113,
+          forandringKr: 610,
         },
         {
           id: "plus2",
           label: "+2 procentenheter",
-          manadsavgift: 4169,
-          forandringKr: 666,
+          manadsavgift: 4260,
+          forandringKr: 757,
         },
       ],
       kommentar:
@@ -1010,75 +945,79 @@ export const sampleAnalysis: AnalysisResult = {
   },
   fragor: [
     {
-      id: "fraga-omsattning-2026",
+      id: "fraga-lokal-hyresgast",
       fraga:
-        "Vilka räntor har styrelsen fått offert på för lånen på 5 759 091 kr som förfaller 2026, och vad blir avgiften om de landar på dagens nivå?",
+        "Finns det en hyresgäst eller ett påskrivet hyresavtal för lokalen, och vilken hyra räknar styrelsen med?",
       ursprung: "analys",
       riktadTill: "styrelsen",
-      varfor:
-        "74 % av lånen förfaller 2026 och ett av dem har redan 4,49 % ränta medan andra ligger på 2,43–2,53 %.",
+      varfor: "Lokalen gav 0 kr i hyra och avgiften höjdes med 22 % för att täcka bortfallet.",
       ref: {
-        page: 18,
-        excerpt: "SEB 2026-09-28 4,49 % 1 180 000 1 180 000",
+        page: 7,
+        excerpt:
+          "Utmaning att hitta lokalhyresgäst och därför extrastämma under året med stadgeändring för att möjliggöra",
       },
       svarssignal:
-        "Bra svar: styrelsen har offerter och har räknat in dem i budgeten utan ny avgiftshöjning. Varningssignal: att inget är undersökt eller att ytterligare höjning är sannolik.",
+        "Bra svar: ett signerat avtal med en hyra som täcker bortfallet. Varningssignal: att uthyrningen fortfarande bara är på planeringsstadiet.",
     },
     {
-      id: "fraga-ny-avgiftshojning",
+      id: "fraga-fler-avgiftshojningar",
       fraga:
-        "Är någon ytterligare avgiftshöjning beslutad eller planerad, och vad förutsätter budgeten för lokalens hyra 2026?",
+        "Har styrelsen beslutat om eller planerar den ytterligare avgiftshöjningar utöver höjningen på 22 %?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:
-        "Avgiften höjdes 22 % från 1 maj 2025 eftersom lokalen stod outhyrd och hyresintäkterna var 0 kr.",
+        "Avgiften höjdes med 22 % från 1 maj 2025 och intäkterna bärs nästan helt av avgifterna.",
       ref: {
         page: 7,
         excerpt: "Årsavgifterna höjdes med 22 % från och med 1 maj 2025",
       },
       svarssignal:
-        "Bra svar: budgeten klarar sig utan lokalhyra och ingen höjning är planerad. Varningssignal: att budgeten räknar med hyra från en lokal som ännu inte har någon hyresgäst.",
-    },
-    {
-      id: "fraga-lokal-uthyrning",
-      fraga:
-        "Finns det en hyresgäst eller ett avtal för lokalen efter stadgeändringen, och när börjar hyran i så fall komma in?",
-      ursprung: "analys",
-      riktadTill: "styrelsen",
-      varfor:
-        "Extrastämman ändrade stadgarna för bredare uthyrning, men lokalintäkterna föll från 289 180 kr till 0 kr.",
-      ref: {
-        page: 7,
-        excerpt: "extrastämma under året med stadgeändring för att möjliggöra bredare uthyrning",
-      },
+        "Bra svar: budgeten går ihop utan fler höjningar även om lokalen förblir tom. Varningssignal: att styrelsen räknar med fler höjningar om lokalen inte hyrs ut.",
     },
     {
       id: "fraga-undercentral-kostnad",
-      fraga:
-        "Vad beräknas bytet av undercentralen kosta, när ska det göras och hur ska det betalas?",
+      fraga: "Vad beräknas ett byte av undercentralen kosta, och hur ska det finansieras?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:
-        "Underhållsplanen nämner byte av undercentral, men fonden för yttre underhåll är bara 294 000 kr.",
+        "Underhållsplanen nämner byte av undercentral utan kostnad, och underhållsfonden är 294 000 kr.",
       ref: {
         page: 6,
         excerpt: "Kartläggning av undercentral och plan för byte",
       },
       svarssignal:
-        "Bra svar: en kostnadsuppskattning finns och finansieringen är avsatt. Varningssignal: att kostnaden är okänd eller att lån är enda lösningen.",
+        "Bra svar: en kalkyl finns och täcks av fonden och avsättningarna. Varningssignal: att kostnaden är okänd eller att lån eller avgiftshöjning redan är förutsatt.",
     },
     {
-      id: "fraga-fni-vindskonvertering",
+      id: "fraga-fond-minskning",
       fraga:
-        "Vad kostar fastighetsnära insamling, och vad kan en eventuell vindskonvertering betyda för föreningens ekonomi och mina avgifter?",
+        "Varför minskade fonden för yttre underhåll från 1 780 895 kr till 294 000 kr, och vad användes pengarna till?",
       ursprung: "analys",
       riktadTill: "styrelsen",
       varfor:
-        "Insamlingen är lagkrav från 2027-01-01 och en förstudie för vindskonvertering är genomförd, men inga kostnader redovisas.",
+        "Fonden är nu 294 000 kr medan årets avsättning är 288 000 kr, och köksstambytet avslutades under året.",
       ref: {
-        page: 7,
-        excerpt: "Förstudie för eventuell vindskonvertering genomförd.",
+        page: 12,
+        excerpt: "Fond för yttre underhåll 294 000 1 780 895",
       },
+      svarssignal:
+        "Bra svar: fonden användes till det avslutade stambytet enligt plan. Varningssignal: att en del gått till löpande kostnader.",
+    },
+    {
+      id: "fraga-balkonger",
+      fraga:
+        "Kan balkongbyggnationen mot Pontonjärgården medföra några kostnader eller risker för föreningen, eller bärs allt av de medlemmar som beställer?",
+      ursprung: "analys",
+      riktadTill: "styrelsen",
+      varfor:
+        "Balkongerna är markerade som medlemsfinansierade med planerad byggstart i januari 2026.",
+      ref: {
+        page: 6,
+        excerpt:
+          "Balkongbyggnation mot Pontonjärgården(medlemsfinansierat) hos intresserade medlemmar.",
+      },
+      svarssignal:
+        "Bra svar: varje beställande medlem står för hela kostnaden och föreningen har inga åtaganden. Varningssignal: att föreningen går i borgen eller förskotterar pengar.",
     },
     {
       id: "saknad-avgift-bredband",
@@ -1099,18 +1038,12 @@ export const sampleAnalysis: AnalysisResult = {
     },
     kalla: "textlager",
     uppgifterKanda: 4,
-    uppgifterTotalt: 9,
-    saknadeFalt: [
-      "avgiftInkluderar.varme",
-      "avgiftInkluderar.vatten",
-      "avgiftInkluderar.el",
-      "avgiftInkluderar.bredband",
-      "avgiftInkluderar.tv",
-    ],
+    uppgifterTotalt: 7,
+    saknadeFalt: ["avgiftInkluderar.el", "avgiftInkluderar.bredband", "avgiftInkluderar.tv"],
   },
   avgiftsprognos: {
     horisontManader: 24,
-    berakningsdatum: "2026-10-25",
+    berakningsdatum: "2026-10-26",
     andel: {
       varde: 0.023659700161873864,
       metod: "avgiftsandel",
@@ -1120,10 +1053,10 @@ export const sampleAnalysis: AnalysisResult = {
         id: "spargap",
         label: "Sparande mot underhållsbehov",
         status: "beraknad",
-        foreningKrPerAr: 203788,
+        foreningKrPerAr: 228242,
         forklaring:
-          "Behovet är cirka 300 kr/m² per år (schablon), föreningen sparar 125 kr/m², ett glapp på 175 kr/m², varav 50 % räknas med.",
-        krPerManad: 402,
+          "Sparandet är 125 kr/m² mot Binfos mål 321 kr/m² (schablonen 300 kr/m², justerad för byggnadsdelarnas ålder) – ett glapp på 196 kr/m². Vi räknar halva glappet på föreningens totalyta 2 329 m²: 228 242 kr/år. Din andel är 2,37 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 1,78 mkr), alltså ca 450 kr/mån.",
+        krPerManad: 450,
         ref: {
           page: 8,
           excerpt: "Sparande / kvm totalyta, kr 125 184 229 237",
@@ -1134,10 +1067,10 @@ export const sampleAnalysis: AnalysisResult = {
         id: "refinansiering",
         label: "Lån som ska omsättas",
         status: "beraknad",
-        foreningKrPerAr: -15226,
+        foreningKrPerAr: 6510,
         forklaring:
-          "5 759 091 kr av lånen ska omsättas inom 24 månader. Räntan går från i snitt 2,91 % till 2,65 % (3-månaders statsskuldväxel 2,07 % plus 0,58 procentenheter), vilket sänker föreningens kostnad med cirka 15 226 kr per år.",
-        krPerManad: -30,
+          "Lån på 1 180 000 kr hade villkorsändringsdag 28 september 2026 och har troligen redan fått nya villkor som vi inte känner till; de räknas inte. 4 579 091 kr av lånen ska omsättas inom 24 månader. Räntan går från i snitt 2,51 % till 2,65 % (3-månaders statsskuldväxel 2,07 % plus 0,58 procentenheter), vilket höjer föreningens kostnad med cirka 6 510 kr per år. Din andel är 2,37 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 1,78 mkr), alltså ca 13 kr/mån.",
+        krPerManad: 13,
         ref: {
           page: 18,
           excerpt: "SEB 2026-11-28 2,51 % 683 080 699 760",
@@ -1188,17 +1121,17 @@ export const sampleAnalysis: AnalysisResult = {
         krPerManad: null,
       },
     ],
-    totalKrPerManad: 372,
+    totalKrPerManad: 463,
     tryck: "rod",
     sparbehov: {
-      malKrPerM2: 300,
+      malKrPerM2: 321,
       malKalla: "schablon",
       sparandeKrPerM2: 125,
       sparandeRef: {
         page: 8,
         excerpt: "Sparande / kvm totalyta, kr 125 184 229 237",
       },
-      glappKrPerM2: 175,
+      glappKrPerM2: 196,
       totalyta: 2329,
       dampning: 0.5,
       byggdelar: [
@@ -1220,62 +1153,46 @@ export const sampleAnalysis: AnalysisResult = {
         {
           byggdel: "tak",
           label: "Tak",
-          senast: 1999,
-          senastKalla: "atgard",
+          senast: 1931,
+          senastKalla: "byggar",
           livslangd: {
             lag: 20,
             hog: 60,
           },
-          status: "ok",
-          ref: {
-            page: 6,
-            excerpt: "Takomläggning",
-          },
+          status: "eftersatt",
         },
         {
           byggdel: "fasad",
           label: "Fasad",
-          senast: 2005,
-          senastKalla: "atgard",
+          senast: 1931,
+          senastKalla: "byggar",
           livslangd: {
             lag: 20,
             hog: 100,
           },
           status: "ok",
-          ref: {
-            page: 6,
-            excerpt: "Fasadrenovering etapp 2",
-          },
         },
         {
           byggdel: "fonster",
           label: "Fönster",
-          senast: 2013,
-          senastKalla: "atgard",
+          senast: 1931,
+          senastKalla: "byggar",
           livslangd: {
             lag: 40,
             hog: 60,
           },
-          status: "nyligen",
-          ref: {
-            page: 6,
-            excerpt: "Fönsterrenovering fas 2",
-          },
+          status: "eftersatt",
         },
         {
           byggdel: "ventilation",
           label: "Ventilation",
-          senast: 2001,
-          senastKalla: "atgard",
+          senast: 1931,
+          senastKalla: "byggar",
           livslangd: {
             lag: 20,
             hog: 100,
           },
           status: "ok",
-          ref: {
-            page: 6,
-            excerpt: "Installation av frånluftventilation och renovering av öppna spisar",
-          },
         },
         {
           byggdel: "el",
@@ -1302,8 +1219,8 @@ export const sampleAnalysis: AnalysisResult = {
       ],
     },
     refinansiering: {
-      forfallandeBelopp: 5759091,
-      nuvarandeRantaProcent: 2.91,
+      forfallandeBelopp: 4579091,
+      nuvarandeRantaProcent: 2.51,
       nyRantaProcent: 2.648,
       referensranta: {
         namn: "3-månaders statsskuldväxel",
@@ -1314,8 +1231,21 @@ export const sampleAnalysis: AnalysisResult = {
         reserv: false,
       },
       marginalProcent: 0.58,
-      antalLan: 4,
+      antalLan: 3,
       lan: [
+        {
+          belopp: 1180000,
+          rantaProcent: 4.49,
+          dag: "2026-09-28",
+          rorlig: false,
+          fas: "forfallit",
+          vikt: 0,
+          foreningKrPerAr: null,
+          ref: {
+            page: 18,
+            excerpt: "SEB 2026-09-28 4,49 % 1 180 000 1 180 000",
+          },
+        },
         {
           belopp: 683080,
           rantaProcent: 2.51,
@@ -1327,19 +1257,6 @@ export const sampleAnalysis: AnalysisResult = {
           ref: {
             page: 18,
             excerpt: "SEB 2026-11-28 2,51 % 683 080 699 760",
-          },
-        },
-        {
-          belopp: 1180000,
-          rantaProcent: 4.49,
-          dag: "2026-09-28",
-          rorlig: false,
-          fas: "inom_horisont",
-          vikt: 1,
-          foreningKrPerAr: -21736,
-          ref: {
-            page: 18,
-            excerpt: "SEB 2026-09-28 4,49 % 1 180 000 1 180 000",
           },
         },
         {
@@ -1377,14 +1294,9 @@ export const sampleAnalysis: AnalysisResult = {
       falt: "byggar",
       label: "Byggår",
       anvandare: 1931,
-      rapport: 1931,
-      status: "bekraftat",
+      status: "manuellt",
       anvant: 1931,
-      text: "Du angav 1931 och årsredovisningen anger samma år.",
-      ref: {
-        page: 4,
-        excerpt: "Värdeåret är 1931.",
-      },
+      text: "Finns inte i årsredovisningen, du angav 1931.",
     },
     {
       falt: "antalLagenheter",
@@ -1438,11 +1350,11 @@ export const sampleAnalysis: AnalysisResult = {
   gratisSektioner: ["betyg", "rodaFlaggor_topp2", "datakvalitet"],
   sammanfattning: {
     betyg:
-      "Föreningen får betyget B. Ekonomin ser stabil ut, med några punkter att hålla koll på. Viktigast att känna till: Tre fjärdedelar av lånen ska omsättas 2026.",
-    pris: "Värdet med hänsyn till föreningens ekonomi är ca 5 570 000 kr. Jämförbara lägenheter säljs för ca 5 680 000 kr. Utgångspriset 4 995 000 kr ligger 10,4 % under värderingen. Bostäder i Kungsholmen har i mitten sålts för 5,4 % över utgångspriset. Ett slutpris på den nivån, ca 5 270 000 kr, skulle ligga 5,5 % under Binfos värdering, så priset kan vara attraktivt även efter en vanlig budgivning.",
+      "Föreningen får betyget B. Ekonomin ser stabil ut, med några punkter att hålla koll på. Viktigast att känna till: Tom lokal och 22 % avgiftshöjning.",
+    pris: "Värdet med hänsyn till föreningens ekonomi är ca 5 550 000 kr. Jämförbara lägenheter säljs för ca 5 680 000 kr. Utgångspriset 4 995 000 kr ligger i linje med modellen, inom det ungefärliga spannet 4 990 000 – 6 100 000 kr (±10 %). Bostäder i Kungsholmen har i mitten sålts för 5,4 % över utgångspriset. Ett slutpris på den nivån, ca 5 270 000 kr, skulle ligga i linje med modellen.",
     avgift:
-      "Utifrån årsredovisningen väntar vi oss att avgiften höjs med ca 370 kr i månaden under de närmaste två åren, från 3 503 till ungefär 3 880 kr. Störst påverkan: sparande mot underhållsbehov. För en del saknas underlag i årsredovisningen, så höjningen kan bli större.",
+      "Utifrån årsredovisningen väntar vi oss att avgiften höjs med ca 460 kr i månaden under de närmaste två åren, från 3 503 till ungefär 3 970 kr. Störst påverkan: sparande mot underhållsbehov. 59,0 % av lånen (4 579 091 kr) får ny ränta inom 24 månader, vilket vid dagens ränta höjer avgiften med ca 13 kr/mån; lån på 1 180 000 kr har troligen redan fått nya villkor som vi inte känner till. För en del saknas underlag i årsredovisningen, så höjningen kan bli större.",
     slutsats:
-      "Sammantaget: betyg B, en värdering på ca 5 570 000 kr och en väntad avgiftshöjning på ca 370 kr i månaden. Det här är underlag, inte ett råd — gå igenom frågorna till styrelsen och mäklaren innan du bestämmer hur mycket du vill bjuda.",
+      "Sammantaget: betyg B, en värdering på ca 5 550 000 kr och en väntad avgiftshöjning på ca 460 kr i månaden. Det här är underlag, inte ett råd — gå igenom frågorna till styrelsen och mäklaren innan du bestämmer hur mycket du vill bjuda.",
   },
 };

@@ -43,7 +43,6 @@ const TOM_FORM: AnalyseraFormFields = {
   organisationsnummer: "",
   adress: "",
   postnummer: "",
-  ort: "",
   antalRum: "",
   byggar: "",
 };
@@ -226,11 +225,16 @@ describe("tillampaAnnons", () => {
       vaning: "3",
       byggar: "1931",
       adress: "Sandelsgatan 35",
-      ort: "Stockholm",
     });
     expect(r.hiss).toBe("ja");
     expect(r.balkong).toBe("ja");
-    for (const falt of ANNONS_FALT) expect(r.lage.ursprung[falt]).toBe("booli");
+    for (const falt of ANNONS_FALT.filter((f) => f !== "ort")) {
+      expect(r.lage.ursprung[falt]).toBe("booli");
+    }
+    // Ort has no form field (owner 2026-10-26): never copied in, never shown.
+    expect("ort" in r.form).toBe(false);
+    expect(r.lage.ursprung.ort).toBe("saknas");
+    expect(annonsFaltVisning(r.lage, "ort", "")).toEqual({});
     expect(r.lage.kalla).toEqual({
       url: "https://www.booli.se/annons/6279984",
       hamtad: "2026-10-24T10:00:00.000Z",
@@ -356,7 +360,6 @@ describe("tillampaAnnons", () => {
         "postnummer",
         "vaning",
         "byggar",
-        "ort",
       ] as const) {
         expect(andra.form[falt]).toBe("");
         expect(andra.lage.ursprung[falt]).toBe("saknas");
@@ -402,10 +405,9 @@ describe("tillampaAnnons", () => {
     });
 
     it("utan föregående läge behålls det köparen skrivit (första hämtningen)", () => {
-      const fore: AnalyseraFormFields = { ...TOM_FORM, manadsavgift: "3 000", ort: "Solna" };
+      const fore: AnalyseraFormFields = { ...TOM_FORM, manadsavgift: "3 000" };
       const r = tillampaAnnons(fore, { hiss: "nej", balkong: "ja" }, ANDRA, null);
       expect(r.form.manadsavgift).toBe("3 000");
-      expect(r.form.ort).toBe("Solna");
       expect(r.hiss).toBe("nej");
       expect(r.balkong).toBe("ja");
       expect(r.lage.ursprung.manadsavgift).toBe("saknas");
@@ -450,8 +452,8 @@ describe("markeraAndrad", () => {
   it("saknas förblir saknas, och manuellt förblir manuellt", () => {
     expect(lage.ursprung.byggar).toBe("saknas");
     expect(markeraAndrad(lage, "byggar")).toBe(lage);
-    const m = markeraAndrad(lage, "ort");
-    expect(markeraAndrad(m, "ort")).toBe(m);
+    const m = markeraAndrad(lage, "adress");
+    expect(markeraAndrad(m, "adress")).toBe(m);
   });
 
   it("fält utanför annonsen (andelstal) ändrar inget", () => {
@@ -479,11 +481,10 @@ describe("tillAnnonsKalla", () => {
         "byggar",
         "balkong",
         "adress",
-        "ort",
       ],
     });
     expect(kalla.oandradeFalt).toEqual(
-      ANNONS_FALT.filter((f) => f !== "utgangspris" && f !== "hiss"),
+      ANNONS_FALT.filter((f) => f !== "utgangspris" && f !== "hiss" && f !== "ort"),
     );
   });
 
@@ -516,7 +517,6 @@ describe("tillAnnonsKalla mot det strikta schemat", () => {
         antalRum: "2",
         manadsavgift: "2 618",
         adress: "A 1",
-        ort: "S",
       },
       {
         hiss: "okant",

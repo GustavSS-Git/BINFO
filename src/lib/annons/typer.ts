@@ -36,7 +36,7 @@ export interface AnnonsUppgifter {
   adress?: string;
   /** "NNN NN" */
   postnummer?: string;
-  /** Kommun, e.g. "Stockholm", "Lidingö" (the form's "Ort"). */
+  /** Kommun, e.g. "Stockholm", "Lidingö" (the form has no Ort field since 2026-10-26; only the server geocoder uses it). */
   ort?: string;
   utgangspris?: number;
   manadsavgift?: number;

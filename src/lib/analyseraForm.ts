@@ -120,7 +120,6 @@ export interface AnalyseraFormFields {
   organisationsnummer: string;
   adress: string;
   postnummer: string;
-  ort: string;
   antalRum: string;
   byggar: string;
 }
@@ -137,7 +136,6 @@ export interface AnalyseraFormFel {
   antalRum: string | null;
   adress: string | null;
   postnummer: string | null;
-  ort: string | null;
 }
 
 /** Felet för ett obligatoriskt postnummer (`null` = giltigt). Delas av
@@ -168,7 +166,6 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
     adress: f.adress.trim() === "" ? "Ange adress." : null,
     postnummer: valideraPostnummer(f.postnummer),
-    ort: f.ort.trim() === "" ? "Ange ort." : null,
   };
 }
 
@@ -229,7 +226,6 @@ export function buildPropertyInput(
     orgnr: "",
     adress: form.adress.trim(),
     postnummer: form.postnummer.trim(),
-    ort: form.ort.trim(),
     ...(utgangspris !== null ? { utgangspris: Math.round(utgangspris) } : {}),
     ...(vaning !== undefined ? { vaning } : {}),
     ...(byggar !== undefined ? { byggar } : {}),

@@ -124,7 +124,8 @@ describe("profilens listor", () => {
     expect(html).toContain("Betyg B");
     expect(html).toContain("Utgångspris 4 950 000 kr");
     expect(html).toContain("Ta bort från listan");
-    expect(html).toContain("Värdering 5 681 607 kr");
+    // Saved valuations are shown rounded to 10 000 kr like every other valuation.
+    expect(html).toContain("Värdering 5 680 000 kr");
     expect(html).toContain("Kungsholmen");
     // Old summaries (no upper bound) show one figure, labelled as after ränteavdrag.
     expect(html).toContain("14 500 kr i månaden efter ränteavdrag");

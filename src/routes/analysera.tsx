@@ -115,7 +115,6 @@ const TOM_FORM: AnalyseraFormFields = {
   organisationsnummer: "",
   adress: "",
   postnummer: "",
-  ort: "",
   antalRum: "",
   byggar: "",
 };
@@ -201,7 +200,7 @@ function Analysera() {
   const [fil, setFil] = useState<File | null>(null);
   const [filFel, setFilFel] = useState<string | null>(null);
   const [visaFilFel, setVisaFilFel] = useState(false);
-  // Två flaggor: priskollen (steg 1) ska inte markera adress/ort som fel.
+  // Två flaggor: priskollen (steg 1) ska inte markera adress som fel.
   const [visaFelSteg1, setVisaFelSteg1] = useState(false);
   const [visaFelSteg2, setVisaFelSteg2] = useState(false);
   const [skickar, setSkickar] = useState(false);
@@ -477,7 +476,7 @@ function Analysera() {
         title="Analysera en bostad"
         lead={
           franRegister
-            ? "Börja med en gratis priskoll. Föreningens årsredovisning har vi redan, så för BRF-analysen i steg 2 behöver du bara lägga till adress och ort — uppgifterna du redan fyllt i följer med."
+            ? "Börja med en gratis priskoll. Föreningens årsredovisning har vi redan, så för BRF-analysen i steg 2 behöver du bara lägga till adressen — uppgifterna du redan fyllt i följer med."
             : "Börja med en gratis priskoll. Vill du granska föreningen också laddar du upp årsredovisningen i steg 2 — uppgifterna du redan fyllt i följer med."
         }
       />
@@ -833,7 +832,7 @@ function Analysera() {
             {formatSkapadDatum(franRegister.senaste.analysdatum)}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Du behöver bara fylla i lägenhetens uppgifter i steg 1 samt adress och ort nedan.
+            Du behöver bara fylla i lägenhetens uppgifter i steg 1 samt adressen nedan.
           </p>
           <p className="mt-3 text-sm">
             <Link
@@ -940,16 +939,6 @@ function Analysera() {
             onChange={set("adress")}
             error={visaFelSteg2 ? fel.adress : null}
             {...annonsVisning("adress", form.adress)}
-          />
-          <Field
-            id="falt-ort"
-            label="Ort"
-            type="text"
-            placeholder="Stockholm"
-            value={form.ort}
-            onChange={set("ort")}
-            error={visaFelSteg2 ? fel.ort : null}
-            {...annonsVisning("ort", form.ort)}
           />
         </div>
 

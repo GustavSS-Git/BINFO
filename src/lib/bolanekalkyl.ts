@@ -151,7 +151,6 @@ export function buildMinimalPropertyInput(fields: MinimalPropertyInputFields): P
     orgnr: "",
     adress: "",
     postnummer: "",
-    ort: "",
     hiss: "okant",
     balkong: "okant",
     avgiftInkluderar: fields.avgiftInkluderar,

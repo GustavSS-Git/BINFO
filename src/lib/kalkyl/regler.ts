@@ -10,16 +10,22 @@
  * - antagande:  Binfos eget antagande, inte reglerat (kalkylränta, bankernas skuldkvot).
  * - schablon:   Binfos schablon utan källa ("Schablon (uppskattning)").
  *
+ * Hushållsel och hemförsäkring i drift-schablonerna är Konsumentverkets
+ * tabellvärden per antal personer (kv_gemensam_hushallsel_N /
+ * kv_gemensam_hemforsakring_N nedan, calc/schabloner.ts slår upp dem).
+ *
  * Nya eller ändrade värden kräver en ny post/ny `verifierad`-dag. Inga
  * konstanter får läggas till utan källa; saknas källan märks posten
- * `verifierad: null` och `TODO: unverified placeholder`.
+ * `verifierad: null` och visas för användaren som "Binfos uppskattning"
+ * (aldrig med TODO-text; ett test i regler.test.ts vaktar det).
+ * TODO: unverified placeholder — bredband och skuldkvot_bankstak saknar källa.
  */
 
 /** Version of this registry, stored with every saved kalkyl
  *  (`sparad_kalkyl.regelversion`). Bump it (date of the change) whenever a
  *  rule's value or a formula changes, so a saved kalkyl shows which rules it
  *  was computed with. */
-export const REGELVERSION = "2026-10-13";
+export const REGELVERSION = "2026-10-26b";
 
 export type RegelGrupp =
   | "Bolån och amortering"
@@ -620,7 +626,7 @@ const STATISKA = [
     grupp: "Antaganden",
     status: "antagande",
     anmarkning:
-      "Inte reglerad: varje bank bestämmer sin egen kalkylränta. 7 % är Binfos förvalda antagande (ägarbeslut 2026-10-12) och kan ändras av användaren.",
+      "Inte reglerad: varje bank bestämmer sin egen kalkylränta. 7 % är Binfos antagande och förvalda värde. Du kan ändra det.",
   }),
   r("skuldkvot_bankstak", {
     namn: "Bankernas typiska tak för skuldkvot (lån ÷ bruttoårsinkomst)",
@@ -632,7 +638,7 @@ const STATISKA = [
     grupp: "Antaganden",
     status: "antagande",
     anmarkning:
-      "TODO: unverified placeholder. Banker anges ofta ligga på 5–6 gånger bruttoårsinkomsten (sekundära källor, ej reglerat). Visas bara som information och styr aldrig amorteringen.",
+      "Binfos uppskattning. Vi har inte hittat något publicerat tak från bankerna, så 5 gånger bruttoårsinkomsten är ett antagande. För sammanhang: bland köpare 2025 lånade 7,1 % mer än 4,5 gånger inkomsten och 1,8 % mer än 5,5 gånger (Finansinspektionen, Svenska bolån 2025). Visas bara som information och styr aldrig amorteringen.",
   }),
   r("kalp_mat", {
     namn: "Matkostnad i KALP",
@@ -694,47 +700,54 @@ export type RegelId = (typeof STATISKA)[number]["id"];
 // ---------------------------------------------------------------------------
 
 const SCHABLON_NOT =
-  "TODO: unverified placeholder. Inte hämtad från SCB eller Energimyndigheten; ersätts när en källa finns.";
+  "Binfos uppskattning. Beloppet är en grov uppskattning av en typisk kostnad och bygger inte på någon publicerad källa. Skriv över det med ditt eget belopp om du vet bättre.";
 
-function schablonRegel(id: string, namn: string, varde: number, enhet: string): Regel {
-  return {
-    id,
-    namn,
-    varde,
-    enhet,
-    kalla: { titel: "Binfos schablon (ingen källa)", url: null },
+const NILS_HOLGERSSON = {
+  titel: "Nils Holgersson-gruppen: Nils Holgersson 2026, bilaga 1a",
+  url: "https://nilsholgersson.nu/wp-content/uploads/2026/10/Nils-Holgersson-2026-Slutrapport-Bilaga-1-4.pdf",
+};
+
+const SCHABLONER: Regel[] = [
+  {
+    id: "schablon_varme_per_m2",
+    namn: "Värme: per m² boarea och månad (räknas bara med när värme inte ingår i avgiften)",
+    varde: 21,
+    enhet: "kr/mån och m²",
+    kalla: NILS_HOLGERSSON,
+    referens: "Bilaga 1a, fjärrvärme, Stockholms kommun",
+    gallerFran: "2026-10-26",
+    verifierad: "2026-10-26",
+    grupp: "Drift (schabloner)",
+    status: "referens",
+    anmarkning:
+      "Fjärrvärme i Stockholms kommun kostar 250,32 kr per m² lägenhetsyta och år inklusive moms (varmvatten ingår). Delat med 12 blir det cirka 20,9, avrundat till 21 kr per m² boarea och månad. Omräkningen är Binfos. Gäller bara när värmen faktiskt inte ingår i månadsavgiften.",
+  },
+  {
+    id: "schablon_vatten_per_m2",
+    namn: "Vatten och avlopp: per m² boarea och månad (räknas bara med när vatten inte ingår i avgiften)",
+    varde: 6,
+    enhet: "kr/mån och m²",
+    kalla: NILS_HOLGERSSON,
+    referens: "Bilaga 1a, vatten och avlopp, Stockholms kommun",
+    gallerFran: "2026-10-26",
+    verifierad: "2026-10-26",
+    grupp: "Drift (schabloner)",
+    status: "referens",
+    anmarkning:
+      "Vatten och avlopp i Stockholms kommun kostar 71,08 kr per m² lägenhetsyta och år inklusive moms. Delat med 12 blir det cirka 5,9, avrundat till 6 kr per m² boarea och månad. Omräkningen är Binfos. Gäller bara när vatten faktiskt inte ingår i månadsavgiften.",
+  },
+  {
+    id: "schablon_bredband",
+    namn: "Bredband",
+    varde: 349,
+    enhet: "kr/mån",
+    kalla: { titel: "Binfos uppskattning (ingen publicerad källa)", url: null },
     gallerFran: "2026-01-01",
     verifierad: null,
     grupp: "Drift (schabloner)",
     status: "schablon",
     anmarkning: SCHABLON_NOT,
-  };
-}
-
-const SCHABLONER: Regel[] = [
-  schablonRegel("schablon_el_grund", "Hushållsel: fast del", 250, "kr/mån"),
-  schablonRegel("schablon_el_per_m2", "Hushållsel: per m² boarea", 8, "kr/mån och m²"),
-  schablonRegel("schablon_varme_grund", "Värme: fast del", 180, "kr/mån"),
-  schablonRegel("schablon_varme_per_m2", "Värme: per m² boarea", 14, "kr/mån och m²"),
-  schablonRegel(
-    "schablon_vatten_per_person",
-    "Vatten: per person i hushållet",
-    120,
-    "kr/mån och person",
-  ),
-  schablonRegel("schablon_bredband", "Bredband", 349, "kr/mån"),
-  schablonRegel(
-    "schablon_forsakring_grund",
-    "Hemförsäkring inkl. bostadsrättstillägg: fast del",
-    120,
-    "kr/mån",
-  ),
-  schablonRegel(
-    "schablon_forsakring_per_m2",
-    "Hemförsäkring inkl. bostadsrättstillägg: per m² boarea",
-    3,
-    "kr/mån och m²",
-  ),
+  },
 ];
 
 // ---------------------------------------------------------------------------

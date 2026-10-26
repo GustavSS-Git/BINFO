@@ -14,9 +14,14 @@ function med(over: Partial<AnalysisResult>): AnalysisResult {
 describe("byggSammanfattning", () => {
   it("price vs utgångspris and the area's bid premium (sample: 4 995 000 vs 5 681 607, +5,43 %)", () => {
     const s = byggSammanfattning(sampleAnalysis);
-    // 4 995 000 / 5 681 607 − 1 = −12,1 %; 4 995 000 × 1,0543 = 5 266 229 → −7,3 % vs värderingen.
-    expect(nbsp(s.pris)).toContain("Utgångspriset 4 995 000 kr ligger 12,1 % under värderingen.");
-    expect(nbsp(s.pris)).toContain("ca 5 270 000 kr, skulle ligga 7,3 % under Binfos värdering");
+    // Span ±10 % of 5 681 607 = 5 110 000 – 6 250 000: 4 995 000 is under it; the typical
+    // final price 4 995 000 × 1,0543 ≈ 5 266 229 is inside it.
+    expect(nbsp(s.pris)).toContain("Binfos värdering är ca 5 680 000 kr.");
+    expect(nbsp(s.pris)).toContain(
+      "Utgångspriset 4 995 000 kr ligger under det ungefärliga spannet 5 110 000 – 6 250 000 kr (±10 %).",
+    );
+    expect(nbsp(s.pris)).toContain("ca 5 270 000 kr, skulle ligga i linje med modellen");
+    expect(s.pris).not.toMatch(/attraktivt|\d,\d % under/);
     expect(s.betyg).toMatch(/^Föreningen får betyget B\./);
   });
 
@@ -53,7 +58,8 @@ describe("byggSammanfattning", () => {
         },
       }),
     );
-    expect(nbsp(s.pris)).toContain("(skillnad 1 847 kr)");
+    expect(nbsp(s.pris)).toContain("i stort sett samma som jämförbara lägenheter säljs för");
+    expect(nbsp(s.pris)).not.toContain("1 847");
     expect(s.pris).not.toContain("Jämförbara lägenheter säljs för");
   });
 
@@ -212,5 +218,18 @@ describe("byggSammanfattning — svag förening utan prisjustering", () => {
   it("ger inga råd", () => {
     const s = byggSammanfattning(D());
     expect(Object.values(s).join(" ")).not.toMatch(/\b(köp|köpa|avstå|bör du|rekommenderar)\b/i);
+  });
+
+  it("asking price inside the ±10 % span is in line with the model, never 'attraktivt'", () => {
+    const s = byggSammanfattning(
+      med({
+        prisanalys: {
+          ...sampleAnalysis.prisanalys,
+          utgangspris: { value: 5_500_000, unit: "kr", source: "anvandare" },
+        },
+      }),
+    );
+    expect(nbsp(s.pris)).toContain("ligger i linje med modellen, inom det ungefärliga spannet");
+    expect(s.pris).not.toMatch(/attraktivt|över det ungefärliga|under det ungefärliga/);
   });
 });

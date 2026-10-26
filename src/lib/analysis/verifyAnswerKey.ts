@@ -13,6 +13,7 @@ import {
 import { bedomStatus } from "./benchmarks";
 import { type runStructuredExtraction, type ModelEffort } from "./runExtraction";
 import { korExtraktion, type StegTid } from "./korExtraktion";
+import { lasMaxTokens, lasModellPerSteg } from "./modellPerSteg";
 import { sammanfattaSidreferenser, type Sidreferensfynd } from "./sidreferenser";
 import { formatCallMetricsTable, totalCostSek, type ModelCallMetrics } from "./callMetrics";
 import { STANDARD_MODELL } from "./costGuard";
@@ -304,7 +305,7 @@ async function main() {
     return;
   }
 
-  const model = process.env["ANTHROPIC_MODEL"] || STANDARD_MODELL;
+  const { extraktion: model } = lasModellPerSteg(process.env, STANDARD_MODELL);
   const maxCostSek = Number(process.env["MAX_COST_PER_ANALYSIS_SEK"] ?? "5");
   // A scanned report needs headroom for the parallel transcription chunks' joint
   // worst case (see transkribera); MAX_COST_PER_ANALYSIS_SEK wins when set.
@@ -312,6 +313,7 @@ async function main() {
   const effortTranskribering = lasEffort("ANTHROPIC_EFFORT_TRANSKRIBERING");
   const effortGrounding = lasEffort("ANTHROPIC_EFFORT_GROUNDING");
   const effortExtraction = lasEffort("ANTHROPIC_EFFORT_EXTRACTION");
+  const maxOutputTokensExtraction = lasMaxTokens(process.env, "ANTHROPIC_MAX_TOKENS_EXTRACTION");
   // ANTHROPIC_PROMPT_CACHE: unset/off = no breakpoints (production default), "system" or "on" for measurement.
   const cacheEnv = (process.env["ANTHROPIC_PROMPT_CACHE"] ?? "").toLowerCase();
   const promptCache = cacheEnv === "on" ? true : cacheEnv === "system" ? "system" : false;
@@ -416,6 +418,7 @@ async function main() {
           effortGrounding,
           effortExtraction,
           promptCache,
+          maxOutputTokensExtraction,
           omforsok: korMedEttOmforsok,
           logg: (rad) => console.log(`  ${rad}`),
         });

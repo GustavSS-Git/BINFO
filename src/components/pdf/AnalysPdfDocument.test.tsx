@@ -206,9 +206,9 @@ describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cle
     // recomputed from the anonymised input, so that text is present in both
     // the real and the anonymised render here — correctly so.
     expect(extractedText).toContain("Adressen raderad efter 12 månader");
-    expect(extractedText).toContain(sampleAnalysis.input.ort);
-    const dangling = `${sampleAnalysis.input.adress}, ${sampleAnalysis.input.ort}`;
-    expect(extractedText).not.toContain(dangling);
+    // Only the address is shown since 2026-10-26 (no ort), so the anonymised
+    // cell must not leave the real address or a trailing ", " behind.
+    expect(extractedText).not.toContain(`${sampleAnalysis.input.adress},`);
   });
 });
 

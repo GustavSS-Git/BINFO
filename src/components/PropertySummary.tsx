@@ -53,10 +53,9 @@ export function PropertySummary({
           <h2 className="font-display text-2xl text-foreground">{foreningNamn}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {/* Adressen rensas efter 12 månader (GDPR); rapporten finns kvar. */}
-            {input.adress !== ""
-              ? `${input.adress}, ${input.ort}`
-              : `Adressen raderad efter 12 månader · ${input.ort}`}{" "}
-            · {input.antalRum} rum
+            {/* Bara adressen (ingen ort): området framgår av postnumret i värderingen. */}
+            {input.adress !== "" ? input.adress : "Adressen raderad efter 12 månader"} ·{" "}
+            {input.antalRum} rum
           </p>
         </div>
         <Badge tone="teal">Analyserad {formatSkapadDatum(skapad)}</Badge>

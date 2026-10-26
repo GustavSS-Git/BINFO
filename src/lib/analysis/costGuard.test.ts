@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   HAIKU_4_5_PRISSATTNING,
+  HAIKU_5_5_PRISSATTNING,
+  estimateCostBothTiersSek,
   KostnadsgransOverskriden,
   OkandModellPrissattningError,
   SONNET_5_5_PRISSATTNING,
@@ -141,5 +143,54 @@ describe("prissattningForModell", () => {
   it("kastar ett tydligt fel för en okänd modell i stället för att prissätta den till 0", () => {
     expect(() => prissattningForModell("claude-nagot-okant")).toThrow(OkandModellPrissattningError);
     expect(() => prissattningForModell("claude-nagot-okant")).toThrow(/claude-nagot-okant/);
+  });
+});
+
+describe("claude-haiku-5-5 (tiered price)", () => {
+  const sekPerUsd = estimateCostSek(1_000_000, 0, SONNET_5_PRISSATTNING) / 2;
+
+  it("is known, also with a dated snapshot suffix", () => {
+    expect(prissattningForModell("claude-haiku-5-5")).toBe(HAIKU_5_5_PRISSATTNING);
+    expect(prissattningForModell("claude-haiku-5-5-20260901")).toBe(HAIKU_5_5_PRISSATTNING);
+  });
+
+  it("a prompt up to 100K tokens is priced at $0.10/$0.50", () => {
+    const sek = estimateCostFromUsageSek(
+      { input_tokens: 100_000, output_tokens: 10_000 },
+      HAIKU_5_5_PRISSATTNING,
+    );
+    expect(sek).toBeCloseTo((0.1 * 0.1 + 0.01 * 0.5) * sekPerUsd);
+  });
+
+  it("a prompt above 100K tokens is priced at $0.50/$2.50 for the whole call", () => {
+    const sek = estimateCostFromUsageSek(
+      { input_tokens: 100_001, output_tokens: 10_000 },
+      HAIKU_5_5_PRISSATTNING,
+    );
+    expect(sek).toBeCloseTo((0.100001 * 0.5 + 0.01 * 2.5) * sekPerUsd);
+  });
+
+  it("cache tokens count towards the prompt size", () => {
+    const sek = estimateCostFromUsageSek(
+      { input_tokens: 10_000, output_tokens: 0, cache_read_input_tokens: 95_000 },
+      HAIKU_5_5_PRISSATTNING,
+    );
+    // high tier: 10K * 0.5 + 95K * 0.5 * 0.1
+    expect(sek).toBeCloseTo((0.01 * 0.5 + 0.095 * 0.05) * sekPerUsd);
+  });
+
+  it("pre-flight reservation uses the high tier", () => {
+    expect(estimateCostSek(10_000, 1_000, HAIKU_5_5_PRISSATTNING)).toBeCloseTo(
+      (0.01 * 0.5 + 0.001 * 2.5) * sekPerUsd,
+    );
+  });
+
+  it("estimateCostBothTiersSek gives low and high; equal for an untiered model", () => {
+    const usage = { input_tokens: 50_000, output_tokens: 5_000 };
+    const b = estimateCostBothTiersSek(usage, HAIKU_5_5_PRISSATTNING);
+    expect(b.lag).toBeCloseTo((0.05 * 0.1 + 0.005 * 0.5) * sekPerUsd);
+    expect(b.hog).toBeCloseTo((0.05 * 0.5 + 0.005 * 2.5) * sekPerUsd);
+    const s = estimateCostBothTiersSek(usage, SONNET_5_PRISSATTNING);
+    expect(s.lag).toBeCloseTo(s.hog);
   });
 });

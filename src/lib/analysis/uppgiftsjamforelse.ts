@@ -8,8 +8,13 @@
  *  - 'medel' = everything else (scan, computed value, low extraction confidence).
  *
  * Byggår is the only field the buyer also types, so it is the only one with
- * a status other than 'endast_rapport'. A difference of at most one year
- * counts as a match.
+ * a status other than 'endast_rapport'. Owner decision 2026-10-26: when the
+ * buyer gave a year it is ALWAYS the one used (`anvant`), whatever the report
+ * says or its confidence. Within ±1 year the status is 'manuellt'; a larger
+ * difference is 'avviker' (noted, the buyer's year still used, no range
+ * widening: `byggarAlternativ` is never set). 'bekraftat' and 'osakert' stay in
+ * the type but are never produced. With no buyer year the report's year is
+ * used ('endast_rapport'), unless its confidence is 'lag'.
  */
 import type {
   ExtractionResult,
@@ -58,7 +63,6 @@ export function jamforUppgifter(args: {
   const { input, forening, datakvalitet } = args;
   const rader: Faltjamforelse[] = [];
   let byggarForVardering: number | undefined;
-  let byggarAlternativ: number | undefined;
 
   // --- byggår ---
   const anv = input.byggar;
@@ -66,53 +70,38 @@ export function jamforUppgifter(args: {
   const rap = rapportFigur?.value ?? null;
   const sak = rapportFigur && rap !== null ? faltSakerhet(rapportFigur, datakvalitet) : undefined;
 
-  if (anv !== undefined && rap !== null && sak !== undefined) {
+  if (anv !== undefined && rap !== null) {
+    // The buyer's year is ALWAYS the one used (owner 2026-10-26), whatever the
+    // report says or how confident the reading is. A difference is only noted.
     if (Math.abs(anv - rap) <= 1) {
-      const anvant = sak === "hog" ? rap : anv;
       rader.push({
         falt: "byggar",
         label: "Byggår",
         anvandare: anv,
         rapport: rap,
-        status: "bekraftat",
-        anvant,
+        status: "manuellt",
+        anvant: anv,
         text:
           anv === rap
             ? `Du angav ${anv} och årsredovisningen anger samma år.`
-            : `Du angav ${anv} och årsredovisningen anger ${rap}. Det är nästan samma år, vi använder ${anvant}.`,
+            : `Du angav ${anv} och årsredovisningen anger ${rap}. Det är nästan samma år, vi använder ${anv}.`,
         ...medRef(rapportFigur),
       });
-      byggarForVardering = anvant;
-    } else if (sak === "hog") {
-      rader.push({
-        falt: "byggar",
-        label: "Byggår",
-        anvandare: anv,
-        rapport: rap,
-        status: "avviker",
-        anvant: rap,
-        text:
-          `Du angav ${anv}, årsredovisningen anger ${rap}, vi använder ${rap}. ` +
-          "Byggår kan skilja sig åt, till exempel vid ombyggnad eller när föreningen har flera hus.",
-        ...medRef(rapportFigur),
-      });
-      byggarForVardering = rap;
     } else {
       rader.push({
         falt: "byggar",
         label: "Byggår",
         anvandare: anv,
         rapport: rap,
-        status: "osakert",
+        status: "avviker",
         anvant: anv,
         text:
-          `Du angav ${anv}, årsredovisningen anger ${rap} men vi är inte säkra på att vi läst det rätt. ` +
-          `Vi använder ditt år och visar ett bredare värderingsspann som även täcker ${rap}.`,
+          `Du angav ${anv}, årsredovisningen anger ${rap}. Vi använder ditt år, ${anv}. ` +
+          "Byggår kan skilja sig åt, till exempel vid ombyggnad eller när föreningen har flera hus.",
         ...medRef(rapportFigur),
       });
-      byggarForVardering = anv;
-      byggarAlternativ = rap;
     }
+    byggarForVardering = anv;
   } else if (anv !== undefined) {
     rader.push({
       falt: "byggar",
@@ -163,9 +152,7 @@ export function jamforUppgifter(args: {
   endast("bostadsrattsyta", "Bostadsrättsyta", forening.bostadsrattsyta, (n) => `${tal(n, 1)} m²`);
   endast("totalSkuld", "Föreningens skuld", forening.lanebok?.totalSkuld, (n) => `${tal(n)} kr`);
 
-  return {
-    rader,
-    byggarForVardering,
-    ...(byggarAlternativ !== undefined ? { byggarAlternativ } : {}),
-  };
+  // `byggarAlternativ` stays in the return type for the assembler's range widening
+  // but is never set (the buyer's year always decides, owner 2026-10-26).
+  return { rader, byggarForVardering };
 }

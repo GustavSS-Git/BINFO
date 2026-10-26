@@ -106,7 +106,9 @@ export interface PropertyInput {
   orgnr: string; // XXXXXX-XXXX
   adress: string;
   postnummer: string;
-  ort: string;
+  /** Optional since 2026-10-26 (owner: the form asks only adress +
+   *  postnummer). Still filled by a listing fetch (Booli) for its geocoder. */
+  ort?: string;
 
   // Optional attributes — Tristate because unknown widens the model's
   // uncertainty rather than being read as absence
@@ -648,10 +650,15 @@ export interface RefinansieringsLan {
   rantaProcent: number | null;
   /** Reset date, YYYY-MM-DD; absent for rörlig loans without one. */
   dag?: string;
+  /** True when the report gives only the YEAR (old extractions): `dag` is then
+   *  a placeholder and must not be shown as a date (round 2026-10-26). */
+  endastAr?: true;
   rorlig: boolean;
   /** 'inom_horisont' = within 24 months (both directions); 'senare' = months
-   *  25–60, counted only when cheaper than the new rate. */
-  fas: "inom_horisont" | "senare";
+   *  25–60, counted only when cheaper than the new rate; 'forfallit' = the
+   *  reset date is on or before the calculation date, so the loan already has
+   *  new terms we don't know (round 2026-10-26): shown, never priced. */
+  fas: "inom_horisont" | "senare" | "forfallit";
   vikt: number;
   /** kr/year after the weight; null when the rate is missing. */
   foreningKrPerAr: number | null;

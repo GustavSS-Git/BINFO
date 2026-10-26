@@ -40,11 +40,34 @@ describe("byggarPrisNotis", () => {
     ).toBeUndefined();
   });
 
-  it("osäkert: vi använder köparens år och spannet täcker båda", () => {
+  it("köparens år används, rapporten anger ett annat: notis 'Årsredovisningen anger X'", () => {
     expect(
       byggarPrisNotis(rad({ status: "osakert", anvandare: 1960, rapport: 2017, anvant: 1960 })),
     ).toEqual({
-      text: "Du angav 1960, årsredovisningen anger 2017. Vi använder ditt år och spannet täcker båda.",
+      text: "Värderingen räknar med ditt byggår 1960. Årsredovisningen anger 2017.",
+    });
+    expect(
+      byggarPrisNotis(rad({ status: "avviker", anvandare: 1960, rapport: 2017, anvant: 1960 })),
+    ).toEqual({
+      text: "Värderingen räknar med ditt byggår 1960. Årsredovisningen anger 2017.",
+    });
+  });
+
+  it("värdeår: årsredovisningens utdrag säger värdeår", () => {
+    const ref = { page: 3, excerpt: "Värdeår 1931" };
+    expect(
+      byggarPrisNotis(rad({ status: "endast_rapport", rapport: 1931, anvant: 1931, ref })),
+    ).toEqual({
+      text: "Värderingen räknar med värdeår 1931 enligt årsredovisningen.",
+      sida: "s. 3",
+    });
+    expect(
+      byggarPrisNotis(
+        rad({ status: "avviker", anvandare: 1960, rapport: 1931, anvant: 1960, ref }),
+      ),
+    ).toEqual({
+      text: "Värderingen räknar med ditt byggår 1960. Årsredovisningen anger värdeår 1931.",
+      sida: "s. 3",
     });
   });
 

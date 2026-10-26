@@ -5,6 +5,7 @@ import {
   KV_OVRIGA_SUMMA,
   MIN_KONTANTINSATS_ANDEL,
   REGLER,
+  STATUS_ETIKETT,
   hittaRegel,
   reglerIGrupp,
   tal,
@@ -38,15 +39,16 @@ describe("regelregistret", () => {
     }
   });
 
-  it("antaganden och schabloner är märkta som sådana, och overifierade schabloner har TODO", () => {
+  it("antaganden och schabloner är märkta som sådana, och overifierade poster är märkta Binfos uppskattning", () => {
     expect(hittaRegel("kalkylranta_standard")?.status).toBe("antagande");
     expect(hittaRegel("kalkylranta_standard")?.varde).toBe(7);
-    expect(hittaRegel("skuldkvot_bankstak")?.anmarkning).toContain("TODO: unverified placeholder");
-    for (const r of reglerIGrupp("Drift (schabloner)")) {
-      expect(r.status).toBe("schablon");
-      expect(r.verifierad).toBeNull();
-      expect(r.anmarkning).toContain("TODO: unverified placeholder");
-    }
+    expect(hittaRegel("skuldkvot_bankstak")?.anmarkning).toContain("Binfos uppskattning");
+    expect(hittaRegel("skuldkvot_bankstak")?.anmarkning).toContain("7,1 %");
+    // Bredband är den enda driftposten utan publicerad källa.
+    const bredband = hittaRegel("schablon_bredband")!;
+    expect(bredband.status).toBe("schablon");
+    expect(bredband.verifierad).toBeNull();
+    expect(bredband.anmarkning).toContain("Binfos uppskattning");
   });
 
   it("bolånetak 90 % ger minst 10 % kontantinsats", () => {
@@ -76,19 +78,30 @@ describe("regelregistret", () => {
   });
 
   it("driftschablonerna i registret är samma som calc/schabloner.ts räknar med", () => {
-    const a = schabloner(0, 0); // golv: 0 m², 1 person
-    const b = schabloner(10, 3);
-    expect(a.el.value).toBe(sv("schablon_el_grund"));
-    expect((b.el.value ?? 0) - (a.el.value ?? 0)).toBe(10 * sv("schablon_el_per_m2"));
-    expect(a.varme.value).toBe(sv("schablon_varme_grund"));
-    expect((b.varme.value ?? 0) - (a.varme.value ?? 0)).toBe(10 * sv("schablon_varme_per_m2"));
-    expect(a.vatten.value).toBe(sv("schablon_vatten_per_person"));
-    expect(b.vatten.value).toBe(3 * sv("schablon_vatten_per_person"));
+    const a = schabloner(0, 1);
+    const b = schabloner(10, 4);
+    expect(a.varme.value).toBe(0);
+    expect(b.varme.value).toBe(10 * sv("schablon_varme_per_m2"));
+    expect(b.vatten.value).toBe(10 * sv("schablon_vatten_per_m2"));
     expect(a.bredband.value).toBe(sv("schablon_bredband"));
-    expect(a.forsakring.value).toBe(sv("schablon_forsakring_grund"));
-    expect((b.forsakring.value ?? 0) - (a.forsakring.value ?? 0)).toBe(
-      10 * sv("schablon_forsakring_per_m2"),
-    );
+    // El och hemförsäkring slås upp i Konsumentverkets tabell, per antal personer.
+    expect(a.el.value).toBe(sv("kv_gemensam_hushallsel_1"));
+    expect(b.el.value).toBe(sv("kv_gemensam_hushallsel_4"));
+    expect(a.forsakring.value).toBe(sv("kv_gemensam_hemforsakring_1"));
+    expect(b.forsakring.value).toBe(sv("kv_gemensam_hemforsakring_4"));
+  });
+
+  it("de nya driftvärdena är de beslutade 2026-10-26", () => {
+    expect(sv("schablon_varme_per_m2")).toBe(21);
+    expect(sv("schablon_vatten_per_m2")).toBe(6);
+    expect(sv("schablon_bredband")).toBe(349);
+    for (const id of ["schablon_varme_per_m2", "schablon_vatten_per_m2"]) {
+      const r = hittaRegel(id)!;
+      expect(r.status).toBe("referens");
+      expect(r.verifierad).toBe("2026-10-26");
+      expect(r.kalla.url).toMatch(/^https:\/\/nilsholgersson\.nu\//);
+      expect(r.anmarkning).not.toMatch(/Binfos uppskattning/);
+    }
   });
 });
 
@@ -115,5 +128,45 @@ describe("Konsumentverket Hushållskostnader 2026, tabellkontroll mot publicerad
     expect(hittaRegel("kv_gemensam_hushallsel_2")?.varde).toBe(530);
     expect(hittaRegel("kv_klader_skor_71+")?.varde).toBe(720);
     expect(hittaRegel("kalp_barn_under_8_avdrag")?.varde).toBe(229);
+  });
+});
+
+describe("text som användaren ser", () => {
+  const FORBJUDET = /TODO|placeholder|ägarbeslut/i;
+
+  it("ingen regel innehåller TODO, placeholder eller ägarbeslut i någon textfält", () => {
+    for (const r of REGLER) {
+      const falt = [
+        r.id,
+        r.namn,
+        r.enhet,
+        r.grupp,
+        r.kalla.titel,
+        r.referens ?? "",
+        r.anmarkning ?? "",
+        typeof r.varde === "string" ? r.varde : "",
+      ];
+      for (const f of falt) expect(f, `${r.id}: ${f}`).not.toMatch(FORBJUDET);
+    }
+    for (const etikett of Object.values(STATUS_ETIKETT)) expect(etikett).not.toMatch(FORBJUDET);
+  });
+
+  it("schablonernas basistexter är fria från interna markörer", () => {
+    for (const [boarea, personer] of [
+      [0, 0],
+      [57, 2],
+    ] as const) {
+      for (const figur of Object.values(schabloner(boarea, personer))) {
+        expect(figur.schablonBasis ?? "").not.toMatch(FORBJUDET);
+      }
+    }
+  });
+
+  it("poster utan publicerad källa märks Binfos uppskattning/antagande", () => {
+    for (const r of REGLER.filter((x) => x.status === "schablon")) {
+      expect(r.anmarkning).toMatch(/Binfos uppskattning/);
+    }
+    expect(hittaRegel("skuldkvot_bankstak")?.anmarkning).toMatch(/Binfos uppskattning/);
+    expect(hittaRegel("kalkylranta_standard")?.anmarkning).toMatch(/Binfos antagande/);
   });
 });

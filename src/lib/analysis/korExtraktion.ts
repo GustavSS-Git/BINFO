@@ -42,6 +42,8 @@ export interface KorExtraktionOptions {
   effortGrounding: ModelEffort;
   effortExtraction: ModelEffort;
   promptCache: PromptCacheMode;
+  /** CLI measurement only: overrides the extraction's max_tokens (default: the stage's own). */
+  maxOutputTokensExtraction?: number | undefined;
   /** Wraps each API-calling stage (e.g. one retry on a connection error). */
   omforsok?: <T>(anrop: () => Promise<T>) => Promise<T>;
   /** JSON file used as a page-level cache of the transcription (dev only): pages
@@ -179,6 +181,9 @@ export async function korExtraktion(
           effort: effortExtraction,
           pdfSaknarTextlager,
           promptCache,
+          ...(options.maxOutputTokensExtraction
+            ? { maxOutputTokensExtraction: options.maxOutputTokensExtraction }
+            : {}),
           kalla: textlager === "saknas" ? "skannad" : "textlager",
           ...(sidtexter ? { sidtexter } : {}),
         }),

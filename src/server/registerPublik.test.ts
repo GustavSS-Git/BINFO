@@ -53,14 +53,20 @@ async function lagg(
     skuld?: number;
     /** Replace the sparande figure (e.g. a printed sign without a value). */
     sparande?: Record<string, unknown>;
+    /** Force a (stale) stored status on the sparande key figure. */
+    sparandeStatus?: "god" | "acceptabel" | "svag" | "kritisk" | "okant";
   },
 ) {
   await lager.db.registreraForening(o.orgnr, o.namn);
   const keyFigures = extraktion.forening.keyFigures.map((k) =>
     k.id === "skuldsattning_per_m2_brf_yta" && o.skuld !== undefined
       ? { ...k, figure: { ...k.figure, value: o.skuld } }
-      : k.id === "sparande_per_m2_totalyta" && o.sparande !== undefined
-        ? { ...k, figure: o.sparande }
+      : k.id === "sparande_per_m2_totalyta" && (o.sparande !== undefined || o.sparandeStatus)
+        ? {
+            ...k,
+            ...(o.sparande !== undefined ? { figure: o.sparande } : {}),
+            ...(o.sparandeStatus ? { status: o.sparandeStatus } : {}),
+          }
         : k,
   );
   const r = await lager.db.skapaRapport({
@@ -284,6 +290,33 @@ describe("hamtaForening", () => {
     const skuld = s.nyckeltal.find((n) => n.id === "skuldsattning_per_m2_brf_yta");
     expect(skuld).toMatchObject({ label: expect.any(String), status: "kritisk" });
     expect(skuld?.figure.ref).toMatchObject({ page: 8 });
+  });
+
+  it("omgraderar lagrade status med dagens band: sparande 125 lagrat som 'god' visas 'acceptabel' (sammanfattning och analysvy)", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, {
+      orgnr: "716420-0599",
+      namn: "Brf Pontonjären 3",
+      sparande: {
+        value: 125,
+        unit: "kr/m2",
+        source: "arsredovisning",
+        ref: { page: 8, excerpt: "125" },
+      },
+      sparandeStatus: "god",
+    });
+    const svar = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
+    if (!("forening" in svar)) throw new Error("förväntade ok");
+    const n = svar.forening.senaste.nyckeltal.find((k) => k.id === "sparande_per_m2_totalyta");
+    expect(n?.status).toBe("acceptabel");
+    const analys = await hamtaRegisteranalys(
+      beroenden(lager),
+      "brf-pontonjaren-3-716420-0599",
+      2025,
+    );
+    if (analys.status !== "ok") throw new Error("förväntade ok");
+    const k = analys.vy.analys.forening.keyFigures.find((x) => x.id === "sparande_per_m2_totalyta");
+    expect(k?.status).toBe("acceptabel");
   });
 
   it("föredrar nuvarande pipeline-version men visar äldre kompatibla med markering; en ny körning 'skriver över' året", async () => {

@@ -418,7 +418,9 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               </summary>
               <div className="border-t border-border px-4 pb-4 pt-3">
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Vet du inte? Låt stå på ”Vet ej” — då visar vi totalen som ett spann.
+                  Värme och vatten ingår normalt i avgiften i en bostadsrätt, så de är förvalda som
+                  ”Ingår”. Betalar du dem separat väljer du ”Ingår ej” — då räknar vi med en
+                  uppskattning. Vet du inte? Välj ”Vet ej” — då visar vi totalen som ett spann.
                 </p>
                 <div className="space-y-3">
                   {avgiftPoster.map((post) => (

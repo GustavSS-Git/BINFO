@@ -184,7 +184,7 @@ describe("buildMinimalPropertyInput", () => {
     expect(input.orgnr).toBe("");
     expect(input.adress).toBe("");
     expect(input.postnummer).toBe("");
-    expect(input.ort).toBe("");
+    expect(input.ort).toBeUndefined();
     expect(input.hiss).toBe("okant");
     expect(input.balkong).toBe("okant");
     expect(input.utgangspris).toBeUndefined();

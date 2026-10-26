@@ -194,11 +194,13 @@ describe("tomma och ogiltiga fält", () => {
     expect(r.fyllt.boarea).toBe(false);
     expect(r.fyllt.total).toBe(false);
     const rad = (id: string) => r.drift.find((d) => d.id === id);
-    expect(rad("hushallsel")?.schablon).toBeNull();
+    // Värme och vatten är per m² boarea och saknar värde utan boarea;
+    // hushållsel och hemförsäkring följer antal personer (Konsumentverket 2026).
     expect(rad("varme")?.schablon).toBeNull();
-    expect(rad("hemforsakring")?.schablon).toBeNull();
+    expect(rad("vatten")?.schablon).toBeNull();
+    expect(rad("hushallsel")?.schablon).toBe(530); // 2 personer
+    expect(rad("hemforsakring")?.schablon).toBe(170); // 2 personer
     expect(rad("bredband")?.schablon).toBe(349);
-    expect(rad("vatten")?.schablon).toBe(240); // 2 personer × 120 kr
     expect(r.kalp.saknas).toContain("boarea");
   });
 });
@@ -212,14 +214,14 @@ describe("drift och egna värden", () => {
         avgiftInkluderar: { varme: "ja", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" },
       }),
     ).nu.drift;
-    expect(alla - utanVarme).toBe(992); // 180 + 14 × 58
+    expect(alla - utanVarme).toBe(1218); // 21 × 58
   });
 
   it("okänd post ger ett spann; eget värde flyttar bara de scenarier där posten räknas", () => {
     const okant = { varme: "okant", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" } as const;
     const bas = beraknaKalkyl(kalkyl({ ...KOMPLETT, avgiftInkluderar: okant }));
     expect(bas.nu.summor.harSpann).toBe(true);
-    expect(bas.nu.summor.nettoHog - bas.nu.summor.nettoLag).toBe(992);
+    expect(bas.nu.summor.nettoHog - bas.nu.summor.nettoLag).toBe(1218);
     const med = beraknaKalkyl(
       kalkyl({
         ...KOMPLETT,
@@ -227,10 +229,10 @@ describe("drift och egna värden", () => {
         egnaKostnader: { varme: 1500, hushallsel: 1000 },
       }),
     );
-    // El (nej): +286 i båda; värme (okänt): +508 bara i högt scenario.
-    const elDiff = 1000 - 714;
+    // El (nej): +470 i båda; värme (okänt): +282 bara i högt scenario.
+    const elDiff = 1000 - 530;
     expect(med.nu.summor.nettoLag - bas.nu.summor.nettoLag).toBe(elDiff);
-    expect(med.nu.summor.nettoHog - bas.nu.summor.nettoHog).toBe(elDiff + (1500 - 992));
+    expect(med.nu.summor.nettoHog - bas.nu.summor.nettoHog).toBe(elDiff + (1500 - 1218));
   });
 });
 
@@ -292,13 +294,13 @@ describe("KALP: kvar att leva på enligt bankens kalkyl", () => {
     // Konsumentverket: mat 2 × 2 730 = 5 460; övriga individuella 2 × 2 140 = 4 280;
     // gemensamma för 2 personer 4 390. Levnadskostnader 14 130 kr.
     // Boende vid 7 %: ränta 3 960 000 × 7 % / 12 = 23 100, amortering 2 % = 6 600,
-    // avgift 3 240, värme 180 + 14 × 58 = 992. Summa 33 932.
+    // avgift 3 240, värme 21 × 58 = 1 218. Summa 34 158.
     const r = beraknaKalkyl(kalkyl({ ...KOMPLETT, antalVuxna: "2" }));
     expect(r.kalp.beraknad).toBe(true);
     expect(r.kalp.levnadskostnader?.summa).toBe(14_130);
-    expect(r.kalp.summaKostnader).toBe(33_932 + 14_130);
+    expect(r.kalp.summaKostnader).toBe(34_158 + 14_130);
     const netto = beraknaHushallSkatt([540_000, 420_000], 0).nettoinkomstPerManad;
-    expect(r.kalp.kvarAttLevaPa).toBe(Math.round(netto - 48_062));
+    expect(r.kalp.kvarAttLevaPa).toBe(Math.round(netto - 48_288));
     expect(r.kalp.utfall).toBe("plus");
   });
 
@@ -323,8 +325,8 @@ describe("KALP: kvar att leva på enligt bankens kalkyl", () => {
         avgiftInkluderar: { varme: "ja", vatten: "ja", el: "ja", bredband: "nej", tv: "nej" },
       }),
     ).kalp;
-    // 2 personer: hushållsel 530 + vatten 440 + värme 992.
-    expect((ja.kvarAttLevaPa ?? 0) - (nej.kvarAttLevaPa ?? 0)).toBe(530 + 440 + 992);
+    // 2 personer: hushållsel 530 + vatten 440 + värme 1 218.
+    expect((ja.kvarAttLevaPa ?? 0) - (nej.kvarAttLevaPa ?? 0)).toBe(530 + 440 + 1218);
   });
 
   it("hushåll över 7 personer går inte att räkna", () => {

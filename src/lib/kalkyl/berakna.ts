@@ -49,11 +49,7 @@ export const DRIFT_POSTER: readonly EgenKostnadId[] = [
 ];
 
 /** Posterna vars schablon beror på boarean. */
-const KRAVER_BOAREA: ReadonlySet<EgenKostnadId> = new Set<EgenKostnadId>([
-  "hushallsel",
-  "varme",
-  "hemforsakring",
-]);
+const KRAVER_BOAREA: ReadonlySet<EgenKostnadId> = new Set<EgenKostnadId>(["varme", "vatten"]);
 
 // ---------------------------------------------------------------------------
 // Resultattyper
@@ -414,6 +410,14 @@ function beraknaKalp(
     "Levnadskostnader enligt Konsumentverkets Hushållskostnader 2026: all mat lagas hemma och alla vuxna räknas som 25–50 år.",
     "Av Binfos driftschabloner räknas bara värme med. Konsumentverkets levnadskostnader omfattar redan hushållsel, vatten, internet och hemförsäkring.",
   ];
+  if (ia.varme === "ja") {
+    forutsattningar.push("Värme ingår i avgiften och räknas därför inte med.");
+  }
+  if (ia.varme === "nej") {
+    forutsattningar.push(
+      "Värme räknas med (Binfos uppskattning) eftersom du angett att den inte ingår i avgiften.",
+    );
+  }
   if (ia.varme === "okant") {
     forutsattningar.push("Värme räknas med eftersom det är okänt om den ingår i avgiften.");
   }

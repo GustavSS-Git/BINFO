@@ -513,9 +513,11 @@ function Foreningsekonomi({ keyFigures }: { keyFigures: PdfKeyFigure[] }) {
       <Text style={styles.sectionTitle}>Föreningens ekonomi</Text>
       {keyFigures.map((kf) => (
         <View key={kf.id} style={styles.keyFigureRow} wrap={false}>
-          <Text style={[styles.statusText, { color: STATUS_COLOR[kf.status] }]}>
-            {kf.statusLabel}
-          </Text>
+          {kf.status === "okant" ? null : (
+            <Text style={[styles.statusText, { color: STATUS_COLOR[kf.status] }]}>
+              {kf.statusLabel}
+            </Text>
+          )}
           <View style={styles.keyFigureTop}>
             <Text style={styles.keyFigureLabel}>{kf.label}</Text>
             <Text style={styles.keyFigureValue}>{kf.valueText}</Text>
@@ -652,7 +654,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </View>
             <View>
               <Text style={styles.priceValue}>{p.externVardering.value}</Text>
-              {u?.intervallText ? <Text style={styles.summaryLabel}>{u.intervallText}</Text> : null}
+              {p.externVardering.vardespann ? (
+                <Text style={styles.summaryLabel}>{p.externVardering.vardespann}</Text>
+              ) : null}
               {p.avvikelseText ? <Text style={styles.summaryLabel}>{p.avvikelseText}</Text> : null}
             </View>
           </View>
@@ -671,6 +675,9 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
             </Text>
             <View>
               <Text style={styles.priceValue}>{p.justeradVardering.value}</Text>
+              {p.justeradVardering.vardespann ? (
+                <Text style={styles.summaryLabel}>{p.justeradVardering.vardespann}</Text>
+              ) : null}
               {p.justeradVardering.avvikelseText ? (
                 <Text style={styles.summaryLabel}>{p.justeradVardering.avvikelseText}</Text>
               ) : null}
@@ -679,6 +686,8 @@ function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
         ) : null}
         {p.justeradVardering && p.justeradVardering.vattenfall.length > 0 ? (
           <View style={{ marginTop: 6 }} wrap={false}>
+            {/* The method layer: exact kronor only here (owner 2026-10-26). */}
+            <Text style={styles.confidenceNote}>Så har vi räknat (exakta belopp)</Text>
             {p.justeradVardering.vattenfall.map((r) => (
               <View key={r.label} style={styles.driverRow}>
                 <Text style={styles.summaryLabel}>{r.label}</Text>
@@ -805,6 +814,11 @@ function Rakning({ vm }: { vm: PdfViewModel }) {
                       {r.prognos.spar.byggdelNot} {r.prognos.spar.byggdelKalla}
                     </Text>
                   </View>
+                ) : null}
+                {r.prognos.spar.forklaring ? (
+                  <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
+                    {r.prognos.spar.forklaring}
+                  </Text>
                 ) : null}
               </View>
             ) : null}

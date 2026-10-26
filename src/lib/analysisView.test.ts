@@ -282,12 +282,43 @@ describe("byggarMarkor", () => {
     expect(byggarMarkor(undefined, undefined)).toEqual({ varde: "Okänt" });
   });
 
-  it("bekräftat: bockmarkör och sidhänvisning", () => {
-    const m = byggarMarkor(rad({ ref: { page: 4, excerpt: "Värdeåret är 1962." } }), 1962);
-    expect(m.markor?.text).toBe("✓ Bekräftat");
-    expect(m.forklaring).toContain("Bekräftat av årsredovisningen. TEXT (s. 4)");
-    expect(m.forklaring).toContain("Värdeåret är 1962.");
-    expect(m.pdfNotis).toBe("bekräftat, s. 4");
+  it("bekräftat (äldre data) visas aldrig som 'Bekräftat': neutralt som manuellt", () => {
+    const m = byggarMarkor(
+      rad({ anvandare: 1962, rapport: 1962, ref: { page: 4, excerpt: "Värdeåret är 1962." } }),
+      1962,
+    );
+    expect(m).toEqual({ varde: "1962" });
+    expect(JSON.stringify(m)).not.toContain("Bekräftat");
+  });
+
+  it("köparens år används och rapporten anger ett annat: notis, ingen bekräftelse", () => {
+    const m = byggarMarkor(
+      rad({
+        status: "avviker",
+        anvandare: 1962,
+        rapport: 1974,
+        anvant: 1962,
+        ref: { page: 3, excerpt: "Byggår 1974" },
+      }),
+      1962,
+    );
+    expect(m.varde).toBe("1962");
+    expect(m.rad).toBe("Årsredovisningen anger 1974 · s. 3");
+    expect(m.pdfNotis).toBe("årsredovisningen anger 1974, s. 3");
+  });
+
+  it("endast_rapport med värdeår i utdraget: 'Värdeår enligt årsredovisningen'", () => {
+    const m = byggarMarkor(
+      rad({
+        status: "endast_rapport",
+        rapport: 1931,
+        anvant: 1931,
+        ref: { page: 2, excerpt: "Värdeår 1931" },
+      }),
+      undefined,
+    );
+    expect(m.markor).toEqual({ ton: "teal", text: "Värdeår enligt årsredovisningen" });
+    expect(m.pdfNotis).toBe("värdeår enligt årsredovisningen, s. 2");
   });
 
   it("avviker: visar värdet vi använder och avvikelsen på en egen rad", () => {

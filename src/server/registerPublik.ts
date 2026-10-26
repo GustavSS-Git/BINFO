@@ -26,6 +26,7 @@
  * No framework imports: analysFn.ts binds these to server functions.
  */
 import { osakerhetsfragor } from "@/lib/analysis/assemble";
+import { omgraderaNyckeltal } from "@/lib/analysis/benchmarks";
 import { REGISTEROMRADEN, OVRIGA_STOCKHOLM } from "@/lib/register/omraden";
 import {
   REGISTER_SIDSTORLEK,
@@ -235,6 +236,15 @@ export function byggArsvy(r: RegisterRapportRad): RegisterArsvy | null {
   const innehall = tolkaRapportInnehall(r);
   if (!innehall) return null;
   const { extraction, judgement } = innehall;
+  // Statuses are stored at extraction; re-grade them with TODAY's bands so old
+  // stored years agree with new ones (round 2026-10-26: sparande bands). This
+  // is the single place both /brf/$slug (publikaNyckeltal) and the register
+  // analysis view read the key figures from. The register list rows carry no
+  // statuses (numbers and the stored betyg only), so nothing to re-grade there.
+  const forening = {
+    ...extraction.forening,
+    keyFigures: omgraderaNyckeltal(extraction.forening.keyFigures),
+  };
   // BRF-level questions only: the judge's own plus the deterministic
   // "osäker" confirmations. The buyer-specific gaps (missing hiss, fee
   // deviation, ...) are assembled per buyer and never appear here.
@@ -245,7 +255,7 @@ export function byggArsvy(r: RegisterRapportRad): RegisterArsvy | null {
   return {
     rakenskapsar: r.rakenskapsar,
     analysdatum: r.analysdatum,
-    forening: extraction.forening,
+    forening,
     betyg: judgement.betyg,
     betygMotivering: judgement.betygMotivering,
     rodaFlaggor: judgement.rodaFlaggor,

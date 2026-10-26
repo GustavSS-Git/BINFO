@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type {
   AnalysisResult,
+  Avgiftsprognos,
   Budpremie,
   ExtractionResult,
   FeeInclusion,
@@ -14,10 +15,16 @@ import type {
   PrisInput,
   PropertyInput,
   Rantestress,
+  RedFlag,
   Referensranta,
   Varderingsunderlag,
 } from "@/types/analysis";
-import { formatDataperiod } from "@/lib/analysisView";
+import {
+  formatDataperiod,
+  formatVardespann,
+  lageMotVardespann,
+  VARDESPANN_PROCENT,
+} from "@/lib/analysisView";
 import { AnalysisResultSchema } from "./schema";
 import { ALLA_NYCKELTAL } from "./prompts";
 import type { AnalysJudgement } from "./analyze";
@@ -28,6 +35,8 @@ import { byggPrisjustering } from "./prisjustering";
 import { jamforUppgifter } from "./uppgiftsjamforelse";
 import { byggSammanfattning } from "./sammanfattning";
 import { lokalFragor } from "./lokalfragor";
+import { omgraderaNyckeltal } from "./benchmarks";
+import { arRefinansieringsflagga, byggRefinansieringsflagga } from "./refinansieringsflagga";
 import { sagerAttByggarSaknas } from "./tolkaVarde";
 import {
   konfidensUtanPrisdata,
@@ -88,8 +97,8 @@ export interface AssembleraAnalysInput {
 }
 
 const AVGIFTSPOSTER: ReadonlyArray<{ id: keyof FeeInclusion; label: string }> = [
-  { id: "varme", label: "värme" },
-  { id: "vatten", label: "vatten" },
+  // Värme and vatten are NOT asked about or counted in the analysis (owner 2026-10-26): they
+  // are only considered in /bolanekalkyl. FeeInclusion keeps the fields (contract).
   { id: "el", label: "el" },
   { id: "bredband", label: "bredband" },
   { id: "tv", label: "tv" },
@@ -550,29 +559,30 @@ function konfidensForModell(resultat: ModellVarderingUnderlag["resultat"]): Konf
 
 /**
  * Slutsatsen när externVardering kom från Binfos egen värderingsmodell.
- * Säger uttryckligen om utgångspriset ligger inom eller utanför modellens
- * 90-procentiga intervall (inte bara över/under punktskattningen), vilket
- * prisläge värderingen speglar (träningsperioden, inte "idag" i någon
- * strikt mening — se MODEL_CARD.md), och att det är en statistisk skattning,
- * inte en besiktning av just den här lägenheten.
+ * Jämför utgångspriset med EN sak (ägarbeslut 2026-10-26): värdet med hänsyn
+ * till föreningens ekonomi när det finns (`justeradVardering`), annars
+ * modellens värdering. Ligger priset inom det visade spannet (±10 % av det
+ * exakta värdet, ändarna avrundade) är det "i linje med modellen", annars över
+ * eller under spannet; aldrig ett procenttal mot basvärderingen och aldrig
+ * "kan vara attraktivt". Säger vilket prisläge värderingen speglar
+ * (träningsperioden, inte "idag" i någon strikt mening — se MODEL_CARD.md), och
+ * att det är en statistisk skattning, inte en besiktning av lägenheten.
  */
-function byggModellSlutsats(underlag: {
+export function byggModellSlutsats(underlag: {
   /** undefined i den fristående priskollen när köparen inte angett något pris. */
   utgangspris: number | undefined;
   resultat: ModellVarderingUnderlag["resultat"];
-  avvikelseMotVardering: number | undefined;
   avvikelseMotForeningen: number | undefined;
+  /** Exakt värde med hänsyn till föreningens ekonomi; undefined utan justering. */
+  justeradVardering: number | undefined;
 }): string {
-  const { utgangspris, resultat, avvikelseMotVardering, avvikelseMotForeningen } = underlag;
+  const { utgangspris, resultat, avvikelseMotForeningen, justeradVardering } = underlag;
   const omradeText =
     resultat.tackning === "stockholm"
       ? (resultat.omrade ?? "Stockholm (postnumret gick inte att koppla till ett specifikt område)")
       : (resultat.kommun ?? "riket");
-  const innanforIntervallet =
-    utgangspris !== undefined &&
-    utgangspris >= resultat.intervall.low &&
-    utgangspris <= resultat.intervall.high;
   const periodText = formatDataperiod(resultat.dataperiod);
+  const jamforVarde = justeradVardering ?? resultat.varde;
 
   const delar: string[] = [];
   if (utgangspris === undefined) {
@@ -580,17 +590,20 @@ function byggModellSlutsats(underlag: {
       `Inget utgångspris har angetts, så Binfos värderingsmodell för ${omradeText} jämförs inte ` +
         `med något pris.`,
     );
-  } else if (avvikelseMotVardering !== undefined) {
-    const riktning = avvikelseMotVardering >= 0 ? "över" : "under";
+  } else if (jamforVarde > 0) {
+    const lage = lageMotVardespann(utgangspris, jamforVarde);
+    const spann = `${formatVardespann(jamforVarde)} (±${VARDESPANN_PROCENT} %)`;
+    const kring =
+      justeradVardering !== undefined
+        ? "värdet med hänsyn till föreningens ekonomi"
+        : `Binfos värderingsmodell för ${omradeText}`;
     delar.push(
-      `Utgångspriset ligger ${procent(avvikelseMotVardering)} % ${riktning} Binfos värderingsmodell ` +
-        `för ${omradeText} och ligger ${innanforIntervallet ? "inom" : "utanför"} modellens ` +
-        `${resultat.intervallTackningProcent}-procentiga intervall.`,
+      lage === "inom"
+        ? `Utgångspriset är i linje med modellen: det ligger inom det ungefärliga spannet ${spann} kring ${kring}.`
+        : `Utgångspriset ligger ${lage === "over" ? "över" : "under"} det ungefärliga spannet ${spann} kring ${kring}.`,
     );
   } else {
-    delar.push(
-      `Binfos värderingsmodell för ${omradeText} kunde inte jämföras med utgångspriset i procent.`,
-    );
+    delar.push(`Binfos värderingsmodell för ${omradeText} kunde inte jämföras med utgångspriset.`);
   }
   delar.push(
     `Värderingen speglar prisläget ${periodText} och är en statistisk skattning — inte en ` +
@@ -619,7 +632,7 @@ function byggModellSlutsats(underlag: {
  *  (försäljningar i föreningen). Bara den fullständiga analysen har den. */
 export interface Foreningsuppslag {
   orgnr: string;
-  ort: string;
+  ort?: string;
   adress?: string;
 }
 
@@ -688,7 +701,7 @@ export async function byggPrisanalysUtanForening(
     ...(foreningsuppslag
       ? {
           orgnr: foreningsuppslag.orgnr,
-          ort: foreningsuppslag.ort,
+          ...(foreningsuppslag.ort !== undefined ? { ort: foreningsuppslag.ort } : {}),
           ...(foreningsuppslag.adress !== undefined ? { adress: foreningsuppslag.adress } : {}),
         }
       : {}),
@@ -792,8 +805,8 @@ export async function byggPrisanalysUtanForening(
     slutsats = byggModellSlutsats({
       utgangspris: input.utgangspris,
       resultat: modellUnderlag.resultat,
-      avvikelseMotVardering,
       avvikelseMotForeningen,
+      justeradVardering: undefined,
     });
     varderingsunderlag = {
       modellVersion: modellUnderlag.resultat.modellVersion,
@@ -880,7 +893,7 @@ export async function byggPrisanalys(
 ): Promise<Prisanalys> {
   const karna = await byggPrisanalysUtanForening(tillPrisInput(input), prisdatakalla, {
     orgnr: input.orgnr,
-    ort: input.ort,
+    ...(input.ort !== undefined ? { ort: input.ort } : {}),
     adress: input.adress,
   });
   // Kärnan sätter utgangspris/prisPerM2 när ett utgångspris skickas in;
@@ -956,6 +969,52 @@ function idagStockholm(): string {
   }).format(new Date());
 }
 
+const ALLVARLIGHET_RANG: Record<RedFlag["severity"], number> = { hog: 0, medel: 1, lag: 2 };
+
+/**
+ * Red flags on read (round 2026-10-26). When the prognosis has per-loan rows,
+ * Binfo's own refinancing flag (built from the SAME component as the loan
+ * table) replaces any model flag about maturities: the model writes once,
+ * without today's date, and once said the fee may rise where the table showed
+ * a fall. Without loan rows the model's flags stay as they are. The new flag
+ * goes in before the first flag of lower severity, so `betygText` in the
+ * summary picks it up by the usual rule.
+ */
+export function rodaFlaggorMedRefinansiering(
+  modellFlaggor: readonly RedFlag[],
+  prognos: Avgiftsprognos,
+  totalSkuld: number | null,
+): RedFlag[] {
+  const harLanrader = (prognos.refinansiering?.lan?.length ?? 0) > 0;
+  const kvar = harLanrader
+    ? modellFlaggor.filter((f) => !arRefinansieringsflagga(f))
+    : [...modellFlaggor];
+  const flagga = harLanrader ? byggRefinansieringsflagga(prognos, totalSkuld) : null;
+  if (!flagga) return kvar;
+  const plats = kvar.findIndex(
+    (f) => ALLVARLIGHET_RANG[f.severity] > ALLVARLIGHET_RANG[flagga.severity],
+  );
+  return plats === -1 ? [...kvar, flagga] : [...kvar.slice(0, plats), flagga, ...kvar.slice(plats)];
+}
+
+/**
+ * A model flag ABOUT byggår being missing (its title or opening sentence says
+ * so), shown when the buyer or the report has the year (round 2026-10-26): the
+ * judging model never sees the buyer's input. Flags that only mention it in
+ * passing are kept, minus that sentence (`utanByggarSaknasMeningar`).
+ */
+export function flaggarBaraOmSaknatByggar(f: Pick<RedFlag, "titel" | "beskrivning">): boolean {
+  const forsta = f.beskrivning.split(/(?<=[.!?])\s+/)[0] ?? "";
+  return sagerAttByggarSaknas(f.titel) || sagerAttByggarSaknas(forsta);
+}
+
+/** A flag without its sentences claiming byggår is missing (same rule as the skal). */
+export function utanByggarSaknasMeningar(f: RedFlag): RedFlag {
+  const meningar = f.beskrivning.split(/(?<=[.!?])\s+/);
+  const kvar = meningar.filter((m) => !sagerAttByggarSaknas(m));
+  return kvar.length === meningar.length ? f : { ...f, beskrivning: kvar.join(" ") };
+}
+
 /** Deterministic question when the expected fee rise trips the sanity guard. */
 function avgiftsprognosFraga(orsak: string): Fraga {
   return {
@@ -992,6 +1051,13 @@ export async function assembleraAnalys({
     forening: extraction.forening,
     datakvalitet: extraction.datakvalitet,
   });
+  // Statuses are re-graded with today's bands on every read (round
+  // 2026-10-26), so a stored "god" from older bands never shows next to a
+  // prognosis that uses the newer reference. Grades are untouched.
+  const forening: Forening = {
+    ...extraction.forening,
+    keyFigures: omgraderaNyckeltal(extraction.forening.keyFigures),
+  };
   const { byggar: _anvandarensByggar, ...utanByggar } = input;
   const varderingsInput: PropertyInput =
     jamforelse.byggarForVardering !== undefined
@@ -1035,34 +1101,35 @@ export async function assembleraAnalys({
             : {}),
         }
       : null;
-  const alternativa: Array<{ skal: string; pris: number }> = [];
-  if (modellBaslinje && jamforelse.byggarAlternativ !== undefined) {
-    const alternativ = korBinfoVarderingsmodell(
-      tillPrisInput({ ...varderingsInput, byggar: jamforelse.byggarAlternativ }),
-    );
-    if (alternativ) {
-      alternativa.push({
-        skal:
-          `Byggåret är osäkert (du angav ${input.byggar ?? "inget"}, årsredovisningen anger ` +
-          `${jamforelse.byggarAlternativ}), så spannet täcker värderingen med båda åren.`,
-        pris: alternativ.resultat.varde,
-      });
-    }
-  }
   const justering = byggPrisjustering({
     baseline: modellBaslinje,
     boarea: input.boarea,
     prognos,
-    ...(alternativa.length > 0 ? { alternativa } : {}),
     ...(input.utgangspris !== undefined ? { utgangspris: input.utgangspris } : {}),
   });
 
   // BRF-lagret läggs på EFTER den delade värderingskärnan och rör inga av
   // dess fält — skuldandelen är en kommentar, ingen prisjustering.
+  // One comparison (owner 2026-10-26): with an adjusted value the conclusion
+  // compares the asking price only with it (the core wrote the baseline version).
+  const modellKorning =
+    justering?.justeradVardering && basPrisanalys.varderingsunderlag
+      ? korBinfoVarderingsmodell(tillPrisInput(varderingsInput))
+      : null;
+  const justeradSlutsats =
+    modellKorning && justering?.justeradVardering
+      ? byggModellSlutsats({
+          utgangspris: input.utgangspris,
+          resultat: modellKorning.resultat,
+          avvikelseMotForeningen: basPrisanalys.avvikelseMotForeningen,
+          justeradVardering: justering.justeradVardering.value ?? undefined,
+        })
+      : undefined;
   const prisanalys: Prisanalys = {
     ...basPrisanalys,
     ...(andelAvForeningensSkuld ? { andelAvForeningensSkuld } : {}),
     ...(justering ?? {}),
+    ...(justeradSlutsats !== undefined ? { slutsats: justeradSlutsats } : {}),
   };
   const prognosTabell = byggPrognosTabell(
     input.manadsavgift,
@@ -1143,12 +1210,20 @@ export async function assembleraAnalys({
     skapad: skapad ?? new Date().toISOString(),
 
     input,
-    forening: extraction.forening,
+    forening,
 
     betyg: analys.betyg,
     betygMotivering: utanNyckeltalsantal(analys.betygMotivering),
 
-    rodaFlaggor: analys.rodaFlaggor,
+    rodaFlaggor: rodaFlaggorMedRefinansiering(
+      byggarKant
+        ? analys.rodaFlaggor
+            .filter((f) => !flaggarBaraOmSaknatByggar(f))
+            .map(utanByggarSaknasMeningar)
+        : analys.rodaFlaggor,
+      prognos.prognos,
+      extraction.forening.lanebok?.totalSkuld.value ?? null,
+    ),
     prisanalys,
     rantestress,
     fragor: [

@@ -1,10 +1,144 @@
 # Binfo — current plan
 
-**Latest: owner feedback round 2026-10-25b (rate slider tabs, lokal rent only on a signal, internal fee-change check), below. Before it: postnummer help on /analysera (2026-10-25, done), below. Before it: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
+**Latest: consistency round 2026-10-26 (PLANNED, awaiting owner approval), directly below. Before it: owner feedback round 2026-10-25b (rate slider tabs, lokal rent only on a signal, internal fee-change check), below. Before it: postnummer help on /analysera (2026-10-25, done), below. Before it: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)
 (v3, deployed 2026-10-14). Decisions: `docs/DECISIONS.md`.
 
 Earlier plans (done, kept for history): the UI copy + new `/exempel` plan further below
 (2026-10-12), and `docs/PLAN-v2.md` (2026-10-09).
+
+---
+
+# Consistency round (2026-10-26)
+
+Status: **DONE 2026-10-26, uncommitted on `main`, not deployed** (PROMPT_VERSION 13 → `deploy:edge` with the Lovable publish, after the pending migrations; no new migration). Checks: typecheck clean, 149 files / 3194 tests pass, build OK, lint only the 14 pre-existing prettier errors in `src/routes/index.tsx`. Spend: /exempel 13,10 kr (rows 134–136), Haiku measurement ≈ 23,3 kr (rows 125–133). Reviewer findings 1–5 and 8 fixed; 6–7 left open (below). Owner answers: Q1 the shown ±10 % range decides
+"i linje med modellen"; Q2 keep the age-moved target, name it in the card; Q3 no production LLM
+call for motivation/summary, an offline consistency reviewer instead; Q4 värme + vatten default
+to 0 kr for a bostadsrätt (in the avgift), added only when the buyer says they are not included;
+sources: research first, values swapped only after the owner sees them; Q5 show only the address
+(the area comes from the postnummer via the valuation); Q6 budget OK (≤ 40 kr Haiku, ≈ 10 kr
+/exempel + regression), PROMPT_VERSION 13 OK; Q7 exact 0 and 300 = acceptabel. Booli: no bot-
+protection bypass (owner emailed Booli; a user-side bookmarklet is the legitimate fallback).
+Contract edits done by the supervisor: `RefinansieringsLan.fas` + `"forfallit"`,
+`PropertyInput.ort` optional (type + Zod). Goal: every number and sentence on a report
+reconciles with the calculation behind it, before the front-end redesign. Findings behind each
+item: CLAUDE.md "Consistency audit (2026-10-26)". Owner decisions marked (Q1…) are open.
+
+## Items
+
+1. **Refinancing flag vs calculation** (agent pdf-pipeline + frontend-state)
+   - Calc (`calc/avgiftsprognos.ts`): a loan with `dag <= idag` is MATURED regardless of the
+     report's age: not priced, not in the sum. Today the 2026-03-28 and 2026-09-28 Pontonjären
+     loans are priced as future resets; the 4.49 % loan alone gives −21 736 kr/år, so the
+     component flips to −30 kr/mån. Without them: ≈ +3 060 kr/år (a rise).
+   - Contract: `RefinansieringsLan.fas` gains `"forfallit"` (supervisor edits
+     `src/types/analysis.ts` before agents start). Table row: "Förföll 28 sep 2026 – omsatt till
+     villkor vi inte känner till", no effect, not summed; PDF the same.
+   - Deterministic refinancing flag built in `assemble.ts` from the SAME component (amount still
+     to reset within the horizon, share of debt, matured amount, direction and kr/mån at today's
+     rate). It replaces the model's refinancing flag(s); the summary's "Viktigast att känna till"
+     and a refinancing sentence come from it.
+   - Judging prompt (PROMPT_VERSION 13): Fasta värden state maturities relative to the balance
+     date and the prompt tells the model not to write refinancing flags or claim a fee direction
+     from maturities (Binfo computes that per read). Older stored results: model flags whose
+     `harledsFran`/title match refinancing are suppressed when the deterministic flag exists.
+2. **Sparande bands** (`benchmarks.ts` + tests): > 300 god, 0–300 acceptabel, < 0 svag (exact 0 =
+   acceptabel, exact 300 = acceptabel, per the owner's wording; the old decision was 0 = svag).
+   Statuses are RE-GRADED ON READ from the stored value (assembly and register reads), so old
+   reports and `/brf` agree. Safe for grades: the move god → acceptabel never changes the svag/
+   kritisk counts the grade bands use. Audit of the other six: no conflicting threshold
+   (prognosis colours and `rimlighet.ts` ranges are different measures). Sparande card text
+   names the target used ("Binfos mål 300 kr/m², justerat till X för byggnadsdelarnas ålder" or
+   "föreningens underhållsplan"). Q2.
+3. **Valuation precision** (frontend-state): one helper `formatVardeAvrundat` (10 000 kr) for
+   every displayed valuation figure (web, PDF, Priskoll, saved valuation, summary). New visible
+   line "Ungefärligt spann: 5 110 000 – 6 250 000 kr (±10 %)" around the shown value (owner asks,
+   so the hidden range row is replaced). Exact kronor only in "Så har vi räknat" / the waterfall.
+   Summary: asking price inside the interval → "i linje med modellen", never "kan vara
+   attraktivt". Q1 decides which interval. Kalkyl prefill gets the shown (adjusted, rounded)
+   value.
+4. **One comparison**: `byggModellSlutsats` and the summary compare with the adjusted value only;
+   the baseline % (12,1 %) leaves user-facing text (kept in data). The bid-premium sentence drops
+   its own % and says inside/under/over the interval.
+5. **Numbers that reconcile**: one function computes component price effects with the exact
+   factor and allocates the rounding remainder; the card, waterfall and PDF use it (one value).
+   The savings text shows its basis: "175 kr/m² × 50 % × 2 329 m² totalyta = 203 788 kr/år för
+   föreningen; din andel 2,37 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 1,78 mkr) ≈ 402
+   kr/mån". Same pattern for the other components.
+6. **Seventh nyckeltal** shown unrated in the report and PDF (no status label, no benchmark);
+   register already shows it. `benchmarks.ts` text changes ride on PROMPT_VERSION 13.
+7. **Bolånekalkyl copy**: no "TODO"/"ägarbeslut" in any user-facing string (web, PDF, Excel);
+   unsourced values labelled "Binfos uppskattning"; a test greps `REGLER` for "TODO"/"ägarbeslut".
+   Candidate sources for owner approval (Q4):
+   - Hushållsel, hemförsäkring, bredband/internet, vatten: Konsumentverket "Hushållskostnader
+     2026" (already the KALP source in `regler.ts`).
+   - Värme (and el for comparison): Nils Holgersson-rapporten (fjärrvärme/el/vatten per m² in
+     flerbostadshus) or Energimyndigheten/SCB "Energistatistik för flerbostadshus" (kWh/m²) ×
+     Ei/SCB energy prices.
+   - Skuldkvot 5×: Finansinspektionen "Den svenska bolånemarknaden" (skuldkvot distribution of
+     new loans).
+   - Domain note: in a bostadsrätt värme and often vatten are in the årsavgift; Q4b.
+8. **Byggår ≠ värdeår** (`uppgiftsjamforelse.ts`, `byggarMarkor`): never "Bekräftat" (type kept,
+   no longer produced); buyer's year present → buyer's year is used, a different report year is
+   a note; buyer's year empty → report year shown and used, labelled "Värdeår enligt
+   årsredovisningen" when the excerpt says värdeår.
+9. **No "ort" field**: `PropertyInput.ort` becomes optional (contract), the form asks adress +
+   postnummer only; display "adress, postnummer kommun" from the existing postnummer→kommun table
+   (never a guessed postort); Booli still fills `ort` for its geocoder. PostNord: no scraping
+   (see the reply to the owner); keep the link. Q5.
+10. **Haiku measurement** (pdf-pipeline, paid, ≤ 40 kr): Haiku 4.5 is ruled out on paper (no
+    effort parameter, 100-page PDF limit, failed transcription 2026-10-09). Measure Claude Haiku
+    5.5 against the 13 answer keys with `verify-extraction` for the whole pipeline, and a per-stage
+    mix (grounding + extraction on Haiku 5.5, judging on Sonnet 5.5; needs a per-stage model
+    setting). Report accuracy, loan fields, time and kr per report; no switch without the owner.
+11. **1.5 LLM confirmation of motivation + summary**: recommendation in the owner reply; Q3.
+12. **/exempel**: paid re-run of Pontonjären 3 on PROMPT_VERSION 13 (≈ 3–4 kr), check every number
+    by hand against the PDF and the method layer, paste, update pinned tests; small regression
+    run (3 reports) on the new prompt; reviewer agent over the whole diff; changelog in this file.
+
+## Changelog (2026-10-26)
+
+| # | What changed | Where |
+|---|---|---|
+| 1 | Loans with a reset date on/before today are `fas: "forfallit"`: shown "Förföll <datum> – omsatt till villkor vi inte känner till", never priced or summed (any report age). Binfo's own refinancing flag + summary sentence built from the SAME component (amount = fixed + rörlig loans priced within 24 months); model maturity flags suppressed on read when loan rows exist. Judging prompt no longer writes refinancing direction; Fasta värden count loan dates from the balance date. Pontonjären: −30 → +13 kr/mån. | `calc/avgiftsprognos.ts`, new `refinansieringsflagga.ts`, `assemble.ts` (`rodaFlaggorMedRefinansiering`), `sammanfattning.ts`, `fastaVarden.ts`, `prompts.ts` (PROMPT_VERSION 13), `analysisView.ts` `lanRader`, `AnalysRapport.tsx` `RefiSteg`, PDF; contract `RefinansieringsLan.fas` |
+| 1.5 | No production LLM call for motivation/summary (owner). | — |
+| 2 | Sparande: > 300 god, 0–300 acceptabel (both ends incl.), < 0 svag; positive sign without amount = okant. Statuses re-graded on every read (report, `/brf/$slug`, register analysis). Sparande card names the target used (schablon 300 moved by building-part ages, or the plan). Other six figures audited: no conflicting threshold. | `benchmarks.ts` (`omgraderaNyckeltal`), `BENCHMARKS.md`, `assemble.ts`, `registerPublik.ts`, `avgiftsprognos.ts` texts |
+| 3 | Every displayed valuation rounded to 10 000 kr; visible "Ungefärligt spann (±10 %)" under the shown value (replaces the hidden 90 % row); the shown span alone decides "i linje med modellen" / under / över; "kan vara attraktivt" removed. Exact kronor only in "Så har vi räknat" (the price waterfall moved there; PDF labels it "exakta belopp"). Saved valuations (/konto) rounded; kalkyl prefill = shown value. | `analysisView.ts` (`avrundaVardering`, `vardespann`, `lageMotVardespann`), `AnalysRapport.tsx` `Prisrimlighet`, `sammanfattning.ts`, `assemble.ts` `byggModellSlutsats`, PDF, `ProfilListor.tsx` |
+| 4 | Only the adjusted comparison in user text when an adjusted value exists (12,1 % gone); bid-premium sentence without its own %. | `assemble.ts`, `sammanfattning.ts`, `AnalysRapport.tsx` |
+| 5 | One function for component price effects (exact factor, remainder once) → card = waterfall = PDF. Every component text states area basis + the flat's share, e.g. "196 kr/m² × 50 % × totalyta 2 329 m² = 228 242 kr/år; din andel 2,37 % (avgift × 12 ÷ årsavgifter ≈ 1,78 mkr) ≈ 450 kr/mån", shown under the sparande card (web + PDF). | `analysisView.ts` `komponentPris`/`vattenfall`, `avgiftsprognos.ts`, `AnalysRapport.tsx` `SparSteg`, PDF |
+| 6 | Årsavgifternas andel av rörelseintäkterna shown in the report and PDF, unrated. | `benchmarks.ts`, `AnalysRapport.tsx`, PDF |
+| 7 | No "TODO"/"placeholder"/"ägarbeslut" in any user string (web, PDF, Excel); unsourced values "Binfos uppskattning"; test walks every rule. Värme + vatten default "Ingår" (0 kr), added only on "Ingår ej", and ONLY in the kalkyl (the analysis/report never asks about, counts or shows them; owner 2026-10-26b). New values (owner delegated the choice): hushållsel + hemförsäkring Konsumentverket 2026 by persons; värme 21 kr/m², vatten 6 kr/m² (Nils Holgersson 2026); bredband 349 kr and skuldkvot 5× stay Binfo's estimate/assumption (FI 2025 context added). REGELVERSION 2026-10-26b. Sources: `docs/driftschabloner-kallor.md`. | `kalkyl/regler.ts`, `berakna.ts`, `sida.ts`, `xlsx.ts`, `calc/schabloner.ts`, `uppgifter.ts`, `bolanekalkyl.tsx`, `KalkylPdfDocument.tsx`, `assemble.ts` (`AVGIFTSPOSTER`), report/PDF fee rows |
+| 8 | Buyer's byggår always used; never "Bekräftat"; report-only year labelled "Värdeår enligt årsredovisningen" when cited as värdeår; Fasta värden mark "Värdeår (INTE byggår)"; model flags claiming byggår is missing dropped/stripped when it is known. | `uppgiftsjamforelse.ts`, `analysisView.ts` `byggarMarkor`/`byggarPrisNotis`, `fastaVarden.ts`, `prompts.ts`, `assemble.ts` |
+| 9 | No "ort" field on /analysera; `PropertyInput.ort` optional; only the address is displayed. PostNord: no scraping; link kept. | `analysera.tsx`, `analyseraForm.ts`, `annons/formular.ts`, `PropertySummary.tsx`, PDF; contract `PropertyInput.ort` |
+| 10 | Haiku: 4.5 ruled out (400 on `effort`). Haiku 5.5 measured on 14 answer-key reports: 94 % of verified fields (Sonnet 98 % on the 3 shared), 4/13 silent nulls on skuldsättning/m² totalyta, 4/13 extractions cut off at the 16k output cap, ≈ 0,34 kr vs ≈ 3,2 kr per report. Recommendation: keep Sonnet 5.5; possible later: Haiku-first with deterministic completeness fallback, or Haiku for scan transcription (needs its own measurement). CLI-only per-stage model knobs added. | `docs/haiku-matning-2026-10-26.md`, `costGuard.ts` (tiered Haiku 5.5 price), new `modellPerSteg.ts`, `cli.ts`, `korExtraktion.ts`, `verifyAnswerKey.ts` |
+| ex | /exempel regenerated (3 paid runs, 13,10 kr; run 3 used) and re-assembled 2026-10-26; numbers checked by hand. | `src/data/sampleAnalysis.ts` |
+
+For Lovable to polish: span line under the value (`data-slot="vardespann"`); matured-loan row in
+`RefiSteg` (text over three columns); unrated seventh nyckeltal card; Adress at half width in its
+grid on /analysera now that Ort is gone; "Vad ingår i avgiften?" hint is four lines; the price
+waterfall now sits inside "Så har vi räknat".
+
+Accepted by the owner (2026-10-26b): saved valuations keep their stored conclusion text until
+"Räkna om" and old stored reports keep the model's maturity questions/motivation (new results are
+correct); the refinancing-flag thresholds (10 % / 50 %) stay. Open: a model's "byggår saknas" inside
+the motivation is not stripped; 14 pre-existing prettier errors in `src/routes/index.tsx` (Lovable
+reflow).
+
+## Order and ownership (no two agents on one file)
+
+1. Supervisor: contract edits (`fas: "forfallit"`, optional `ort`) + PROMPT_VERSION plan.
+2. In parallel:
+   - A pdf-pipeline: items 1 (calc, flag helper, prompt), 2, 6 (benchmarks side) — owns
+     `calc/*`, `fastaVarden.ts`, `prompts.ts`, `benchmarks.ts`, `slutfor.ts`, new
+     `refinansieringsflagga.ts`.
+   - B frontend-state: items 3, 4, 5, 6 (display), 8 (badge), 1 (table) — owns `analysisView.ts`,
+     `AnalysRapport.tsx`, `PropertySummary.tsx`, `pdf/*`, `sammanfattning.ts`, `prisjustering.ts`,
+     `assemble.ts`.
+   - C frontend-state: items 7, 9, 8 (logic) — owns `regler.ts`, `schabloner.ts`,
+     `bolanekalkyl*`, `kalkyl/*`, `analysera.tsx`, `analyseraForm.ts`, `schema.ts`, annons/*,
+     `uppgiftsjamforelse.ts`.
+3. Supervisor wires A's flag helper into `assemble.ts`, runs checks.
+4. D pdf-pipeline: item 10 (after A, since the prompt changes).
+5. Item 12, reviewer, docs, commit (no push/deploy without the owner).
 
 ---
 

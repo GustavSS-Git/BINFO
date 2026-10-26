@@ -11,7 +11,6 @@ import {
   Toggle,
 } from "@/components/ui/binfo";
 import { PropertySummary } from "@/components/PropertySummary";
-import { visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   formatBudpremieText,
   andelAvSkuldRad,
@@ -20,17 +19,24 @@ import {
   varderingsTackningText,
   formatFigureVarde,
   formatVarde,
+  formatVardeFigurAvrundat,
+  formatVardespann,
+  arOgraderatNyckeltal,
+  visasNyckeltal,
+  visatVarde,
+  VARDESPANN_LABEL,
   bolanekalkylPris,
   SKANNAD_NOTIS,
   toppRodaFlaggor,
   type AndelAvSkuldRad,
   antagenAndelText,
   avgiftsHuvud,
-  avvikelseJusteradText,
+  prisAvvikelseRad,
   BYGGDEL_KALLA_TEXT,
   byggdelNot,
   byggdelRader,
   ENERGI_TEXT,
+  FORFALLIT_LAN_TEXT,
   komponentKalla,
   komponentRader,
   lanRader,
@@ -247,9 +253,7 @@ const severityLabel: Record<Severity, string> = {
 };
 
 export function Foreningsekonomi({ analys }: { analys: Pick<AnalysisResult, "forening"> }) {
-  const keyFigures = analys.forening.keyFigures.filter(
-    (kf) => visasIHuvudanalys(kf.id) && kf.status !== "okant",
-  );
+  const keyFigures = analys.forening.keyFigures.filter(visasNyckeltal);
 
   return (
     <section className="mb-10">
@@ -259,6 +263,9 @@ export function Foreningsekonomi({ analys }: { analys: Pick<AnalysisResult, "for
       <div className="space-y-3">
         {keyFigures.map((kf) => {
           const highlight = kf.id === "rantekanslighet";
+          // The informative figure (and any status "okant") carries no status
+          // label and no benchmark.
+          const ograderat = arOgraderatNyckeltal(kf);
           return (
             <Card
               key={kf.id}
@@ -266,7 +273,7 @@ export function Foreningsekonomi({ analys }: { analys: Pick<AnalysisResult, "for
                 highlight ? "border-primary/40 bg-primary/[0.04] p-5 md:p-6" : "p-5 md:p-6"
               }
             >
-              <StatusLabel status={kf.status} className="mb-3" />
+              {ograderat ? null : <StatusLabel status={kf.status} className="mb-3" />}
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h3 className="flex items-center gap-3 text-base font-semibold text-foreground">
                   {kf.label}
@@ -278,7 +285,7 @@ export function Foreningsekonomi({ analys }: { analys: Pick<AnalysisResult, "for
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
                 {kf.forklaring}
-                {kf.benchmark ? (
+                {kf.benchmark && !ograderat ? (
                   <span className="mt-1 block text-xs text-muted-foreground/80">
                     {kf.benchmark.label}: {formatVarde(kf.benchmark.value, kf.figure.unit)}
                   </span>
@@ -312,7 +319,9 @@ const AVGIFT_LABEL: Record<keyof FeeInclusion, string> = {
 };
 
 /** Display order — matches PropertyInput's AVGIFTSPOSTER order elsewhere in the pipeline. */
-const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["varme", "vatten", "el", "bredband", "tv"];
+// Värme and vatten are deliberately left out (owner 2026-10-26): they are only considered in
+// /bolanekalkyl, never in the analysis or its report.
+const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["el", "bredband", "tv"];
 
 /** 'okant' (or the whole field being absent) renders as "the report doesn't
  *  say" — never as "nej". Unknown is not false, per CLAUDE.md. */
@@ -515,6 +524,15 @@ export function Prisrimlighet({
   const tackningText = u ? varderingsTackningText(u) : null;
   const varderingslabel =
     p.externVardering?.source === "schablon" ? PRIS_LABEL_BAS : "Extern värdering";
+  // The span sits under the main shown value (adjusted if it exists, else the
+  // baseline) and only for Binfo's own estimate; it is ±10 % of the exact value.
+  const avvikelse = prisAvvikelseRad(p);
+  const visat = p.externVardering?.source === "schablon" ? visatVarde(p) : null;
+  const spannRad = visat ? (
+    <p className="text-xs text-muted-foreground" data-slot="vardespann">
+      {VARDESPANN_LABEL}: {formatVardespann(visat.exakt)}
+    </p>
+  ) : null;
   return (
     <section className="mb-10">
       <SectionTitle
@@ -569,28 +587,11 @@ export function Prisrimlighet({
               </div>
               <div className="text-right">
                 <p className="font-display text-xl text-foreground">
-                  {formatFigureVarde(p.externVardering)}
+                  {formatVardeFigurAvrundat(p.externVardering)}
                 </p>
-                {p.externVardering.range && u ? (
-                  /* Dold rad (ägarens beslut 2026-10-09): spannintervallet
-                     visas inte i rapporten. Beräkningen finns kvar i analysdatat
-                     och kan tas fram igen genom att ta bort dölj-klassen. */
-                  <p className="hidden text-xs text-muted-foreground">
-                    Sannolikt mellan {formatVarde(p.externVardering.range.low, "kr")} och{" "}
-                    {formatVarde(p.externVardering.range.high, "kr")} ({u.intervallTackningProcent}{" "}
-                    %)
-                  </p>
-                ) : null}
-                {p.avvikelseMotVardering !== undefined && p.justeradVardering === undefined ? (
-                  <p
-                    className={`text-xs ${p.avvikelseMotVardering > 0 ? "text-danger" : "text-success"}`}
-                  >
-                    Utgångspriset ligger{" "}
-                    {Math.abs(p.avvikelseMotVardering).toLocaleString("sv-SE", {
-                      maximumFractionDigits: 1,
-                    })}{" "}
-                    % {p.avvikelseMotVardering > 0 ? "över" : "under"} (jämfört per m²)
-                  </p>
+                {visat?.kalla === "bas" ? spannRad : null}
+                {avvikelse && p.justeradVardering === undefined ? (
+                  <p className={`text-xs ${TON_TEXT[avvikelse.ton]}`}>{avvikelse.text}</p>
                 ) : null}
               </div>
             </div>
@@ -611,21 +612,14 @@ export function Prisrimlighet({
               </p>
               <div className="text-right">
                 <p className="font-display text-xl text-foreground">
-                  {formatFigureVarde(p.justeradVardering)}
+                  {formatVardeFigurAvrundat(p.justeradVardering)}
                 </p>
-                {p.avvikelseMotJusteradVardering !== undefined ? (
-                  <p
-                    className={`text-xs ${p.avvikelseMotJusteradVardering > 0 ? "text-danger" : "text-success"}`}
-                  >
-                    {avvikelseJusteradText(p.avvikelseMotJusteradVardering)}
-                  </p>
+                {visat?.kalla === "justerad" ? spannRad : null}
+                {avvikelse && p.justeradVardering ? (
+                  <p className={`text-xs ${TON_TEXT[avvikelse.ton]}`}>{avvikelse.text}</p>
                 ) : null}
               </div>
             </div>
-          ) : null}
-
-          {p.justeradVardering && avgiftsprognos ? (
-            <PrisVattenfall prisanalys={p} prognos={avgiftsprognos} />
           ) : null}
 
           {byggarNotis ? (
@@ -709,6 +703,10 @@ export function Prisrimlighet({
                   </p>
                 </VisaMer>
               </div>
+            ) : null}
+            {/* Exact kronor live only here, in the method layer (owner 2026-10-26). */}
+            {p.justeradVardering && avgiftsprognos ? (
+              <PrisVattenfall prisanalys={p} prognos={avgiftsprognos} />
             ) : null}
             {avgiftsprognos ? <RaknaPrognos prognos={avgiftsprognos} prisanalys={p} /> : null}
           </div>
@@ -886,6 +884,8 @@ function SparSteg({
           <p className="text-[11px] text-muted-foreground">{BYGGDEL_KALLA_TEXT}</p>
         </VisaMer>
       ) : null}
+      {/* The basis, so the kr/mån can be reproduced (owner 2026-10-26). */}
+      {komp ? <p className="text-xs text-muted-foreground">{komp.forklaring}</p> : null}
     </div>
   );
 }
@@ -928,19 +928,27 @@ function RefiSteg({ prognos }: { prognos: Avgiftsprognos }) {
           </thead>
           <tbody className="divide-y divide-border">
             {rader.map((l) => (
-              <tr key={l.key} data-fas={l.senare ? "senare" : "inom"}>
+              <tr key={l.key} data-fas={l.forfallit ? "forfallit" : l.senare ? "senare" : "inom"}>
                 <td className="py-1.5 text-foreground">{l.forfaller}</td>
                 <td className="py-1.5 text-right text-foreground">{l.belopp}</td>
-                <td className="py-1.5 pr-3 text-right text-muted-foreground">{l.ranta}</td>
-                <td className="py-1.5 pl-3 text-muted-foreground">{l.fas}</td>
-                <td className="py-1.5 text-right text-foreground">
-                  {l.effekt}
-                  {l.effektForening ? (
-                    <span className="block text-[11px] text-muted-foreground">
-                      {l.effektForening} (föreningen)
-                    </span>
-                  ) : null}
-                </td>
+                {l.forfallit ? (
+                  <td className="py-1.5 pl-3 text-muted-foreground" colSpan={3}>
+                    – {FORFALLIT_LAN_TEXT}
+                  </td>
+                ) : (
+                  <>
+                    <td className="py-1.5 pr-3 text-right text-muted-foreground">{l.ranta}</td>
+                    <td className="py-1.5 pl-3 text-muted-foreground">{l.fas}</td>
+                    <td className="py-1.5 text-right text-foreground">
+                      {l.effekt}
+                      {l.effektForening ? (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {l.effektForening} (föreningen)
+                        </span>
+                      ) : null}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

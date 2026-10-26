@@ -312,8 +312,8 @@ describe("buildAnalysSystemPrompt", () => {
   it("säger att modellen ska resonera om kombinationen av nyckeltal, lån och underhåll", () => {
     const prompt = buildAnalysSystemPrompt();
     expect(prompt).toMatch(/kombination/i);
-    expect(prompt).toContain("forfalloprofil");
     expect(prompt).toContain("underhallsplan");
+    expect(prompt).toContain("räntekänslighet");
   });
 
   it("förbjuder påhittade sidnummer — endast sidor som finns i underlaget får användas", () => {
@@ -669,7 +669,13 @@ describe("fasta värden och betygsskalan (PROMPT_VERSION 8)", () => {
     );
     expect(user).toMatch(/Tillåtna betyg: [A-E](, [A-E])*/);
     expect(user).toContain("Total räntebärande skuld: 52 000 000 kr");
-    expect(user).toContain("2026: 31 000 000 kr (59,6 % av totala skulden)");
+    // Maturities are counted from the balance date (PROMPT_VERSION 13), by band.
+    expect(user).toContain("räknade från balansdagen");
+    expect(user).toContain("rörlig ränta: 31 000 000 kr (59,6 % av totala skulden), 1 lån");
+    expect(user).toContain(
+      "senare än 24 månader efter balansdagen: 21 000 000 kr (40,4 % av totala skulden), 1 lån",
+    );
+    expect(user).not.toContain("2026: 31 000 000 kr");
     // The block is the same one beraknaFastaVarden gives (an explicit argument wins).
     expect(
       buildAnalysUserPrompt(extraktion, tillatnaSidor(extraktion), beraknaFastaVarden(extraktion)),
@@ -729,6 +735,30 @@ describe("buildTranskriberingSystemPrompt", () => {
     const p = buildTranskriberingSystemPrompt();
     expect(p).toMatch(/=== SIDA n ===/);
     expect(p).toMatch(/Förlita dig ALDRIG på textlagret/);
+  });
+});
+
+describe("PROMPT_VERSION 13: lånens omsättning räknas av Binfo, inte av modellen", () => {
+  const system = buildAnalysSystemPrompt();
+
+  it("förbjuder flaggor och frågor om lånens omsättning och avgiftens riktning", () => {
+    expect(system).toContain("## Lånens omsättning räknar Binfo själv");
+    expect(system).toMatch(
+      /Skriv INGA röda flaggor och INGA frågor om lånens omsättning eller förfall/,
+    );
+    expect(system).toMatch(/Påstå aldrig i "betygMotivering" att lånens förfall/);
+    expect(system).toMatch(/räknas från balansdagen, inte från i dag/);
+  });
+
+  it("skuldnivån och räntekänsligheten får fortfarande tas upp", () => {
+    expect(system).toMatch(/skuldens storlek .* och räntekänsligheten/);
+  });
+
+  it("inget exempel eller kombinationsfall uppmanar längre till 'stor andel förfaller'", () => {
+    expect(system).not.toMatch(/stor del av lånen[^.]*förfaller/);
+    expect(system).not.toMatch(/stor del av lånen omsätts/);
+    expect(system).not.toContain("60 % av lånen förfaller 2026");
+    expect(system).not.toContain("lanebok.forfalloprofil");
   });
 });
 
@@ -847,8 +877,8 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 12 sedan lokalkontrakten fick fornyelse (11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("12");
+  it("är 13 sedan lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("13");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -878,7 +908,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("13b4d898db77d75c40dd19d175393ea3780d6de954a77b375ba8493f2e421120");
+    expect(hash).toBe("cd8e5d0f45e3150280e9735d1d989fe02d93653990f86523f2765ee90aacacc3");
   });
 });
 

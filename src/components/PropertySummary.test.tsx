@@ -46,16 +46,36 @@ describe("PropertySummary — byggårsmarkör", () => {
       />,
     );
 
-  it("bekräftat: bockmarkör, sidhänvisning och förklaring i title och dold text", () => {
+  it("bekräftat (äldre data): ingen 'Bekräftat'-markör, bara året", () => {
     const html = rita(
       byggar({ anvandare: 1962, rapport: 1962, ref: { page: 4, excerpt: "Värdeåret 1962" } }),
     );
-    expect(html).toContain("✓ Bekräftat");
-    expect(html).toContain('title="Bekräftat av årsredovisningen. FORKLARING (s. 4)');
-    expect(html).toContain("Värdeåret 1962");
-    expect(html).toMatch(
-      /<span class="sr-only">Bekräftat av årsredovisningen\. FORKLARING \(s\. 4\)/,
+    expect(html).toContain("1962");
+    expect(html).not.toContain("Bekräftat");
+    expect(html).not.toContain("✓");
+  });
+
+  it("visar bara adressen, aldrig ort", () => {
+    const html = rita(undefined, { ...sampleAnalysis.input, ort: "Stockholm" });
+    expect(html).toContain(sampleAnalysis.input.adress);
+    expect(html).not.toContain(`${sampleAnalysis.input.adress}, `);
+    const { ort: _o, ...utanOrt } = sampleAnalysis.input;
+    expect(rita(undefined, utanOrt)).toContain(sampleAnalysis.input.adress);
+    expect(rita(undefined, utanOrt)).not.toContain("undefined");
+  });
+
+  it("värdeår: årsredovisningens utdrag säger det", () => {
+    const { byggar: _b, ...utanByggar } = sampleAnalysis.input;
+    const html = rita(
+      byggar({
+        status: "endast_rapport",
+        rapport: 1931,
+        anvant: 1931,
+        ref: { page: 2, excerpt: "Värdeår 1931" },
+      }),
+      utanByggar,
     );
+    expect(html).toContain("Värdeår enligt årsredovisningen");
   });
 
   it("avviker: visar årsredovisningens år och avvikelsen synligt, inte bara i tooltip", () => {

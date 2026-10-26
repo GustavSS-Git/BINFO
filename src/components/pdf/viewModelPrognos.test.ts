@@ -10,7 +10,9 @@ describe("buildPdfViewModel — avgiftsprognos", () => {
     expect(vm.prisanalys.justeradVardering?.label).toBe(
       "Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift",
     );
-    expect(vm.prisanalys.justeradVardering?.avvikelseText).toContain("den justerade värderingen");
+    expect(vm.prisanalys.justeradVardering?.avvikelseText).toBe(
+      "Utgångspriset ligger 3,2 % över värdet, inom spannet",
+    );
     expect(vm.prisanalys.avvikelseText).toBeUndefined();
   });
 
