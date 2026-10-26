@@ -569,7 +569,6 @@ export function Prisrimlighet({
               <p className="text-sm font-medium text-foreground">Utgångspris</p>
               {/* ml-auto: value stays at the right edge also when the row wraps (owner 2026-10-26). */}
               <div className="ml-auto text-right">
-
                 <p className="font-display text-xl text-foreground">
                   {formatFigureVarde(p.utgangspris)}
                 </p>
@@ -604,7 +603,6 @@ export function Prisrimlighet({
               <div className="ml-auto text-right">
                 <p className="font-display text-xl text-foreground">
                   {formatVardeFigurAvrundat(p.externVardering)}
-
                 </p>
                 {kvmRad(p.externVardering.value)}
                 {visat?.kalla === "bas" ? spannRad : null}
@@ -633,7 +631,6 @@ export function Prisrimlighet({
               <div className="ml-auto text-right">
                 <p className="font-display text-xl text-foreground">
                   {formatVardeFigurAvrundat(p.justeradVardering)}
-
                 </p>
                 {kvmRad(p.justeradVardering.value)}
                 {visat?.kalla === "justerad" ? spannRad : null}
