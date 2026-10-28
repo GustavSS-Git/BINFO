@@ -84,11 +84,13 @@ per-apartment cost in kronor, and what to do before bidding.
   migrations and Edge Function (`PIPELINE_VERSION`) are in production was not
   verified. The Booli fetch is challenged in production (`docs/booli.md`), so
   live it ends in "fyll i manuellt".
-- **Redesign v4** (2026-10-28, branch `redesign-v4`, PLANNED, awaiting owner
-  approval): the whole web app moves to the "BINFO REDESIGN" canvas (13
-  artboards). Plan, route → artboard map, decisions and open questions:
-  `docs/PLAN-v4-redesign.md`. Design system: "Design system (redesign v4)" below.
-  Never merge or push the branch to `main` (Lovable deploys from `main`).
+- **Redesign v4** (branch `redesign-v4`, implemented 2026-10-28/29, NOT merged:
+  the owner merges after checking in Lovable): the whole web app and both PDFs
+  follow the "BINFO REDESIGN" canvas. Plan, decisions, owner answers (§6.1) and
+  open items: `docs/PLAN-v4-redesign.md`. Design system: "Design system
+  (redesign v4)" below; what changed in behaviour: "Redesign v4: behaviour
+  changes" below (it wins over older notes in this file where they conflict).
+  Needs `20261028120000_kopguide.sql` in production before publishing.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -1002,6 +1004,53 @@ Artboards hold example data (Brf Pontonjären 3) and placeholders
 - **Contact:** `KONTAKT_EPOST` (`src/lib/kontakt.ts`) drives the footer
   "Kontakt" link and "Hittar du ett fel?" links; while it is `null` they are
   hidden.
+
+## Redesign v4: behaviour changes (2026-10-29; wins over older notes above)
+
+- **/analysera:** Adress moved into step 1; Adress and Byggår are required for
+  the Priskoll and the analysis (client-side only; server schemas keep them
+  optional so old saved valuations still open). Priskoll result is
+  `components/analysera/PriskollResultat.tsx` (built by `lib/priskollVy.ts`);
+  `Prisrimlighet` survives only as `components/rapport/Prisrimlighet.tsx`
+  (re-exported, no longer used by pages). A nameless saved valuation gets the
+  address as label; valuation drafts carry `form.adress`.
+- **Waiting screen:** six design steps mapped from the pipeline stage
+  (`designSteg`/`designAndel` in `analysStatusVy.ts`): identifiering/
+  transkribering/grundning → 1, extraktion → 2, bedomning → 3; steps 4–6 run at
+  read time and are never shown "Klart". `AnalysStatusSvar` gained `adress`,
+  `foreningNamn`, `utgangspris`, `liknande` (unadjusted valuation via
+  `server/vantskarmVardering.ts`), set only while queued/running.
+- **Report (K1):** `AnalysRapport.tsx` + `components/rapport/*` (sections
+  Föreningen / Priset / Avgiften framåt / Inför visningen, Källor och metod).
+  The closing "Sammanfattning" is no longer rendered (web or PDF; data kept).
+  "I avgiften" shows all five items incl. värme and vatten (owner 2026-10-28,
+  reverses 2026-10-26). Grade titles: `lib/betygVy.ts`. Price helpers:
+  `lib/prisVy.ts` (`vanligtBud` = utgångspris × (1 + median bid premium),
+  mkr formatting); "på/i" for valuation areas: `lib/omradeText.ts`. The kalkyl
+  link sends `ingar`/`ingarEj` and, from real reports only, `analys=<id>`.
+- **Bolånekalkyl:** `KalkylUnderlag` v2 = `pris` + `kontantinsats` (lån =
+  pris − insats; v1 rows/drafts migrate, `okant` → `nej`); fee items are two
+  states (ingår / ingår ej), no range anywhere; vatten 135 kr per person
+  (`REGELVERSION` "2026-10-28"); rules table types Regel / Referensvärde /
+  Antagande / Uppskattning.
+- **Köpguide:** steps in `lib/kopguide/steg.ts`, progress persisted
+  (`useKopguide`: localStorage `binfo:kopguide:v1` logged out, table
+  `kopguide_framsteg` logged in, merged once per browser and account);
+  /konto shows "X av 12 steg klara. Nästa: …".
+- **Register:** coloured grades; per-area preposition in `omraden.ts`; the
+  förening page shows the stored `betygMotivering` of the latest year
+  (`RegisterArsSammanfattning.betygMotivering`, owner 2026-10-28).
+- **Account:** wrong current password → "Fel nuvarande lösenord.", wrong
+  delete password → "Fel lösenord."; dialog busy text per action; logout and
+  deletion land on "/"; no leaked-password claims (Supabase free plan).
+- **PDF:** Inter + Source Serif 4 (self-hosted TTF + OFL in `public/fonts`;
+  the old IBM Plex/Libre Baskerville files stay for `scripts/genereraOgBild.mjs`).
+- **Contact:** `KONTAKT_EPOST` = contactbinfohere@gmail.com (footer "Kontakt",
+  report/BRF "Hittar du ett fel?", failure screens).
+- Fixed known defects: landing anchor links, köpguide "Medlemskap" text,
+  kalkyl hints, "3–5 minuter", `trasigt` progress mis-count, "Tar bort…" in
+  every dialog, wrong-current-password copy, stale `scanned_pdf` copy,
+  "kontakta oss" without an address, privacy-page drift.
 
 ## Lovable sync workflow
 
