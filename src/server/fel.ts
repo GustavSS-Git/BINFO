@@ -324,8 +324,8 @@ export function sakertSkapaFel(handler: string, error: unknown) {
 export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
   ogiltig_epost: "Ange en giltig e-postadress.",
   svagt_losenord:
-    "Lösenordet måste vara minst 10 tecken (och högst 72 byte). Det får inte heller vara ett " +
-    "lösenord som förekommit i ett dataintrång eller det du redan har.",
+    // No leaked-password check on the Supabase free plan (owner 2026-10-28): don't claim one.
+    "Lösenordet måste vara minst 10 tecken (och högst 72 byte) och får inte vara det du redan har.",
   ogiltig_inloggning: "Fel e-postadress eller lösenord.",
   kraver_nuvarande_losenord: "Ange ditt nuvarande lösenord för att byta till ett nytt.",
   epost_ej_bekraftad:
@@ -345,6 +345,11 @@ export const KONTO_FEL_MEDDELANDE: Readonly<Record<KontoFelKod, string>> = {
   // Not the analysis copy: account pages must not say "Analysen kunde inte…".
   unknown: "Något gick fel hos oss. Försök igen om en stund, och kontakta oss om felet kvarstår.",
 };
+
+/** Re-authentication with the account's own password (change password, delete account):
+ *  the address is known, so only the password can be wrong. Same `felKod` as login. */
+export const FEL_NUVARANDE_LOSENORD = "Fel nuvarande lösenord.";
+export const FEL_LOSENORD = "Fel lösenord.";
 
 export function kontoFel(felKod: KontoFelKod): KontoFel {
   return { ok: false, felKod, meddelande: KONTO_FEL_MEDDELANDE[felKod] };

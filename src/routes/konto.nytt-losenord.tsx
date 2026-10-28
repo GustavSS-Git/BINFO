@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { AuthSida, FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { AuthAside, AuthSida, FelRuta, InfoRuta, TEXTLANK } from "@/components/konto/AuthSida";
 import { GENERELLT_FEL, kontoHead } from "@/components/konto/kontoText";
 import { useGaTill } from "@/components/konto/useGaTill";
 import { Button, Field } from "@/components/ui/binfo";
@@ -16,6 +16,16 @@ export const Route = createFileRoute("/konto/nytt-losenord")({
     s["nuvarande"] === "ja" ? { nuvarande: "ja" as const } : {},
   component: NyttLosenord,
 });
+
+const aside = (
+  <AuthAside
+    rubrik="Bra att veta"
+    punkter={[
+      "Kommer du hit från länken i mejlet behöver du inte ange det nuvarande lösenordet.",
+      "När lösenordet är bytt loggas du ut på andra enheter.",
+    ]}
+  />
+);
 
 function NyttLosenord() {
   const { nuvarande } = Route.useSearch();
@@ -71,12 +81,12 @@ function NyttLosenord() {
 
   if (klart) {
     return (
-      <AuthSida eyebrow="Mitt konto" title="Lösenordet är ändrat">
+      <AuthSida eyebrow="Mitt konto" title="Lösenordet är ändrat" aside={aside}>
         <InfoRuta>
           <p>Ditt nya lösenord gäller från och med nu.</p>
         </InfoRuta>
-        <p className="mt-6 text-sm">
-          <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+        <p className="text-[15px]">
+          <Link to="/konto" className={TEXTLANK}>
             Till Mitt konto
           </Link>
         </p>
@@ -89,14 +99,24 @@ function NyttLosenord() {
       eyebrow="Mitt konto"
       title="Välj nytt lösenord"
       lead={`Lösenordet ska vara minst ${MIN_LOSENORD_TECKEN} tecken.`}
+      aside={aside}
     >
-      <form onSubmit={skicka} className="space-y-5">
+      <form onSubmit={skicka} className="flex flex-col gap-[18px]">
         {visaNuvarande ? (
-          <Field label="Nuvarande lösenord" type="password" value={gammalt} onChange={setGammalt} />
+          <Field
+            label="Nuvarande lösenord"
+            type="password"
+            name="nuvarande-losenord"
+            autoComplete="current-password"
+            value={gammalt}
+            onChange={setGammalt}
+          />
         ) : null}
         <Field
           label="Nytt lösenord"
           type="password"
+          name="nytt-losenord"
+          autoComplete="new-password"
           value={nytt}
           onChange={setNytt}
           hint={`Minst ${MIN_LOSENORD_TECKEN} tecken.`}
@@ -105,6 +125,14 @@ function NyttLosenord() {
         <Button type="submit" size="lg" className="w-full" disabled={skickar}>
           {skickar ? "Sparar…" : "Spara nytt lösenord"}
         </Button>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-[15px]">
+          <Link to="/konto" className={TEXTLANK}>
+            Tillbaka till Mitt konto
+          </Link>
+          <Link to="/konto/glomt-losenord" className={TEXTLANK}>
+            Glömt ditt nuvarande lösenord?
+          </Link>
+        </div>
       </form>
     </AuthSida>
   );
