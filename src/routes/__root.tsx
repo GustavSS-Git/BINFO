@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
-  Link,
   createRootRouteWithContext,
   useRouter,
   HeadContent,
@@ -12,25 +11,19 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SiteNav, SiteFooter } from "@/components/SiteNav";
+import { Button, LinkButton, PageHeader } from "@/components/ui/binfo";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Sidan hittades inte</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Sidan du letar efter finns inte eller har flyttats.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Till startsidan
-          </Link>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-8 md:py-24">
+      <PageHeader
+        eyebrow="404"
+        title="Sidan hittades inte"
+        lead="Sidan du letar efter finns inte eller har flyttats."
+      />
+      <LinkButton to="/" size="lg">
+        Till startsidan
+      </LinkButton>
     </div>
   );
 }
@@ -43,31 +36,28 @@ function ErrorComponent({ error, reset }: { error: unknown; reset: () => void })
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          Sidan kunde inte laddas
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Något gick fel hos oss. Prova att ladda om sidan eller gå tillbaka till startsidan.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Försök igen
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Till startsidan
-          </a>
-        </div>
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-8 md:py-24">
+      <PageHeader
+        eyebrow="Fel"
+        title="Sidan kunde inte laddas"
+        lead="Något gick fel hos oss. Prova att ladda om sidan eller gå tillbaka till startsidan."
+      />
+      <div className="flex flex-wrap gap-3">
+        <Button
+          size="lg"
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
+        >
+          Försök igen
+        </Button>
+        <a
+          href="/"
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm border border-input bg-card px-[22px] text-base font-semibold text-primary transition-colors hover:bg-tint"
+        >
+          Till startsidan
+        </a>
       </div>
     </div>
   );
@@ -96,7 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Baskerville:wght@400;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],

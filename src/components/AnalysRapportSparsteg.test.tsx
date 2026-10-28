@@ -92,7 +92,7 @@ describe("AnalysRapport — sparsteg, lån och färger (2026-10-24c)", () => {
     // Sammanfattningen får ett märke för totalen (gul)
     const sam = html.slice(html.indexOf("SUMAVGIFT") - 400, html.indexOf("SUMAVGIFT"));
     expect(sam).toContain("Visst tryck på avgiften");
-    expect(sam).toContain("bg-warning/15");
+    expect(sam).toContain("bg-warning-tint");
   });
 
   it("planbaserat mål: källa 'Underhållsplan s. N', ingen dämpning och ingen byggdelstabell", () => {
