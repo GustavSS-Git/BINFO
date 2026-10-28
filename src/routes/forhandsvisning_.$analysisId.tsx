@@ -5,7 +5,7 @@ import { hamtaResultatFn, hamtaStatusFn } from "@/server/analysFn";
 import { AnalysRapport } from "@/components/AnalysRapport";
 import { SparaAnalysVy } from "@/components/konto/SparaAnalys";
 import { useSparaAnalys } from "@/components/konto/useSparaAnalys";
-import { Callout, PageHeader } from "@/components/ui/binfo";
+import { Callout } from "@/components/ui/binfo";
 import {
   AnalysStatusVakt,
   HittadesInte,
@@ -150,9 +150,7 @@ function KlarInnehall({ analysisId, loaderData }: { analysisId: string; loaderDa
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-14">
-      <PageHeader eyebrow="Klar" title="Din analys" />
-
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-8 md:py-14">
       {aterAnvandNotis ? (
         <div className="mb-6">
           <Callout variant="tip" title={aterAnvandNotis.titel}>

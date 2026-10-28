@@ -318,3 +318,73 @@ export function foreningsHint(lage: AnnonsFormLage | null): string | null {
     ? null
     : `Booli anger föreningen: ${forening}. Kontrollera att årsredovisningen gäller den.`;
 }
+
+// ---------------------------------------------------------------------------
+// Redesign v4: märken (badge) bredvid fältetiketten och antalet ifyllda uppgifter
+// ---------------------------------------------------------------------------
+
+export const MARKE_ANNONS = "Från annonsen";
+export const MARKE_GEOKODAT = "Från OpenStreetMap";
+export const MARKE_TOLKAT = "Tolkat från annonsen";
+export const MARKE_MANUELLT = "Ändrat manuellt";
+const HINT_KONTROLLERA = "Kontrollera att det stämmer.";
+
+export interface AnnonsMarke {
+  text: string;
+  ton: "success" | "neutral" | "warning";
+}
+
+/**
+ * Hur många uppgifter som faktiskt fylldes i från annonsen: fälten med ursprung "booli"
+ * (Ort har inget fält och räknas aldrig; Hiss/Balkong räknas bara när annonsen sa "ja").
+ */
+export function antalHamtade(lage: AnnonsFormLage): number {
+  return ANNONS_FALT.filter((f) => f !== "ort" && lage.ursprung[f] === "booli").length;
+}
+
+/** Texten under länkfältet efter en lyckad hämtning. */
+export function annonsResultatText(antal: number): string {
+  if (antal === 0) return "Vi hittade inga uppgifter i annonsen. Fyll i dem nedan.";
+  return `Vi fyllde i ${antal} ${antal === 1 ? "uppgift" : "uppgifter"} från annonsen. Kontrollera dem nedan.`;
+}
+
+/** `Field`-props för ett textfält: märke bredvid etiketten, hint och markering. Nycklar utelämnas när de inte används. */
+export function annonsFaltMarkering(
+  lage: AnnonsFormLage | null,
+  falt: AnnonsFalt,
+  varde: string,
+): { marke?: AnnonsMarke; hint?: string; framhav?: boolean } {
+  if (lage === null || falt === "ort") return {};
+  switch (lage.ursprung[falt]) {
+    case "booli":
+      if (falt === "postnummer" && lage.postnummerGeokodat) {
+        return { marke: { text: MARKE_GEOKODAT, ton: "success" }, hint: HINT_GEOKODAT };
+      }
+      return lage.tolkatAvModell
+        ? { marke: { text: MARKE_TOLKAT, ton: "warning" }, hint: HINT_KONTROLLERA }
+        : { marke: { text: MARKE_ANNONS, ton: "success" } };
+    case "manuellt":
+      return { marke: { text: MARKE_MANUELLT, ton: "neutral" } };
+    case "saknas":
+      return varde.trim() === "" ? { hint: HINT_SAKNAS, framhav: true } : {};
+  }
+}
+
+/** Märket bredvid Hiss/Balkong (båda kan lämnas som "Vet ej", så ingen markering). */
+export function annonsTristateMarke(
+  lage: AnnonsFormLage | null,
+  falt: "hiss" | "balkong",
+  varde: Tristate,
+): AnnonsMarke | undefined {
+  if (lage === null) return undefined;
+  switch (lage.ursprung[falt]) {
+    case "booli":
+      return lage.tolkatAvModell
+        ? { text: MARKE_TOLKAT, ton: "warning" }
+        : { text: MARKE_ANNONS, ton: "success" };
+    case "manuellt":
+      return { text: MARKE_MANUELLT, ton: "neutral" };
+    case "saknas":
+      return varde === "okant" ? { text: HINT_SAKNAS_VALFRITT, ton: "neutral" } : undefined;
+  }
+}

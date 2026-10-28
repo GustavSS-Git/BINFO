@@ -47,7 +47,7 @@ import { PROMPT_VERSION } from "@/lib/analysis/prompts";
 import { extractPdfText } from "@/lib/analysis/pdf";
 import { ScannedPdfError } from "@/lib/analysis/runExtraction";
 import { assembleraAnalys } from "@/lib/analysis/assemble";
-import { ModellPrisdatakalla } from "@/lib/analysis/prisdata";
+import { ModellPrisdatakalla, type Prisdatakalla } from "@/lib/analysis/prisdata";
 import type { AnalysJudgement } from "@/lib/analysis/analyze";
 import {
   identifieraLokalt as identifieraLokaltStandard,
@@ -67,6 +67,7 @@ import type {
   Textlager,
 } from "./portar";
 import { lasPropertyInputFranRad } from "./lagratInput";
+import { vantskarmVarden } from "./vantskarmVardering";
 import { hamtaAnalysFranCache, hamtaExtraktionFranCache } from "./cache";
 import {
   omkorningOmojligResultat,
@@ -623,6 +624,38 @@ export interface AnalysStatusSvar {
   /** Waiting on a report another upload started. */
   vantarPaRapport?: boolean;
   rapportSteg?: RapportStage;
+  /** Waiting screen only (queued/running; absent on done/failed): the buyer's own
+   *  address, the BRF name when the report is identified, the asking price and
+   *  "Liknande lägenheter" = the UNADJUSTED model valuation of the stored input
+   *  (exact kr). Each is null when unknown; computed locally, no API call. */
+  adress?: string | null;
+  foreningNamn?: string | null;
+  utgangspris?: number | null;
+  liknande?: { varde: number } | null;
+}
+
+/** The waiting-screen fields for a pending analysis. Never throws. */
+async function vantskarmTillagg(
+  lager: Lager,
+  rad: AnalysRad,
+  orgnr: string | null,
+  prisdatakalla?: Prisdatakalla,
+): Promise<Pick<AnalysStatusSvar, "adress" | "foreningNamn" | "utgangspris" | "liknande">> {
+  let foreningNamn: string | null = null;
+  if (orgnr !== null) {
+    try {
+      foreningNamn = (await lager.db.hamtaForening(orgnr))?.namn?.trim() || null;
+    } catch (fel) {
+      console.error("[hamtaStatus] föreningens namn kunde inte läsas:", fel);
+    }
+  }
+  try {
+    const v = await vantskarmVarden(lasPropertyInputFranRad(rad), prisdatakalla);
+    return { adress: v.adress, foreningNamn, utgangspris: v.utgangspris, liknande: v.liknande };
+  } catch (fel) {
+    console.error("[hamtaStatus] lagrade uppgifter kunde inte läsas:", fel);
+    return { adress: null, foreningNamn, utgangspris: null, liknande: null };
+  }
 }
 
 /**
@@ -639,7 +672,11 @@ export interface AnalysStatusSvar {
  *     synligt fel (`omkorningOmojligResultat`: ladda upp igen, så körs en ny
  *     analys).
  */
-async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysStatusSvar> {
+async function hamtaRapportStatus(
+  lager: Lager,
+  rad: AnalysRad,
+  prisdatakalla?: Prisdatakalla,
+): Promise<AnalysStatusSvar> {
   const lankad = await hamtaLankadRapport(lager, rad);
   const lasbar = await valjLasbarRapport(lager.db, lankad);
 
@@ -692,6 +729,7 @@ async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysS
       ...bas,
       status: aktuell.status === "running" ? "running" : "queued",
       vantarPaRapport: forsta !== undefined && forsta.id !== rad.id,
+      ...(await vantskarmTillagg(lager, rad, aktuell.orgnr ?? lankad.orgnr, prisdatakalla)),
     };
   }
 
@@ -703,16 +741,20 @@ async function hamtaRapportStatus(lager: Lager, rad: AnalysRad): Promise<AnalysS
 export async function hamtaStatus(
   lager: Lager,
   analysisId: string,
+  opts: { prisdatakalla?: Prisdatakalla } = {},
 ): Promise<AnalysStatusSvar | null> {
   const rad = await lager.db.hamtaAnalys(analysisId);
   if (!rad) return null;
-  if (rad.rapportId !== null) return hamtaRapportStatus(lager, rad);
+  if (rad.rapportId !== null) return hamtaRapportStatus(lager, rad, opts.prisdatakalla);
 
   return {
     status: rad.status,
     stage: rad.stage,
     ...(rad.errorCode ? { errorCode: rad.errorCode } : {}),
     ...(rad.errorMessage ? { errorMessage: rad.errorMessage } : {}),
+    ...(rad.status === "queued" || rad.status === "running"
+      ? await vantskarmTillagg(lager, rad, null, opts.prisdatakalla)
+      : {}),
   };
 }
 

@@ -124,10 +124,11 @@ export interface AnalyseraFormFields {
   byggar: string;
 }
 
-/** Ett fel per fält. `utgangspris` är valfritt (tomt = inget fel, ogiltig
- *  text = fel). `byggar` är valfritt och ingår därför inte här. `vaning` är obligatoriskt i formuläret (köparen ska alltid kunna säga
- *  var i huset lägenheten ligger) även om PropertyInput-kontraktet har fältet
- *  valfritt. */
+/** Ett fel per fält. `utgangspris` kan lämnas tomt (tomt = inget fel, ogiltig
+ *  text = fel). `adress`, `vaning` och `byggar` är obligatoriska i formuläret (ägarbeslut
+ *  2026-10-28 för adress och byggår; köparen ska alltid kunna säga var i huset lägenheten
+ *  ligger) även om PropertyInput-kontraktet har vaning/byggar valfria: gamla sparade
+ *  värderingar utan byggår ska fortfarande kunna öppnas och räknas om. */
 export interface AnalyseraFormFel {
   utgangspris: string | null;
   boarea: string | null;
@@ -136,6 +137,23 @@ export interface AnalyseraFormFel {
   antalRum: string | null;
   adress: string | null;
   postnummer: string | null;
+  byggar: string | null;
+}
+
+/** Felet för ett obligatoriskt byggår (`null` = giltigt): fyra siffror, 1600 till innevarande
+ *  år. Delas av priskollen (src/lib/varderingForm.ts) och analysen. Bara klientvalidering. */
+export const BYGGAR_FEL = "Ange byggår, t.ex. 1965.";
+export const MIN_BYGGAR = 1600;
+export function valideraByggar(rått: string, idag: Date = new Date()): string | null {
+  const t = rått.trim();
+  if (!/^\d{4}$/.test(t)) return BYGGAR_FEL;
+  const ar = Number(t);
+  return ar >= MIN_BYGGAR && ar <= idag.getFullYear() ? null : BYGGAR_FEL;
+}
+
+/** Felet för en obligatorisk adress (`null` = giltig). */
+export function valideraAdress(rått: string): string | null {
+  return rått.trim() === "" ? "Ange adress." : null;
 }
 
 /** Felet för ett obligatoriskt postnummer (`null` = giltigt). Delas av
@@ -164,8 +182,9 @@ export function validateraAnalyseraForm(f: AnalyseraFormFields): AnalyseraFormFe
     vaning: parseVaning(f.vaning) === null ? "Ange våning." : null,
     manadsavgift: parsePositivtTal(f.manadsavgift) === null ? "Ange en giltig månadsavgift." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,
-    adress: f.adress.trim() === "" ? "Ange adress." : null,
+    adress: valideraAdress(f.adress),
     postnummer: valideraPostnummer(f.postnummer),
+    byggar: valideraByggar(f.byggar),
   };
 }
 
@@ -199,8 +218,8 @@ export interface AnalyseraFormUppgifter {
  * `vaning`/`byggar` utelämnas HELT (inte satta till `undefined`) när de inte
  * går att tolka som tal — exactOptionalPropertyTypes kräver det, och ett
  * utelämnat fält är dessutom den semantik kontraktet vill ha. `vaning` är
- * numera obligatoriskt i formuläret, så där är utelämnandet bara ett
- * säkerhetsnät; `byggar` kan fortfarande vara riktigt tomt.
+ * numera obligatoriskt i formuläret, och byggår likaså (2026-10-28), så
+ * utelämnandet är bara ett säkerhetsnät.
  *
  * `kalla` (valfri) finns bara när uppgifterna hämtats från en annons; utan den
  * utelämnas nyckeln helt.

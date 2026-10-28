@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  annonsFaltMarkering,
+  annonsResultatText,
+  annonsTristateMarke,
+  antalHamtade,
   annonsFaltVisning,
   annonsTristateText,
   boareaTillTal,
@@ -690,5 +694,85 @@ describe("behörighetsfel från servern", () => {
       hamta: async () => ({ ok: false, errorCode: "behorighet", errorMessage: "Nej." }),
     });
     expect(r).toEqual({ typ: "fel", meddelande: "Nej." });
+  });
+});
+
+describe("redesign v4: märken och antal ifyllda uppgifter", () => {
+  const tom = { hiss: "okant", balkong: "okant" } as const;
+
+  it("antalHamtade räknar bara fält som faktiskt fylldes i (ort, saknade och hiss/balkong utan 'ja' räknas inte)", () => {
+    const full = tillampaAnnons(TOM_FORM, tom, svar(FULLA)).lage;
+    // adress, postnummer, utgångspris, avgift, boarea, rum, våning, byggår, hiss, balkong
+    expect(antalHamtade(full)).toBe(10);
+    const delvis = tillampaAnnons(
+      TOM_FORM,
+      tom,
+      svar(utan(FULLA, "utgangspris", "hiss", "balkong", "byggar", "vaning")),
+    ).lage;
+    expect(antalHamtade(delvis)).toBe(5);
+    expect(antalHamtade(markeraAndrad(delvis, "boarea"))).toBe(4);
+  });
+
+  it("resultattexten", () => {
+    expect(annonsResultatText(8)).toBe(
+      "Vi fyllde i 8 uppgifter från annonsen. Kontrollera dem nedan.",
+    );
+    expect(annonsResultatText(1)).toBe(
+      "Vi fyllde i 1 uppgift från annonsen. Kontrollera dem nedan.",
+    );
+    expect(annonsResultatText(0)).toBe("Vi hittade inga uppgifter i annonsen. Fyll i dem nedan.");
+  });
+
+  it("märken: Från annonsen, Ändrat manuellt, Från OpenStreetMap, Tolkat från annonsen", () => {
+    const { lage } = tillampaAnnons(TOM_FORM, tom, svar(utan(FULLA, "utgangspris")));
+    expect(annonsFaltMarkering(lage, "boarea", "41,5")).toEqual({
+      marke: { text: "Från annonsen", ton: "success" },
+    });
+    expect(annonsFaltMarkering(markeraAndrad(lage, "boarea"), "boarea", "50")).toEqual({
+      marke: { text: "Ändrat manuellt", ton: "neutral" },
+    });
+    const geo = tillampaAnnons(
+      TOM_FORM,
+      tom,
+      svar({ postnummer: "112 39" }, { postnummerKalla: "geokodning" }),
+    ).lage;
+    expect(annonsFaltMarkering(geo, "postnummer", "112 39")).toEqual({
+      marke: { text: "Från OpenStreetMap", ton: "success" },
+      hint: HINT_GEOKODAT,
+    });
+    const llm = tillampaAnnons(TOM_FORM, tom, svar(FULLA, { tolkning: "llm" })).lage;
+    expect(annonsFaltMarkering(llm, "boarea", "41,5").marke).toEqual({
+      text: "Tolkat från annonsen",
+      ton: "warning",
+    });
+  });
+
+  it("saknad + tom ger 'Fanns inte i annonsen, fyll i själv' och markering, inget märke", () => {
+    const { lage } = tillampaAnnons(TOM_FORM, tom, svar(utan(FULLA, "byggar")));
+    expect(annonsFaltMarkering(lage, "byggar", "")).toEqual({
+      hint: HINT_SAKNAS,
+      framhav: true,
+    });
+    expect(annonsFaltMarkering(lage, "byggar", "1965")).toEqual({});
+    expect(annonsFaltMarkering(null, "byggar", "")).toEqual({});
+    expect(annonsFaltMarkering(lage, "ort", "")).toEqual({});
+  });
+
+  it("hiss/balkong: märke vid 'ja' från annonsen, manuellt efter ändring, 'Framgår inte' vid okänt", () => {
+    const { lage } = tillampaAnnons(TOM_FORM, tom, svar(utan(FULLA, "balkong")));
+    expect(annonsTristateMarke(lage, "hiss", "ja")).toEqual({
+      text: "Från annonsen",
+      ton: "success",
+    });
+    expect(annonsTristateMarke(markeraAndrad(lage, "hiss"), "hiss", "nej")).toEqual({
+      text: "Ändrat manuellt",
+      ton: "neutral",
+    });
+    expect(annonsTristateMarke(lage, "balkong", "okant")).toEqual({
+      text: "Framgår inte av annonsen",
+      ton: "neutral",
+    });
+    expect(annonsTristateMarke(lage, "balkong", "ja")).toBeUndefined();
+    expect(annonsTristateMarke(null, "hiss", "ja")).toBeUndefined();
   });
 });

@@ -1,9 +1,20 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Card, Button, Callout, Field, TristateChoice, PageHeader } from "@/components/ui/binfo";
-import { Prisrimlighet } from "@/components/AnalysRapport";
+import {
+  Badge,
+  Button,
+  Callout,
+  Card,
+  Eyebrow,
+  Field,
+  IconChip,
+  PageHeader,
+  Stepper,
+  TristateChoice,
+} from "@/components/ui/binfo";
+import { MedKontakt } from "@/components/AnalysStatus";
+import { PriskollResultat } from "@/components/analysera/PriskollResultat";
 import { SparadVardering } from "@/components/analysera/SparadVardering";
-import { InfoRuta, FelRuta } from "@/components/konto/AuthSida";
 import { SparaKnapp } from "@/components/konto/SparaKnapp";
 import { useAterstallUtkast } from "@/components/konto/useAterstallUtkast";
 import { useUppgifter, setUppgifter, lasUppgifter } from "@/lib/uppgifter";
@@ -37,8 +48,10 @@ import {
 } from "@/server/analysFn";
 import { kontrolleraAnnonsUrl } from "@/lib/annons/url";
 import {
-  annonsFaltVisning,
-  annonsTristateText,
+  annonsFaltMarkering,
+  annonsResultatText,
+  annonsTristateMarke,
+  antalHamtade,
   boareaTillTal,
   foreningsHint,
   hamtaAnnonsUppgifter,
@@ -46,6 +59,7 @@ import {
   tillAnnonsKalla,
   tillampaAnnons,
   type AnnonsFormLage,
+  type AnnonsMarke,
 } from "@/lib/annons/formular";
 import { postnummerFaltVisning } from "@/lib/postnummer/falt";
 import {
@@ -85,13 +99,13 @@ export const Route = createFileRoute("/analysera")({
       {
         name: "description",
         content:
-          "Gratis priskoll direkt, utan uppladdning. Vill du också granska föreningen laddar du upp årsredovisningen och får riskbetyg, nyckeltal och räntestress.",
+          "Se vad bostaden är värd direkt, utan uppladdning. Vill du också granska föreningen laddar du upp årsredovisningen och får betyg, nyckeltal och räntestress.",
       },
       { property: "og:title", content: "Analysera en bostad — Binfo" },
       {
         property: "og:description",
         content:
-          "Gratis priskoll direkt. Ladda upp årsredovisningen för en valfri BRF-analys med riskbetyg och räntestress.",
+          "Se vad bostaden är värd direkt. Ladda upp årsredovisningen för en BRF-analys med betyg och räntestress.",
       },
     ],
   }),
@@ -208,6 +222,7 @@ function Analysera() {
   const [varderar, setVarderar] = useState(false);
   const [prisUtfall, setPrisUtfall] = useState<PrisUtfall | null>(null);
   const [etikett, setEtikett] = useState("");
+  const [annonsAntal, setAnnonsAntal] = useState(0);
   // Hämta uppgifter från en annons: länktext, pågående hämtning, fel under fältet och
   // varifrån varje fält kommer (null = ingen hämtning gjord).
   const [annonsLank, setAnnonsLank] = useState("");
@@ -276,8 +291,26 @@ function Analysera() {
     };
   }, [postnummerSif]);
 
-  const annonsVisning = (falt: Parameters<typeof annonsFaltVisning>[1], varde: string) =>
-    annonsFaltVisning(annonsLage, falt, varde);
+  const markeBadge = (m: AnnonsMarke | undefined) =>
+    m ? <Badge tone={m.ton}>{m.text}</Badge> : undefined;
+  /** Märke ("Från annonsen" …), hint och markering för ett textfält efter hämtning. */
+  const annonsVisning = (falt: Parameters<typeof annonsFaltMarkering>[1], varde: string) => {
+    const { marke, hint, framhav } = annonsFaltMarkering(annonsLage, falt, varde);
+    return {
+      ...(marke ? { badge: markeBadge(marke) } : {}),
+      ...(hint !== undefined ? { hint } : {}),
+      ...(framhav ? { framhav: true } : {}),
+    };
+  };
+  /** Som annonsVisning men med en egen hint när annonsen inte har någon. */
+  const medStandardHint = (
+    falt: Parameters<typeof annonsFaltMarkering>[1],
+    varde: string,
+    standard: string,
+  ) => {
+    const v = annonsVisning(falt, varde);
+    return { ...v, hint: v.hint ?? standard };
+  };
 
   /** Hämtar annonsen och fyller i formuläret. Startar ALDRIG en värdering eller analys. */
   const hamtaFranAnnons = async () => {
@@ -311,6 +344,7 @@ function Analysera() {
       });
       annonsLageRef.current = ny.lage;
       setAnnonsLage(ny.lage);
+      setAnnonsAntal(antalHamtade(ny.lage));
     } finally {
       setHamtarAnnons(false);
     }
@@ -370,16 +404,23 @@ function Analysera() {
       setForm((f) => ({ ...f, ...utkast.form }));
       setEtikett(utkast.etikett);
       setUppgifter({ hiss: utkast.hiss, balkong: utkast.balkong });
-      if (harVarderingsfel(validateraVarderingForm(utkast.form))) {
+      // Utkast från före redesign v4 bär inte adressen (och PrisInput gör det inte):
+      // kräv den bara när utkastet har den.
+      const utkastForm: VarderingFormFields = {
+        ...utkast.form,
+        adress: utkast.form.adress ?? formRef.current.adress,
+      };
+      const utanAdress = utkast.form.adress === undefined;
+      if (harVarderingsfel(validateraVarderingForm(utkastForm, { utanAdress }))) {
         setVisaFelSteg1(true);
         return { ok: false, meddelande: "Uppgifterna du fyllde i är inte kompletta längre." };
       }
-      const input = buildPrisInput(utkast.form, { hiss: utkast.hiss, balkong: utkast.balkong });
+      const input = buildPrisInput(utkastForm, { hiss: utkast.hiss, balkong: utkast.balkong });
       const etikettText = utkast.etikett.trim();
       const svar = await sparaVarderingFn({
         data: { prisInput: input, ...(etikettText !== "" ? { etikett: etikettText } : {}) },
       });
-      void varderaOchVisa(input, utkast.form);
+      void varderaOchVisa(input, utkastForm);
       return svar.ok ? { ok: true } : svar;
     },
   });
@@ -469,17 +510,29 @@ function Analysera() {
     }
   };
 
+  const leadSteg1 = franRegister
+    ? "Föreningens årsredovisning har vi redan hos Binfo. Fyll i bostadens uppgifter, så analyserar vi bostaden och föreningen på en gång. Vill du bara se vad bostaden är värd kan du göra det direkt efter steg 1."
+    : "Fyll i bostadens uppgifter och ladda upp föreningens årsredovisning, så analyserar vi allt på en gång. Vill du bara se vad bostaden är värd kan du göra det direkt efter steg 1.";
+
+  const hissMarke = annonsTristateMarke(annonsLage, "hiss", uppgifter.hiss);
+  const balkongMarke = annonsTristateMarke(annonsLage, "balkong", uppgifter.balkong);
+
   return (
-    <div className="mx-auto max-w-3xl px-5 py-14">
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-8 md:py-14">
       <PageHeader
-        eyebrow="Gratis priskoll · valfri BRF-analys"
-        title="Analysera en bostad"
-        lead={
-          franRegister
-            ? "Börja med en gratis priskoll. Föreningens årsredovisning har vi redan, så för BRF-analysen i steg 2 behöver du bara lägga till adressen — uppgifterna du redan fyllt i följer med."
-            : "Börja med en gratis priskoll. Vill du granska föreningen också laddar du upp årsredovisningen i steg 2 — uppgifterna du redan fyllt i följer med."
-        }
+        eyebrow="Analysera en bostad"
+        title="Vad är bostaden värd, och hur mår föreningen?"
+        lead={leadSteg1}
       />
+      <div className="mb-8">
+        <Stepper
+          steg={[
+            { label: "Bostaden", lage: "aktuell" },
+            { label: "Föreningen", lage: "kommande" },
+            { label: "Rapport", lage: "kommande" },
+          ]}
+        />
+      </div>
 
       <SenasteAnalyserSektion />
 
@@ -491,7 +544,7 @@ function Analysera() {
               <Link
                 to="/konto/logga-in"
                 search={inloggningsSok("/analysera", "vardering")}
-                className="font-medium text-primary underline underline-offset-2"
+                className="font-medium text-link underline underline-offset-2"
               >
                 Logga in
               </Link>
@@ -510,484 +563,596 @@ function Analysera() {
         </div>
       ) : null}
       {sparaStatus.typ === "sparar" ? (
-        <div className="mb-6">
-          <InfoRuta>
-            <p>Sparar din värdering…</p>
-          </InfoRuta>
+        <div className="mb-6" role="status">
+          <Callout variant="info" title="Sparar din värdering…">
+            <p>Ett ögonblick.</p>
+          </Callout>
         </div>
       ) : null}
       {sparaStatus.typ === "sparad" ? (
-        <div className="mb-6">
-          <InfoRuta>
-            <p className="font-medium">Din värdering är sparad i ditt konto.</p>
+        <div className="mb-6" role="status">
+          <Callout variant="info" title="Din värdering är sparad i ditt konto.">
             <p>
-              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+              <Link to="/konto" className="font-medium text-link underline underline-offset-2">
                 Se den i Mitt konto
               </Link>
             </p>
-          </InfoRuta>
+          </Callout>
         </div>
       ) : null}
       {sparaStatus.typ === "fel" ? (
-        <div className="mb-6">
-          <FelRuta>Värderingen kunde inte sparas: {sparaStatus.meddelande}</FelRuta>
+        <div className="mb-6" role="alert">
+          <Callout variant="flag" title="Värderingen kunde inte sparas">
+            <p>{sparaStatus.meddelande}</p>
+          </Callout>
         </div>
       ) : null}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Hämta uppgifter från en Booli-annons (fyller bara i formuläret)    */}
-      {/* ---------------------------------------------------------------- */}
-      <Card className="mb-6">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void hamtaFranAnnons();
-          }}
-        >
-          <Field
-            id="booli-lank"
-            label="Klistra in länk från Booli"
-            optional
-            type="text"
-            placeholder="https://www.booli.se/annons/…"
-            value={annonsLank}
-            onChange={(v) => {
-              setAnnonsLank(v);
-              setAnnonsFel(null);
-            }}
-            hint={
-              annonsLage
-                ? "Uppgifterna är ifyllda nedan. Kontrollera dem innan du går vidare."
-                : "Vi fyller i uppgifterna från annonsen. Kontrollera dem innan du går vidare."
-            }
-            error={annonsFel}
-          />
-          <div className="mt-4">
-            <Button type="submit" disabled={hamtarAnnons}>
-              {hamtarAnnons ? "Hämtar…" : "Hämta uppgifter"}
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      {/* ---------------------------------------------------------------- */}
-      {/* Steg 1: Priskoll (gratis, ingen uppladdning)                      */}
-      {/* ---------------------------------------------------------------- */}
-      <Card>
-        <h2 className="font-display text-2xl text-foreground">Steg 1: Priskoll</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Gratis och direkt, ingen uppladdning. Utgångspriset är valfritt — fyller du i det jämförs
-          det med värderingen.
-        </p>
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
-          <Field
-            id="falt-boarea"
-            label="Boarea"
-            type="text"
-            suffix="m²"
-            placeholder="58"
-            value={form.boarea}
-            onChange={(v) => {
-              set("boarea")(v);
-              setUppgifter({ boarea: boareaTillTal(v) });
-            }}
-            error={visaFelSteg1 ? fel1.boarea : null}
-            {...annonsVisning("boarea", form.boarea)}
-          />
-          <Field
-            id="falt-antalRum"
-            label="Antal rum"
-            type="text"
-            placeholder="3"
-            value={form.antalRum}
-            onChange={set("antalRum")}
-            error={visaFelSteg1 ? fel1.antalRum : null}
-            {...annonsVisning("antalRum", form.antalRum)}
-          />
-          <Field
-            id="falt-manadsavgift"
-            label="Månadsavgift"
-            type="text"
-            suffix="kr/mån"
-            placeholder="3 240"
-            value={form.manadsavgift}
-            onChange={set("manadsavgift")}
-            error={visaFelSteg1 ? fel1.manadsavgift : null}
-            {...annonsVisning("manadsavgift", form.manadsavgift)}
-          />
-          <div>
-            <Field
-              id="falt-postnummer"
-              label="Postnummer"
-              type="text"
-              placeholder="116 25"
-              value={form.postnummer}
-              onChange={set("postnummer")}
-              error={visaFelSteg1 ? fel1.postnummer : null}
-              {...postnummerFaltVisning({
-                // Bara svaret för det postnummer som står i fältet nu.
-                info:
-                  postnummerInfo !== null &&
-                  postnummerInfo.status !== "ogiltig" &&
-                  postnummerInfo.postnummer === postnummerSif
-                    ? postnummerInfo
-                    : null,
-                annons: annonsVisning("postnummer", form.postnummer),
-              })}
-            />
-            <a
-              href={POSTNORD_POSTNUMMER_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-block text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-6">
+          {/* ------------------------------------------------------------ */}
+          {/* Hämta uppgifter från en Booli-annons (fyller bara i formuläret) */}
+          {/* ------------------------------------------------------------ */}
+          <Card>
+            <form
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                void hamtaFranAnnons();
+              }}
+              className="flex flex-col gap-3"
             >
-              Vet du inte postnumret? Sök hos PostNord
-            </a>
-          </div>
-          <Field
-            id="falt-vaning"
-            label="Våning"
-            placeholder="4"
-            value={form.vaning}
-            onChange={set("vaning")}
-            error={visaFelSteg1 ? fel1.vaning : null}
-            {...annonsVisning("vaning", form.vaning)}
-          />
-          <Field
-            id="falt-byggar"
-            label="Byggår"
-            optional
-            placeholder="1931"
-            value={form.byggar}
-            onChange={set("byggar")}
-            {...annonsVisning("byggar", form.byggar)}
-          />
-          <Field
-            id="falt-utgangspris"
-            label="Utgångspris"
-            optional
-            type="text"
-            suffix="kr"
-            placeholder="4 950 000"
-            value={form.utgangspris}
-            onChange={set("utgangspris")}
-            error={visaFelSteg1 ? fel1.utgangspris : null}
-            {...annonsVisning("utgangspris", form.utgangspris)}
-          />
-        </div>
+              <h2 className="text-lg font-semibold text-primary">Snabbast: hämta från annonsen</h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <Field
+                    id="booli-lank"
+                    label="Länk från Booli"
+                    type="text"
+                    placeholder="https://www.booli.se/annons/…"
+                    value={annonsLank}
+                    onChange={(v) => {
+                      setAnnonsLank(v);
+                      setAnnonsFel(null);
+                    }}
+                  />
+                </div>
+                <Button type="submit" size="lg" disabled={hamtarAnnons}>
+                  {hamtarAnnons ? "Hämtar…" : "Hämta uppgifter"}
+                </Button>
+              </div>
+              {annonsFel ? (
+                <p role="alert" className="text-sm text-danger-text">
+                  {annonsFel}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {annonsLage
+                    ? annonsResultatText(annonsAntal)
+                    : "Klistra in länken till annonsen så fyller vi i uppgifterna åt dig."}
+                </p>
+              )}
+            </form>
+          </Card>
 
-        <div id="vet-ej" className="mt-8 scroll-mt-24 grid gap-6 md:grid-cols-2">
-          <div>
-            <span className="mb-2 block text-sm font-medium text-foreground">
-              Hiss{" "}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
-              {annonsTristateText(annonsLage, "hiss", uppgifter.hiss) ? (
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {annonsTristateText(annonsLage, "hiss", uppgifter.hiss)}
-                </span>
-              ) : null}
-            </span>
-            <TristateChoice
-              value={uppgifter.hiss}
-              onChange={(v) => {
-                setUppgifter({ hiss: v });
-                setAnnonsLage((l) => (l ? markeraAndrad(l, "hiss") : l));
-              }}
-            />
-          </div>
-          <div>
-            <span className="mb-2 block text-sm font-medium text-foreground">
-              Balkong{" "}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">(valfritt)</span>
-              {annonsTristateText(annonsLage, "balkong", uppgifter.balkong) ? (
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {annonsTristateText(annonsLage, "balkong", uppgifter.balkong)}
-                </span>
-              ) : null}
-            </span>
-            <TristateChoice
-              value={uppgifter.balkong}
-              onChange={(v) => {
-                setUppgifter({ balkong: v });
-                setAnnonsLage((l) => (l ? markeraAndrad(l, "balkong") : l));
-              }}
-            />
-          </div>
-        </div>
+          {/* ------------------------------------------------------------ */}
+          {/* Steg 1: Om bostaden (Priskoll, ingen uppladdning)             */}
+          {/* ------------------------------------------------------------ */}
+          <Card className="flex flex-col gap-6">
+            <div className="flex flex-col gap-1">
+              <Eyebrow>Steg 1</Eyebrow>
+              <h2 className="font-display text-[26px] font-semibold leading-[1.2] text-primary">
+                Om bostaden
+              </h2>
+              <p className="text-base text-text-2">Det här behöver vi för värderingen.</p>
+            </div>
 
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Button size="lg" onClick={seVarderingen} disabled={varderar}>
-            {varderar ? "Värderar…" : "Se värderingen"}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {visaFelSteg1 && harFel1
-              ? "Fyll i de obligatoriska fälten."
-              : "Ingen uppladdning behövs."}
-          </span>
-        </div>
-      </Card>
-
-      {prisUtfall?.typ === "fel" ? (
-        <div className="mt-6 rounded-lg border border-danger/30 bg-danger/5 p-4" role="alert">
-          <p className="font-medium text-foreground">Det gick inte att göra värderingen</p>
-          <p className="mt-2 text-sm text-foreground">{prisUtfall.errorMessage}</p>
-        </div>
-      ) : null}
-
-      {prisUtfall?.typ === "serverfel" ? (
-        <div className="mt-6 rounded-lg border border-danger/30 bg-danger/5 p-4" role="alert">
-          <p className="font-medium text-foreground">Det gick inte att göra värderingen</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Något gick fel. Försök igen om en stund.
-          </p>
-        </div>
-      ) : null}
-
-      {prisUtfall?.typ === "ok" ? (
-        <div className="mt-10">
-          <Prisrimlighet
-            prisanalys={prisUtfall.resultat.prisanalys}
-            boarea={prisUtfall.resultat.input.boarea}
-          />
-
-          {sparaStatus.typ === "sparad" ? null : (
-            <Card className="mb-6">
-              <h2 className="font-display text-2xl text-foreground">Spara värderingen</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Spara den i ditt konto för att hitta tillbaka till den och kunna räkna om den
-                senare.
-              </p>
-              <div className="mt-4 max-w-sm">
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field
+                id="falt-adress"
+                label="Adress"
+                type="text"
+                placeholder="Gatuadress och nummer"
+                autoComplete="street-address"
+                value={form.adress}
+                onChange={set("adress")}
+                error={visaFelSteg1 ? fel1.adress : null}
+                {...annonsVisning("adress", form.adress)}
+              />
+              <div>
                 <Field
-                  label="Namn"
-                  optional
+                  id="falt-postnummer"
+                  label="Postnummer"
                   type="text"
-                  placeholder="Till exempel adressen"
-                  value={etikett}
-                  onChange={(v) => setEtikett(v.slice(0, MAX_ETIKETT_TECKEN))}
+                  placeholder="t.ex. 112 46"
+                  autoComplete="postal-code"
+                  value={form.postnummer}
+                  onChange={set("postnummer")}
+                  error={visaFelSteg1 ? fel1.postnummer : null}
+                  {...(() => {
+                    const a = annonsVisning("postnummer", form.postnummer);
+                    return {
+                      ...(a.badge ? { badge: a.badge } : {}),
+                      ...postnummerFaltVisning({
+                        // Bara svaret för det postnummer som står i fältet nu.
+                        info:
+                          postnummerInfo !== null &&
+                          postnummerInfo.status !== "ogiltig" &&
+                          postnummerInfo.postnummer === postnummerSif
+                            ? postnummerInfo
+                            : null,
+                        annons: {
+                          ...(a.hint !== undefined ? { hint: a.hint } : {}),
+                          ...(a.framhav ? { framhav: true } : {}),
+                        },
+                      }),
+                    };
+                  })()}
                 />
+                <a
+                  href={POSTNORD_POSTNUMMER_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-sm font-medium text-link underline underline-offset-2"
+                >
+                  Hitta postnummer
+                </a>
               </div>
-              <div className="mt-5">
-                <SparaKnapp
-                  key={prisUtfall.resultat.skapad}
-                  typ="vardering"
-                  etikettKnapp="Spara värderingen"
-                  till="/analysera"
-                  spara={() => {
-                    const e = etikett.trim();
-                    return sparaVarderingFn({
-                      data: {
-                        prisInput: prisUtfall.resultat.input,
-                        ...(e !== "" ? { etikett: e } : {}),
-                      },
-                    });
-                  }}
-                  forbered={() =>
-                    skrivUtkast(
-                      "vardering",
-                      {
-                        form: prisUtfall.skickatFormular,
-                        hiss: prisUtfall.resultat.input.hiss,
-                        balkong: prisUtfall.resultat.input.balkong,
-                        etikett,
-                      } satisfies VarderingUtkast,
-                      "/analysera",
-                    )
-                  }
-                />
-              </div>
-            </Card>
-          )}
+            </div>
 
-          <p className="text-sm text-muted-foreground">
-            Vill du granska föreningen också? Fortsätt med steg 2 nedan — uppgifterna du fyllt i
-            följer med.
-          </p>
-        </div>
-      ) : null}
+            <div className="grid gap-5 md:grid-cols-3">
+              <Field
+                id="falt-boarea"
+                label="Boarea"
+                type="text"
+                suffix="m²"
+                placeholder="t.ex. 52"
+                inputMode="decimal"
+                value={form.boarea}
+                onChange={(v) => {
+                  set("boarea")(v);
+                  setUppgifter({ boarea: boareaTillTal(v) });
+                }}
+                error={visaFelSteg1 ? fel1.boarea : null}
+                {...annonsVisning("boarea", form.boarea)}
+              />
+              <Field
+                id="falt-antalRum"
+                label="Antal rum"
+                type="text"
+                placeholder="t.ex. 2"
+                inputMode="decimal"
+                value={form.antalRum}
+                onChange={set("antalRum")}
+                error={visaFelSteg1 ? fel1.antalRum : null}
+                {...annonsVisning("antalRum", form.antalRum)}
+              />
+              <Field
+                id="falt-vaning"
+                label="Våning"
+                type="text"
+                placeholder="t.ex. 3"
+                inputMode="numeric"
+                value={form.vaning}
+                onChange={set("vaning")}
+                error={visaFelSteg1 ? fel1.vaning : null}
+                {...annonsVisning("vaning", form.vaning)}
+              />
+            </div>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Steg 2: BRF-analys (valfritt)                                     */}
-      {/* ---------------------------------------------------------------- */}
-      <div className="mb-4 mt-12">
-        <h2 className="font-display text-2xl text-foreground">
-          Steg 2: Granska föreningen (valfritt)
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {franRegister
-            ? "Du får de sju nyckeltalen, räntestresstest och frågor att ställa till styrelsen."
-            : "Ladda upp föreningens senaste årsredovisning så får du de sju nyckeltalen, räntestresstest och frågor att ställa till styrelsen."}
-        </p>
-      </div>
+            <div className="grid gap-5 md:grid-cols-3">
+              <Field
+                id="falt-manadsavgift"
+                label="Månadsavgift"
+                type="text"
+                suffix="kr/mån"
+                placeholder="t.ex. 3 800"
+                inputMode="numeric"
+                value={form.manadsavgift}
+                onChange={set("manadsavgift")}
+                error={visaFelSteg1 ? fel1.manadsavgift : null}
+                {...annonsVisning("manadsavgift", form.manadsavgift)}
+              />
+              <Field
+                id="falt-byggar"
+                label="Byggår"
+                type="text"
+                placeholder="t.ex. 1965"
+                inputMode="numeric"
+                value={form.byggar}
+                onChange={set("byggar")}
+                error={visaFelSteg1 ? fel1.byggar : null}
+                {...annonsVisning("byggar", form.byggar)}
+              />
+              <Field
+                id="falt-utgangspris"
+                label="Utgångspris"
+                type="text"
+                suffix="kr"
+                placeholder="t.ex. 4 500 000"
+                inputMode="numeric"
+                value={form.utgangspris}
+                onChange={set("utgangspris")}
+                error={visaFelSteg1 ? fel1.utgangspris : null}
+                {...medStandardHint(
+                  "utgangspris",
+                  form.utgangspris,
+                  "Fyller du i det jämför vi det med värderingen.",
+                )}
+              />
+            </div>
 
-      {foreningLage.typ === "laddar" ? (
-        <Card className="mb-6" aria-busy="true">
-          <p className="text-sm text-muted-foreground">Hämtar föreningen från registret…</p>
-        </Card>
-      ) : franRegister ? (
-        <Card className="mb-6">
-          <h3 className="font-display text-2xl text-foreground">
-            Föreningens årsredovisning finns redan hos Binfo
-          </h3>
-          <p className="mt-2 text-sm text-foreground">
-            <span className="font-medium">{franRegister.namn}</span> · räkenskapsår{" "}
-            {franRegister.senaste.rakenskapsar} · analyserad{" "}
-            {formatSkapadDatum(franRegister.senaste.analysdatum)}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Du behöver bara fylla i lägenhetens uppgifter i steg 1 samt adressen nedan.
-          </p>
-          <p className="mt-3 text-sm">
-            <Link
-              to="/analysera"
-              search={utanForening(prefill)}
-              replace
-              className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            <div
+              id="vet-ej"
+              className="flex scroll-mt-24 flex-col gap-4 border-t border-divider pt-6"
             >
-              Ladda upp en annan årsredovisning i stället
-            </Link>
-          </p>
-        </Card>
-      ) : (
-        <>
-          {foreningLage.typ === "saknas" ? (
-            <div className="mb-6">
-              <Callout
-                variant="flag"
-                title={
-                  foreningLage.orsak === "saknas"
-                    ? "Vi hittade inte föreningen i registret"
-                    : "Vi kunde inte hämta föreningen just nu"
-                }
-              >
-                Ladda upp föreningens årsredovisning nedan i stället.
+              <h3 className="text-base font-semibold text-primary">
+                Fler uppgifter som ger en säkrare värdering
+              </h3>
+              <div className="grid gap-5 md:grid-cols-2">
+                <fieldset className="m-0 min-w-0 border-0 p-0">
+                  <legend className="mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 p-0 text-sm font-semibold text-foreground">
+                    Hiss {markeBadge(hissMarke)}
+                  </legend>
+                  <TristateChoice
+                    ariaLabel="Hiss"
+                    value={uppgifter.hiss}
+                    onChange={(v) => {
+                      setUppgifter({ hiss: v });
+                      setAnnonsLage((l) => (l ? markeraAndrad(l, "hiss") : l));
+                    }}
+                  />
+                </fieldset>
+                <fieldset className="m-0 min-w-0 border-0 p-0">
+                  <legend className="mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 p-0 text-sm font-semibold text-foreground">
+                    Balkong {markeBadge(balkongMarke)}
+                  </legend>
+                  <TristateChoice
+                    ariaLabel="Balkong"
+                    value={uppgifter.balkong}
+                    onChange={(v) => {
+                      setUppgifter({ balkong: v });
+                      setAnnonsLage((l) => (l ? markeraAndrad(l, "balkong") : l));
+                    }}
+                  />
+                </fieldset>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Button size="lg" onClick={seVarderingen} disabled={varderar}>
+                {varderar ? "Värderar…" : "Se värderingen utan hänsyn till föreningen"}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {visaFelSteg1 && harFel1
+                  ? "Fyll i de obligatoriska fälten."
+                  : "Tar några sekunder. Visas här nedanför."}
+              </span>
+            </div>
+          </Card>
+
+          {prisUtfall?.typ === "fel" ? (
+            <div role="alert">
+              <Callout variant="flag" title="Det gick inte att göra värderingen">
+                <p>{prisUtfall.errorMessage}</p>
               </Callout>
             </div>
           ) : null}
-          <Card className="mb-6">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => valjFil(e.target.files?.[0])}
-            />
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  fileInputRef.current?.click();
-                }
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                valjFil(e.dataTransfer.files?.[0]);
-              }}
-              className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
-                dragging ? "border-primary bg-primary/5" : "border-border bg-secondary/40"
-              }`}
-            >
-              <p className="font-medium text-foreground">
-                Dra och släpp årsredovisningen här, eller klicka för att välja fil
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">PDF, max 25 MB</p>
-              {fil ? (
-                <p className="mt-4 inline-flex items-center gap-3 rounded-full bg-card px-4 py-2 text-sm text-foreground">
-                  <span className="size-2 rounded-full bg-success" />
-                  {fil.name} ({formateraFilstorlek(fil.size)})
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      taBortFil();
-                    }}
-                    className="text-muted-foreground underline hover:text-foreground"
-                  >
-                    Ta bort
-                  </button>
-                </p>
-              ) : null}
+
+          {prisUtfall?.typ === "serverfel" ? (
+            <div role="alert">
+              <Callout variant="flag" title="Det gick inte att göra värderingen">
+                <p>Något gick fel. Försök igen om en stund.</p>
+              </Callout>
             </div>
-            {(visaFelSteg2 || visaFilFel) && filFel ? (
-              <p className="mt-3 text-sm text-danger">{filFel}</p>
-            ) : null}
-            {foreningsHint(annonsLage) ? (
-              <p className="mt-3 text-sm text-muted-foreground">{foreningsHint(annonsLage)}</p>
-            ) : null}
-          </Card>
-        </>
-      )}
+          ) : null}
 
-      <Card>
-        <h3 className="font-display text-2xl text-foreground">Adress till objektet</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Resten av uppgifterna (boarea, våning, avgift med mera) tar vi från steg 1.
-        </p>
-        <div className="mt-6 grid gap-5">
-          <Field
-            id="falt-adress"
-            label="Adress"
-            type="text"
-            placeholder="Kapellgränd 12"
-            value={form.adress}
-            onChange={set("adress")}
-            error={visaFelSteg2 ? fel.adress : null}
-            {...annonsVisning("adress", form.adress)}
-          />
-        </div>
+          {prisUtfall?.typ === "ok" ? (
+            <div className="flex flex-col gap-6">
+              <PriskollResultat resultat={prisUtfall.resultat} />
 
-        {skickaFel ? (
-          <div className="mt-8 rounded-lg border border-danger/30 bg-danger/5 p-4">
-            {skickaFel.typ === "kand" ? (
-              <>
-                <p className="font-medium text-foreground">
-                  {FELKOD_INNEHALL[skickaFel.errorCode].rubrik}
+              {sparaStatus.typ === "sparad" ? null : (
+                <Card className="flex flex-col gap-4">
+                  <h2 className="text-lg font-semibold text-primary">Spara värderingen</h2>
+                  <p className="text-base text-text-2">
+                    Spara den i ditt konto för att hitta tillbaka till den och kunna räkna om den
+                    senare.
+                  </p>
+                  <div className="max-w-sm">
+                    <Field
+                      id="falt-etikett"
+                      label="Namn"
+                      type="text"
+                      placeholder="Till exempel adressen"
+                      hint="Lämnar du namnet tomt används adressen."
+                      value={etikett}
+                      onChange={(v) => setEtikett(v.slice(0, MAX_ETIKETT_TECKEN))}
+                    />
+                  </div>
+                  <div>
+                    <SparaKnapp
+                      key={prisUtfall.resultat.skapad}
+                      typ="vardering"
+                      etikettKnapp="Spara värderingen"
+                      till="/analysera"
+                      spara={() => {
+                        const e = valdEtikett(etikett, prisUtfall.skickatFormular.adress);
+                        return sparaVarderingFn({
+                          data: {
+                            prisInput: prisUtfall.resultat.input,
+                            ...(e !== "" ? { etikett: e } : {}),
+                          },
+                        });
+                      }}
+                      forbered={() =>
+                        skrivUtkast(
+                          "vardering",
+                          {
+                            form: prisUtfall.skickatFormular,
+                            hiss: prisUtfall.resultat.input.hiss,
+                            balkong: prisUtfall.resultat.input.balkong,
+                            etikett: valdEtikett(etikett, prisUtfall.skickatFormular.adress),
+                          } satisfies VarderingUtkast,
+                          "/analysera",
+                        )
+                      }
+                    />
+                  </div>
+                </Card>
+              )}
+
+              <p className="text-base text-text-2">
+                Vill du granska föreningen också? Fortsätt med steg 2 nedan.
+              </p>
+            </div>
+          ) : null}
+
+          {/* ------------------------------------------------------------ */}
+          {/* Steg 2: Granska föreningen                                    */}
+          {/* ------------------------------------------------------------ */}
+          <section id="steg2" className="flex scroll-mt-24 flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <Eyebrow>Steg 2</Eyebrow>
+              <h2 className="font-display text-[26px] font-semibold leading-[1.2] text-primary">
+                Granska föreningen
+              </h2>
+              <p className="text-base text-text-2">
+                {franRegister
+                  ? "Vi har föreningens årsredovisning redan, så du behöver inte ladda upp något."
+                  : "Ladda upp föreningens senaste årsredovisning. Den får du av mäklaren eller styrelsen."}
+              </p>
+            </div>
+
+            {foreningLage.typ === "laddar" ? (
+              <Card>
+                <div aria-busy="true">
+                  <p className="text-base text-muted-foreground">
+                    Hämtar föreningen från registret…
+                  </p>
+                </div>
+              </Card>
+            ) : franRegister ? (
+              <Card className="flex flex-col gap-3">
+                <h3 className="text-lg font-semibold text-primary">
+                  Föreningens årsredovisning finns redan hos Binfo
+                </h3>
+                <p className="text-base text-foreground">
+                  <span className="font-semibold">{franRegister.namn}</span> · räkenskapsår{" "}
+                  {franRegister.senaste.rakenskapsar} · analyserad{" "}
+                  {formatSkapadDatum(franRegister.senaste.analysdatum)}
                 </p>
-                <p className="mt-2 text-sm text-foreground">{skickaFel.errorMessage}</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {FELKOD_INNEHALL[skickaFel.errorCode].atgard}
+                <p className="text-base text-text-2">
+                  Du behöver bara fylla i bostadens uppgifter i steg 1.
                 </p>
-              </>
+                <p>
+                  <Link
+                    to="/analysera"
+                    search={utanForening(prefill)}
+                    replace
+                    className="text-[15px] font-medium text-link underline underline-offset-2"
+                  >
+                    Ladda upp en annan årsredovisning i stället
+                  </Link>
+                </p>
+              </Card>
             ) : (
               <>
-                <p className="font-medium text-foreground">Kunde inte skicka in analysen</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Något gick fel vid uppladdningen — kontrollera din internetuppkoppling och försök
-                  igen.
-                </p>
+                {foreningLage.typ === "saknas" ? (
+                  <Callout
+                    variant="flag"
+                    title={
+                      foreningLage.orsak === "saknas"
+                        ? "Vi hittade inte föreningen i registret"
+                        : "Vi kunde inte hämta föreningen just nu"
+                    }
+                  >
+                    Ladda upp föreningens årsredovisning nedan i stället.
+                  </Callout>
+                ) : null}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  aria-label="Välj årsredovisning (PDF)"
+                  onChange={(e) => valjFil(e.target.files?.[0])}
+                />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    valjFil(e.dataTransfer.files?.[0]);
+                  }}
+                  className={`flex min-h-[132px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                    dragging ? "border-primary bg-tint" : "border-input bg-card hover:bg-tint"
+                  }`}
+                >
+                  <span className="text-base font-semibold text-primary">
+                    Dra hit årsredovisningen, eller välj fil
+                  </span>
+                  <span className="text-sm text-muted-foreground">PDF, högst 25 MB</span>
+                </div>
+                {fil ? (
+                  <p className="m-0 inline-flex w-fit max-w-full flex-wrap items-center gap-3 rounded-full bg-success-tint px-4 py-2 text-sm text-success-text">
+                    <span className="break-all font-medium">
+                      {fil.name} ({formateraFilstorlek(fil.size)})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={taBortFil}
+                      className="font-semibold underline underline-offset-2"
+                    >
+                      Ta bort
+                    </button>
+                  </p>
+                ) : null}
+                {(visaFelSteg2 || visaFilFel) && filFel ? (
+                  <p role="alert" className="text-sm text-danger-text">
+                    {filFel}
+                  </p>
+                ) : null}
+                {foreningsHint(annonsLage) ? (
+                  <p className="text-sm text-muted-foreground">{foreningsHint(annonsLage)}</p>
+                ) : null}
               </>
             )}
-          </div>
-        ) : null}
+          </section>
 
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Button size="lg" onClick={analysera} disabled={skickar || foreningLage.typ === "laddar"}>
-            {skickar ? "Skickar in…" : "Analysera"}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {visaFelSteg2 && (harFel || filFel)
-              ? "Fyll i de obligatoriska fälten, även i steg 1."
-              : skickar
-                ? franRegister
-                  ? "Skapar din analys…"
-                  : "Laddar upp och startar analysen…"
+          {skickaFel ? (
+            <div role="alert">
+              {skickaFel.typ === "kand" ? (
+                <Callout variant="flag" title={FELKOD_INNEHALL[skickaFel.errorCode].rubrik}>
+                  <p>{skickaFel.errorMessage}</p>
+                  <p>
+                    <MedKontakt text={FELKOD_INNEHALL[skickaFel.errorCode].atgard} />
+                  </p>
+                </Callout>
+              ) : (
+                <Callout variant="flag" title="Kunde inte skicka in analysen">
+                  <p>
+                    Något gick fel vid uppladdningen — kontrollera din internetuppkoppling och
+                    försök igen.
+                  </p>
+                </Callout>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Button
+              size="lg"
+              onClick={analysera}
+              disabled={skickar || foreningLage.typ === "laddar"}
+            >
+              {skickar
+                ? "Skickar in…"
                 : franRegister
-                  ? "Föreningens analys finns redan — du får din rapport direkt."
-                  : "Analysen tar några minuter — du följer den på nästa sida."}
-          </span>
+                  ? "Analysera bostaden"
+                  : "Analysera bostaden och föreningen"}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {visaFelSteg2 && (harFel || filFel)
+                ? "Fyll i de obligatoriska fälten, även i steg 1."
+                : skickar
+                  ? franRegister
+                    ? "Skapar din analys…"
+                    : "Laddar upp och startar analysen…"
+                  : franRegister
+                    ? "Föreningens analys finns redan — du får din rapport direkt."
+                    : "Tar några minuter. Du följer analysen på nästa sida."}
+            </span>
+          </div>
         </div>
-      </Card>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Sidoruta: vad du får, var årsredovisningen finns, integritet       */}
+        {/* ---------------------------------------------------------------- */}
+        <aside className="flex flex-col gap-5">
+          <Card className="flex flex-col gap-5">
+            <h2 className="text-lg font-semibold text-primary">Det här får du</h2>
+            <FordelLista
+              rubrik="Direkt, från bostadens uppgifter"
+              rader={[
+                ["kr", "Ett rimligt värdespann för bostaden"],
+                ["↕", "Var utgångspriset ligger i spannet"],
+                ["↑", "Vad budgivningar i området brukar landa på"],
+              ]}
+            />
+            <hr className="m-0 border-0 border-t border-divider" />
+            <FordelLista
+              rubrik="Med årsredovisningen"
+              rader={[
+                ["A", "Betyg A–E på föreningens ekonomi"],
+                ["7", "Sju nyckeltal, förklarade och bedömda"],
+                ["kr", "Värdet med föreningens ekonomi inräknad"],
+                ["+", "Väntad avgiftshöjning de närmaste två åren"],
+                ["%", "Räntestress på just den här avgiften"],
+                ["?", "Frågor till mäklaren och styrelsen, med bra svar och varningssignaler"],
+                ["s.", "Sidhänvisning till årsredovisningen för varje siffra"],
+              ]}
+            />
+            <Link
+              to="/exempel"
+              className="text-[15px] font-medium text-link underline underline-offset-2"
+            >
+              Se en exempelrapport →
+            </Link>
+          </Card>
+          <Card className="flex flex-col gap-2">
+            <h2 className="text-lg font-semibold text-primary">Var hittar jag årsredovisningen?</h2>
+            <p className="text-[15px] text-text-2">
+              Årsredovisningen ligger nästan alltid under ”Dokument” i mäklarens egen annons för
+              bostaden. Hittade du bostaden på Booli eller Hemnet, klicka på ”Läs mer hos mäklaren”
+              för att komma dit.
+            </p>
+          </Card>
+          <p className="text-sm text-muted-foreground">
+            Priskollen sparas inte. Vid en analys sparar vi lägenhetsuppgifterna i 12 månader.{" "}
+            <Link to="/integritet" className="font-medium text-link underline underline-offset-2">
+              Integritet och personuppgifter
+            </Link>
+          </p>
+        </aside>
+      </div>
     </div>
   );
+}
+
+/** Rubrik + rader med liten ikonruta (sidorutan "Det här får du"). */
+function FordelLista({ rubrik, rader }: { rubrik: string; rader: [string, string][] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="m-0 text-sm font-semibold text-text-2">{rubrik}</p>
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {rader.map(([tecken, text]) => (
+          <li key={text} className="flex items-center gap-3 text-[15px] text-foreground">
+            <IconChip>{tecken}</IconChip>
+            <span>{text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Namnet på en sparad värdering: det köparen skrev, annars adressen (ingen schemaändring). */
+function valdEtikett(etikett: string, adress: string): string {
+  const e = etikett.trim() || adress.trim();
+  return e.slice(0, MAX_ETIKETT_TECKEN);
 }
 
 /**

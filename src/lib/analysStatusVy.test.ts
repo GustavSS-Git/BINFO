@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { STEG_TEXT, stegAndel } from "./analysStatusCopy";
+import { STEG_TEXT } from "./analysStatusCopy";
 import {
   ATERANVAND_TEXT,
   RAPPORTSTEG_TEXT,
   SKANNAD_UPPTACKT_TEXT,
   VANTAR_PA_RAPPORT_TEXT,
+  DESIGNSTEG,
   arSkannadRapport,
+  designAndel,
+  designSteg,
   klarNotis,
-  stegAndelFor,
   stegTextFor,
   vantaNotiser,
+  vantskarmLiknande,
+  vantskarmRubrikrad,
+  type StatusRapportSteg,
+  type StatusTextlager,
 } from "./analysStatusVy";
 
 describe("stegTextFor", () => {
@@ -38,28 +44,109 @@ describe("stegTextFor", () => {
   });
 });
 
-describe("stegAndelFor", () => {
-  it("följer den gamla stage utan rapportSteg", () => {
-    expect(stegAndelFor({ stage: "judging" })).toBe(stegAndel("judging"));
+const lagen = (status: Parameters<typeof designSteg>[0]) => designSteg(status).map((r) => r.lage);
+
+describe("designSteg: de sex stegen på väntskärmen", () => {
+  it("har sex steg med rätt rubriker", () => {
+    expect(DESIGNSTEG).toEqual([
+      "Läser in årsredovisningen",
+      "Hämtar de sju nyckeltalen",
+      "Jämför dina uppgifter med årsredovisningen",
+      "Räknar på avgiften de närmaste två åren",
+      "Justerar värderingen för föreningens ekonomi",
+      "Skriver frågor till styrelsen",
+    ]);
+    expect(designSteg({ stage: "uploaded" }).map((r) => r.label)).toEqual([...DESIGNSTEG]);
   });
 
-  it("växer genom stegen för en rapport med textlager (transkribering ingår inte)", () => {
-    const steg = ["identifiering", "grundning", "extraktion", "bedomning", "klar"] as const;
-    const andelar = steg.map((rapportSteg) =>
-      stegAndelFor({ stage: "uploaded", textlager: "ok", rapportSteg }),
-    );
-    expect(andelar).toEqual([0.2, 0.4, 0.6, 0.8, 1]);
+  it.each<[StatusRapportSteg, number]>([
+    ["identifiering", 0],
+    ["transkribering", 0],
+    ["grundning", 0],
+    ["extraktion", 1],
+    ["bedomning", 2],
+    ["klar", 2],
+  ])(
+    "rapportsteg %s gör steg %i aktivt, tidigare klara och resten väntande",
+    (rapportSteg, aktivt) => {
+      const l = lagen({ stage: "uploaded", rapportSteg });
+      expect(l).toHaveLength(6);
+      l.forEach((lage, i) => {
+        expect(lage).toBe(i < aktivt ? "klar" : i === aktivt ? "pagar" : "vantar");
+      });
+      // Steg 4–6 körs först när rapporten läses: aldrig klara eller pågående här.
+      expect(l.slice(3)).toEqual(["vantar", "vantar", "vantar"]);
+      expect(designAndel({ stage: "uploaded", rapportSteg })).toBeCloseTo(aktivt / 6);
+    },
+  );
+
+  it.each<StatusTextlager | undefined>(["ok", "saknas", "trasigt", undefined])(
+    "textlager %s ändrar inte stegen (trasigt räknar inget transkriberingssteg)",
+    (textlager) => {
+      const steg = (rapportSteg: StatusRapportSteg) => ({
+        stage: "uploaded" as const,
+        textlager,
+        rapportSteg,
+      });
+      expect(designAndel(steg("grundning"))).toBe(0);
+      expect(designAndel(steg("extraktion"))).toBeCloseTo(1 / 6);
+      expect(designAndel(steg("bedomning"))).toBeCloseTo(2 / 6);
+      expect(lagen(steg("extraktion"))).toEqual([
+        "klar",
+        "pagar",
+        "vantar",
+        "vantar",
+        "vantar",
+        "vantar",
+      ]);
+    },
+  );
+
+  it.each([
+    ["uploaded", 0],
+    ["extracting", 1],
+    ["judging", 2],
+    ["complete", 2],
+  ] as const)("äldre stage %s utan rapportSteg ger steg %i", (stage, aktivt) => {
+    const l = lagen({ stage });
+    expect(l[aktivt]).toBe("pagar");
+    expect(l.filter((x) => x === "klar")).toHaveLength(aktivt);
+    expect(designAndel({ stage })).toBeCloseTo(aktivt / 6);
   });
 
-  it("räknar in transkribering för en skannad rapport", () => {
+  it("rapportSteg går före stage", () => {
+    expect(lagen({ stage: "uploaded", rapportSteg: "extraktion" })[1]).toBe("pagar");
+  });
+});
+
+describe("vantskarmRubrikrad", () => {
+  it("sätter ihop adress och förening, med saknade delar utelämnade", () => {
     expect(
-      stegAndelFor({ stage: "uploaded", textlager: "saknas", rapportSteg: "transkribering" }),
-    ).toBeCloseTo(2 / 6);
-    expect(stegAndelFor({ stage: "uploaded", textlager: "saknas", rapportSteg: "klar" })).toBe(1);
+      vantskarmRubrikrad({
+        adress: "Baltzar von Platens gata 6",
+        foreningNamn: "Brf Pontonjären 3",
+      }),
+    ).toBe("Baltzar von Platens gata 6 · Brf Pontonjären 3");
+    expect(vantskarmRubrikrad({ adress: "Storgatan 1", foreningNamn: null })).toBe("Storgatan 1");
+    expect(vantskarmRubrikrad({ adress: null, foreningNamn: "Brf X" })).toBe("Brf X");
+    expect(vantskarmRubrikrad({ adress: " ", foreningNamn: undefined })).toBeNull();
+  });
+});
+
+describe("vantskarmLiknande", () => {
+  it("avrundar som överallt och nämner utgångspriset bara när det finns", () => {
+    expect(vantskarmLiknande({ liknande: { varde: 5_681_607 }, utgangspris: 4_995_000 })).toEqual({
+      varde: "ca 5,7 mkr",
+      text: "Utan hänsyn till föreningen. Utgångspris 5,0 mkr. Värdet med föreningens ekonomi inräknad kommer i rapporten.",
+    });
+    expect(vantskarmLiknande({ liknande: { varde: 5_681_607 }, utgangspris: null })?.text).toBe(
+      "Utan hänsyn till föreningen. Värdet med föreningens ekonomi inräknad kommer i rapporten.",
+    );
   });
 
-  it("ger aldrig 0", () => {
-    expect(stegAndelFor({ stage: "uploaded", rapportSteg: "identifiering" })).toBeGreaterThan(0);
+  it("utelämnar hela blocket utan värdering", () => {
+    expect(vantskarmLiknande({ liknande: null, utgangspris: 5_000_000 })).toBeNull();
+    expect(vantskarmLiknande({})).toBeNull();
   });
 });
 

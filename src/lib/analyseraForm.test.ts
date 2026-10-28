@@ -12,6 +12,7 @@ import {
   parseVaning,
   parseValfrittHeltal,
   validateraAnalyseraForm,
+  valideraByggar,
   type AnalyseraFormFields,
 } from "./analyseraForm";
 import type { AnnonsKalla, FeeInclusion } from "@/types/analysis";
@@ -196,6 +197,7 @@ describe("validateraAnalyseraForm", () => {
         organisationsnummer: "769612-3456",
         adress: "Kapellgränd 12",
         postnummer: "116 25",
+        byggar: "1931",
       }),
     );
     expect(harValideringsfel(fel)).toBe(false);
@@ -211,6 +213,7 @@ describe("validateraAnalyseraForm", () => {
         antalRum: "3",
         adress: "Kapellgränd 12",
         postnummer: "116 25",
+        byggar: "1931",
       }),
     );
     expect(harValideringsfel(fel)).toBe(false);
@@ -226,10 +229,16 @@ describe("validateraAnalyseraForm", () => {
     expect(validateraAnalyseraForm(tomtFormulär({ vaning: "4" })).vaning).toBeNull();
   });
 
-  it("lämnar byggår utanför felobjektet — det är fortfarande valfritt, våning inte", () => {
+  it("kräver byggår (ägarbeslut 2026-10-28), precis som adress och våning", () => {
     const fel = validateraAnalyseraForm(tomtFormulär());
-    expect("byggar" in fel).toBe(false);
-    expect("vaning" in fel).toBe(true);
+    expect(fel.byggar).toBe("Ange byggår, t.ex. 1965.");
+    expect(fel.adress).toBe("Ange adress.");
+    expect(fel.vaning).not.toBeNull();
+    expect(validateraAnalyseraForm(tomtFormulär({ byggar: "1965" })).byggar).toBeNull();
+  });
+
+  it("adress med bara blanksteg räknas som tom", () => {
+    expect(validateraAnalyseraForm(tomtFormulär({ adress: "   " })).adress).toBe("Ange adress.");
   });
 });
 
@@ -465,5 +474,22 @@ describe("parseForeningSlug", () => {
     ]) {
       expect(parseForeningSlug(v)).toBeUndefined();
     }
+  });
+});
+
+describe("valideraByggar", () => {
+  const idag = new Date("2026-10-28T12:00:00Z");
+  it("godkänner fyra siffror från 1600 till innevarande år", () => {
+    for (const ok of ["1600", "1931", " 1965 ", "2026"])
+      expect(valideraByggar(ok, idag)).toBeNull();
+  });
+  it("avvisar tomt, text, fel antal siffror och år utanför intervallet", () => {
+    for (const fel of ["", "  ", "abc", "196", "19650", "1599", "2027", "1965,5", "-1965", "65"]) {
+      expect(valideraByggar(fel, idag)).toBe("Ange byggår, t.ex. 1965.");
+    }
+  });
+  it("innevarande år är högsta tillåtna, nästa år inte", () => {
+    expect(valideraByggar("2026", new Date("2026-01-01T00:00:00Z"))).toBeNull();
+    expect(valideraByggar("2027", new Date("2026-12-31T12:00:00Z"))).not.toBeNull();
   });
 });
