@@ -84,6 +84,11 @@ per-apartment cost in kronor, and what to do before bidding.
   migrations and Edge Function (`PIPELINE_VERSION`) are in production was not
   verified. The Booli fetch is challenged in production (`docs/booli.md`), so
   live it ends in "fyll i manuellt".
+- **Redesign v4** (2026-10-28, branch `redesign-v4`, PLANNED, awaiting owner
+  approval): the whole web app moves to the "BINFO REDESIGN" canvas (13
+  artboards). Plan, route → artboard map, decisions and open questions:
+  `docs/PLAN-v4-redesign.md`. Design system: "Design system (redesign v4)" below.
+  Never merge or push the branch to `main` (Lovable deploys from `main`).
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -938,10 +943,13 @@ v2 (all done, see `docs/PLAN-v2.md`):
 
 Do NOT change visual design unless the owner explicitly asks. That covers
 styling, layout, colours, typography, spacing, animations, images, and the
-components in `@/components/ui/binfo`. When a feature needs new UI, build it
-functionally from existing components and patterns with minimal new styling,
-and add it to a "For Lovable to polish" list reported at the end. Exception: the
-PDF export layout is ours to design, kept simple and consistent with the site.
+components in `@/components/ui/binfo`. **Exception, 2026-10-28:** the owner asked
+for the v4 redesign; on branch `redesign-v4` the visual design is changed to
+match the canvas (`docs/PLAN-v4-redesign.md`), for the files each brief names.
+Outside that work the boundary holds: new UI is built from the kit and tokens
+below, and anything that still needs polish goes on a "For Lovable to polish"
+list reported at the end. The PDF export layout is ours to design, kept simple
+and consistent with the site.
 
 Owner-hidden elements are kept in the DOM with `hidden`: the valuation
 provider line (`AnalysRapport.tsx`, web only; the PDF still prints it), the
@@ -950,6 +958,48 @@ Hus/Bostadsrätt toggle on `/kopguide`, and the "Dina senaste analyser" box
 range row is gone, replaced by the visible "Ungefärligt spann (±10 %)" line
 (consistency round). The drivers caveat went with the driver rows (2026-10-24).
 Do not unhide them.
+
+## Design system (redesign v4)
+
+Source of truth: the "BINFO REDESIGN" canvas
+(https://claude.ai/code/artifact/914d592f-7ae8-45ef-8234-fc3390006acd, files
+`project/v4/*.dc.html`). Only its 13 artboards count; ignore other files.
+Artboards hold example data (Brf Pontonjären 3) and placeholders
+(`[din e-post]`, `[DATUM]`): every value on a page comes from real data.
+
+- **Tokens** live in `src/styles.css` (`:root` + `@theme inline`, oklch with
+  the hex in a comment). Never hard-code a hex in a component; add a token.
+  Palette: navy `#0A2F5E` (primary, headings, logo), link `#1C4FA3`, ink
+  `#111418`, text-2 `#30363D`, muted `#4B535C`, page `#F4F6F9`, card `#FFFFFF`,
+  border `#DCE1E8`, divider `#EEF1F5`, input `#B9C2CE`, tint `#E8EEF8`, track
+  `#E9EDF2`, success `#1E7A4D`/`#E6F4EA`/`#1E6B3A`, warning pill
+  `#FFEDD5`/`#9A3412`, notice box `#FFF7E6`/`#F3D9A4`/`#5C3800`, danger
+  `#B42318`/`#FDECEA`/`#991B1B`.
+- **Grades A–E are coloured** (owner 2026-10-28, replaces the neutral badge):
+  A `#14532D`, B `#1E7A4D`, C `#B45309`, D `#B42318`, E `#8A1C12`, white letter,
+  serif. One component (`GradeBadge`, plus `GradeScale` for the 5-step bar) for
+  every place a grade shows. The 7th nyckeltal is never graded ("Ingen
+  bedömning").
+- **Type:** Source Serif 4 (600) for h1/h2, key figures and the logo; Inter
+  (400/500/600) for everything else. Eyebrows: Inter 13 px, 600, uppercase,
+  0.08em, link colour. Body 16 px, line-height 1.5.
+- **Shape and spacing:** cards 10 px radius, 1 px border, white; inputs and
+  buttons 6 px radius, min-height 48 px (44 px secondary); pills 999 px; grade
+  badges 8 px. Container max 1200 px, 32 px gutter (16 px under 640 px).
+- **Focus:** visible 2 px link-colour outline with 2 px offset on every
+  interactive element (the canvas draws none; this is ours). Contrast ≥ 4.5:1.
+- **Logo:** house outline (navy) with a green check mark + "Binfo" in Source
+  Serif 4 (`Logo` in the kit).
+- **Value names:** "Liknande lägenheter" = the unadjusted model value
+  (`externVardering`); "Binfos värdering" = the value adjusted for the
+  förening's economy (`justeradVardering`, falls back to the baseline); span
+  ±10 % of the shown value.
+- **Copy:** never say anything is free ("gratis") or optional ("valfritt");
+  describe what the user gets. Copy that states a fact about data handling must
+  match `/integritet`.
+- **Contact:** `KONTAKT_EPOST` (`src/lib/kontakt.ts`) drives the footer
+  "Kontakt" link and "Hittar du ett fel?" links; while it is `null` they are
+  hidden.
 
 ## Lovable sync workflow
 
