@@ -76,7 +76,7 @@ function BrfIndex() {
         <SokFalt
           startvarde={search.sok ?? ""}
           etikett="Sök förening eller organisationsnummer"
-          placeholder="t.ex. Brf Pontonjären 3 eller 716420-0599"
+          placeholder="Föreningens namn eller organisationsnummer"
           onSok={(sok) => navigate({ search: sok === "" ? {} : { sok } })}
         />
         <GradeLegend />

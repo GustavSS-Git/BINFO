@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import { hamtaSessionFn } from "@/server/analysFn";
 import type { SessionSvar } from "@/lib/kontoTyper";
 import { sessionLage, type SessionLage } from "@/lib/till";
+import { rensaLokaltFramsteg } from "@/lib/kopguide/lagring";
 
 /** Frågenyckeln för "vem är inloggad". Cookies är httpOnly: webbläsaren kan bara
  *  fråga servern via `hamtaSessionFn`. */
@@ -35,6 +36,8 @@ export function sattUtloggad(qc: QueryClient) {
   qc.setQueryData(SESSION_KEY, svar);
   qc.removeQueries({ queryKey: SPARAT_KEY });
   qc.removeQueries({ queryKey: ["kopguide"] });
+  // Kontots köpguide-spegel ska inte slås ihop med nästa konto i samma webbläsare.
+  rensaLokaltFramsteg();
 }
 
 export function useSessionAtgarder() {

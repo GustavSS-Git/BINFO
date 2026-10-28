@@ -113,8 +113,9 @@ function Integritet() {
             <li>
               <strong>Det du väljer att spara:</strong> värderingar (lägenhetens uppgifter och
               resultatet) och bolånekalkyler. En sparad kalkyl innehåller det du fyllt i, till
-              exempel lånebelopp, ränta och bruttoinkomster. De sparas tills du raderar dem eller
-              ditt konto.
+              exempel pris, kontantinsats, ränta och bruttoinkomster. Namnet du ger en sparad
+              värdering är adressen om du inte skriver något annat. De sparas tills du raderar dem
+              eller ditt konto.
             </li>
             <li>
               <strong>Två inloggningscookies</strong> (<code>binfo_sa</code>, <code>binfo_sr</code>)

@@ -75,3 +75,16 @@ export function skrivSammanslagenMed(
     // Ingen lagring: sammanslagningen görs om nästa gång, vilket är ofarligt.
   }
 }
+
+/** Vid utloggning: kontots framsteg ska inte ligga kvar i webbläsaren och slås
+ *  ihop med nästa konto som loggar in här. Tyst om lagring saknas. */
+export function rensaLokaltFramsteg(
+  yta: Pick<Storage, "removeItem"> | null = standardYta() as Storage | null,
+): void {
+  try {
+    yta?.removeItem(KOPGUIDE_LAGRINGSNYCKEL);
+    yta?.removeItem(KOPGUIDE_SAMMANSLAGEN_NYCKEL);
+  } catch {
+    // Ingen lagring att rensa.
+  }
+}

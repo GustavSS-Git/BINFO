@@ -989,13 +989,22 @@ export function DataTable({
   children,
   caption,
   minWidth = 640,
+  ariaLabel,
 }: {
   children: ReactNode;
   caption?: ReactNode;
   minWidth?: number;
+  /** Name of the scrollable region; defaults to the caption when it is a string. */
+  ariaLabel?: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    // Focusable region so keyboard users can scroll a wide table on a narrow screen.
+    <div
+      role="region"
+      tabIndex={0}
+      aria-label={ariaLabel ?? (typeof caption === "string" ? caption : "Tabell")}
+      className="overflow-x-auto rounded-lg border border-border bg-card"
+    >
       <table
         style={{ minWidth }}
         className={cn(
