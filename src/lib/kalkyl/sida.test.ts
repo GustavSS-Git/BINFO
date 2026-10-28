@@ -123,9 +123,10 @@ describe("sidaFranSokning (förifyllning)", () => {
       boarea: 58.5,
       prisUppskattning: true,
     });
-    expect(s.pris).toBe("4950001");
-    expect(s.kontantinsats).toBe("495001"); // ceil(10 %)
-    expect(s.manadsavgift).toBe("3240");
+    // Belopp visas med tusentalsavskiljare (parsern tar bort mellanrummen).
+    expect(s.pris).toBe("4 950 001");
+    expect(s.kontantinsats).toBe("495 001"); // ceil(10 %)
+    expect(s.manadsavgift).toBe("3 240");
     expect(s.boarea).toBe("58,5");
     expect(s.rantekanslighetProcent).toBe(8.4);
     expect(s.kalla).toEqual({ pris: 4_950_001, prisArUppskattning: true });

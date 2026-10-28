@@ -176,8 +176,8 @@ describe("/bolanekalkyl: redesignad sida", () => {
       ingarEj: "el",
     };
     const html = rita();
-    expect(html).toMatch(/id="kalkyl-pris"[^>]*value="5260000"/);
-    expect(html).toMatch(/id="kalkyl-kontantinsats"[^>]*value="526000"/);
+    expect(html).toMatch(/id="kalkyl-pris"[^>]*value="5 260 000"/);
+    expect(html).toMatch(/id="kalkyl-kontantinsats"[^>]*value="526 000"/);
     expect(html).toContain("Binfos värdering enligt rapporten");
     expect(html).not.toContain("Vanligt bud");
     expect(html).toContain("10 % av priset · minst 10 % krävs");

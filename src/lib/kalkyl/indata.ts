@@ -72,6 +72,16 @@ export function tolkaFalt(text: string, nyckel: GransNyckel): FaltTolkning {
   return t;
 }
 
+/** Belopp i kronor till fälttext med tusentalsavskiljare ("5 260 000"); parsern
+ *  (`tolkaTal`) tar bort mellanrummen igen. Decimaler behålls med komma. */
+export function beloppTillFalttext(n: number): string {
+  const [hel, dec] = String(n).split(".");
+  const med = Number(hel)
+    .toLocaleString("sv-SE")
+    .replace(/[\u00A0\u202F]/g, " ");
+  return dec === undefined ? med : `${med},${dec}`;
+}
+
 /** Tal till fälttext med svenskt decimaltecken, utan tusentalsavskiljare. */
 export function talTillFalttext(n: number): string {
   return String(n).replace(".", ",");

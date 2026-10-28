@@ -7,7 +7,12 @@
  * antal vuxna + barn, tomt "antal vuxna" betyder antal låntagare.
  */
 import type { BolanekalkylSearch } from "@/lib/bolanekalkyl";
-import { talTillFalttext, tolkaFalt, type GransNyckel } from "@/lib/kalkyl/indata";
+import {
+  beloppTillFalttext,
+  talTillFalttext,
+  tolkaFalt,
+  type GransNyckel,
+} from "@/lib/kalkyl/indata";
 import { MIN_KONTANTINSATS_ANDEL, tal } from "@/lib/kalkyl/regler";
 import {
   AVGIFT_FORVAL,
@@ -102,12 +107,12 @@ export function tomSida(): KalkylSida {
 export function sidaFranSokning(search: BolanekalkylSearch): KalkylSida {
   const sida = tomSida();
   if (search.pris !== undefined) {
-    sida.pris = String(search.pris);
-    sida.kontantinsats = String(Math.ceil(search.pris * MIN_KONTANTINSATS_ANDEL));
+    sida.pris = beloppTillFalttext(search.pris);
+    sida.kontantinsats = beloppTillFalttext(Math.ceil(search.pris * MIN_KONTANTINSATS_ANDEL));
     sida.franRapport.pris = true;
   }
   if (search.manadsavgift !== undefined) {
-    sida.manadsavgift = String(search.manadsavgift);
+    sida.manadsavgift = beloppTillFalttext(search.manadsavgift);
     sida.franRapport.manadsavgift = true;
   }
   if (search.boarea !== undefined) {
@@ -238,17 +243,18 @@ export function underlagFranSida(sida: SidaIndata): { underlag: KalkylUnderlag; 
 
 export function sidaFranUnderlag(u: KalkylUnderlag): KalkylSida {
   const s = (n: number | undefined) => (n === undefined ? "" : talTillFalttext(n));
+  const b = (n: number | undefined) => (n === undefined ? "" : beloppTillFalttext(n));
   const barn = tomSida().barn;
   for (const alder of u.barn) barn[alder] = String(Number(barn[alder] || "0") + 1);
   return {
-    pris: s(u.pris),
-    kontantinsats: s(u.kontantinsats),
+    pris: b(u.pris),
+    kontantinsats: b(u.kontantinsats),
     ranta: s(u.rantaProcent),
-    manadsavgift: s(u.manadsavgift),
+    manadsavgift: b(u.manadsavgift),
     boarea: s(u.boarea),
     antalLantagare: u.antalLantagare === 2 ? "2" : "1",
-    inkomst1: s(u.inkomst1),
-    inkomst2: s(u.inkomst2),
+    inkomst1: b(u.inkomst1),
+    inkomst2: b(u.inkomst2),
     antalPersoner: String(u.antalPersoner),
     antalVuxna: String(u.antalVuxna),
     barn,
