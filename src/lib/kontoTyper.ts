@@ -179,6 +179,11 @@ export type HamtaSparadVarderingSvar = KontoSvar<{ vardering: SparadVardering }>
 export type HamtaSparadKalkylSvar = KontoSvar<{ kalkyl: SparadKalkyl }>;
 export type RaderaSparatSvar = KontoSvar;
 
+/** Köpguidens avbockade steg för det inloggade kontot (tom lista = inga). */
+export type HamtaKopguideSvar = KontoSvar<{ klara: string[] }>;
+/** `klara` är det som faktiskt sparades (normaliserat). */
+export type SparaKopguideSvar = KontoSvar<{ klara: string[] }>;
+
 export type ListaSparatSvar = KontoSvar<{
   analyser: AnalysPost[];
   varderingar: SparadVarderingPost[];
@@ -240,6 +245,8 @@ export interface MinaUppgifter {
     input: unknown;
     sammanfattning: unknown;
   }>;
+  /** Köpguidens avbockade steg; null när inget sparats. */
+  kopguide: { klara: string[]; uppdaterad: string } | null;
 }
 
 export type HamtaMinaUppgifterSvar = KontoSvar<{ uppgifter: MinaUppgifter }>;

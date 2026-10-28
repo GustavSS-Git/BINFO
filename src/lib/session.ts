@@ -26,6 +26,7 @@ export function sattInloggad(qc: QueryClient, epost: string, principalId: string
   const svar: SessionSvar = { inloggad: true, epost, principalId };
   qc.setQueryData(SESSION_KEY, svar);
   void qc.invalidateQueries({ queryKey: SPARAT_KEY });
+  qc.removeQueries({ queryKey: ["kopguide"] });
 }
 
 /** Efter utloggning eller raderat konto. */
@@ -33,6 +34,7 @@ export function sattUtloggad(qc: QueryClient) {
   const svar: SessionSvar = { inloggad: false };
   qc.setQueryData(SESSION_KEY, svar);
   qc.removeQueries({ queryKey: SPARAT_KEY });
+  qc.removeQueries({ queryKey: ["kopguide"] });
 }
 
 export function useSessionAtgarder() {

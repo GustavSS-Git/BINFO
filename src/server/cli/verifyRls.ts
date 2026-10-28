@@ -11,7 +11,7 @@
  *     datum långt bak i tiden (1999) som aldrig kan krocka med riktig data.
  *  2. v2-tabellerna (register: forening, rapport, rapport_fil, sidtext,
  *     forening_adress; konto: principal, behorighet, kvot; v3: sparad_vardering,
- *     sparad_kalkyl; annons_cache; referensranta; plus RPC:erna sakerstall_konto_principal,
+ *     sparad_kalkyl; kopguide_framsteg; annons_cache; referensranta; plus RPC:erna sakerstall_konto_principal,
  *     lista_mina_analyser, radera_min_analys). Secret-nyckeln
  *     skriver en probe-rad i varje (så att "publishable ser 0 rader" betyder
  *     något), publishable ska varken se, skriva, ändra eller radera dem.
@@ -336,6 +336,10 @@ async function skrivProbeRader(
           }),
       ],
       [
+        "kopguide_framsteg",
+        () => secretClient.from("kopguide_framsteg").insert({ principal_id: pid, klara: ["sok"] }),
+      ],
+      [
         "annons_cache",
         () => secretClient.from("annons_cache").insert({ url: PROBE_ANNONS_URL, svar: {} }),
       ],
@@ -499,6 +503,16 @@ async function provaV2Tabeller(secretClient: Klient, publishableClient: Klient, 
       },
       publishableNyckel: ["etikett", PROBE_ETIKETT_PUBLISHABLE],
       uppdatering: { regelversion: "verify-rls hijack" },
+    },
+    {
+      // One row per principal (primary key): the publishable insert reuses the
+      // probe principal, so an open table would also hit the key conflict;
+      // select/update/delete are the decisive checks here.
+      tabell: "kopguide_framsteg",
+      nyckel: ["principal_id", ids.principalId],
+      publishableRad: { principal_id: ids.principalId, klara: ["visning"] },
+      publishableNyckel: ["klara", "{visning}"],
+      uppdatering: { klara: ["efter"] },
     },
     {
       tabell: "annons_cache",
@@ -839,6 +853,11 @@ async function stada(secretClient: Klient): Promise<void> {
     notera(
       "sparad_kalkyl",
       (await secretClient.from("sparad_kalkyl").delete().in("principal_id", principalIds)).error,
+    );
+    notera(
+      "kopguide_framsteg",
+      (await secretClient.from("kopguide_framsteg").delete().in("principal_id", principalIds))
+        .error,
     );
     notera(
       "behorighet",

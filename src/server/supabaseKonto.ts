@@ -228,6 +228,15 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
         .order("skapad", { ascending: true });
       if (kError) throw new Error(`exporteraPrincipal misslyckades: ${kError.message}`);
 
+      const { data: kgData, error: kgError } = await sb
+        .from("kopguide_framsteg")
+        .select("klara, uppdaterad")
+        .in("principal_id", ids)
+        .order("uppdaterad", { ascending: false })
+        .limit(1);
+      if (kgError) throw new Error(`exporteraPrincipal misslyckades: ${kgError.message}`);
+      const kg = ((kgData ?? []) as Array<{ klara: string[]; uppdaterad: string }>)[0];
+
       return {
         principaler: rader.map((p) => ({
           id: p.id,
@@ -258,6 +267,7 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
           input: k.input,
           sammanfattning: k.sammanfattning,
         })),
+        kopguide: kg ? { klara: kg.klara, uppdaterad: kg.uppdaterad } : null,
       };
     },
 
@@ -429,6 +439,26 @@ export function skapaKontoDatabasFranKlient(sb: SupabaseClient): KontoDatabas {
         .eq("principal_id", principalId);
       if (error) throw new Error(`raknaSparadeKalkyler misslyckades: ${error.message}`);
       return count ?? 0;
+    },
+
+    async lasKopguide(principalId: string): Promise<string[] | null> {
+      const { data, error } = await sb
+        .from("kopguide_framsteg")
+        .select("klara")
+        .eq("principal_id", principalId)
+        .maybeSingle();
+      if (error) throw new Error(`lasKopguide misslyckades: ${error.message}`);
+      return data ? (data as { klara: string[] }).klara : null;
+    },
+
+    async skrivKopguide(principalId: string, klara: string[]): Promise<void> {
+      const { error } = await sb
+        .from("kopguide_framsteg")
+        .upsert(
+          { principal_id: principalId, klara, uppdaterad: new Date().toISOString() },
+          { onConflict: "principal_id" },
+        );
+      if (error) throw new Error(`skrivKopguide misslyckades: ${error.message}`);
     },
 
     async listaAnalyser(principalId: string): Promise<AnalysListrad[]> {
