@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
-import { FONT_SANS, FONT_SERIF } from "@/components/pdf/fonts";
+import { FONT_SANS, FONT_SERIF, WEIGHT_SEMIBOLD } from "@/components/pdf/fonts";
 import type {
   KalkylPdfRad,
   KalkylPdfTabell,
@@ -18,8 +18,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: PDF_PAGE_PADDING,
     fontFamily: FONT_SANS,
     fontSize: 9,
-    color: PDF_COLORS.foreground,
-    backgroundColor: PDF_COLORS.background,
+    color: PDF_COLORS.ink,
+    backgroundColor: PDF_COLORS.page,
     // Utan detta byts "fi"/"fl" mot ligaturer som textutdrag tappar (se AnalysPdfDocument).
     fontFeatureSettings: { liga: false },
   },
@@ -35,26 +35,56 @@ const styles = StyleSheet.create({
     borderBottomColor: PDF_COLORS.border,
     paddingBottom: 8,
   },
-  brand: { fontFamily: FONT_SERIF, fontSize: 12, color: PDF_COLORS.primary },
-  meta: { fontSize: 8, color: PDF_COLORS.mutedForeground },
-  footerFixed: {
+  brand: {
+    fontFamily: FONT_SERIF,
+    fontWeight: WEIGHT_SEMIBOLD,
+    fontSize: 12,
+    color: PDF_COLORS.navy,
+  },
+  meta: { fontSize: 8, color: PDF_COLORS.muted },
+  // Separate absolutely positioned fixed nodes: react-pdf drops plain text inside a fixed row
+  // that also holds a `render` text once the document has several pages.
+  footerLinje: {
     position: "absolute",
-    bottom: 16,
+    top: 841.89 - 16 - 22,
     left: PDF_PAGE_PADDING,
     right: PDF_PAGE_PADDING,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: PDF_COLORS.border,
-    paddingTop: 6,
+    height: 1,
+    backgroundColor: PDF_COLORS.border,
   },
-  footerText: { fontSize: 7, color: PDF_COLORS.mutedForeground, flex: 1 },
-  footerPage: { fontSize: 7, color: PDF_COLORS.mutedForeground },
-  title: { fontFamily: FONT_SERIF, fontSize: 20, marginBottom: 2 },
-  subtitle: { fontSize: 9, color: PDF_COLORS.mutedForeground, marginBottom: 10 },
+  footerText: {
+    position: "absolute",
+    top: 841.89 - 16 - 16,
+    left: PDF_PAGE_PADDING,
+    width: 595.28 - 2 * PDF_PAGE_PADDING - 80,
+    fontSize: 7,
+    color: PDF_COLORS.muted,
+  },
+  footerPage: {
+    position: "absolute",
+    top: 841.89 - 16 - 16,
+    right: PDF_PAGE_PADDING,
+    width: 70,
+    textAlign: "right",
+    fontSize: 7,
+    color: PDF_COLORS.muted,
+  },
+  title: {
+    fontFamily: FONT_SERIF,
+    fontWeight: WEIGHT_SEMIBOLD,
+    color: PDF_COLORS.navy,
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  subtitle: { fontSize: 9, color: PDF_COLORS.muted, marginBottom: 10 },
   section: { marginBottom: 12 },
-  sectionTitle: { fontFamily: FONT_SERIF, fontSize: 12, marginBottom: 5 },
+  sectionTitle: {
+    fontFamily: FONT_SERIF,
+    fontWeight: WEIGHT_SEMIBOLD,
+    color: PDF_COLORS.navy,
+    fontSize: 12,
+    marginBottom: 5,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -64,14 +94,14 @@ const styles = StyleSheet.create({
   },
   rowLabel: { flex: 1, paddingRight: 8 },
   rowValue: { textAlign: "right", maxWidth: 200 },
-  bold: { fontWeight: "bold" },
-  note: { fontSize: 7.5, color: PDF_COLORS.mutedForeground },
+  bold: { fontWeight: WEIGHT_SEMIBOLD },
+  note: { fontSize: 7.5, color: PDF_COLORS.muted },
   para: { fontSize: 8.5, lineHeight: 1.4, marginTop: 4 },
   callout: {
     marginTop: 6,
     padding: 6,
-    backgroundColor: PDF_COLORS.warningTint,
-    color: PDF_COLORS.warningForeground,
+    backgroundColor: PDF_COLORS.noticeTint,
+    color: PDF_COLORS.noticeText,
     fontSize: 8,
     lineHeight: 1.4,
   },
@@ -79,13 +109,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingVertical: 5,
     paddingHorizontal: 6,
-    backgroundColor: PDF_COLORS.primaryTint,
+    backgroundColor: PDF_COLORS.tint,
     flexDirection: "row",
     justifyContent: "space-between",
   },
   tableHead: {
     flexDirection: "row",
-    backgroundColor: PDF_COLORS.secondary,
+    backgroundColor: PDF_COLORS.divider,
     paddingVertical: 3,
   },
   tableRow: {
@@ -104,8 +134,8 @@ const styles = StyleSheet.create({
   rulesCell: { paddingHorizontal: 2, fontSize: 6.5 },
   kallaRad: {
     fontSize: 6.5,
-    color: PDF_COLORS.primary,
-    fontWeight: "bold",
+    color: PDF_COLORS.navy,
+    fontWeight: WEIGHT_SEMIBOLD,
     paddingTop: 4,
     paddingHorizontal: 2,
   },
@@ -175,13 +205,15 @@ export function KalkylPdfDocument({ vm }: { vm: KalkylPdfViewModel }) {
             {vm.etikett !== null ? `, ${vm.etikett}` : ""}
           </Text>
         </View>
-        <View style={styles.footerFixed} fixed>
-          <Text style={styles.footerText}>{PDF_DISCLAIMER}</Text>
-          <Text
-            style={styles.footerPage}
-            render={({ pageNumber, totalPages }) => `Sida ${pageNumber} av ${totalPages}`}
-          />
-        </View>
+        <View style={styles.footerLinje} fixed />
+        <Text style={styles.footerText} fixed>
+          {PDF_DISCLAIMER}
+        </Text>
+        <Text
+          style={styles.footerPage}
+          fixed
+          render={({ pageNumber, totalPages }) => `Sida ${pageNumber} av ${totalPages}`}
+        />
 
         <Text style={styles.title}>{vm.titel}</Text>
         <Text style={styles.subtitle}>
@@ -313,7 +345,7 @@ export function KalkylPdfDocument({ vm }: { vm: KalkylPdfViewModel }) {
                     styles.rulesCell,
                     { flex: REGEL_BREDD[3] },
                     r.arAntagande
-                      ? { color: PDF_COLORS.warningForeground, fontWeight: "bold" }
+                      ? { color: PDF_COLORS.noticeText, fontWeight: WEIGHT_SEMIBOLD }
                       : {},
                   ]}
                 >

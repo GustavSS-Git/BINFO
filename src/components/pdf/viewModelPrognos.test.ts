@@ -1,61 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { analysMedPrognos, analysUtanPrognos } from "@/components/prognosTestdata";
 import { buildPdfViewModel } from "@/components/pdf/viewModel";
-import { sampleAnalysis } from "@/data/sampleAnalysis";
 
-describe("buildPdfViewModel — avgiftsprognos", () => {
+describe("buildPdfViewModel: avgiftsprognos", () => {
   const vm = buildPdfViewModel(analysMedPrognos());
 
-  it("har två prisrader och flyttar jämförelsen till den justerade", () => {
-    expect(vm.prisanalys.justeradVardering?.label).toBe(
-      "Värde med hänsyn till föreningens ekonomi utöver nuvarande avgift",
-    );
-    expect(vm.prisanalys.justeradVardering?.avvikelseText).toBe(
-      "Utgångspriset ligger 3,2 % över värdet, inom spannet",
-    );
-    expect(vm.prisanalys.avvikelseText).toBeUndefined();
+  it("har den justerade värderingen som 'Binfos värdering' och jämförelsen mot den", () => {
+    const rad = vm.priset.vardering.find((r) => r.label === "Binfos värdering");
+    expect(rad?.note).toBe("Med föreningens ekonomi inräknad");
+    expect(vm.priset.vardering.some((r) => r.label === "Föreningens ekonomi")).toBe(true);
   });
 
   it("har byggårsnotisen vid priset, med sida", () => {
-    expect(vm.prisanalys.byggarNotis).toBe(
+    expect(vm.priset.byggarNotis).toBe(
       "Värderingen räknar med byggår 1958 enligt årsredovisningen, inte 1962 som du angav (s. 3).",
     );
-    expect(buildPdfViewModel(analysUtanPrognos()).prisanalys.byggarNotis).toBeUndefined();
-  });
-
-  it("bygger 'Så har vi räknat' med utgångsläge, prognos och lån", () => {
-    expect(vm.rakning?.utgangslage?.faktorer.length).toBeGreaterThan(3);
-    const p = vm.rakning?.prognos;
-    expect(p?.rubrik).toContain("+500 kr/mån");
-    expect(p?.komponenter.map((k) => k.vardeText)).toContain("Underlag saknas");
-    expect(p?.prisTexter.join(" ")).toContain("≈ 300 kr i pris per krona");
-    expect(p?.prisCaveat).toBeDefined();
-    expect(p?.refinansiering?.rader).toHaveLength(3);
+    expect(buildPdfViewModel(analysUtanPrognos()).priset.byggarNotis).toBeUndefined();
   });
 
   it("använder avgiftstabellen i stället för stresstabellen", () => {
-    expect(vm.rantestress.prognosTabell?.rader).toHaveLength(4);
-    expect(vm.rantestress.prognosTabell?.rader[1]?.forandring).toBe("+500");
+    expect(vm.avgiften.rantestress.prognosTabell?.rader).toHaveLength(4);
+    expect(vm.avgiften.rantestress.prognosTabell?.rader[1]?.forandring).toBe("+500");
   });
 
-  it("noterar byggårets avvikelse i sammanfattningen, utan egen jämförelsesektion", () => {
+  it("noterar byggårets avvikelse under metaraden, utan egen jämförelsesektion", () => {
     expect(vm).not.toHaveProperty("jamforelse");
-    const byggar = vm.summary.find((r) => r.label === "Byggår");
-    expect(byggar?.value).toBe("1958 (årsredovisningen: 1958, du angav 1962, s. 3)");
-  });
-
-  it("tar med sammanfattningen sist", () => {
-    expect(vm.sammanfattning?.stycken).toEqual(["SUMBETYG", "SUMPRIS", "SUMAVGIFT", "SUMSLUTSATS"]);
+    expect(vm.huvud.byggarRad).toContain("1958");
+    expect(vm.huvud.byggarRad).toContain("1962");
+    expect(vm.huvud.meta).toContain("byggår 1958");
   });
 
   it("lämnar allt nytt tomt för gamla resultat", () => {
     const gammal = buildPdfViewModel(analysUtanPrognos());
-    expect(gammal.prisanalys.justeradVardering).toBeUndefined();
-    expect(gammal.rantestress.prognosTabell).toBeUndefined();
-    expect(gammal.summary.find((r) => r.label === "Byggår")?.value).toBe(
-      String(sampleAnalysis.input.byggar),
-    );
-    expect(gammal.sammanfattning).toBeUndefined();
-    expect(gammal.rakning?.prognos).toBeUndefined();
+    expect(gammal.avgiften.rantestress.prognosTabell).toBeUndefined();
+    expect(gammal.avgiften.drivare).toBeUndefined();
+    expect(gammal.priset.rakning?.ekonomi).toBeUndefined();
+    expect(gammal.huvud.byggarRad).toBeUndefined();
+    expect(gammal.kort.avgift.stort).toBe("Kan inte uppskattas");
   });
 });

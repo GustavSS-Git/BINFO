@@ -1,72 +1,95 @@
 /**
- * Pure data mapping from AnalysisResult to the PDF's content — no react-pdf
- * import here on purpose, so this stays trivially unit-testable and mirrors
- * exactly the sections AnalysRapport.tsx renders on screen (same filters,
- * same ordering), per the task brief: "everything AnalysRapport renders,
- * flattened". AnalysPdfDocument.tsx turns this into JSX; it should not need
- * to re-decide what belongs on the report.
+ * Pure data mapping from AnalysisResult to the PDF's content (redesign v4) — no
+ * react-pdf import here on purpose, so this stays trivially unit-testable. It
+ * mirrors the web report (AnalysRapport.tsx and src/components/rapport/*) by
+ * calling the SAME helpers in src/lib/analysisView.ts, src/lib/prisVy.ts and
+ * src/lib/betygVy.ts, so web and PDF say the same thing from the same numbers.
+ * AnalysPdfDocument.tsx turns this into JSX; it must not re-decide content.
+ *
+ * Differences from the web, on purpose: the PDF lists EVERY red flag (the web
+ * shows two), has no closing "Sammanfattning" (owner Q10, 2026-10-28), has the
+ * collapsed web sections ("Så har vi räknat", "Det här driver …", "Mer ur
+ * årsredovisningen") fully open, and replaces the interactive slider by tables.
  */
+import { iEllerPaOmrade } from "@/lib/omradeText";
 import {
-  andelAvSkuldRad,
-  byggarMarkor,
-  antagenAndelText,
-  arSkannad,
-  avgiftsHuvud,
-  prisAvvikelseRad,
-  BYGGDEL_KALLA_TEXT,
-  byggdelNot,
-  byggdelRader,
-  komponentKalla,
-  lanRader,
-  PRIS_LABEL_JUSTERAD,
-  byggarPrisNotis,
-  RANTEKANSLIGHET_RAD,
-  referensrantaRad,
-  REFI_FASTRAD,
-  sparKedja,
-  sparKomponent,
-  refiKomponent,
-  tonForTryck,
-  TRYCK_ETIKETT,
-  vattenfall,
-  type Ton,
+  BYGGDEL_KALLA_RAD,
   ENERGI_TEXT,
-  formatForandringKr,
-  komponentRader,
-  prisEffektTexter,
+  KOMPONENT_KORTNAMN,
+  MODELL_FAKTORER_INTRO,
+  OMRADES_KALLA_RAD,
   PRISEFFEKT_CAVEAT,
   RAKNA_FAKTORER,
-  RAKNA_UTGANGSLAGE_INTRO,
-  refinansieringRader,
-  formatBudpremieText,
-  formatFigureVarde,
-  formatSkapadDatum,
-  formatVarde,
-  formatVardeFigurAvrundat,
-  kvmPrisForVardering,
-  formatVardespann,
-  arOgraderatNyckeltal,
-  visasNyckeltal,
-  visatVarde,
-  VARDESPANN_LABEL,
+  RANTEKANSLIGHET_PRIS_RAD,
+  REFI_FASTRAD,
   SKANNAD_NOTIS,
+  TRYCK_ETIKETT,
+  VARDESPANN_PROCENT,
+  andelAvSkuldRad,
+  antagenAndelText,
+  antalIOrd,
+  arOgraderatNyckeltal,
+  arSkannad,
+  avgiftIngarText,
+  avgiftKort,
+  avgiftLead,
+  avgiftRubrik,
+  avrundaKomponentEffekter,
+  avrundaVardering,
+  byggarMarkor,
+  byggarPrisNotis,
+  byggdelNot,
+  byggdelTabell,
+  drivareRader,
+  foreningFaktaText,
+  foreningenRubrik,
+  forstaMening,
+  formatBoareaKort,
+  formatBudpremieText,
+  formatDataperiodLang,
+  formatFigureVarde,
+  formatForandringKr,
+  formatProcentTal,
+  formatSigneratKr,
+  formatSkapadDatum,
+  formatVardeAvrundat,
+  formatVardespann,
+  horisontText,
+  kvmPrisForVardering,
+  lageMotVardespann,
+  lanKallaText,
+  lanTabell,
+  medVersal,
+  modellKallaRad,
+  modellVersionText,
+  nyckeltalJamforelse,
+  komponentPris,
+  prisEffektTexter,
+  prisRubrik,
+  rantestressVy,
+  rapportOmrade,
+  refiKomponent,
+  referensrantaRad,
+  refinansieringRader,
+  sorteraNyckeltal,
+  sparKomponent,
+  sparRader,
+  svarssignalDelar,
+  tonForTryck,
+  vardespann,
   varderingsKallaText,
   varderingsTackningText,
+  vattenfall,
+  visasNyckeltal,
+  visatVarde,
+  BYGGDEL_KALLOR,
+  type Ton,
 } from "@/lib/analysisView";
-import type {
-  AnalysisResult,
-  FeeInclusion,
-  PageRef,
-  Severity,
-  Status,
-  Tristate,
-} from "@/types/analysis";
-
-export const SEVERITY_LABEL: Record<Severity, string> = {
-  hog: "Hög risk",
-  medel: "Medelrisk",
-  lag: "Låg risk",
-};
+import { BETYG_TITEL } from "@/lib/betygVy";
+import { KONTAKT_EPOST } from "@/lib/kontakt";
+import { formatMkr, formatSpannMkr, kvmPris, vanligtBud } from "@/lib/prisVy";
+import { kr } from "@/data/mockData";
+import type { AnalysisResult, Grade, PageRef, Severity, Status } from "@/types/analysis";
 
 export const STATUS_LABEL: Record<Status, string> = {
   god: "God",
@@ -76,296 +99,145 @@ export const STATUS_LABEL: Record<Status, string> = {
   okant: "Okänt",
 };
 
-const KONFIDENS_LABEL: Record<"hog" | "medel" | "lag", string> = {
-  hog: "Hög",
-  medel: "Medel",
-  lag: "Låg",
-};
+/** Label of every red flag in the PDF; the severity only picks the colour. */
+export const FLAGGA_ETIKETT = "Att hålla koll på";
 
-function formatPageRef(ref: PageRef | undefined): string | undefined {
+const LAGE_TEXT = { under: "under spannet", inom: "inom spannet", over: "över spannet" } as const;
+
+function sida(ref: PageRef | undefined): string | undefined {
   return ref ? `s. ${ref.page}` : undefined;
 }
 
-export interface PdfSummaryRow {
-  label: string;
-  value: string;
+// Several fields are typed `T | undefined` rather than `T?`: exactOptionalPropertyTypes
+// forbids assigning an explicit `undefined` to a `?:` field, and several source values
+// (e.g. a Figure's optional `ref`) are genuinely absent.
+
+// --------------------------------------------------------------------------- huvud + kort
+
+export interface PdfHuvud {
+  eyebrow: string;
+  titel: string;
+  meta: string;
+  /** "Avviker …" line under the meta line (byggår vs årsredovisningen). */
+  byggarRad: string | undefined;
 }
 
-// Several fields below are typed `T | undefined` rather than `T?` —
-// exactOptionalPropertyTypes (see tsconfig.json) forbids assigning an
-// explicit `undefined` to a `?:` field; several source values here (e.g. a
-// Figure's optional `ref`) are genuinely absent rather than omitted, so the
-// mapping functions below need to write `undefined` explicitly. Same
-// convention as BolanekalkylSearch in src/lib/bolanekalkyl.ts.
+export interface PdfKort {
+  forening: { betyg: Grade; titel: string; text: string };
+  varde: { stort: string; rad: string | undefined; text: string };
+  avgift: { stort: string; rad: string | undefined; text: string };
+}
 
-export interface PdfRedFlag {
+function buildHuvud(analys: AnalysisResult): PdfHuvud {
+  const { input } = analys;
+  const byggar = byggarMarkor(
+    analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar"),
+    input.byggar,
+  );
+  const adressKvar = input.adress !== "";
+  const byggarDel =
+    byggar.varde === "Okänt"
+      ? undefined
+      : byggar.markor?.text === "Värdeår enligt årsredovisningen"
+        ? `värdeår ${byggar.varde} enligt årsredovisningen`
+        : byggar.markor?.text === "Från årsredovisningen"
+          ? `byggår ${byggar.varde} enligt årsredovisningen`
+          : `byggår ${byggar.varde}`;
+  const delar = [
+    adressKvar ? analys.forening.namn : undefined,
+    rapportOmrade(analys.prisanalys.varderingsunderlag),
+    `${input.antalRum} rum`,
+    formatBoareaKort(input.boarea),
+    input.vaning !== undefined ? `våning ${input.vaning}` : undefined,
+    `avgift ${kr(input.manadsavgift)}/mån`,
+    input.utgangspris !== undefined ? `utgångspris ${kr(input.utgangspris)}` : undefined,
+    byggarDel,
+    adressKvar ? undefined : "Adressen raderad efter 12 månader",
+  ].filter((d): d is string => d !== undefined);
+  return {
+    eyebrow: `Rapport · analyserad ${formatSkapadDatum(analys.skapad)}`,
+    titel: adressKvar ? input.adress : analys.forening.namn,
+    meta: delar.join(" · "),
+    byggarRad: byggar.rad
+      ? `${byggar.markor ? `${byggar.markor.text}: ` : ""}${byggar.rad}`
+      : undefined,
+  };
+}
+
+function buildKort(analys: AnalysisResult): PdfKort {
+  const p = analys.prisanalys;
+  const visat = visatVarde(p);
+  const utgangspris = p.utgangspris?.value ?? null;
+  const bud = vanligtBud(utgangspris, p.budpremie);
+  const lage = visat && utgangspris !== null ? lageMotVardespann(utgangspris, visat.exakt) : null;
+  const prisText = !visat
+    ? "Postnumret saknas eller är ogiltigt, så lägenheten kan inte värderas."
+    : lage === null || utgangspris === null
+      ? "Du angav inget utgångspris, så vi jämför inte priset mot spannet."
+      : `Utgångspriset ${formatMkr(utgangspris, 2)} ligger ${LAGE_TEXT[lage]}.${
+          bud !== null ? ` Ett vanligt bud i området landar runt ${formatMkr(bud, 2)}.` : ""
+        }`;
+  const avgift = avgiftKort(analys.avgiftsprognos, analys.rantestress.nuvarandeManadsavgift.value);
+  return {
+    forening: {
+      betyg: analys.betyg,
+      titel: BETYG_TITEL[analys.betyg],
+      text: forstaMening(analys.betygMotivering),
+    },
+    varde: {
+      stort: visat ? `ca ${formatMkr(avrundaVardering(visat.exakt))}` : "Ingen värdering",
+      rad: visat ? `Spann ${formatSpannMkr(visat.exakt)}` : undefined,
+      text: prisText,
+    },
+    avgift: { stort: avgift.varde, rad: avgift.rad ?? undefined, text: avgift.text },
+  };
+}
+
+// --------------------------------------------------------------------------- 1 Föreningen
+
+export interface PdfFlagga {
   id: string;
   titel: string;
   beskrivning: string;
-  severity: Severity;
-  severityLabel: string;
+  /** Colour only: hög risk is red, the rest amber. */
+  ton: "danger" | "warning";
   pageRef: string | undefined;
 }
 
-export interface PdfKeyFigure {
+export interface PdfNyckeltal {
   id: string;
   label: string;
-  valueText: string;
-  status: Status;
-  statusLabel: string;
-  benchmarkText: string | undefined;
   forklaring: string;
+  varde: string;
+  osaker: string | undefined;
+  /** "God" … or "Ingen bedömning" for the unrated seventh. */
+  bedomning: string;
+  bedomningTon: Ton;
+  jamforelse: string;
   pageRef: string | undefined;
   isSchablon: boolean;
-  /** Skäl från rimlighetskontrollerna; visas som "Osäker: …" i PDF:en. */
-  osaker: string | undefined;
 }
 
-export interface PdfVarderingsunderlag {
-  omradeText: string;
-  /** 'utanfor_lan' only: rendered first in the section, above the estimate. */
-  tackningTitel: string | undefined;
-  disclaimerText: string | undefined;
-  /** 'lan' only: method note shown with the data basis. */
-  metodText: string | undefined;
-  metadataText: string;
-  kallaText: string;
+export interface PdfMerUr {
+  handelser: Array<{ text: string; pageRef: string | undefined }>;
+  ingar: string | undefined;
+  fakta: string | undefined;
+  skal: string[];
 }
 
-/** Raden "Lägenhetens ungefärliga andel av föreningens lån" (bara full analys). */
-export interface PdfAndelAvSkuld {
-  text: string;
-  pageRef: string | undefined;
-  osaker: string | undefined;
-}
-
-export interface PdfPrisanalys {
-  /** Samma rubrik som webben: "Är priset rimligt?" med pris, annars "Binfos värdering". */
-  titel: string;
-  /** Båda undefined när köparen inte angett något utgångspris (raderna utelämnas). */
-  utgangspris: string | undefined;
-  prisPerM2: string | undefined;
-  externVardering:
-    | {
-        value: string;
-        leverantor: string;
-        isSchablon: boolean;
-        /** "ca 118 300 kr/m²" from the shown value and the boarea. */
-        kvmPris: string | undefined;
-        /** "Ungefärligt spann (±10 %): a – b kr"; only under the main shown value. */
-        vardespann: string | undefined;
-      }
-    | undefined;
-  avvikelseText: string | undefined;
-  /** Second price row; when present, avvikelseText is moved to it. */
-  justeradVardering: PdfJusteradVardering | undefined;
-  /** Present only when externVardering kom från Binfos värderingsmodell —
-   *  se Prisanalys.varderingsunderlag i src/types/analysis.ts. */
-  varderingsunderlag: PdfVarderingsunderlag | undefined;
-  /** Kommentar under värderingen; ingår inte i värderingen. Saknas när
-   *  föreningens skuld per m² inte gick att läsa ut. */
-  andelAvSkuld: PdfAndelAvSkuld | undefined;
-  /** Task 5: hur mycket bostäder i området sålts över/under utgångspriset. */
-  budpremieText: string | undefined;
-  /** Vilket byggår värderingen räknat med, när det inte är det köparen angav. */
-  byggarNotis: string | undefined;
-  slutsats: string;
-  konfidensNiva: string;
-  konfidensSkal: string[];
-}
-
-/** Andra prisraden (bara när servern räknat fram en justerad värdering). */
-export interface PdfJusteradVardering {
-  label: string;
-  value: string;
-  /** "ca 115 600 kr/m²" from the shown value and the boarea. */
-  kvmPris: string | undefined;
-  /** "Ungefärligt spann (±10 %): a – b kr"; only under the main shown value. */
-  vardespann: string | undefined;
-  avvikelseText: string | undefined;
-  /** Baslinje -> komponenternas prisbidrag -> justerat värde (tomt utan prognos). */
-  vattenfall: Array<{ label: string; beloppText: string; ton: Ton; typ: "bas" | "steg" | "slut" }>;
-}
-
-/** "Så har vi räknat", alltid helt uppfälld i PDF:en. */
-export interface PdfRakning {
-  utgangslage: { intro: string; faktorer: string[] } | undefined;
-  prognos:
-    | {
-        rubrik: string;
-        /** Stora talet och raden under ("+500 kr/mån", "inom 24 månader"). */
-        huvud: { varde: string; under: string; ton: Ton };
-        komponenter: Array<{
-          label: string;
-          vardeText: string;
-          forklaring: string;
-          pageRef: string | undefined;
-          ton: Ton | undefined;
-          kalla: string | undefined;
-          /** Visas i listan "övriga"; spar- och lånesteg har egna block. */
-          ovrig: boolean;
-        }>;
-        spar:
-          | {
-              steg: Array<{
-                rubrik: string;
-                varde: string;
-                kalla: string | undefined;
-                ton: Ton | undefined;
-              }>;
-              dampningTag: string | undefined;
-              byggdelar: Array<{
-                label: string;
-                senast: string;
-                livslangd: string;
-                status: string;
-                ton: Ton;
-                pageRef: string | undefined;
-              }>;
-              byggdelNot: string;
-              byggdelKalla: string;
-              /** How the kr/mån is computed (area basis + the flat's share). */
-              forklaring: string | undefined;
-            }
-          | undefined;
-        lan:
-          | {
-              rader: Array<{
-                forfaller: string;
-                belopp: string;
-                ranta: string;
-                fas: string;
-                effekt: string;
-                effektForening: string | undefined;
-              }>;
-              varde: string | undefined;
-              ton: Ton;
-              fastrad: string | undefined;
-              referens: string;
-            }
-          | undefined;
-        rantekanslighetRad: string;
-        osaker: string | undefined;
-        energiText: string;
-        prisTexter: string[];
-        prisCaveat: string | undefined;
-        refinansiering:
-          | { rader: Array<{ label: string; value: string }>; antagenAndel: string | undefined }
-          | undefined;
-      }
-    | undefined;
-}
-
-export interface PdfPrognosTabell {
-  rader: Array<{ label: string; manadsavgift: string; forandring: string }>;
-  kommentar: string;
-}
-
-export interface PdfSammanfattning {
-  stycken: string[];
-  /** Färgmärkning av avgiftsstycket (index 2), när prognosen har tryck. */
-  avgiftTryck: { etikett: string; ton: Ton } | undefined;
-}
-
-export interface PdfRantestressRad {
-  okningPe: 0 | 1 | 2 | 3;
-  nyManadsavgift: string;
-  avgiftsokning: string;
-  /** Present only when the analysis had loan details to compute a full
-   *  monthly cost, not just the fee (see RantestressScenario). */
-  totalManadskostnad?: string;
-}
-
-export interface PdfRantestress {
-  nuvarandeManadsavgift: string;
-  /** Empty when rantekanslighetProcent is null — the report doesn't state
-   *  räntekänslighet, so no stress scenarios could be computed. */
-  rader: PdfRantestressRad[];
-  kommentar: string;
-  /** True when rantekanslighetProcent is null. Drives the "not possible to
-   *  compute" note instead of the scenario table. */
-  ejBeraknbar: boolean;
-  /** Present for new reports: replaces the stress table (today / expected / +1 / +2 pp). */
-  prognosTabell: PdfPrognosTabell | undefined;
-}
-
-export interface PdfFraga {
-  id: string;
-  fraga: string;
-  /** "Varför: …" text, shown under the question. */
-  varfor: string;
-  /** Display line for "Bra svar / varningssignal"; absent when the question has none. */
-  svarssignal?: string;
-}
-
-/** The model and the deterministic questions already write "Bra svar: … Varningssignal: …";
- *  then the line is its own label. Free text gets the label put in front. */
-function svarssignalMedRubrik(text: string): string {
-  const t = text.trim();
-  return /^(bra svar|varningssignal):/i.test(t) ? t : `Bra svar / varningssignal: ${t}`;
-}
-
-/** One "antal"-figure row — antal medlemmar/lägenheter/hyresrätter/lokaler. */
-export interface PdfOvrigInfoAntal {
-  label: string;
-  valueText: string;
-  pageRef: string | undefined;
-  osaker: string | undefined;
-}
-
-/** One fee-inclusion row — mirrors AnalysRapport.tsx's avgiftPoster shape. */
-export interface PdfOvrigInfoAvgiftPost {
-  post: keyof FeeInclusion;
-  label: string;
-  statusText: string;
-  matningText: string | undefined;
-  pageRef: string | undefined;
-}
-
-export interface PdfOvrigInfoHandelse {
-  text: string;
-  pageRef: string | undefined;
-}
-
-/**
- * Task 1.5's "Övrig info från årsredovisningen" — mirrors AnalysRapport.tsx's
- * OvrigInfo section exactly (same fields, same "Framgår inte av
- * årsredovisningen" wording for an unaddressed fee item, same "no exact
- * page" note for an unreffed väsentlig händelse). `undefined` (not an empty
- * object) when there is nothing at all to show, so AnalysPdfDocument.tsx can
- * skip the whole section the same way the screen report hides it.
- */
-export interface PdfOvrigInfo {
-  antal: PdfOvrigInfoAntal[];
-  avgiftPoster: PdfOvrigInfoAvgiftPost[];
-  handelser: PdfOvrigInfoHandelse[];
-  datakvalitetSkal: string[];
-  /** Satt när årsredovisningen var skannad (datakvalitet.kalla). */
+export interface PdfForening {
+  rubrik: string;
+  lead: string;
+  flaggor: PdfFlagga[];
   skannadNotis: string | undefined;
-}
-
-export interface PdfViewModel {
-  foreningNamn: string;
-  skapadLabel: string;
-  summary: PdfSummaryRow[];
-  betyg: string;
-  betygMotivering: string;
-  rodaFlaggor: PdfRedFlag[];
-  keyFigures: PdfKeyFigure[];
-  ovrigInfo: PdfOvrigInfo | undefined;
-  prisanalys: PdfPrisanalys;
-  rantestress: PdfRantestress;
-  fragor: PdfFraga[];
-  rakning: PdfRakning | undefined;
-  sammanfattning: PdfSammanfattning | undefined;
+  nyckeltal: PdfNyckeltal[];
+  merUr: PdfMerUr | undefined;
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { hog: 0, medel: 1, lag: 2 };
 
-/** All red flags, most severe first — same ranking as toppRodaFlaggor in
- *  analysisView.ts, but keeping every flag rather than just the top two:
- *  the free/teaser view truncates, the PDF (a paid artefact) should not. */
-function allRedFlagsBySeverity(flaggor: AnalysisResult["rodaFlaggor"]): PdfRedFlag[] {
+/** All red flags, most severe first (same ranking as toppRodaFlaggor, none dropped). */
+function allaFlaggor(flaggor: AnalysisResult["rodaFlaggor"]): PdfFlagga[] {
   return flaggor
     .map((flagga, index) => ({ flagga, index }))
     .sort((a, b) => {
@@ -376,142 +248,463 @@ function allRedFlagsBySeverity(flaggor: AnalysisResult["rodaFlaggor"]): PdfRedFl
       id: flagga.id,
       titel: flagga.titel,
       beskrivning: flagga.beskrivning,
-      severity: flagga.severity,
-      severityLabel: SEVERITY_LABEL[flagga.severity],
-      pageRef: formatPageRef(flagga.ref),
+      ton: flagga.severity === "hog" ? ("danger" as const) : ("warning" as const),
+      pageRef: sida(flagga.ref),
     }));
 }
 
-function buildSummary(analys: AnalysisResult): PdfSummaryRow[] {
-  const { input } = analys;
-  const byggar = byggarMarkor(
-    analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar"),
-    input.byggar,
+const STATUS_TON: Record<Status, Ton> = {
+  god: "success",
+  acceptabel: "success",
+  svag: "warning",
+  kritisk: "danger",
+  okant: "neutral",
+};
+
+function buildForening(analys: AnalysisResult): PdfForening {
+  const flaggor = allaFlaggor(analys.rodaFlaggor);
+  const sparbehovMal = analys.avgiftsprognos?.sparbehov?.malKrPerM2;
+  const nyckeltal = sorteraNyckeltal(analys.forening.keyFigures.filter(visasNyckeltal)).map(
+    (kf): PdfNyckeltal => {
+      const ograderat = arOgraderatNyckeltal(kf);
+      return {
+        id: kf.id,
+        label: kf.label,
+        forklaring: kf.forklaring,
+        varde: formatFigureVarde(kf.figure),
+        osaker: kf.figure.osaker,
+        bedomning: ograderat ? "Ingen bedömning" : STATUS_LABEL[kf.status],
+        bedomningTon: ograderat ? "neutral" : STATUS_TON[kf.status],
+        jamforelse: nyckeltalJamforelse(kf, sparbehovMal),
+        pageRef: sida(kf.figure.ref),
+        isSchablon: kf.figure.source === "schablon",
+      };
+    },
   );
-  const byggarText = byggar.pdfNotis ? `${byggar.varde} (${byggar.pdfNotis})` : byggar.varde;
-  // Only the address (owner 2026-10-26): the area comes from the postnummer.
-  const adressLabel = input.adress !== "" ? input.adress : "Adressen raderad efter 12 månader";
-  return [
-    ...(input.utgangspris !== undefined
-      ? [{ label: "Utgångspris", value: formatVarde(input.utgangspris, "kr") }]
-      : []),
-    { label: "Boarea", value: formatVarde(input.boarea, "m2") },
-    { label: "Månadsavgift", value: `${formatVarde(input.manadsavgift, "kr")}/mån` },
-    { label: "Antal rum", value: String(input.antalRum) },
-    { label: "Våning", value: input.vaning !== undefined ? String(input.vaning) : "Okänt" },
-    { label: "Byggår", value: byggarText },
-    { label: "Adress", value: adressLabel },
-  ];
-}
 
-/** Same filter AnalysRapport's Foreningsekonomi section applies (visasNyckeltal):
- *  the graded key figures the product surfaces, when a status was judged, plus the
- *  informative one unrated when it has a value. */
-function buildKeyFigures(analys: AnalysisResult): PdfKeyFigure[] {
-  return analys.forening.keyFigures.filter(visasNyckeltal).map((kf) => ({
-    id: kf.id,
-    label: kf.label,
-    valueText: formatFigureVarde(kf.figure),
-    status: kf.status,
-    statusLabel: STATUS_LABEL[kf.status],
-    // Ungraded figures (the informative seventh nyckeltal) have no status label
-    // and no benchmark; the document skips the label when status is "okant".
-    benchmarkText:
-      kf.benchmark && !arOgraderatNyckeltal(kf)
-        ? `${kf.benchmark.label}: ${formatVarde(kf.benchmark.value, kf.figure.unit)}`
-        : undefined,
-    forklaring: kf.forklaring,
-    pageRef: formatPageRef(kf.figure.ref),
-    isSchablon: kf.figure.source === "schablon",
-    osaker: kf.figure.osaker,
+  const f = analys.forening;
+  const handelser = (f.vasentligaHandelser ?? []).map((h) => ({
+    text: h.text,
+    pageRef: sida(h.ref),
   }));
-}
+  const ingar = avgiftIngarText(f);
+  const fakta = foreningFaktaText(f);
+  const skal = analys.datakvalitet.extraktionKonfidens.skal ?? [];
+  const merUr =
+    handelser.length === 0 && !ingar && !fakta && skal.length === 0
+      ? undefined
+      : { handelser, ingar, fakta, skal };
 
-/** Mirrors AnalysRapport.tsx's Prisrimlighet-sektion, se dess filkommentar
- *  om varderingsunderlagets fält. */
-function buildVarderingsunderlag(
-  p: AnalysisResult["prisanalys"],
-): PdfVarderingsunderlag | undefined {
-  const u = p.varderingsunderlag;
-  if (!u) return undefined;
-
-  const tackning = varderingsTackningText(u);
   return {
-    omradeText:
-      u.omrade ??
-      (tackning
-        ? (u.kommun ?? u.prisniva?.region ?? "Okänt")
-        : "Stockholm (postnumret saknas i vår områdesindelning)"),
-    tackningTitel: tackning?.typ === "utanfor_lan" ? tackning.titel : undefined,
-    disclaimerText: tackning?.typ === "utanfor_lan" ? tackning.text : undefined,
-    metodText: tackning?.typ === "lan" ? tackning.text : undefined,
-    metadataText: `${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
-    kallaText: varderingsKallaText(u.dataperiod),
+    rubrik: foreningenRubrik(analys.betyg, flaggor.length),
+    lead: analys.betygMotivering,
+    flaggor,
+    skannadNotis: arSkannad(analys) ? SKANNAD_NOTIS : undefined,
+    nyckeltal,
+    merUr,
   };
 }
 
-function byggarNotisText(analys: AnalysisResult): string | undefined {
-  const n = byggarPrisNotis(analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar"));
-  if (!n) return undefined;
-  return n.sida ? `${n.text.replace(/\.$/, "")} (${n.sida}).` : n.text;
+// --------------------------------------------------------------------------- 2 Priset
+
+export interface PdfRad {
+  label: string;
+  note: string | undefined;
+  varde: string;
+  undertext: string | undefined;
+  total: boolean;
 }
 
-function buildPrisanalys(analys: AnalysisResult): PdfPrisanalys {
+export interface PdfSpannMarkor {
+  label: string;
+  varde: number;
+  text: string;
+  ton: "utgangspris" | "bud" | "vardering" | "liknande";
+}
+
+export interface PdfPriset {
+  rubrik: string;
+  lead: string;
+  /** Coverage note: 'utanfor_lan' (a warning) or 'lan' (a notice), rendered first. */
+  tackning: { typ: "utanfor_lan" | "lan"; titel: string; text: string } | undefined;
+  /** Null without a valuation (invalid postnummer). */
+  spann: { lag: number; hog: number; markorer: PdfSpannMarkor[]; underrubrik: string } | null;
+  /** "Priset i annonsen"; undefined without an asking price. */
+  annons: PdfRad[] | undefined;
+  /** "Binfos värdering"; empty without a valuation. */
+  vardering: PdfRad[];
+  harVardering: boolean;
+  /** The valuation is an estimate (model schablon), shown as a tag. */
+  uppskattning: boolean;
+  leverantor: string | undefined;
+  byggarNotis: string | undefined;
+  skuld: { text: string; pageRef: string | undefined; osaker: string | undefined } | undefined;
+  lagTillforlitlighet: string | undefined;
+  /** "Så har vi räknat", always open in the PDF. */
+  rakning: PdfPrisRakning | undefined;
+}
+
+export interface PdfPrisRakning {
+  modell:
+    | {
+        intro: string;
+        faktorer: string[];
+        kalla: string;
+        spannText: string | undefined;
+        felText: string;
+        metadata: string;
+        omradeText: string;
+        metodText: string | undefined;
+        slutsats: string;
+      }
+    | undefined;
+  ekonomi:
+    | {
+        texter: string[];
+        rantaRad: string;
+        caveat: string;
+        vattenfall: Array<{
+          label: string;
+          beloppText: string;
+          ton: Ton;
+          typ: "bas" | "steg" | "slut";
+        }>;
+      }
+    | undefined;
+}
+
+function spannKvm(spann: { low: number; high: number } | null, boarea: number): string | undefined {
+  if (!spann || !(boarea > 0)) return undefined;
+  const per = (v: number) => (Math.round(v / boarea / 100) * 100).toLocaleString("sv-SE");
+  return `${per(spann.low)} – ${per(spann.high)} kr/m²`;
+}
+
+function buildPriset(analys: AnalysisResult): PdfPriset {
   const p = analys.prisanalys;
+  const input = analys.input;
+  const u = p.varderingsunderlag;
+  const prognos = analys.avgiftsprognos;
+  const tackningTxt = u ? varderingsTackningText(u) : null;
+  const visat = visatVarde(p);
+  const utgangspris = p.utgangspris?.value ?? null;
+  const bud = vanligtBud(utgangspris, p.budpremie);
+  const lage = visat && utgangspris !== null ? lageMotVardespann(utgangspris, visat.exakt) : null;
+  const budLage = visat && bud !== null ? lageMotVardespann(bud, visat.exakt) : null;
+  const bas = p.externVardering?.value ?? null;
+  const harJusterat = visat?.kalla === "justerad" && bas !== null;
+  const liknandeSkiljer =
+    harJusterat && bas !== null && avrundaVardering(bas) !== avrundaVardering(visat.exakt);
+  const omrade = rapportOmrade(u) ?? u?.prisniva?.region;
+  const spann = visat ? vardespann(visat.exakt) : null;
+  const byggarJamforelse = analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar");
+  const byggarNotis = byggarPrisNotis(byggarJamforelse);
   const skuld = andelAvSkuldRad(analys);
-  const avvikelse = prisAvvikelseRad(p);
-  const avvikelseText = p.justeradVardering === undefined ? avvikelse?.text : undefined;
 
-  const visat = p.externVardering?.source === "schablon" ? visatVarde(p) : null;
-  const spannText = visat ? `${VARDESPANN_LABEL}: ${formatVardespann(visat.exakt)}` : undefined;
+  const lead = visat
+    ? `Spannet är Binfos värdering ± ${VARDESPANN_PROCENT} %, alltså ${formatSpannMkr(visat.exakt)}.${
+        budLage ? ` Ett vanligt bud för området hamnar ${LAGE_TEXT[budLage]}.` : ""
+      }${utgangspris === null && p.budpremie ? ` ${formatBudpremieText(p.budpremie)}` : ""}`
+    : "Utan ett giltigt postnummer kan Binfo inte värdera lägenheten.";
+
+  // Component effects on the price, rounded to 1 000 kr so they sum to the total.
+  const justering = p.justeringar?.find((x) => x.id === "forvantad_avgiftshojning");
+  const ekonomi = (() => {
+    if (!prognos || !justering || justering.belopp.value === null) return null;
+    const { bidrag } = komponentPris(p, prognos);
+    const { effekter, total } = avrundaKomponentEffekter(bidrag, justering.belopp.value);
+    const delar = prognos.komponenter
+      .filter((k) => effekter[k.id] !== undefined && effekter[k.id] !== 0)
+      .map((k) => `${KOMPONENT_KORTNAMN[k.id]} ${formatSigneratKr(effekter[k.id] ?? 0)}`);
+    return { text: medVersal(delar.join(" · ")), total: formatSigneratKr(total) };
+  })();
+
+  const kvmRad = (v: number | null | undefined) => kvmPrisForVardering(v, input.boarea);
+  const budpremieOmrade = p.budpremie ? (p.budpremie.omrade ?? "Stockholm") : null;
+  const procentSigned = p.budpremie
+    ? Math.abs(p.budpremie.medianProcent).toLocaleString("sv-SE", { maximumFractionDigits: 1 })
+    : "";
+
+  const annons: PdfRad[] | undefined =
+    utgangspris !== null
+      ? [
+          {
+            label: "Utgångspris",
+            note: undefined,
+            varde: kr(utgangspris),
+            undertext: kvmPris(utgangspris, input.boarea) ?? undefined,
+            total: false,
+          },
+          ...(bud !== null && p.budpremie
+            ? [
+                {
+                  label: "Vanlig budnivå i området",
+                  note: `Utgångspriset ${p.budpremie.medianProcent < 0 ? "minus" : "plus"} ${procentSigned} %, vad bostäder ${iEllerPaOmrade(p.budpremie.omrade)} brukar gå för ${p.budpremie.medianProcent < 0 ? "under" : "över"} utgångspris`,
+                  varde: `ca ${kr(bud)}`,
+                  undertext: kvmPris(bud, input.boarea) ?? undefined,
+                  total: false,
+                },
+              ]
+            : []),
+        ]
+      : undefined;
+
+  const vardering: PdfRad[] = visat
+    ? [
+        ...(bas !== null
+          ? [
+              {
+                label: `Vad liknande lägenheter säljs för${omrade ? ` (${omrade}${input.postnummer ? `, ${input.postnummer.replace(/ /g, " ")}` : ""})` : ""}`,
+                note: u
+                  ? `Binfos värderingsmodell, tränad på bostadsrättsförsäljningar i Stockholm ${formatDataperiodLang(u.dataperiod)} med data från Svensk Mäklarstatistik.`
+                  : undefined,
+                varde: `ca ${formatVardeAvrundat(bas)}`,
+                undertext: kvmRad(bas),
+                total: false,
+              },
+            ]
+          : []),
+        ...(harJusterat && ekonomi
+          ? [
+              {
+                label: "Föreningens ekonomi",
+                note: ekonomi.text,
+                varde: ekonomi.total,
+                undertext: undefined,
+                total: false,
+              },
+            ]
+          : []),
+        {
+          label: "Binfos värdering",
+          note: harJusterat
+            ? "Med föreningens ekonomi inräknad"
+            : "Utan justering för föreningens ekonomi",
+          varde: `ca ${formatVardeAvrundat(visat.exakt)}`,
+          undertext: kvmRad(visat.exakt),
+          total: true,
+        },
+        {
+          label: `Rimligt prisspann — Binfos värdering ± ${VARDESPANN_PROCENT} %`,
+          note: undefined,
+          varde: formatVardespann(visat.exakt),
+          undertext: spannKvm(spann, input.boarea),
+          total: false,
+        },
+      ]
+    : [];
+
+  const markorer: PdfSpannMarkor[] = visat
+    ? [
+        ...(utgangspris !== null
+          ? [
+              {
+                label: "Utgångspris",
+                varde: utgangspris,
+                text: formatMkr(utgangspris, 2),
+                ton: "utgangspris" as const,
+              },
+            ]
+          : []),
+        ...(bud !== null
+          ? [{ label: "Vanligt bud", varde: bud, text: formatMkr(bud, 2), ton: "bud" as const }]
+          : []),
+        {
+          label: "Binfos värdering",
+          varde: avrundaVardering(visat.exakt),
+          text: formatMkr(avrundaVardering(visat.exakt), 2),
+          ton: "vardering" as const,
+        },
+        ...(liknandeSkiljer && bas !== null
+          ? [
+              {
+                label: "Liknande lägenheter",
+                varde: avrundaVardering(bas),
+                text: formatMkr(avrundaVardering(bas), 2),
+                ton: "liknande" as const,
+              },
+            ]
+          : []),
+      ]
+    : [];
+
+  const modell =
+    u && visat
+      ? {
+          intro: `Binfos värderingsmodell (version ${modellVersionText(u.modellVersion)}) bygger på tidigare försäljningar av bostadsrätter. ${MODELL_FAKTORER_INTRO}`,
+          faktorer: RAKNA_FAKTORER,
+          kalla: varderingsKallaText(u.dataperiod),
+          spannText: `Spannet ${formatSpannMkr(visat.exakt)} är Binfos värdering ± ${VARDESPANN_PROCENT} %. Det visar hur långt från värderingen ett pris kan ligga och ändå vara rimligt, och är inget statistiskt konfidensintervall.`,
+          felText: `Modellens typiska fel${omrade ? ` i ${omrade}` : ""} är ca ${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %.`,
+          metadata: `${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
+          omradeText: `Område: ${omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)"}`,
+          metodText: tackningTxt?.typ === "lan" ? tackningTxt.text : undefined,
+          slutsats: p.slutsats,
+        }
+      : undefined;
+
+  const ekonomiRakning =
+    prognos && p.justeradVardering
+      ? {
+          texter: prisEffektTexter(p),
+          rantaRad: RANTEKANSLIGHET_PRIS_RAD,
+          caveat: PRISEFFEKT_CAVEAT,
+          vattenfall: (vattenfall(p, prognos)?.rader ?? []).map((r) => ({
+            label: r.label,
+            beloppText: r.beloppText,
+            ton: r.ton,
+            typ: r.typ,
+          })),
+        }
+      : undefined;
 
   return {
-    titel: p.utgangspris ? "Är priset rimligt?" : "Binfos värdering",
-    utgangspris: p.utgangspris ? formatFigureVarde(p.utgangspris) : undefined,
-    prisPerM2: p.prisPerM2 ? formatFigureVarde(p.prisPerM2) : undefined,
-    andelAvSkuld: skuld
-      ? { text: skuld.text, pageRef: formatPageRef(skuld.ref), osaker: skuld.osaker }
-      : undefined,
-    externVardering: p.externVardering
+    rubrik: prisRubrik(lage),
+    lead,
+    tackning: tackningTxt
       ? {
-          value: formatVardeFigurAvrundat(p.externVardering),
-          leverantor: p.externVardering.leverantor,
-          isSchablon: p.externVardering.source === "schablon",
-          kvmPris: kvmPrisForVardering(p.externVardering.value, analys.input.boarea),
-          vardespann: visat?.kalla === "bas" ? spannText : undefined,
+          typ: tackningTxt.typ,
+          titel:
+            tackningTxt.typ === "utanfor_lan"
+              ? (tackningTxt.titel ?? "Utanför täckningsområdet")
+              : "Värdering utanför Stockholms kommun",
+          text: tackningTxt.text,
         }
       : undefined,
-    avvikelseText,
-    justeradVardering: p.justeradVardering
-      ? {
-          label: PRIS_LABEL_JUSTERAD,
-          vattenfall: analys.avgiftsprognos
-            ? (vattenfall(p, analys.avgiftsprognos)?.rader ?? []).map((r) => ({
-                label: r.label,
-                beloppText: r.beloppText,
-                ton: r.ton,
-                typ: r.typ,
-              }))
-            : [],
-          value: formatVardeFigurAvrundat(p.justeradVardering),
-          kvmPris: kvmPrisForVardering(p.justeradVardering.value, analys.input.boarea),
-          vardespann: visat?.kalla === "justerad" ? spannText : undefined,
-          avvikelseText: avvikelse?.text,
-        }
+    spann:
+      visat && spann
+        ? {
+            lag: spann.low,
+            hog: spann.high,
+            markorer,
+            underrubrik: `Binfos värdering ± ${VARDESPANN_PROCENT} %${utgangspris !== null ? ", och var utgångspriset" : ""}${bud !== null ? " och ett vanligt bud hamnar" : utgangspris !== null ? " hamnar" : ""}`,
+          }
+        : null,
+    annons,
+    vardering,
+    harVardering: visat !== null,
+    uppskattning: p.externVardering?.source === "schablon",
+    leverantor: p.externVardering?.leverantor,
+    byggarNotis: byggarNotis
+      ? byggarNotis.sida
+        ? `${byggarNotis.text.replace(/\.$/, "")} (${byggarNotis.sida}).`
+        : byggarNotis.text
       : undefined,
-    varderingsunderlag: buildVarderingsunderlag(p),
-    budpremieText: p.budpremie ? formatBudpremieText(p.budpremie) : undefined,
-    byggarNotis: byggarNotisText(analys),
-    slutsats: p.slutsats,
-    konfidensNiva: KONFIDENS_LABEL[p.konfidens.niva],
-    // Same condition AnalysRapport uses to show the "why" behind low confidence.
-    konfidensSkal: p.konfidens.niva === "lag" ? (p.konfidens.skal ?? []) : [],
+    skuld: skuld ? { text: skuld.text, pageRef: sida(skuld.ref), osaker: skuld.osaker } : undefined,
+    lagTillforlitlighet:
+      p.konfidens.niva === "lag" && p.konfidens.skal && p.konfidens.skal.length > 0
+        ? `Låg tillförlitlighet: ${p.konfidens.skal.join(" ")}`
+        : undefined,
+    rakning: modell || ekonomiRakning ? { modell, ekonomi: ekonomiRakning } : undefined,
   };
+}
+
+// --------------------------------------------------------------------------- 3 Avgiften framåt
+
+export interface PdfRantaBox {
+  vanster: { etikett: string; varde: string; under: string; tryck: string | undefined };
+  hoger:
+    | { etikett: string; varde: string; under: string; saknas: undefined }
+    | { etikett: string; saknas: string };
+}
+
+export interface PdfPrognosTabell {
+  rader: Array<{ label: string; manadsavgift: string; forandring: string }>;
+  kommentar: string;
+}
+
+export interface PdfRantestressRad {
+  okningPe: 0 | 1 | 2 | 3;
+  nyManadsavgift: string;
+  avgiftsokning: string;
+  totalManadskostnad?: string;
+}
+
+export interface PdfRantestress {
+  nuvarandeManadsavgift: string;
+  /** Empty when rantekanslighetProcent is null. */
+  rader: PdfRantestressRad[];
+  kommentar: string;
+  ejBeraknbar: boolean;
+  /** New reports: today / expected / +1 / +2 pp table (replaces the scenario table). */
+  prognosTabell: PdfPrognosTabell | undefined;
+  /** "Dagens avgift" vs "Med högre ränta" (+1 p.e.), once per base (today, expected). */
+  boxar: PdfRantaBox[];
+}
+
+export interface PdfDrivare {
+  label: string;
+  forklaring: string;
+  pageRef: string | undefined;
+  varde: string;
+  ton: Ton;
+  dimmad: boolean;
+}
+
+export interface PdfByggdel {
+  label: string;
+  senast: string;
+  pageRef: string | undefined;
+  livslangd: string;
+  lage: string;
+  lageTon: "success" | "warning" | "neutral";
+}
+
+export interface PdfLan {
+  forfaller: string;
+  belopp: string;
+  ranta: string;
+  lage: string;
+  lageTon: "success" | "warning" | "info" | "neutral";
+}
+
+export interface PdfAvgiften {
+  rubrik: string;
+  lead: string;
+  tryck: { etikett: string; ton: Ton } | undefined;
+  osaker: string | undefined;
+  rantestress: PdfRantestress;
+  drivare:
+    | {
+        rader: PdfDrivare[];
+        forvantad: string | undefined;
+        energiText: string;
+      }
+    | undefined;
+  spar:
+    | {
+        rubrik: string;
+        tryck: { etikett: string; ton: Ton } | undefined;
+        byggdelar: PdfByggdel[];
+        byggdelKalla: string | undefined;
+        rader: Array<{ label: string; note: string; varde: string; total: boolean }>;
+      }
+    | undefined;
+  lan:
+    | {
+        rader: PdfLan[];
+        kalla: string | undefined;
+        fastrad: string | undefined;
+        refinansiering: Array<{ label: string; value: string }>;
+        antagenAndel: string | undefined;
+        forandring: PdfRad[];
+        pageRef: string | undefined;
+      }
+    | undefined;
+}
+
+function tryckInfo(
+  tryck: NonNullable<AnalysisResult["avgiftsprognos"]>["tryck"] | undefined,
+): { etikett: string; ton: Ton } | undefined {
+  return tryck ? { etikett: TRYCK_ETIKETT[tryck], ton: tonForTryck(tryck) } : undefined;
 }
 
 /** Every scenario, not just the one a screen-only slider currently shows. */
 function buildRantestress(analys: AnalysisResult): PdfRantestress {
   const r = analys.rantestress;
+  const baser: Array<"idag" | "forvantad"> =
+    analys.avgiftsprognos && typeof analys.avgiftsprognos.totalKrPerManad === "number"
+      ? ["idag", "forvantad"]
+      : ["idag"];
   return {
     nuvarandeManadsavgift: formatFigureVarde(r.nuvarandeManadsavgift),
     rader: [...r.scenarier]
@@ -536,227 +729,232 @@ function buildRantestress(analys: AnalysisResult): PdfRantestress {
           kommentar: r.prognosTabell.kommentar,
         }
       : undefined,
+    boxar: baser.map((flik) => {
+      const vy = rantestressVy(analys, flik, 1);
+      return {
+        vanster: {
+          etikett: vy.vanster.etikett,
+          varde: vy.vanster.varde,
+          under: vy.vanster.under,
+          tryck: vy.vanster.tryck ? TRYCK_ETIKETT[vy.vanster.tryck] : undefined,
+        },
+        hoger:
+          "saknas" in vy.hoger
+            ? { etikett: "Med högre ränta", saknas: vy.hoger.saknas }
+            : {
+                etikett: "Med högre ränta",
+                varde: vy.hoger.varde,
+                under: vy.hoger.under,
+                saknas: undefined,
+              },
+      };
+    }),
   };
 }
 
-/** Same subset AnalysRapport's Fragor section shows: questions derived from
- *  the analysis, not the auto-generated "we don't know X" ones. */
-function buildFragor(analys: AnalysisResult): PdfFraga[] {
-  return analys.fragor
-    .filter((f) => f.ursprung === "analys")
-    .map((f) => ({
+function buildAvgiften(analys: AnalysisResult): PdfAvgiften {
+  const prognos = analys.avgiftsprognos;
+  const base = {
+    rubrik: avgiftRubrik(prognos),
+    lead: avgiftLead(prognos),
+    tryck: tryckInfo(prognos?.tryck),
+    osaker: prognos?.osaker,
+    rantestress: buildRantestress(analys),
+  };
+  if (!prognos) return { ...base, drivare: undefined, spar: undefined, lan: undefined };
+
+  const dagens = analys.rantestress.nuvarandeManadsavgift.value;
+  const total = prognos.totalKrPerManad;
+  const tid = horisontText(prognos.horisontManader);
+  const forvantad =
+    dagens !== null && total !== null
+      ? `Förväntad avgift om ${tid}: ca ${kr(Math.round(dagens + total))} (${formatForandringKr(total)})`
+      : undefined;
+
+  const sb = prognos.sparbehov;
+  const sparrader = sparRader(prognos);
+  const byggdelar = sb ? byggdelTabell(sb) : [];
+  const spar = sparKomponent(prognos);
+  const refi = prognos.refinansiering;
+  const refiKomp = refiKomponent(prognos);
+  const lan = refi ? lanTabell(refi, prognos.horisontManader) : [];
+  const omsatta = (refi?.lan ?? []).filter((l) => l.fas === "forfallit").length;
+
+  return {
+    ...base,
+    drivare: {
+      rader: drivareRader(prognos).map((r) => ({
+        label: r.label,
+        forklaring: r.forklaring,
+        pageRef: sida(r.ref),
+        varde: r.varde,
+        ton: r.ton,
+        dimmad: r.dimmad,
+      })),
+      forvantad,
+      energiText: ENERGI_TEXT,
+    },
+    spar: sparrader
+      ? {
+          rubrik: byggdelar.length > 0 ? "Husets byggdelar" : "Sparande mot underhållsbehov",
+          tryck: tryckInfo(spar?.tryck),
+          byggdelar: byggdelar.map((b) => ({
+            label: b.label,
+            senast: b.senast,
+            pageRef: b.sida !== undefined ? `s. ${b.sida}` : undefined,
+            livslangd: b.livslangd,
+            lage: b.lage.text,
+            lageTon: b.lage.ton,
+          })),
+          byggdelKalla: byggdelar.length > 0 ? `${BYGGDEL_KALLA_RAD} ${byggdelNot()}` : undefined,
+          rader: sparrader.map((r) => ({
+            label: r.label,
+            note: r.note,
+            varde: r.varde,
+            total: r.total === true,
+          })),
+        }
+      : undefined,
+    lan:
+      refi || refiKomp
+        ? {
+            rader: lan.map((l) => ({
+              forfaller: l.forfaller,
+              belopp: l.belopp,
+              ranta: l.ranta,
+              lage: l.lage.text,
+              lageTon: l.lage.ton,
+            })),
+            kalla: refi
+              ? `${referensrantaRad(refi)}.${lanKallaText(refi) ? ` ${lanKallaText(refi)}` : ""}`
+              : undefined,
+            fastrad: lan.some((l) => l.lage.text.startsWith("År ")) ? REFI_FASTRAD : undefined,
+            refinansiering: refi ? refinansieringRader(refi) : [],
+            antagenAndel: refi ? antagenAndelText(refi) : undefined,
+            forandring: refiKomp
+              ? [
+                  ...(refi && refiKomp.foreningKrPerAr !== null
+                    ? [
+                        {
+                          label: "Förväntad förändring i föreningens årliga räntekostnader",
+                          note: `Om lånen som förfaller inom ${tid} får ca ${formatProcentTal(refi.nyRantaProcent)}.${
+                            omsatta > 0
+                              ? ` ${omsatta === 1 ? "Ett lån är" : `${antalIOrd(omsatta)} lån är`} redan omsatt till okänd ränta.`
+                              : ""
+                          }`,
+                          varde: `ca ${formatSigneratKr(refiKomp.foreningKrPerAr, "kr per år")}`,
+                          undertext: undefined,
+                          total: false,
+                        },
+                      ]
+                    : []),
+                  ...(refiKomp.krPerManad !== null
+                    ? [
+                        {
+                          label: "Din andel",
+                          note: `Det här är raden ”${refiKomp.label}” i den förväntade avgiften`,
+                          varde: `ca ${formatSigneratKr(refiKomp.krPerManad, "kr/mån")}`,
+                          undertext: undefined,
+                          total: true,
+                        },
+                      ]
+                    : []),
+                ]
+              : [],
+            pageRef: refiKomp?.ref ? `Årsredovisning s. ${refiKomp.ref.page}` : undefined,
+          }
+        : undefined,
+  };
+}
+
+// --------------------------------------------------------------------------- 4 Frågor, källor, slut
+
+export interface PdfFraga {
+  id: string;
+  fraga: string;
+  /** "Varför: …" text, shown under the question. */
+  varfor: string;
+  /** "Bra svar" + "Varningssignal", or one line (free text gets its label put in front). */
+  svarssignal:
+    { typ: "tva"; bra: string; varning: string } | { typ: "en"; text: string } | undefined;
+}
+
+export interface PdfFragor {
+  rubrik: string;
+  lead: string;
+  fragor: PdfFraga[];
+}
+
+/** Same subset the web shows: questions derived from the analysis. Undefined when none. */
+function buildFragor(analys: AnalysisResult): PdfFragor | undefined {
+  const fragor = analys.fragor.filter((f) => f.ursprung === "analys");
+  if (fragor.length === 0) return undefined;
+  const medPrognos = analys.avgiftsprognos !== undefined;
+  return {
+    rubrik: `${medVersal(antalIOrd(fragor.length))} ${fragor.length === 1 ? "fråga" : "frågor"} till mäklaren och styrelsen`,
+    lead: `Svaren avgör om betyget${medPrognos ? " och avgiftsprognosen" : ""} håller.`,
+    fragor: fragor.map((f) => ({
       id: f.id,
       fraga: f.fraga,
       varfor: f.varfor,
-      ...(f.svarssignal?.trim() ? { svarssignal: svarssignalMedRubrik(f.svarssignal) } : {}),
-    }));
-}
-
-const AVGIFT_LABEL: Record<keyof FeeInclusion, string> = {
-  varme: "Värme",
-  vatten: "Vatten",
-  el: "El",
-  bredband: "Bredband",
-  tv: "Tv",
-};
-
-// Värme and vatten are not part of the analysis (owner 2026-10-26); mirrors AnalysRapport.tsx.
-const AVGIFT_ORDNING: Array<keyof FeeInclusion> = ["el", "bredband", "tv"];
-
-/** 'okant' (or the whole field being absent) renders as "the report doesn't
- *  say" — never as "nej". Unknown is not false, per CLAUDE.md. Mirrors
- *  AnalysRapport.tsx's avgiftStatusText exactly. */
-function avgiftStatusText(status: Tristate | undefined): string {
-  if (status === "ja") return "Ingår";
-  if (status === "nej") return "Ingår ej";
-  return "Framgår inte av årsredovisningen";
-}
-
-/** Mirrors AnalysRapport.tsx's OvrigInfo section — see PdfOvrigInfo's doc
- *  comment. Returns undefined (not an empty object) when there is nothing
- *  at all to show. */
-function buildOvrigInfo(analys: AnalysisResult): PdfOvrigInfo | undefined {
-  const f = analys.forening;
-
-  const antal = [
-    { label: "Antal medlemmar", figure: f.antalMedlemmar },
-    { label: "Antal lägenheter", figure: f.antalLagenheter },
-    { label: "Varav hyresrätter", figure: f.antalHyresratter },
-    { label: "Antal lokaler", figure: f.antalLokaler },
-  ]
-    .filter(
-      (p): p is { label: string; figure: NonNullable<typeof p.figure> } => p.figure !== undefined,
-    )
-    .map((p) => ({
-      label: p.label,
-      valueText: formatFigureVarde(p.figure),
-      pageRef: formatPageRef(p.figure.ref),
-      osaker: p.figure.osaker,
-    }));
-
-  const visaAvgiftPoster = f.avgiftInkluderarEnligtForening !== undefined;
-  const avgiftPoster: PdfOvrigInfoAvgiftPost[] = visaAvgiftPoster
-    ? AVGIFT_ORDNING.map((post) => {
-        const matning =
-          post === "bredband" || post === "tv" ? undefined : f.individuellMatning?.[post];
-        return {
-          post,
-          label: AVGIFT_LABEL[post],
-          statusText: avgiftStatusText(f.avgiftInkluderarEnligtForening?.[post]),
-          matningText: matning
-            ? matning.matning === "ja"
-              ? "Individuell mätning"
-              : "Ingen individuell mätning"
-            : undefined,
-          pageRef: formatPageRef(f.avgiftInkluderarKallor?.[post]),
-        };
-      })
-    : [];
-
-  const handelser: PdfOvrigInfoHandelse[] = (f.vasentligaHandelser ?? []).map((h) => ({
-    text: h.text,
-    pageRef: formatPageRef(h.ref),
-  }));
-
-  const datakvalitetSkal = analys.datakvalitet.extraktionKonfidens.skal ?? [];
-
-  const skannad = arSkannad(analys);
-
-  const harNagot =
-    antal.length > 0 ||
-    avgiftPoster.length > 0 ||
-    handelser.length > 0 ||
-    datakvalitetSkal.length > 0 ||
-    skannad;
-  if (!harNagot) return undefined;
-
-  return {
-    antal,
-    avgiftPoster,
-    handelser,
-    datakvalitetSkal,
-    skannadNotis: skannad ? SKANNAD_NOTIS : undefined,
+      svarssignal: f.svarssignal?.trim() ? svarssignalDelar(f.svarssignal) : undefined,
+    })),
   };
 }
 
-function buildRakning(analys: AnalysisResult): PdfRakning | undefined {
+function buildKallor(analys: AnalysisResult): { intro: string; rader: string[] } {
   const u = analys.prisanalys.varderingsunderlag;
-  const pg = analys.avgiftsprognos;
-  if (!u && !pg) return undefined;
-  const refi = pg?.refinansiering;
-  const kedja = pg ? sparKedja(pg, analys.prisanalys) : undefined;
-  const sparK = pg ? sparKomponent(pg) : undefined;
-  const refiK = pg ? refiKomponent(pg) : undefined;
-  const refiRad = pg && refiK ? komponentRader({ ...pg, komponenter: [refiK] })[0] : undefined;
+  const prognos = analys.avgiftsprognos;
+  const refi = prognos?.refinansiering;
+  const rader: string[] = [];
+  if (u) rader.push(`Värdering: ${modellKallaRad(u)}`);
+  if (u?.prisniva) {
+    rader.push(
+      `Prisnivå för ${u.prisniva.region}: ${u.prisniva.kalla}, ${u.prisniva.krPerM2.toLocaleString("sv-SE")} kr/m².`,
+    );
+  }
+  if (prognos?.sparbehov?.byggdelar) rader.push(`Byggdelarnas livslängd: ${BYGGDEL_KALLOR}.`);
+  if (refi) {
+    rader.push(
+      `Antagen ny ränta för föreningens lån: ${refi.referensranta.namn} ${formatSkapadDatum(refi.referensranta.datum)} plus föreningens marginal.`,
+    );
+  }
+  if (u) rader.push(`Områdesindelning: ${OMRADES_KALLA_RAD}`);
   return {
-    utgangslage: u ? { intro: RAKNA_UTGANGSLAGE_INTRO, faktorer: RAKNA_FAKTORER } : undefined,
-    prognos: pg
-      ? (() => {
-          const huvud = avgiftsHuvud(pg);
-          const harSpar = kedja !== undefined && sparK !== undefined;
-          const harLan = (refi?.lan ?? []).length > 0;
-          return {
-            rubrik: huvud.varde,
-            huvud: { ...huvud, ton: tonForTryck(pg.tryck) },
-            komponenter: komponentRader(pg).map((k) => {
-              const komp = pg.komponenter.find((x) => x.id === k.id);
-              return {
-                label: k.label,
-                vardeText: k.vardeText,
-                forklaring: k.forklaring,
-                pageRef: formatPageRef(k.ref),
-                ton: komp?.tryck ? tonForTryck(komp.tryck) : undefined,
-                kalla: komp ? komponentKalla(komp)?.text : undefined,
-                ovrig: !(harSpar && k.id === sparK?.id) && !(harLan && k.id === refiK?.id),
-              };
-            }),
-            spar: kedja
-              ? {
-                  steg: kedja.steg.map((k) => ({
-                    rubrik: k.rubrik,
-                    varde: k.varde,
-                    kalla: k.kalla,
-                    ton: k.ton,
-                  })),
-                  dampningTag: kedja.dampningTag,
-                  byggdelar: byggdelRader(pg.sparbehov ?? {}).map((b) => ({
-                    label: b.label,
-                    senast: b.senast,
-                    livslangd: b.livslangd,
-                    status: b.statusEtikett,
-                    ton: b.ton,
-                    pageRef: formatPageRef(b.ref),
-                  })),
-                  byggdelNot: byggdelNot(),
-                  byggdelKalla: BYGGDEL_KALLA_TEXT,
-                  forklaring: sparK?.forklaring,
-                }
-              : undefined,
-            lan:
-              refi && harLan
-                ? {
-                    rader: lanRader(refi, pg.horisontManader, pg.andel?.varde).map((l) => ({
-                      forfaller: l.forfaller,
-                      belopp: l.belopp,
-                      ranta: l.ranta,
-                      fas: l.fas,
-                      effekt: l.effekt,
-                      effektForening: l.effektForening,
-                    })),
-                    varde: refiRad?.vardeText,
-                    ton: tonForTryck(refiK?.tryck),
-                    fastrad: lanRader(refi, pg.horisontManader, pg.andel?.varde).some(
-                      (l) => l.senare,
-                    )
-                      ? REFI_FASTRAD
-                      : undefined,
-                    referens: referensrantaRad(refi),
-                  }
-                : undefined,
-            rantekanslighetRad: RANTEKANSLIGHET_RAD,
-            osaker: pg.osaker,
-            energiText: ENERGI_TEXT,
-            prisTexter: prisEffektTexter(analys.prisanalys),
-            prisCaveat:
-              (analys.prisanalys.justeringar ?? []).length > 0 ? PRISEFFEKT_CAVEAT : undefined,
-            refinansiering: refi
-              ? { rader: refinansieringRader(refi), antagenAndel: antagenAndelText(refi) }
-              : undefined,
-          };
-        })()
-      : undefined,
+    intro: `Uppgifterna om föreningen kommer från årsredovisningen för ${analys.forening.rakenskapsar}, med sidhänvisning vid varje siffra. Hur vi har räknat förklaras under respektive avsnitt ovan.`,
+    rader,
   };
+}
+
+// --------------------------------------------------------------------------- whole model
+
+export interface PdfViewModel {
+  foreningNamn: string;
+  skapadLabel: string;
+  huvud: PdfHuvud;
+  kort: PdfKort;
+  foreningen: PdfForening;
+  priset: PdfPriset;
+  avgiften: PdfAvgiften;
+  fragor: PdfFragor | undefined;
+  kallor: { intro: string; rader: string[] };
+  friskrivning: string;
+  /** The contact address for "Hittar du ett fel?", or null when none is set. */
+  kontakt: string | null;
 }
 
 export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
   return {
     foreningNamn: analys.forening.namn,
     skapadLabel: formatSkapadDatum(analys.skapad),
-    summary: buildSummary(analys),
-    betyg: analys.betyg,
-    betygMotivering: analys.betygMotivering,
-    rodaFlaggor: allRedFlagsBySeverity(analys.rodaFlaggor),
-    keyFigures: buildKeyFigures(analys),
-    ovrigInfo: buildOvrigInfo(analys),
-    prisanalys: buildPrisanalys(analys),
-    rantestress: buildRantestress(analys),
+    huvud: buildHuvud(analys),
+    kort: buildKort(analys),
+    foreningen: buildForening(analys),
+    priset: buildPriset(analys),
+    avgiften: buildAvgiften(analys),
     fragor: buildFragor(analys),
-    rakning: buildRakning(analys),
-    sammanfattning: analys.sammanfattning
-      ? {
-          stycken: [
-            analys.sammanfattning.betyg,
-            analys.sammanfattning.pris,
-            analys.sammanfattning.avgift,
-            analys.sammanfattning.slutsats,
-          ],
-          avgiftTryck: analys.avgiftsprognos?.tryck
-            ? {
-                etikett: TRYCK_ETIKETT[analys.avgiftsprognos.tryck],
-                ton: tonForTryck(analys.avgiftsprognos.tryck),
-              }
-            : undefined,
-        }
-      : undefined,
+    kallor: buildKallor(analys),
+    friskrivning: `Rapporten är beslutsstöd, inte råd. Siffrorna kommer från föreningens årsredovisning för ${analys.forening.rakenskapsar} och kan innehålla tolkningsfel.`,
+    kontakt: KONTAKT_EPOST,
   };
 }

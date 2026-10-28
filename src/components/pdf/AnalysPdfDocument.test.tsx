@@ -1,223 +1,215 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { getDocumentProxy, extractText } from "unpdf";
+import { extractText, getDocumentProxy } from "unpdf";
 import { beforeAll, describe, expect, it } from "vitest";
 import { AnalysPdfDocument } from "@/components/pdf/AnalysPdfDocument";
-import { registerPdfFonts, type PdfFontSources } from "@/components/pdf/fonts";
+import { registerPdfFonts } from "@/components/pdf/fonts";
+import { testFontSources } from "@/components/pdf/pdfTestFonts";
+import { analysMedSparbehov } from "@/components/prognosTestdata";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
+import type { AnalysisResult } from "@/types/analysis";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const publicFontsDir = path.resolve(here, "../../../public/fonts");
-
-/**
- * Node's global fetch (used internally by react-pdf's font loader in both
- * environments) cannot resolve a site-relative "/fonts/…" URL — there is no
- * origin to resolve it against outside a browser — nor a local file://
- * path (undici's fetch does not implement the file: scheme). A data: URL
- * works in both, so the test registers the exact same on-disk TTFs
- * (public/fonts/…, the files the real download path serves) as base64
- * data: URLs instead of point at a running server.
- */
-async function loadTestFontSources(): Promise<PdfFontSources> {
-  const toDataUrl = async (file: string) => {
-    const buffer = await readFile(path.join(publicFontsDir, file));
-    return `data:font/ttf;base64,${buffer.toString("base64")}`;
-  };
-  return {
-    sans: {
-      regular: await toDataUrl("IBMPlexSans-Regular.ttf"),
-      bold: await toDataUrl("IBMPlexSans-Bold.ttf"),
-    },
-    serif: {
-      regular: await toDataUrl("LibreBaskerville-Regular.ttf"),
-      bold: await toDataUrl("LibreBaskerville-Bold.ttf"),
-    },
-  };
+async function render(analys: AnalysisResult): Promise<{ buffer: Buffer; text: string }> {
+  const buffer = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
+  const doc = await getDocumentProxy(new Uint8Array(buffer));
+  const { text } = await extractText(doc, { mergePages: true });
+  return { buffer, text: text.replace(/\s+/g, " ") };
 }
 
-describe("AnalysPdfDocument — renders the sample analysis to a real PDF", () => {
-  let pdfBuffer: Buffer;
-  let extractedText: string;
+beforeAll(async () => {
+  registerPdfFonts(await testFontSources());
+});
+
+describe("AnalysPdfDocument: the sample analysis as a real PDF", () => {
+  let buffer: Buffer;
+  let text: string;
 
   beforeAll(async () => {
-    registerPdfFonts(await loadTestFontSources());
-    pdfBuffer = await renderToBuffer(<AnalysPdfDocument analys={sampleAnalysis} />);
-
-    const data = new Uint8Array(pdfBuffer);
-    const doc = await getDocumentProxy(data);
-    const { text } = await extractText(doc, { mergePages: true });
-    extractedText = text;
-
-    // Saved for the supervisor to open and visually inspect (see task brief).
-    const scratchpadDir =
-      "/private/tmp/claude-501/-Users-gustavslanesens-Documents-GitHub-BINFO/228dca42-5f10-4020-b3c2-dcc28698a4b6/scratchpad/pdf-export";
-    await mkdir(scratchpadDir, { recursive: true });
-    await writeFile(path.join(scratchpadDir, "exempel.pdf"), pdfBuffer);
-  }, 30_000);
+    ({ buffer, text } = await render(sampleAnalysis));
+  }, 60_000);
 
   it("produces a valid, non-trivially-sized PDF file", () => {
-    expect(pdfBuffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
-    expect(pdfBuffer.byteLength).toBeGreaterThan(10_000);
+    expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    expect(buffer.byteLength).toBeGreaterThan(10_000);
   });
 
-  it("embeds the Swedish characters å/ä/ö correctly (proves font embedding, not just glyph fallback)", () => {
-    expect(extractedText).toContain("Årsavgift");
-    expect(extractedText).toContain("Föreningens");
-    expect(extractedText).toContain("Räntekänslighet");
+  it("embeds å/ä/ö correctly (proves the Inter/Source Serif files carry the glyphs)", () => {
+    expect(text).toContain("Räntekänslighet");
+    expect(text).toContain("Föreningen");
+    expect(text).toContain("Årsavgift per m²");
+    expect(text).toContain("Månadsavgift");
   });
 
-  it("includes the räntekänslighet section as the fee table (sample has prognosTabell)", () => {
-    expect(extractedText).toContain("Räntekänslighet");
-    expect(extractedText).toContain("Dagens avgift");
-    expect(extractedText).toContain("+1 procentenhet");
-    expect(extractedText).toContain("+2 procentenheter");
+  it("has the web report's structure in the web report's order", () => {
+    // Eyebrows are drawn uppercase (textTransform), so compare case-insensitively.
+    const lower = text.toLowerCase();
+    const iHuvud = lower.indexOf("rapport · analyserad");
+    const markorer = [
+      "Rapport · analyserad",
+      "1 · Föreningen",
+      "2 · Priset",
+      "3 · Avgiften framåt",
+      "4 · Inför visningen",
+      "Källor och metod",
+      "Rapporten är beslutsstöd, inte råd.",
+    ].map((m) => lower.indexOf(m.toLowerCase()));
+    expect(iHuvud).toBeGreaterThan(-1);
+    expect(markorer.every((i) => i > -1)).toBe(true);
+    expect([...markorer].sort((a, b) => a - b)).toEqual(markorer);
   });
 
-  it("includes the frågor att ställa section with every analysis-derived question", () => {
-    expect(extractedText).toContain("Frågor att ställa");
-    const analysFragor = sampleAnalysis.fragor.filter((f) => f.ursprung === "analys");
-    expect(analysFragor.length).toBeGreaterThan(0);
-    for (const fraga of analysFragor) {
-      // Long question text can wrap and be re-joined with different
-      // whitespace by pdf.js's text extraction — compare the words present,
-      // not the exact runs of whitespace, so the assertion is robust to
-      // how a particular line happened to wrap.
-      const orden = fraga.fraga.split(/\s+/).filter((w) => w.length > 3);
-      const sample = orden.slice(0, 6);
-      for (const ord of sample) {
-        expect(extractedText).toContain(ord);
+  it("has the three summary cards right after the header", () => {
+    const lower = text.toLowerCase();
+    const iKort = lower.indexOf("stabil ekonomi");
+    expect(iKort).toBeGreaterThan(lower.indexOf("rapport · analyserad"));
+    expect(iKort).toBeLessThan(lower.indexOf("1 · föreningen"));
+    expect(lower).toContain("binfos värdering");
+    expect(lower).toContain("avgiften framåt");
+    expect(text).toMatch(/\+463 kr\/mån/);
+    expect(text).toContain("3 503 → ca 3 966 kr");
+  });
+
+  it("has no closing Sammanfattning (owner Q10)", () => {
+    expect(text).not.toMatch(/Sammanfattning/);
+  });
+
+  it("lists every red flag as 'Att hålla koll på', with page references", () => {
+    for (const flagga of sampleAnalysis.rodaFlaggor) expect(text).toContain(flagga.titel);
+    expect(text).toContain("Att hålla koll på");
+    expect(text).not.toMatch(/Medelrisk|Hög risk|Låg risk/);
+    expect(text).toContain("fyra saker att hålla koll på");
+    expect(text).toContain("s. 7");
+  });
+
+  it("has the nyckeltal table with all seven rows and 'Ingen bedömning' for the seventh", () => {
+    for (const k of ["Nyckeltal", "Värde", "Bedömning", "Jämförelse", "Källa"]) {
+      expect(text).toContain(k);
+    }
+    expect(text).toContain("Ingen bedömning");
+    expect(text).toContain("Lagstadgat nyckeltal som Binfo inte bedömer");
+    expect(text).toContain("Behov för huset: ca 321 kr/m²");
+    expect(text).toContain("Riksgenomsnitt: 7 117 kr/m²");
+    expect(text).toContain("s. 8");
+  });
+
+  it("has 'Mer ur årsredovisningen' open: händelser, I avgiften (all five items), antal", () => {
+    expect(text).toContain("Mer ur årsredovisningen");
+    expect(text).toContain("Väsentliga händelser");
+    expect(text).toContain(sampleAnalysis.forening.vasentligaHandelser?.[0]?.text ?? "");
+    expect(text).toContain("Värme, vatten och tv ingår (s. 14). El ingår inte (s. 8).");
+    expect(text).toContain("39 lägenheter, 2 lokaler, 49 medlemmar (s. 4, 7).");
+  });
+
+  it("has the price section with the web's labels", () => {
+    for (const t of [
+      "Rimligt prisspann",
+      "Priset i annonsen",
+      "Vanlig budnivå i området",
+      "Vad liknande lägenheter säljs för (Kungsholmen, 112 42)",
+      "Föreningens ekonomi",
+      "Rimligt prisspann — Binfos värdering ± 10 %",
+      "Så har vi räknat",
+    ]) {
+      expect(text, t).toContain(t);
+    }
+    expect(text).not.toContain("Ungefärligt spann");
+    expect(text).toContain("Utgångspris");
+    expect(text).toContain("Utgångspris 5,00 mkr");
+  });
+
+  it("draws the span bar markers as text and labels the valuation an estimate", () => {
+    expect(text).toContain("Vanligt bud");
+    expect(text).toContain("Liknande lägenheter");
+    expect(text).toContain("Uppskattning");
+    expect(text).toContain("Binfo värderingsmodell");
+  });
+
+  it("has the fee section: boxes, table, drivers with 'Okänt' and '0 kr/mån'", () => {
+    expect(text).toContain("Med högre ränta");
+    expect(text).toContain("Dagens avgift");
+    expect(text).toContain("+1 procentenhet");
+    expect(text).toContain("+2 procentenheter");
+    expect(text).toContain("Det här driver den förväntade avgiften");
+    expect(text).toContain("Okänt");
+    expect(text).toContain("0 kr/mån");
+    expect(text).toContain("Förväntad avgift om två år: ca 3 966 kr");
+  });
+
+  it("has the questions with Varför, and Bra svar / Varningssignal on separate labels", () => {
+    expect(text).toContain("Fem frågor till mäklaren och styrelsen");
+    expect(text).toContain("Varför:");
+    expect(text).toContain("Bra svar:");
+    expect(text).toContain("Varningssignal:");
+    for (const fraga of sampleAnalysis.fragor.filter((f) => f.ursprung === "analys")) {
+      for (const ord of fraga.fraga
+        .split(/\s+/)
+        .filter((w) => w.length > 3)
+        .slice(0, 6)) {
+        expect(text).toContain(ord);
       }
     }
   });
 
-  it("shows 'Varför:' with each analysis question's reason", () => {
-    expect(extractedText).toContain("Varför:");
-    for (const fraga of sampleAnalysis.fragor.filter((f) => f.ursprung === "analys")) {
-      const orden = fraga.varfor.split(/\s+/).filter((w) => w.length > 4);
-      for (const ord of orden.slice(0, 4)) expect(extractedText).toContain(ord);
-    }
+  it("has page numbers, the short disclaimer and the contact address in the footer", () => {
+    expect(text).toMatch(/Sida 1 av \d+/);
+    expect(text).toContain("Binfo är ett beslutsstöd, inte finansiell rådgivning.");
+    expect(text).toContain("contactbinfohere@gmail.com");
+    expect(text).toContain("tolkningsfel");
   });
 
-  it("renders a question's svarssignal under it, and no signal line otherwise", async () => {
-    const med: typeof sampleAnalysis = {
+  it("does not break fi/fl ligatures in the extracted text layer", () => {
+    // fontkit would otherwise substitute one glyph whose ToUnicode entry several readers drop
+    // ("fnansieras", "Röda faggor"); styles.page disables 'liga'.
+    expect(text).toContain("finansiell");
+    expect(text).toContain("fler höjningar");
+    expect(text).toContain("finansiering");
+  });
+});
+
+describe("AnalysPdfDocument: varianter", () => {
+  it("renders a question's svarssignal in two labelled lines, and no signal line otherwise", async () => {
+    const fraga = sampleAnalysis.fragor[0]!;
+    const { svarssignal: _signal, ...utanSignalFraga } = fraga;
+    const med: AnalysisResult = {
       ...sampleAnalysis,
       fragor: [
         {
-          ...sampleAnalysis.fragor[0]!,
+          ...fraga,
           id: "med-signal",
+          ursprung: "analys",
           svarssignal: "Bra svar: UNIKSIGNALALFA. Varningssignal: UNIKSIGNALBETA.",
         },
       ],
     };
-    const text = async (analys: typeof sampleAnalysis) => {
-      const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
-      const doc = await getDocumentProxy(new Uint8Array(buf));
-      return (await extractText(doc, { mergePages: true })).text;
+    const utan: AnalysisResult = {
+      ...sampleAnalysis,
+      fragor: [{ ...utanSignalFraga, id: "utan", ursprung: "analys" }],
     };
-    const { svarssignal: _signal, ...fragaUtanSignal } = med.fragor[0]!;
-    const utanSignal = await text({ ...med, fragor: [fragaUtanSignal] });
-    const medText = await text(med);
-    expect(medText).toContain("UNIKSIGNALALFA");
-    expect(medText).toContain("UNIKSIGNALBETA");
-    expect(utanSignal).not.toContain("UNIKSIGNAL");
+    const [m, u] = await Promise.all([render(med), render(utan)]);
+    expect(m.text).toContain("Bra svar: UNIKSIGNALALFA.");
+    expect(m.text).toContain("Varningssignal: UNIKSIGNALBETA.");
+    expect(m.text).toContain("En fråga till mäklaren och styrelsen");
+    expect(u.text).not.toContain("UNIKSIGNAL");
   }, 60_000);
 
-  it("includes all röda flaggor from the sample analysis, not just the top two", () => {
-    for (const flagga of sampleAnalysis.rodaFlaggor) {
-      expect(extractedText).toContain(flagga.titel);
-    }
-  });
+  it("says 'Inga röda flaggor identifierade.' when there are none", async () => {
+    const { text } = await render({ ...sampleAnalysis, rodaFlaggor: [] });
+    expect(text).toContain("Inga röda flaggor identifierade.");
+    expect(text).toContain("inga större varningsflaggor");
+  }, 60_000);
 
-  it("labels the model-based extern värdering as an estimate, not a fact", () => {
-    expect(extractedText).toContain("estimat");
-  });
-
-  it("includes page references for cited figures", () => {
-    expect(extractedText).toContain("s. 8");
-  });
-
-  it("includes the Övrig info section with counts, fee inclusion and väsentliga händelser", () => {
-    expect(extractedText).toContain("Övrig info från årsredovisningen");
-    expect(extractedText).toContain("Antal medlemmar");
-    expect(extractedText).toContain("49 st");
-    expect(extractedText).toContain("Antal lokaler");
-    expect(extractedText).toContain("Vad ingår i avgiften");
-    // The Pontonjären report states el is not included (no individual-metering note;
-    // the "Individuell mätning" label is covered in viewModel.test.ts).
-    expect(extractedText).toContain("Ingår ej");
-    expect(extractedText).toContain("Väsentliga händelser");
-    expect(extractedText).toContain(sampleAnalysis.forening.vasentligaHandelser?.[0]?.text ?? "");
-  });
-
-  it("does not break fi/fl ligatures in the extracted text layer", () => {
-    // Regression test: fontkit substitutes a single "fi"/"fl" ligature glyph
-    // for those letter pairs, and @react-pdf/render's generated ToUnicode
-    // CMap entry for that glyph — while technically spec-compliant — is not
-    // parsed correctly by several real-world readers, which then drop or
-    // truncate it (observed as "fnansieras", "Röda faggor", "fnns"). Fixed
-    // by disabling the 'liga' OpenType feature (see styles.page in
-    // AnalysPdfDocument.tsx). These exact substrings — not just a "contains
-    // some words" check — are the point: they only appear if the fi/fl pair
-    // survived as two separate, correctly-mapped characters.
-    expect(extractedText).toContain("finansiell");
-    expect(extractedText).toContain("Röda flaggor");
-    expect(extractedText).toContain("finansiering");
-    expect(extractedText).toContain("flaggor");
-  });
-});
-
-describe("AnalysPdfDocument — anonymised analysis (adress/postnummer/orgnr cleared after 12 months)", () => {
-  let extractedText: string;
-
-  beforeAll(async () => {
-    registerPdfFonts(await loadTestFontSources());
-    const anonymAnalys = {
+  it("shows the anonymisation notice and uses the förening as title when the address is erased", async () => {
+    const { text } = await render({
       ...sampleAnalysis,
       input: { ...sampleAnalysis.input, adress: "", postnummer: "", orgnr: "" },
-    };
-    const pdfBuffer = await renderToBuffer(<AnalysPdfDocument analys={anonymAnalys} />);
+    });
+    expect(text).toContain("Adressen raderad efter 12 månader");
+    expect(text).not.toContain(sampleAnalysis.input.adress);
+  }, 60_000);
 
-    const doc = await getDocumentProxy(new Uint8Array(pdfBuffer));
-    const { text } = await extractText(doc, { mergePages: true });
-    extractedText = text;
-
-    // Saved for the supervisor to open and visually inspect (see task brief).
-    const scratchpadDir =
-      "/private/tmp/claude-501/-Users-gustavslanesens-Documents-GitHub-BINFO/228dca42-5f10-4020-b3c2-dcc28698a4b6/scratchpad/pdf-export";
-    await mkdir(scratchpadDir, { recursive: true });
-    await writeFile(path.join(scratchpadDir, "exempel-anonym.pdf"), pdfBuffer);
-  }, 30_000);
-
-  it("shows the same anonymisation notice as PropertySummary, never a dangling ', Stockholm'", () => {
-    // The cell can wrap this fallback text onto two lines (it's long), so
-    // check the two halves and the absence of the dangling-comma form
-    // separately rather than one exact joined substring.
-    //
-    // Checks for the REAL address immediately followed by ", <ort>" —
-    // not a blanket "does the substring ', Stockholm' appear anywhere in the
-    // whole document" check. The latter used to hold incidentally (nothing
-    // else on the page mentioned Stockholm with a leading comma), but task
-    // 4g/5's Binfo-värderingsmodell content legitimately says things like
-    // "© OpenStreetMap-bidragsgivare (ODbL), Stockholms stad" — a real,
-    // intentional mention unrelated to the address anonymisation this test
-    // guards. sampleAnalysis.prisanalys is static sample data, not
-    // recomputed from the anonymised input, so that text is present in both
-    // the real and the anonymised render here — correctly so.
-    expect(extractedText).toContain("Adressen raderad efter 12 månader");
-    // Only the address is shown since 2026-10-26 (no ort), so the anonymised
-    // cell must not leave the real address or a trailing ", " behind.
-    expect(extractedText).not.toContain(`${sampleAnalysis.input.adress},`);
-  });
-});
-
-describe("AnalysPdfDocument — utanför Stockholms län", () => {
-  it("shows the disclaimer before the estimate", async () => {
-    registerPdfFonts(await loadTestFontSources());
+  it("puts the coverage disclaimer first in the price section for utanför Stockholms län", async () => {
     const u = sampleAnalysis.prisanalys.varderingsunderlag;
     if (!u) throw new Error("sample has no varderingsunderlag");
-    const analys = {
+    const { text } = await render({
       ...sampleAnalysis,
       prisanalys: {
         ...sampleAnalysis.prisanalys,
@@ -233,23 +225,14 @@ describe("AnalysPdfDocument — utanför Stockholms län", () => {
           },
         },
       },
-    };
-    const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
-    const doc = await getDocumentProxy(new Uint8Array(buf));
-    const { text } = await extractText(doc, { mergePages: true });
-    const flat = text.replace(/\s+/g, " ");
-    const iDisclaimer = flat.indexOf("Utanför Binfos täckningsområde");
-    expect(iDisclaimer).toBeGreaterThan(-1);
-    expect(iDisclaimer).toBeLessThan(
-      flat.indexOf("Utgångspris", flat.indexOf("Är priset rimligt")),
-    );
-  }, 30_000);
-});
+    });
+    const iDisclaimer = text.indexOf("Utanför Binfos täckningsområde");
+    expect(iDisclaimer).toBeGreaterThan(text.toLowerCase().indexOf("2 · priset"));
+    expect(iDisclaimer).toBeLessThan(text.indexOf("Priset i annonsen"));
+  }, 60_000);
 
-describe("AnalysPdfDocument — v2: osäker, skannad och andel av föreningens lån", () => {
-  it("prints the osäker reason, the scanned-report notice and the debt line as visible text", async () => {
-    registerPdfFonts(await loadTestFontSources());
-    const analys = {
+  it("prints the osäker reason, the scanned-report notice and the debt line", async () => {
+    const { text } = await render({
       ...sampleAnalysis,
       forening: {
         ...sampleAnalysis.forening,
@@ -269,14 +252,67 @@ describe("AnalysPdfDocument — v2: osäker, skannad och andel av föreningens l
         },
       },
       datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "skannad" as const },
-    };
-    const buf = await renderToBuffer(<AnalysPdfDocument analys={analys} />);
-    const doc = await getDocumentProxy(new Uint8Array(buf));
-    const { text } = await extractText(doc, { mergePages: true });
-    const flat = text.replace(/\s+/g, " ");
-    expect(flat).toContain("Osäker: Skuldsättningen verkar vara i tusental.");
-    expect(flat).toContain("Årsredovisningen var skannad");
-    expect(flat).toContain("Lägenhetens ungefärliga andel av föreningens lån");
-    expect(flat).toContain("Ingår inte i värderingen");
-  }, 30_000);
+    });
+    expect(text).toContain("Osäker: Skuldsättningen verkar vara i tusental.");
+    expect(text).toContain("Årsredovisningen var skannad");
+    expect(text).toContain("Lägenhetens ungefärliga andel av föreningens lån");
+    expect(text).toContain("Ingår inte i värderingen");
+  }, 60_000);
+
+  it("utan utgångspris: no annons list, no asking-price marker, 'Binfos värdering' as heading", async () => {
+    const { utgangspris: _u, ...input } = sampleAnalysis.input;
+    const {
+      utgangspris: _pu,
+      prisPerM2: _pp,
+      avvikelseMotVardering: _a,
+      ...prisanalys
+    } = sampleAnalysis.prisanalys;
+    const { text } = await render({ ...sampleAnalysis, input, prisanalys });
+    expect(text).not.toContain("Priset i annonsen");
+    expect(text).not.toContain("Är priset rimligt?");
+    expect(text).toContain("Du angav inget utgångspris");
+    expect(text).not.toMatch(/Utgångspris \d/);
+  }, 60_000);
+
+  it("utan räntekänslighet: the 'Med högre ränta' box says it cannot be computed", async () => {
+    const { text } = await render({
+      ...sampleAnalysis,
+      rantestress: {
+        ...sampleAnalysis.rantestress,
+        rantekanslighetProcent: null,
+        scenarier: [],
+        kommentar: "Räntekänsligheten saknas.",
+      },
+    });
+    expect(text).toContain("Inte möjligt att räkna då räntekänslighet saknas i rapporten.");
+  }, 60_000);
+
+  it("utan prognos (äldre resultat): scenario table instead of the expected-fee table", async () => {
+    const { avgiftsprognos: _a, ...utan } = sampleAnalysis;
+    const { text } = await render({
+      ...utan,
+      rantestress: { ...sampleAnalysis.rantestress, prognosTabell: undefined as never },
+    });
+    expect(text).toContain("Vad händer om räntan stiger?");
+    expect(text).toContain("Kan inte uppskattas");
+    expect(text).not.toContain("Det här driver den förväntade avgiften");
+  }, 60_000);
+
+  it("renders byggdelar, sparande och lån as tables", async () => {
+    const { text } = await render(analysMedSparbehov());
+    for (const t of [
+      "Husets byggdelar",
+      "Senast åtgärdad",
+      "Troligen eftersatt",
+      "Livslängder enligt FAR 2025 och SIB M84:10.",
+      "Så blir det din avgift",
+      "Föreningens lån",
+      "År 3–5 · väger 50 %",
+      "Visst tryck på avgiften",
+      "−150 000 kr",
+      "Din andel",
+    ]) {
+      expect(text, t).toContain(t);
+    }
+  }, 60_000);
 });

@@ -1,30 +1,50 @@
 /**
- * PDF export design tokens.
+ * PDF export design tokens (redesign v4).
  *
- * The PDF export is the one exception to Binfo's visual boundary (see
- * CLAUDE.md, "Visual boundary" — the owner explicitly carved out the PDF
- * layout). These are NOT the site's real design tokens — react-pdf cannot
- * read CSS custom properties or oklch() colours — they are hex
- * approximations of src/styles.css's `:root` palette, computed once (see
- * the task notes) so the PDF reads as visually "the same app" without
- * touching src/styles.css or any src/components/ui/binfo.tsx colour.
+ * react-pdf cannot read CSS custom properties or oklch() colours, so these are
+ * the hex values of the site's palette (src/styles.css, "Design system
+ * (redesign v4)" in CLAUDE.md). The PDF is white paper: no page tint.
  */
 export const PDF_COLORS = {
-  background: "#faf9f6",
-  card: "#ffffff",
-  foreground: "#191714",
-  mutedForeground: "#716d66",
-  border: "#dedcd6",
-  primary: "#627342",
-  primaryTint: "#eef1e6",
-  danger: "#c43939",
-  dangerTint: "#fbecea",
-  warning: "#e49e2d",
-  warningForeground: "#884d01",
-  warningTint: "#fdf3e4",
-  success: "#3a8f63",
-  successTint: "#e9f5ee",
-  secondary: "#f1f0ea",
+  page: "#FFFFFF",
+  /** Headings, the logo, key figures. */
+  navy: "#0A2F5E",
+  /** Eyebrows and links. */
+  link: "#1C4FA3",
+  ink: "#111418",
+  text2: "#30363D",
+  muted: "#4B535C",
+  border: "#DCE1E8",
+  divider: "#EEF1F5",
+  tint: "#E8EEF8",
+  track: "#E9EDF2",
+  /** Inactive grade-scale step and its letter. */
+  scaleOff: "#E2E7EE",
+  scaleOffText: "#8A939D",
+  /** Highlighted value span in the price bar. */
+  span: "#B7C9E6",
+  success: "#1E7A4D",
+  successTint: "#E6F4EA",
+  successText: "#1E6B3A",
+  warningTint: "#FFEDD5",
+  warningText: "#9A3412",
+  /** Dot/stroke colour for "warning" (same hue as the C grade). */
+  warning: "#B45309",
+  noticeTint: "#FFF7E6",
+  noticeBorder: "#F3D9A4",
+  noticeText: "#5C3800",
+  danger: "#B42318",
+  dangerTint: "#FDECEA",
+  dangerText: "#991B1B",
+} as const;
+
+/** Grade colours A–E (white letter on top). */
+export const PDF_GRADE_COLORS = {
+  A: "#14532D",
+  B: "#1E7A4D",
+  C: "#B45309",
+  D: "#B42318",
+  E: "#8A1C12",
 } as const;
 
 /** Same wording as the site footer (src/components/SiteNav.tsx SiteFooter),
