@@ -78,7 +78,7 @@ describe("FELKOD_INNEHALL", () => {
 
   it("scanned_pdf säger inte att skanningar stöds inte, och pekar mot en digital version", () => {
     const { forklaring, atgard } = FELKOD_INNEHALL.scanned_pdf;
-    expect(forklaring).toBe("Vi kunde inte läsa av den här årsredovisningen tillförlitligt.");
+    expect(forklaring).toBe("Det händer med vissa skannade eller fotograferade sidor, och med skanningar på fler än 60 sidor.");
     expect(atgard).toBe(
       "Försök med en digital version (med textlager) om du kan få en från mäklaren eller styrelsen.",
     );

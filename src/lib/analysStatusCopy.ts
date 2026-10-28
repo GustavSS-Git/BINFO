@@ -61,7 +61,7 @@ export const FELKOD_INNEHALL: Record<AnalysErrorCode, FelkodInnehall> = {
     // Skannade rapporter stöds (upp till 60 sidor). Den här koden nås för skanningar som inte
     // går att läsa tillförlitligt och för skanningar över sidgränsen.
     rubrik: "Vi kunde inte läsa årsredovisningen",
-    forklaring: "Vi kunde inte läsa av den här årsredovisningen tillförlitligt.",
+    forklaring: "Det händer med vissa skannade eller fotograferade sidor, och med skanningar på fler än 60 sidor.",
     atgard:
       "Försök med en digital version (med textlager) om du kan få en från mäklaren eller styrelsen.",
   },
