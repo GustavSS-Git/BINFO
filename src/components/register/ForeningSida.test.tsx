@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
+import { BETYG_TITEL } from "@/lib/betygVy";
+import { KONTAKT_EPOST } from "@/lib/kontakt";
 import { BETYG_FORKLARING, type RegisterForeningVy } from "@/lib/registerVy";
 
 // Links need a router context; render them as plain anchors here.
@@ -33,6 +35,7 @@ const vy: RegisterForeningVy = {
     rakenskapsar: 2025,
     analysdatum: "2026-10-13T10:00:00.000Z",
     betyg: "C",
+    betygMotivering: null,
     nyckeltal,
     skannad: false,
     aldreVersion: false,
@@ -48,10 +51,28 @@ describe("ForeningSida (publik sammanfattning)", () => {
   it("visar namn, räkenskapsår, betyget och den generella betygsraden", () => {
     expect(html).toContain("Brf Pontonjären 3");
     expect(html).toContain("2025");
-    expect(html).toContain("Sammanvägt riskbetyg");
+    expect(html).toContain(BETYG_TITEL.C);
     expect(html).toContain(">C<");
-    expect(html).toContain(BETYG_FORKLARING);
+    expect(html).toContain("Betyg C på skalan A–E, där A är starkast.");
     expect(html).toContain("Adress enligt årsredovisningen");
+    expect(html).toContain("Kungsholmen · org.nr 716420-0599 · årsredovisning 2025 · analyserad");
+    expect(html).toContain('aria-label="Brödsmulor"');
+  });
+
+  it("betyget visas som färgad ruta (88 px), inte som neutral pill", () => {
+    expect(html).toContain("bg-grade-c");
+    expect(html).toContain("size-[88px]");
+    expect(html).toContain('aria-label="Betyg C"');
+  });
+
+  it("visar den lagrade motiveringen, annars den generella förklaringen", () => {
+    expect(html).toContain(BETYG_FORKLARING);
+    const out = rendera({
+      ...vy,
+      senaste: { ...vy.senaste, betygMotivering: "Låg skuld men lågt sparande." },
+    });
+    expect(out).toContain("Låg skuld men lågt sparande.");
+    expect(out).not.toContain(BETYG_FORKLARING);
   });
 
   it("visar de nyckeltal som finns, med värde och status, och utelämnar de som saknas", () => {
@@ -61,14 +82,49 @@ describe("ForeningSida (publik sammanfattning)", () => {
     expect(html).not.toContain(saknad.label);
   });
 
-  it("visar inget statusord för ett nyckeltal med okänd status", () => {
+  it("visar 'Ingen bedömning' för ett nyckeltal med okänd status", () => {
     const f = nyckeltal[0]!;
     const out = rendera({
       ...vy,
       senaste: { ...vy.senaste, nyckeltal: [{ ...f, status: "okant" }] },
     });
     expect(out).toContain(f.label);
-    expect(out).not.toMatch(/>(God|Acceptabel|Svag|Kritisk|Okänd)</);
+    expect(out).toContain("Ingen bedömning");
+    expect(out).not.toMatch(/>(God|Acceptabel|Svag|Kritisk)</);
+  });
+
+  it("det sjunde nyckeltalet (andel av rörelseintäkter) visas alltid obedömt", () => {
+    const f = alla.find((k) => k.id === "arsavgift_andel_av_rorelseintakter")!;
+    const out = rendera({
+      ...vy,
+      senaste: { ...vy.senaste, nyckeltal: [{ ...f, status: "acceptabel" }] },
+    });
+    expect(out).toContain(f.label);
+    expect(out).toContain("Ingen bedömning");
+    expect(out).not.toContain(">Acceptabel<");
+  });
+
+  it("visar sidhänvisning och osäker-markering", () => {
+    const f = nyckeltal[0]!;
+    const out = rendera({
+      ...vy,
+      senaste: {
+        ...vy.senaste,
+        nyckeltal: [{ ...f, figure: { ...f.figure, osaker: "Ser fel ut" } }],
+      },
+    });
+    expect(out).toMatch(/s\. \d+/);
+    expect(out).toContain("Osäker");
+  });
+
+  it("sidokortet länkar till analysen för den här föreningen, och felrapporten är en mailto", () => {
+    expect(html).toContain("Ska du köpa här?");
+    expect(html).toContain('href="/analysera?forening=brf-pontonjaren-3-716420-0599"');
+    expect(html).toContain("Ingen uppladdning behövs.");
+    expect(KONTAKT_EPOST).not.toBeNull();
+    expect(html).toContain(`href="mailto:${KONTAKT_EPOST}?subject=`);
+    expect(html).toContain(encodeURIComponent("Brf Pontonjären 3"));
+    expect(html).toContain("Hittar du ett fel?");
   });
 
   it("länkar till den sparade fullständiga analysen med bokstaven i texten", () => {

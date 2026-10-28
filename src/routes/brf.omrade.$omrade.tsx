@@ -1,11 +1,19 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { PageHeader } from "@/components/ui/binfo";
-import { ForeningsTabell, SokFalt, TomtLage } from "@/components/register/RegisterLista";
+import { GradeLegend, PageHeader } from "@/components/ui/binfo";
+import { Brodsmulor } from "@/components/register/Brodsmulor";
+import {
+  ForeningsTabell,
+  SokFalt,
+  SorteraVal,
+  TomtLage,
+} from "@/components/register/RegisterLista";
 import {
   REGISTER_CACHE_HEADERS,
+  antalForeningar,
   jsonLdScripts,
   nastaListaSearch,
   omradeBrodsmulor,
+  omradeMedPreposition,
   omradePath,
   parseListaSearch,
   sidHead,
@@ -14,7 +22,7 @@ import { hamtaRegisterOmradeFn } from "@/server/analysFn";
 
 /**
  * `/brf/omrade/$omrade` — föreningarna i ett område som sorterbar tabell
- * (kort på mobil), med sökfilter och 50 rader per sida. Sortering, sökning och
+ * (kort på mobil), med sökfilter, "Sortera efter" och 50 rader per sida. Sortering, sökning och
  * sida ligger i URL:en så att en länkad vy går att dela.
  */
 export const Route = createFileRoute("/brf/omrade/$omrade")({
@@ -64,41 +72,44 @@ function OmradeSida() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/brf/omrade/$omrade" });
   const namn = svar.omrade?.namn ?? "";
+  const slug = svar.omrade?.slug ?? "";
+  // "på Kungsholmen" / "i Älvsjö" / "i övriga Stockholm" (owner-approved, Q12).
+  const iOmrade = omradeMedPreposition(slug, namn);
+  const andra = (a: Parameters<typeof nastaListaSearch>[1]) =>
+    navigate({ search: nastaListaSearch(search, a) });
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-14">
-      <nav aria-label="Du är här" className="mb-6 text-sm text-muted-foreground">
-        <Link to="/brf" className="underline-offset-2 hover:underline">
-          BRF-register
-        </Link>
-        {" › "}
-        <span aria-current="page">{namn}</span>
-      </nav>
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-8 md:py-14">
+      <div className="mb-6">
+        <Brodsmulor steg={[{ text: "BRF-register", till: { to: "/brf" } }, { text: namn }]} />
+      </div>
       <PageHeader
-        eyebrow="BRF-register"
-        title={`Bostads\u00ADrätts\u00ADföreningar i ${namn}`}
-        lead="Föreningar i området som har analyserats av Binfo. Siffrorna kommer från respektive årsredovisning; klicka på en förening för sidhänvisningar och bedömning."
+        title={`Föreningar ${iOmrade}`}
+        lead={`${antalForeningar(svar.totalt)}${svar.sok !== "" ? " matchar sökningen" : ""}. Siffrorna kommer från respektive årsredovisning.`}
       />
 
-      <div className="mb-6">
-        <SokFalt
-          etikett={`Sök i ${namn}`}
-          startvarde={search.sok ?? ""}
-          onSok={(sok) => navigate({ search: nastaListaSearch({}, { sok }) })}
-        />
+      <div className="mb-8 flex flex-wrap items-end gap-4">
+        <div className="min-w-60 flex-[1_1_320px]">
+          <SokFalt
+            etikett={`Sök ${iOmrade}`}
+            startvarde={search.sok ?? ""}
+            onSok={(sok) => navigate({ search: nastaListaSearch({}, { sok }) })}
+          />
+        </div>
+        <div className="min-w-60 flex-[0_1_280px]">
+          <SorteraVal sortering={svar.sortering} riktning={svar.riktning} onAndra={andra} />
+        </div>
       </div>
 
       {svar.rader.length > 0 ? (
-        <ForeningsTabell
-          svar={svar}
-          visaOmrade={false}
-          onAndra={(a) => navigate({ search: nastaListaSearch(search, a) })}
-        />
+        <ForeningsTabell svar={svar} visaOmrade={false} onAndra={andra} />
       ) : (
         <TomtLage sok={svar.sok} />
       )}
 
-      <p className="mt-10 text-xs text-muted-foreground">
+      {svar.rader.length > 0 ? <GradeLegend className="mt-6" /> : null}
+
+      <p className="mt-10 text-sm text-muted-foreground">
         Områdesindelning: © OpenStreetMap-bidragsgivare (ODbL), Stockholms stad.
       </p>
     </div>

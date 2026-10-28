@@ -448,6 +448,7 @@ describe("ingen köpardata i payloaden", () => {
       "aldreVersion",
       "analysdatum",
       "betyg",
+      "betygMotivering",
       "nyckeltal",
       "rakenskapsar",
       "skannad",
@@ -477,8 +478,18 @@ describe("ingen köpardata i payloaden", () => {
   });
 });
 
-describe("den publika sammanfattningen bär inget ur analysen utöver betyg och nyckeltal", () => {
-  it("varken motivering, röda flaggor, frågor, föreningsblocket eller datakvalitet — på någon nivå, för något år", async () => {
+describe("den publika sammanfattningen bär inget ur analysen utöver betyg, motivering och nyckeltal", () => {
+  it("motiveringen följer bara det senaste året, exakt som den lagrats", async () => {
+    const lager = skapaFakeLager();
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2025 });
+    await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2024 });
+    const svar = await hamtaForening(beroenden(lager), "brf-pontonjaren-3-716420-0599");
+    if (!("forening" in svar)) throw new Error("förväntade ok");
+    expect(svar.forening.senaste.betygMotivering).toBe("Motivering.");
+    expect(svar.forening.tidigare[0]?.betygMotivering).toBeNull();
+  });
+
+  it("varken röda flaggor, frågor, föreningsblocket eller datakvalitet — på någon nivå, för något år", async () => {
     const lager = skapaFakeLager();
     await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2025 });
     await lagg(lager, { orgnr: "716420-0599", namn: "Brf Pontonjären 3", ar: 2024 });
@@ -487,7 +498,6 @@ describe("den publika sammanfattningen bär inget ur analysen utöver betyg och 
     expect(svar.forening.tidigare).toHaveLength(1);
     const alla = [...nycklar(svar)];
     for (const forbjuden of [
-      "betygMotivering",
       "rodaFlaggor",
       "fragor",
       "forening",
