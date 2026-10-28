@@ -14,6 +14,7 @@ import {
   arOgraderatNyckeltal,
   formatFigureVarde,
   formatSkapadDatum,
+  sorteraNyckeltal,
 } from "@/lib/analysisView";
 import { BETYG_TITEL } from "@/lib/betygVy";
 import { KONTAKT_EPOST } from "@/lib/kontakt";
@@ -129,7 +130,7 @@ export function ForeningSida({ vy }: { vy: RegisterForeningVy }) {
               De sju nyckeltalen
             </h2>
             <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 p-0">
-              {s.nyckeltal.map((kf) => (
+              {sorteraNyckeltal(s.nyckeltal).map((kf) => (
                 <li key={kf.id}>
                   <Card className="flex h-full flex-col gap-2 px-[22px] py-5 sm:p-5 sm:px-[22px]">
                     <div className="flex items-center justify-between gap-2">
