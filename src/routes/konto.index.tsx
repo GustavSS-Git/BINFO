@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BekraftaDialog,
   AnalysLista,
@@ -64,8 +64,13 @@ function Konto() {
     lage === "utloggad" ||
     (sparat.data !== undefined && !sparat.data.ok && sparat.data.felKod === "ej_inloggad");
 
+  // Set when the user logs out or deletes the account here: the page then goes to
+  // the start page, and the "not logged in → login" redirect below must not win the race.
+  const lamnar = useRef(false);
   useEffect(() => {
-    if (behovInloggning) gaTill("/konto/logga-in?till=/konto", undefined, "/konto");
+    if (behovInloggning && !lamnar.current) {
+      gaTill("/konto/logga-in?till=/konto", undefined, "/konto");
+    }
   }, [behovInloggning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Kör en borttagning; fel visas ordagrant, lyckat svar läser om listorna. */
@@ -151,10 +156,12 @@ function Konto() {
           } catch (error) {
             console.error("[konto] loggaUtFn kastade:", error);
           }
+          lamnar.current = true;
           sattUtloggad();
           gaTill("/", undefined, "/");
         }}
         onRaderat={() => {
+          lamnar.current = true;
           sattUtloggad();
           gaTill("/", undefined, "/");
         }}
