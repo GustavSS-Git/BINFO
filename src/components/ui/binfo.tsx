@@ -934,20 +934,30 @@ export function SpanBar({
   const vansterKant = pos(lag);
   const hogerKant = pos(hog);
   return (
-    <div role="img" aria-label={ariaLabel} className="relative m-0 h-[150px] w-full">
-      <div className="absolute inset-x-0 top-[69px] h-3 rounded-sm bg-track" />
+    <div role="img" aria-label={ariaLabel} className="relative m-0 h-[200px] w-full sm:h-[150px]">
+      <div className="absolute inset-x-0 top-[94px] h-3 rounded-sm bg-track sm:top-[69px]" />
       <div
-        className="absolute top-[69px] h-3 rounded-sm bg-span"
+        className="absolute top-[94px] h-3 rounded-sm bg-span sm:top-[69px]"
         style={{ left: `${vansterKant}%`, width: `${Math.max(0, hogerKant - vansterKant)}%` }}
       />
       {sorterade.map((m, i) => {
         const x = pos(m.varde);
         const ovan = i % 2 === 0;
+        // On phones the 3rd/4th labels get their own row (two above, two below the bar),
+        // so close markers don't overlap; from `sm` one row each side, as drawn.
+        const yttre = i >= 2;
+        const labelTop = ovan
+          ? yttre
+            ? "top-0"
+            : "top-[46px] sm:top-0"
+          : yttre
+            ? "top-[166px] sm:top-[101px]"
+            : "top-[126px] sm:top-[101px]";
         return (
           <div key={`${m.label}-${m.varde}`}>
             <div
               className={cn(
-                "absolute top-[59px] h-8 w-1 -translate-x-1/2 rounded-sm",
+                "absolute top-[84px] h-8 w-1 -translate-x-1/2 rounded-sm sm:top-[59px]",
                 spanTonStreck[m.ton],
               )}
               style={{ left: `${x}%` }}
@@ -955,7 +965,7 @@ export function SpanBar({
             <div
               className={cn(
                 "absolute flex -translate-x-1/2 flex-col whitespace-nowrap text-center leading-tight",
-                ovan ? "top-0" : "top-[101px]",
+                labelTop,
               )}
               style={{ left: `min(max(${x}%, 64px), calc(100% - 64px))` }}
             >
