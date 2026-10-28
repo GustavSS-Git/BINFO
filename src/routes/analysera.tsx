@@ -401,16 +401,21 @@ function Analysera() {
         replace: true,
       }),
     aterstall: async (utkast) => {
-      setForm((f) => ({ ...f, ...utkast.form }));
+      const { adress: utkastAdress, ...utkastFalt } = utkast.form;
+      setForm((f) => ({
+        ...f,
+        ...utkastFalt,
+        ...(utkastAdress !== undefined ? { adress: utkastAdress } : {}),
+      }));
       setEtikett(utkast.etikett);
       setUppgifter({ hiss: utkast.hiss, balkong: utkast.balkong });
       // Utkast från före redesign v4 bär inte adressen (och PrisInput gör det inte):
       // kräv den bara när utkastet har den.
       const utkastForm: VarderingFormFields = {
-        ...utkast.form,
-        adress: utkast.form.adress ?? formRef.current.adress,
+        ...utkastFalt,
+        adress: utkastAdress ?? formRef.current.adress,
       };
-      const utanAdress = utkast.form.adress === undefined;
+      const utanAdress = utkastAdress === undefined;
       if (harVarderingsfel(validateraVarderingForm(utkastForm, { utanAdress }))) {
         setVisaFelSteg1(true);
         return { ok: false, meddelande: "Uppgifterna du fyllde i är inte kompletta längre." };
