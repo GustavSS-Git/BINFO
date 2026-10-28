@@ -21,6 +21,8 @@ export function vanligtBud(
   return avrundaVardering(utgangspris * (1 + budpremie.medianProcent / 100));
 }
 
+export { iEllerPaOmrade } from "@/lib/omradeText";
+
 /** "5,6 mkr" (decimaler = 1) or "5,02 mkr" (decimaler = 2). Trailing zeros are
  *  kept so a span reads evenly ("5,10–6,25 mkr"). */
 export function formatMkr(kr: number, decimaler: 1 | 2 = 1): string {

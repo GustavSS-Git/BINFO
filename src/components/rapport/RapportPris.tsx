@@ -41,7 +41,7 @@ import {
   type AndelAvSkuldRad,
   type VattenfallRad,
 } from "@/lib/analysisView";
-import { formatMkr, formatSpannMkr, kvmPris, vanligtBud } from "@/lib/prisVy";
+import { formatMkr, formatSpannMkr, iEllerPaOmrade, kvmPris, vanligtBud } from "@/lib/prisVy";
 import { kr } from "@/data/mockData";
 import type {
   AnalysisResult,
@@ -298,7 +298,7 @@ export function PrisSektion({
                     ? [
                         {
                           label: "Vanlig budnivå i området",
-                          note: `Utgångspriset ${p.budpremie.medianProcent < 0 ? "minus" : "plus"} ${procentSigned} %, vad bostäder i ${budpremieOmrade} brukar gå för ${p.budpremie.medianProcent < 0 ? "under" : "över"} utgångspris`,
+                          note: `Utgångspriset ${p.budpremie.medianProcent < 0 ? "minus" : "plus"} ${procentSigned} %, vad bostäder ${iEllerPaOmrade(p.budpremie.omrade)} brukar gå för ${p.budpremie.medianProcent < 0 ? "under" : "över"} utgångspris`,
                           varde: `ca ${kr(bud)}`,
                           ...(kvmPris(bud, input.boarea)
                             ? { undertext: kvmPris(bud, input.boarea) }

@@ -256,7 +256,7 @@ describe("AnalysRapport — avsnitt 2: Priset", () => {
       expect(html).toContain(rubrik);
     }
     expect(html).toContain(
-      "Utgångspriset plus 5,4 %, vad bostäder i Kungsholmen brukar gå för över utgångspris",
+      "Utgångspriset plus 5,4 %, vad bostäder på Kungsholmen brukar gå för över utgångspris",
     );
     expect(html).toContain("Vad liknande lägenheter säljs för (Kungsholmen, 112 42)");
     expect(html).toContain("Föreningens ekonomi");
@@ -287,7 +287,7 @@ describe("AnalysRapport — avsnitt 2: Priset", () => {
     expect(avsnitt).not.toContain("Vanligt bud");
     expect(avsnitt).not.toContain("Vanlig budnivå");
     // Budpremien finns kvar som mening när det inte går att räkna ut ett bud.
-    expect(avsnitt).toContain("Bostäder i Kungsholmen har sålts för 5,4 % över utgångspriset.");
+    expect(avsnitt).toContain("Bostäder på Kungsholmen har sålts för 5,4 % över utgångspriset.");
   });
 
   it("utan budpremie (länet): ingen budrad eller budmarkör, och täckningsrutan kommer först", () => {

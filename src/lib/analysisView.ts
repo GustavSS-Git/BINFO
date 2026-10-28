@@ -5,6 +5,7 @@
  * already-computed results for presentation. Nothing here recomputes a
  * domain figure — it selects, ranks, and formats.
  */
+import { iEllerPaOmrade } from "@/lib/omradeText";
 import { kr } from "@/data/mockData";
 import { BETYG_TITEL } from "@/lib/betygVy";
 import { BENCHMARKS, visasIHuvudanalys } from "@/lib/analysis/benchmarks";
@@ -369,7 +370,7 @@ function formatProcentAbs(procentVarde: number): string {
 export function formatBudpremieText(budpremie: Budpremie): string {
   if (budpremie.omrade !== null) {
     return (
-      `Bostäder i ${budpremie.omrade} har sålts för ${formatProcentAbs(budpremie.medianProcent)} % ` +
+      `Bostäder ${iEllerPaOmrade(budpremie.omrade)} har sålts för ${formatProcentAbs(budpremie.medianProcent)} % ` +
       `${riktningstext(budpremie.medianProcent)} utgångspriset.`
     );
   }

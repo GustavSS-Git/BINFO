@@ -14,16 +14,9 @@ import {
   lageMotVardespann,
   vardespann,
 } from "@/lib/analysisView";
-import { formatMkr, formatSpannMkr, kvmPris, vanligtBud } from "@/lib/prisVy";
+import { formatMkr, formatSpannMkr, iEllerPaOmrade, kvmPris, vanligtBud } from "@/lib/prisVy";
 
-/** Areas where Swedes say "på" (owner-approved list, Q12 2026-10-28); everything else "i". */
-const PA_OMRADEN = new Set(["Kungsholmen", "Östermalm", "Södermalm", "Norrmalm", "Essingen"]);
-
-/** "på Kungsholmen" / "i Vasastan-Norrmalm"; no area means the Stockholm-wide statistic. */
-export function iEllerPaOmrade(omrade: string | null): string {
-  const namn = omrade ?? "Stockholm";
-  return `${PA_OMRADEN.has(namn) ? "på" : "i"} ${namn}`;
-}
+export { iEllerPaOmrade };
 
 function procentTal(v: number): string {
   return Math.abs(v).toLocaleString("sv-SE", { maximumFractionDigits: 1 });
