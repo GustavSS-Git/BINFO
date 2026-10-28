@@ -3,12 +3,12 @@ import { KALKYL_UNDERLAG_VERSION, type KalkylUnderlag } from "@/lib/kalkyl/under
 /** Ett fullständigt exempelunderlag för PDF-testerna. */
 export const EXEMPEL: KalkylUnderlag = {
   version: KALKYL_UNDERLAG_VERSION,
-  lanebelopp: 3_500_000,
+  pris: 4_200_000,
   kontantinsats: 700_000,
   rantaProcent: 3.6,
   manadsavgift: 4_300,
   boarea: 58,
-  avgiftInkluderar: { varme: "ja", vatten: "okant", el: "nej", bredband: "nej", tv: "okant" },
+  avgiftInkluderar: { varme: "ja", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" },
   antalLantagare: 2,
   inkomst1: 520_000,
   inkomst2: 380_000,

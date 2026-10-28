@@ -27,11 +27,23 @@ describe("buildKalkylViewModel", () => {
     );
   });
 
-  it("visar totalen från beraknaKalkyl, som spann när osäkra poster finns", () => {
-    const s = r.nu.summor;
-    expect(s.harSpann).toBe(true);
-    expect(vm.manadskostnad.total?.varde).toBe(`${heltalText(s.nettoLag)}–${krText(s.nettoHog)}`);
-    expect(vm.manadskostnad.totalNot).toContain("okänt");
+  it("visar totalen från beraknaKalkyl som ett enda tal (inget spann sedan 2026-10-28)", () => {
+    expect(vm.manadskostnad.total?.varde).toBe(krText(r.nu.summor.netto));
+    expect(vm.manadskostnad.total?.varde).not.toContain("–");
+    expect(vm.manadskostnad.totalNot).toBeNull();
+    // Scenariotabellen har också ett tal per rad.
+    for (const rad of vm.scenarier?.rader ?? []) expect(rad[4]).not.toContain("–");
+    // Ingenstans i PDF:ens indata finns "Vet ej".
+    expect(JSON.stringify(vm.indata)).not.toMatch(/Vet ej/);
+  });
+
+  it("indata har pris, kontantinsats och lån (pris minus kontantinsats)", () => {
+    const rad = (e: string) => vm.indata.find((x) => x.etikett === e)?.varde;
+    expect(rad("Pris du räknar med")).toBe(krText(4_200_000));
+    expect(rad("Kontantinsats")).toBe(krText(700_000));
+    expect(rad("Lån (pris minus kontantinsats)")).toBe(krText(3_500_000));
+    expect(rad("Ingår vatten i avgiften?")).toBe("Nej");
+    expect(rad("Ingår värme i avgiften?")).toBe("Ja");
   });
 
   it("märker schabloner och egna värden i drift-raderna", () => {
@@ -76,13 +88,7 @@ describe("buildKalkylViewModel", () => {
   it("tomt underlag kraschar inte och visar streck", () => {
     const v = buildKalkylViewModel({
       version: KALKYL_UNDERLAG_VERSION,
-      avgiftInkluderar: {
-        varme: "okant",
-        vatten: "okant",
-        el: "okant",
-        bredband: "okant",
-        tv: "okant",
-      },
+      avgiftInkluderar: { varme: "ja", vatten: "ja", el: "nej", bredband: "nej", tv: "nej" },
       antalLantagare: 1,
       antalPersoner: 1,
       antalVuxna: 1,
@@ -93,6 +99,7 @@ describe("buildKalkylViewModel", () => {
     });
     expect(v.scenarier).toBeNull();
     expect(v.manadskostnad.total).toBeNull();
-    expect(v.indata.find((x) => x.etikett === "Lånebelopp")?.varde).toBe("—");
+    expect(v.indata.find((x) => x.etikett === "Pris du räknar med")?.varde).toBe("—");
+    expect(v.indata.find((x) => x.etikett.startsWith("Lån"))?.varde).toBe("—");
   });
 });

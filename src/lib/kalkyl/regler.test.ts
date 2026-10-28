@@ -4,6 +4,7 @@ import {
   KV_GEMENSAMMA_SUMMA,
   KV_OVRIGA_SUMMA,
   MIN_KONTANTINSATS_ANDEL,
+  REGELVERSION,
   REGLER,
   STATUS_ETIKETT,
   hittaRegel,
@@ -82,7 +83,9 @@ describe("regelregistret", () => {
     const b = schabloner(10, 4);
     expect(a.varme.value).toBe(0);
     expect(b.varme.value).toBe(10 * sv("schablon_varme_per_m2"));
-    expect(b.vatten.value).toBe(10 * sv("schablon_vatten_per_m2"));
+    // Vatten följer antal personer (sedan 2026-10-28), inte ytan.
+    expect(a.vatten.value).toBe(1 * sv("schablon_vatten_per_person"));
+    expect(b.vatten.value).toBe(4 * sv("schablon_vatten_per_person"));
     expect(a.bredband.value).toBe(sv("schablon_bredband"));
     // El och hemförsäkring slås upp i Konsumentverkets tabell, per antal personer.
     expect(a.el.value).toBe(sv("kv_gemensam_hushallsel_1"));
@@ -91,17 +94,34 @@ describe("regelregistret", () => {
     expect(b.forsakring.value).toBe(sv("kv_gemensam_hemforsakring_4"));
   });
 
-  it("de nya driftvärdena är de beslutade 2026-10-26", () => {
+  it("driftvärdena är de beslutade 2026-10-26 (värme) och 2026-10-28 (vatten per person)", () => {
     expect(sv("schablon_varme_per_m2")).toBe(21);
-    expect(sv("schablon_vatten_per_m2")).toBe(6);
+    expect(sv("schablon_vatten_per_person")).toBe(135);
     expect(sv("schablon_bredband")).toBe(349);
-    for (const id of ["schablon_varme_per_m2", "schablon_vatten_per_m2"]) {
-      const r = hittaRegel(id)!;
-      expect(r.status).toBe("referens");
-      expect(r.verifierad).toBe("2026-10-26");
-      expect(r.kalla.url).toMatch(/^https:\/\/nilsholgersson\.nu\//);
-      expect(r.anmarkning).not.toMatch(/Binfos uppskattning/);
-    }
+    expect(hittaRegel("schablon_vatten_per_m2")).toBeUndefined();
+    expect(REGELVERSION).toBe("2026-10-28");
+    const varme = hittaRegel("schablon_varme_per_m2")!;
+    expect(varme.status).toBe("referens");
+    expect(varme.verifierad).toBe("2026-10-26");
+    expect(varme.kalla.url).toMatch(/^https:\/\/nilsholgersson\.nu\//);
+    expect(varme.namn).toMatch(/varmvatten/);
+    expect(varme.anmarkning).toMatch(/varmvatten/);
+    expect(varme.anmarkning).not.toMatch(/Binfos uppskattning/);
+
+    const vatten = hittaRegel("schablon_vatten_per_person")!;
+    expect(vatten.status).toBe("referens");
+    expect(vatten.verifierad).toBe("2026-10-28");
+    expect(vatten.enhet).toBe("kr/mån och person");
+    expect(vatten.kalla.titel).toMatch(/Konsumentverket/);
+    expect(vatten.kalla.titel).toMatch(/Nils Holgersson/);
+    expect(vatten.kalla.titel).toMatch(/45,61 m³/);
+    expect(vatten.kalla.titel).toMatch(/35,54 kr\/m³/);
+    expect(vatten.kalla.url).toMatch(/^https:\/\/nilsholgersson\.nu\//);
+    expect(vatten.anmarkning).toContain(
+      "45,61 m³ × 35,54 kr/m³ ÷ 12 ≈ 135 kr per person och månad",
+    );
+    // Härledningen i texten ger det registrerade värdet.
+    expect(Math.round((45.61 * 35.54) / 12)).toBe(sv("schablon_vatten_per_person"));
   });
 });
 

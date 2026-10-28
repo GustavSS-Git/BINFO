@@ -208,4 +208,33 @@ describe("beraknaManadskostnad", () => {
     expect(Number.isInteger(m.totalNetto.value)).toBe(true);
     expect(Number.isInteger(m.ranteavdragPerAr.value)).toBe(true);
   });
+
+  it("hemförsäkringens etikett säger att bostadsrättstillägg inte ingår (2026-10-28)", () => {
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 800_000,
+      antalLantagare: 2,
+    };
+    const m = beraknaManadskostnad(propertyInput(), lan);
+    expect(m.poster.find((p) => p.id === "hemforsakring")!.label).toBe(
+      "Hemförsäkring (utan bostadsrättstillägg)",
+    );
+  });
+
+  it("vattenposten är 135 kr per person och månad, inte per m² (2026-10-28)", () => {
+    const lan: LaneUnderlag = {
+      lanebelopp: 3_000_000,
+      kontantinsats: 1_000_000,
+      ranta: 3,
+      bruttoinkomst: 800_000,
+      antalLantagare: 2,
+    };
+    const vatten = (input: PropertyInput) =>
+      beraknaManadskostnad(input, lan).poster.find((p) => p.id === "vatten")!.figure.value;
+    expect(vatten(propertyInput({ antalPersoner: 2, boarea: 58 }))).toBe(270);
+    expect(vatten(propertyInput({ antalPersoner: 3, boarea: 58 }))).toBe(405);
+    expect(vatten(propertyInput({ antalPersoner: 2, boarea: 120 }))).toBe(270);
+  });
 });

@@ -15,13 +15,19 @@
  *  4. Driftschablonerna byttes 2026-10-26 (Konsumentverket/Nils Holgersson i
  *     stället för Binfos gamla formler). Fixturen fryser de GAMLA beloppen, så
  *     testet skriver över varje drift-post med fixturens gamla belopp (som "eget
- *     värde") och jämför resten av matematiken: spann, summor och scenarier
+ *     värde") och jämför resten av matematiken: summor och scenarier
  *     förskjuts exakt med skillnaden mot den nya schablonen.
+ *  5. Redesign v4 (2026-10-28): pris + kontantinsats i stället för lånebelopp (pris =
+ *     fixturens lånebelopp + kontantinsats) och två lägen för "ingår i avgiften".
+ *     Fixturens "okant" blir "nej" (kostnaden räknas), vilket är exakt det gamla
+ *     "högsta" scenariot: nya totalen jämförs därför med fixturens nettoHog/bruttoHog
+ *     (för fall utan "okant" är låg och hög lika).
  */
 import { describe, expect, it } from "vitest";
 import fixtur from "./paritet.fixtur.json";
 import { beraknaKalkyl } from "./berakna";
-import { tomSida, underlagFranSida, type KalkylSida } from "./sida";
+import { tolkaTal } from "./indata";
+import { tomSida, underlagFranSida, type KalkylSida, type SidaIndata } from "./sida";
 
 interface GammaltFall {
   namn: string;
@@ -34,7 +40,7 @@ interface GammaltFall {
   lantagare: "1" | "2";
   boarea: number;
   antalPersoner: number;
-  ingar: KalkylSida["avgiftInkluderar"];
+  ingar: SidaIndata["avgiftInkluderar"];
   delta: number;
   rantekanslighet?: number;
   egna: KalkylSida["egnaKostnader"];
@@ -68,14 +74,21 @@ interface GammaltUtfall {
 
 const fall = fixtur as unknown as Array<{ fall: GammaltFall; ut: GammaltUtfall }>;
 
-function sidaFran(f: GammaltFall, ut: GammaltUtfall): KalkylSida {
+/** Skillnad 5: pris = lånebelopp + kontantinsats (båda ifyllda i alla fixturfall, eller ingen). */
+function prisFran(f: GammaltFall): string {
+  const lan = tolkaTal(f.lanebelopp);
+  const kont = tolkaTal(f.kontantinsats);
+  return lan.art === "tal" && kont.art === "tal" ? String(lan.varde + kont.varde) : "";
+}
+
+function sidaFran(f: GammaltFall, ut: GammaltUtfall): SidaIndata {
   // Skillnad 4: fixturens gamla schablonbelopp som egna värden (egna värden i fixturen vinner).
   const egna: KalkylSida["egnaKostnader"] = {};
   for (const p of ut.driftPoster) egna[p.id as keyof typeof egna] = p.value;
   Object.assign(egna, f.egna);
   return {
     ...tomSida(),
-    lanebelopp: f.lanebelopp,
+    pris: prisFran(f),
     kontantinsats: f.kontantinsats,
     ranta: f.ranta,
     manadsavgift: f.manadsavgift,
@@ -137,7 +150,6 @@ describe("paritet med gamla route-matematiken", () => {
         expect(r.skatt.nettoinkomstPerManad).toBeCloseTo(gammalt.nettoinkomstPerManad, 6);
         expect(r.nu.kvarEfterBoende).toBeCloseTo(gammalt.kvarAttLevaPa, 6);
         expect(r.nu.andelAvNettoProcent).toBeCloseTo(gammalt.andelAvNetto, 6);
-        expect(r.nu.summor.harSpann).toBe(gammalt.harSpann);
       });
 
       if (!begransad) {
@@ -146,15 +158,13 @@ describe("paritet med gamla route-matematiken", () => {
           expect(Math.abs(r.nu.ranteavdragPerManad - gammalt.avdragPerManad)).toBeLessThanOrEqual(
             1,
           );
-          expect(Math.abs(r.nu.summor.nettoLag - gammalt.nettoLag)).toBeLessThanOrEqual(1);
-          expect(Math.abs(r.nu.summor.nettoHog - gammalt.nettoHog)).toBeLessThanOrEqual(1);
-          expect(r.nu.summor.bruttoLag).toBe(gammalt.bruttoLag);
-          expect(r.nu.summor.bruttoHog).toBe(gammalt.bruttoHog);
+          expect(Math.abs(r.nu.summor.netto - gammalt.nettoHog)).toBeLessThanOrEqual(1);
+          expect(r.nu.summor.brutto).toBe(gammalt.bruttoHog);
         });
       } else {
         it("avsiktlig skillnad: avdraget begränsas av skatten och stämmer med deklarationen", () => {
           expect(r.nu.ranteavdragPerManad).toBeLessThan(gammalt.avdragPerManad);
-          expect(r.nu.summor.nettoLag).toBeGreaterThan(gammalt.nettoLag);
+          expect(r.nu.summor.netto).toBeGreaterThan(gammalt.nettoHog);
           // Nu i hela kronor (öretal faller bort, 67 kap. 1 § IL): högst 2 kr från gamla decimaltalet.
           expect(Math.abs(r.nu.ranteavdragPerAr - gammalt.hushallRanteavdragPerAr)).toBeLessThan(2);
           expect(

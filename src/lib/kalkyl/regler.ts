@@ -25,7 +25,7 @@
  *  (`sparad_kalkyl.regelversion`). Bump it (date of the change) whenever a
  *  rule's value or a formula changes, so a saved kalkyl shows which rules it
  *  was computed with. */
-export const REGELVERSION = "2026-10-26b";
+export const REGELVERSION = "2026-10-28";
 
 export type RegelGrupp =
   | "Bolån och amortering"
@@ -206,7 +206,7 @@ const STATISKA = [
     grupp: "Bolån och amortering",
     status: "faststalld",
     anmarkning:
-      "Belåningsgraden räknas mot bostadens marknadsvärde vid förvärvet. Kalkylen använder lånebelopp + kontantinsats som bostadens värde.",
+      "Belåningsgraden räknas mot bostadens marknadsvärde vid förvärvet. Kalkylen använder priset du räknar med som bostadens värde; lånet är priset minus kontantinsatsen.",
   }),
   r("amortering_nyproduktion_ar", {
     namn: "Nyproduktion: kreditgivaren får medge uppehåll i amortering i högst",
@@ -710,7 +710,7 @@ const NILS_HOLGERSSON = {
 const SCHABLONER: Regel[] = [
   {
     id: "schablon_varme_per_m2",
-    namn: "Värme: per m² boarea och månad (räknas bara med när värme inte ingår i avgiften)",
+    namn: "Värme inklusive varmvatten: per m² boarea och månad (räknas bara med när värme inte ingår i avgiften)",
     varde: 21,
     enhet: "kr/mån och m²",
     kalla: NILS_HOLGERSSON,
@@ -720,21 +720,25 @@ const SCHABLONER: Regel[] = [
     grupp: "Drift (schabloner)",
     status: "referens",
     anmarkning:
-      "Fjärrvärme i Stockholms kommun kostar 250,32 kr per m² lägenhetsyta och år inklusive moms (varmvatten ingår). Delat med 12 blir det cirka 20,9, avrundat till 21 kr per m² boarea och månad. Omräkningen är Binfos. Gäller bara när värmen faktiskt inte ingår i månadsavgiften.",
+      "Fjärrvärme i Stockholms kommun kostar 250,32 kr per m² lägenhetsyta och år inklusive moms (energin för varmvatten ingår). Delat med 12 blir det cirka 20,9, avrundat till 21 kr per m² boarea och månad. Omräkningen är Binfos. Gäller bara när värmen faktiskt inte ingår i månadsavgiften.",
   },
   {
-    id: "schablon_vatten_per_m2",
-    namn: "Vatten och avlopp: per m² boarea och månad (räknas bara med när vatten inte ingår i avgiften)",
-    varde: 6,
-    enhet: "kr/mån och m²",
-    kalla: NILS_HOLGERSSON,
-    referens: "Bilaga 1a, vatten och avlopp, Stockholms kommun",
-    gallerFran: "2026-10-26",
-    verifierad: "2026-10-26",
+    id: "schablon_vatten_per_person",
+    namn: "Vatten och avlopp: per person och månad (räknas bara med när vatten inte ingår i avgiften)",
+    varde: 135,
+    enhet: "kr/mån och person",
+    kalla: {
+      titel:
+        "Konsumentverket: Hushållskostnader 2026 (45,61 m³ per person och år) och Nils Holgersson 2026 (Stockholm, ca 35,54 kr/m³ allt inräknat)",
+      url: NILS_HOLGERSSON.url,
+    },
+    referens: "KV sida 1; Nils Holgersson bilaga 1a, vatten och avlopp, Stockholms kommun",
+    gallerFran: "2026-10-28",
+    verifierad: "2026-10-28",
     grupp: "Drift (schabloner)",
     status: "referens",
     anmarkning:
-      "Vatten och avlopp i Stockholms kommun kostar 71,08 kr per m² lägenhetsyta och år inklusive moms. Delat med 12 blir det cirka 5,9, avrundat till 6 kr per m² boarea och månad. Omräkningen är Binfos. Gäller bara när vatten faktiskt inte ingår i månadsavgiften.",
+      "Förbrukning och mätning av vatten följer antalet personer, inte ytan. Beräkning: 45,61 m³ × 35,54 kr/m³ ÷ 12 ≈ 135 kr per person och månad. Konsumentverkets förbrukning är en riksnivå och Nils Holgerssons pris gäller Stockholm; sammanställningen är Binfos. Gäller bara när vatten faktiskt inte ingår i månadsavgiften. Konsumentverkets egen post för vatten och avlopp (220 kr per person i riket) ligger i levnadskostnaderna för bankens kalkyl.",
   },
   {
     id: "schablon_bredband",

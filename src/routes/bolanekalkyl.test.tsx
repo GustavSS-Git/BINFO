@@ -56,7 +56,7 @@ const KALP_ID = [
 ];
 
 const oppnadMed = (andra: Partial<KalkylUnderlag>) => {
-  const u = { ...underlagFranSida({ ...tomSida(), lanebelopp: "3000000" }).underlag, ...andra };
+  const u = { ...underlagFranSida({ ...tomSida(), pris: "3000000" }).underlag, ...andra };
   sparad.current = {
     laddar: false,
     ejInloggad: false,
@@ -80,7 +80,13 @@ describe("/bolanekalkyl: enkel huvudvy och valfri fördjupning", () => {
       expect(pos, id).toBeGreaterThan(i); // finns, men först i fördjupningen
     }
     // Huvudfälten finns kvar, inklusive boarea.
-    for (const id of ["kalkyl-lanebelopp", "kalkyl-ranta", "kalkyl-boarea", "kalkyl-inkomst1"]) {
+    for (const id of [
+      "kalkyl-pris",
+      "kalkyl-kontantinsats",
+      "kalkyl-ranta",
+      "kalkyl-boarea",
+      "kalkyl-inkomst1",
+    ]) {
       const pos = html.indexOf(`id="${id}"`);
       expect(pos, id).toBeGreaterThan(-1);
       expect(pos, id).toBeLessThan(i);
@@ -116,5 +122,38 @@ describe("/bolanekalkyl: enkel huvudvy och valfri fördjupning", () => {
     oppnadMed({});
     sokning.current = { sparad: "k1" };
     expect(detailsTag(rita())).not.toMatch(/\sopen/);
+  });
+
+  it("har fältet 'Pris du räknar med', ingen 'Vet ej' och inget spann", () => {
+    const html = rita();
+    expect(html).toContain("Pris du räknar med");
+    expect(html).not.toContain("Lånebelopp");
+    expect(html).not.toMatch(/Vet ej/);
+    expect(html).not.toContain("spann");
+    expect(html).toContain("Styr schablonen för värme");
+    expect(html).toContain("Styr schablonerna för hushållsel, vatten och hemförsäkring");
+    // Två lägen per avgiftspost: Ingår / Ingår ej (fem poster).
+    expect(html.match(/>Ingår ej</g)).toHaveLength(5);
+  });
+
+  it("länk från rapporten: priset fyller prisfältet, kontantinsats 10 %, 'Från rapporten' på det som rapporten angav", () => {
+    sokning.current = {
+      pris: 5_260_000,
+      manadsavgift: 3503,
+      boarea: 48,
+      ingar: "varme,vatten",
+      ingarEj: "el",
+    };
+    const html = rita();
+    expect(html).toMatch(/id="kalkyl-pris"[^>]*value="5260000"/);
+    expect(html).toMatch(/id="kalkyl-kontantinsats"[^>]*value="526000"/);
+    expect(html).toContain("Från rapporten (Binfos värdering)");
+    expect(html).toContain("Från rapporten — ändra om avgiften har uppdaterats.");
+    // Tre märkta chips: värme, vatten, el.
+    expect(html.match(/Från rapporten</g)).toHaveLength(3);
+  });
+
+  it("utan länk finns inga 'Från rapporten'-märken", () => {
+    expect(rita()).not.toContain("Från rapporten");
   });
 });

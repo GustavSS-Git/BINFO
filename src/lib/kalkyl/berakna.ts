@@ -24,7 +24,7 @@ import { ranteavdrag } from "@/lib/analysis/calc/ranteavdrag";
 import { rantestressScenario } from "@/lib/analysis/calc/rantestress";
 import { schabloner } from "@/lib/analysis/calc/schabloner";
 import { kr } from "@/data/mockData";
-import { FEE_KEY_BY_COST_ITEM, costItemOsaker } from "@/lib/analysisView";
+import { FEE_KEY_BY_COST_ITEM } from "@/lib/analysisView";
 import { buildMinimalPropertyInput } from "@/lib/bolanekalkyl";
 import { beraknaHushallSkatt, type HushallSkatt } from "@/lib/skatt2026";
 import { beraknaLevnadskostnader, type Levnadskostnader } from "@/lib/kalkyl/levnadskostnader";
@@ -48,8 +48,8 @@ export const DRIFT_POSTER: readonly EgenKostnadId[] = [
   "hemforsakring",
 ];
 
-/** Posterna vars schablon beror på boarean. */
-const KRAVER_BOAREA: ReadonlySet<EgenKostnadId> = new Set<EgenKostnadId>(["varme", "vatten"]);
+/** Posterna vars schablon beror på boarean (vatten följer antalet personer). */
+const KRAVER_BOAREA: ReadonlySet<EgenKostnadId> = new Set<EgenKostnadId>(["varme"]);
 
 // ---------------------------------------------------------------------------
 // Resultattyper
@@ -57,11 +57,11 @@ const KRAVER_BOAREA: ReadonlySet<EgenKostnadId> = new Set<EgenKostnadId>(["varme
 
 export interface Fyllt {
   ranta: boolean;
-  /** Ränta och lånebelopp: räntekostnaden går att räkna. */
+  /** Ränta, pris och kontantinsats: räntekostnaden går att räkna (lånet = pris − kontantinsats). */
   ranteunderlag: boolean;
-  /** Ränta, lånebelopp och kontantinsats: lånets alla delar. */
+  /** Ränta, pris och kontantinsats: lånets alla delar. */
   lan: boolean;
-  /** Lånebelopp och kontantinsats: belåningsgraden går att räkna. */
+  /** Pris och kontantinsats: belåningsgraden går att räkna. */
   belaning: boolean;
   inkomst: boolean;
   avgift: boolean;
@@ -79,21 +79,16 @@ export interface DriftRad {
   belopp: number | null;
   egen: boolean;
   ingarIAvgift: boolean;
-  /** Okänt om posten ingår i avgiften. */
-  osaker: boolean;
   /** Schablonen kan inte räknas utan boarea. */
   saknarBoarea: boolean;
   schablonBasis?: string;
 }
 
 export interface Manadssummor {
-  /** Efter ränteavdrag; lägsta scenariot (osäkra poster antas ingå i avgiften). */
-  nettoLag: number;
-  nettoHog: number;
-  bruttoLag: number;
-  bruttoHog: number;
-  /** Sant när osäkra poster gör att totalen är ett spann. */
-  harSpann: boolean;
+  /** Efter ränteavdrag: den totala månadskostnaden. */
+  netto: number;
+  /** Före ränteavdrag. */
+  brutto: number;
 }
 
 export interface Scenario {
@@ -136,7 +131,7 @@ export interface KalpResultat {
   kalkylrantaProcent: number;
   /** Sant när allt som krävs är ifyllt och hushållet ryms i Konsumentverkets tabell. */
   beraknad: boolean;
-  /** Vad som saknas, på svenska ("lånebelopp", "bruttoinkomst" …). */
+  /** Vad som saknas, på svenska ("pris", "bruttoinkomst" …). */
   saknas: string[];
   /** Hushållet är större än Konsumentverkets tabell (7 personer). */
   hushalletForStort: boolean;
@@ -154,8 +149,10 @@ export interface KalpResultat {
 export interface KalkylResultat {
   fyllt: Fyllt;
   lan: {
+    /** Lån = max(0, pris − kontantinsats). */
     lanebelopp: number;
     kontantinsats: number;
+    /** Bostadens värde = priset du räknar med. */
     bostadsvarde: number;
     /** Ej avrundad; styr amorteringstakten. */
     belaningsgradProcent: number;
@@ -198,6 +195,8 @@ const heltal = (v: number) => Math.round(v);
 
 interface Data {
   u: KalkylUnderlag;
+  pris: number;
+  /** Lån = max(0, pris − kontantinsats); 0 tills både pris och kontantinsats är ifyllda. */
   lanebelopp: number;
   kontantinsats: number;
   ranta: number;
@@ -209,16 +208,17 @@ interface Data {
 
 function harled(u: KalkylUnderlag): Data {
   const ranta = u.rantaProcent !== undefined;
-  const lan = u.lanebelopp !== undefined;
+  const pris = u.pris !== undefined;
   const kont = u.kontantinsats !== undefined;
   const inkomst = u.inkomst1 !== undefined && (u.antalLantagare === 1 || u.inkomst2 !== undefined);
   const avgift = u.manadsavgift !== undefined;
   const boarea = u.boarea !== undefined;
-  const ranteunderlag = ranta && lan;
-  const lanDel = ranteunderlag && kont;
+  const belaning = pris && kont;
+  const lanDel = belaning && ranta;
   return {
     u,
-    lanebelopp: u.lanebelopp ?? 0,
+    pris: u.pris ?? 0,
+    lanebelopp: belaning ? Math.max(0, (u.pris ?? 0) - (u.kontantinsats ?? 0)) : 0,
     kontantinsats: u.kontantinsats ?? 0,
     ranta: u.rantaProcent ?? 0,
     manadsavgift: u.manadsavgift ?? 0,
@@ -227,9 +227,9 @@ function harled(u: KalkylUnderlag): Data {
       u.antalLantagare === 2 ? [u.inkomst1 ?? 0, u.inkomst2 ?? 0] : [u.inkomst1 ?? 0],
     fyllt: {
       ranta,
-      ranteunderlag,
+      ranteunderlag: lanDel,
       lan: lanDel,
-      belaning: lan && kont,
+      belaning,
       inkomst,
       avgift,
       boarea,
@@ -260,7 +260,8 @@ function scenario(d: Data, rantaProcent: number, avgiftsstressPp: number): Scena
   const bruttoinkomstSumma = d.bruttoinkomster.reduce((a, b) => a + b, 0);
   const lan: LaneUnderlag = {
     lanebelopp: d.lanebelopp,
-    kontantinsats: d.kontantinsats,
+    // Kontantinsatsen som LaneUnderlag räknar bostadsvärdet med: priset − lånet.
+    kontantinsats: Math.max(0, d.pris - d.lanebelopp),
     ranta: rantaProcent,
     bruttoinkomst: bruttoinkomstSumma,
     antalLantagare: u.antalLantagare,
@@ -300,7 +301,6 @@ function scenario(d: Data, rantaProcent: number, avgiftsstressPp: number): Scena
       belopp: eget ?? schablon,
       egen: eget !== undefined,
       ingarIAvgift: post.ingarIAvgift,
-      osaker: costItemOsaker(id, liveInput.avgiftInkluderar),
       saknarBoarea,
       ...(post.figure.schablonBasis !== undefined && !saknarBoarea
         ? { schablonBasis: post.figure.schablonBasis }
@@ -309,33 +309,19 @@ function scenario(d: Data, rantaProcent: number, avgiftsstressPp: number): Scena
   });
 
   // Skriver användaren över en schablon flyttar sig totalen med precis
-  // mellanskillnaden — och bara i de scenarier posten faktiskt räknas med i
-  // (täcks den av avgiften påverkar överskrivningen ingenting; är det
-  // okänt om den gör det påverkas bara det "sämsta fallet"-spannet).
-  const overrideDelta = (id: EgenKostnadId): { low: number; high: number } => {
+  // mellanskillnaden, och bara om posten räknas med (täcks den av avgiften
+  // påverkar överskrivningen ingenting).
+  const overrideDelta = (id: EgenKostnadId): number => {
     const override = egna[id];
-    if (override === undefined) return { low: 0, high: 0 };
-    const original = finnPost(id).figure.value ?? 0;
-    const diff = override - original;
+    if (override === undefined) return 0;
+    const diff = override - (finnPost(id).figure.value ?? 0);
     const nyckel = FEE_KEY_BY_COST_ITEM[id];
-    if (!nyckel) return { low: diff, high: diff }; // t.ex. hemförsäkring — alltid med
-    const status = liveInput.avgiftInkluderar[nyckel];
-    if (status === "ja") return { low: 0, high: 0 };
-    if (status === "nej") return { low: diff, high: diff };
-    return { low: 0, high: diff }; // okänt — lågt scenario antar att avgiften täcker det
+    if (!nyckel) return diff; // t.ex. hemförsäkring — alltid med
+    return liveInput.avgiftInkluderar[nyckel] === "ja" ? 0 : diff;
   };
-  const deltaSumma = DRIFT_POSTER.reduce(
-    (acc, id) => {
-      const dd = overrideDelta(id);
-      return { low: acc.low + dd.low, high: acc.high + dd.high };
-    },
-    { low: 0, high: 0 },
-  );
-
-  const baseSpread = m.totalSpann ? m.totalSpann.high - m.totalSpann.low : 0;
-  const extraSpread = deltaSumma.high - deltaSumma.low;
-  const bruttoLag = (m.totalBrutto.value ?? 0) + deltaSumma.low;
-  const nettoLag = (m.totalNetto.value ?? 0) + deltaSumma.low;
+  const deltaSumma = DRIFT_POSTER.reduce((acc, id) => acc + overrideDelta(id), 0);
+  const brutto = (m.totalBrutto.value ?? 0) + deltaSumma;
+  const netto = (m.totalNetto.value ?? 0) + deltaSumma;
 
   const drift = driftRader
     .filter((p) => !p.ingarIAvgift)
@@ -354,13 +340,7 @@ function scenario(d: Data, rantaProcent: number, avgiftsstressPp: number): Scena
     manadsavgift: manadsavgiftPost,
     avgiftsokning: manadsavgiftPost - heltal(d.manadsavgift),
     drift,
-    summor: {
-      nettoLag,
-      nettoHog: nettoLag + baseSpread + extraSpread,
-      bruttoLag,
-      bruttoHog: bruttoLag + baseSpread + extraSpread,
-      harSpann: baseSpread + extraSpread > 0,
-    },
+    summor: { netto, brutto },
     betalarPerManad,
     kvarEfterBoende: nettoPerManad - betalarPerManad,
     andelAvNettoProcent: nettoPerManad > 0 ? (betalarPerManad / nettoPerManad) * 100 : 0,
@@ -393,7 +373,7 @@ function beraknaKalp(
 ): KalpResultat {
   const { u } = d;
   const saknas: string[] = [];
-  if (u.lanebelopp === undefined) saknas.push("lånebelopp");
+  if (u.pris === undefined) saknas.push("pris");
   if (u.kontantinsats === undefined) saknas.push("kontantinsats");
   if (u.manadsavgift === undefined) saknas.push("månadsavgift");
   if (!d.fyllt.inkomst) saknas.push("bruttoinkomst");
@@ -412,18 +392,9 @@ function beraknaKalp(
   ];
   if (ia.varme === "ja") {
     forutsattningar.push("Värme ingår i avgiften och räknas därför inte med.");
-  }
-  if (ia.varme === "nej") {
+  } else {
     forutsattningar.push(
       "Värme räknas med (Binfos uppskattning) eftersom du angett att den inte ingår i avgiften.",
-    );
-  }
-  if (ia.varme === "okant") {
-    forutsattningar.push("Värme räknas med eftersom det är okänt om den ingår i avgiften.");
-  }
-  if (ia.el === "okant" || ia.vatten === "okant") {
-    forutsattningar.push(
-      "Hushållsel och vatten räknas med så länge det är okänt om de ingår i avgiften.",
     );
   }
   if (hushalletForStort) {
@@ -452,7 +423,7 @@ function beraknaKalp(
       { id: "avgift", namn: "Månadsavgift", belopp: avgiftRad },
     );
     let varme = 0;
-    if (ia.varme !== "ja") {
+    if (ia.varme === "nej") {
       const eget = u.egnaKostnader.varme;
       varme = eget ?? schabloner(d.boarea, u.antalPersoner).varme.value ?? 0;
       boendeRader.push({
@@ -490,7 +461,7 @@ export function beraknaKalkyl(u: KalkylUnderlag): KalkylResultat {
   const d = harled(u);
   const nu = scenario(d, d.ranta + u.rantestressPp, u.rantestressPp);
 
-  const bostadsvarde = d.lanebelopp + d.kontantinsats;
+  const bostadsvarde = d.pris;
   const belaningsgradProcent = bostadsvarde > 0 ? (d.lanebelopp / bostadsvarde) * 100 : 0;
   const bruttoSumma = d.bruttoinkomster.reduce((a, b) => a + b, 0);
   const skuldkvot = bruttoSumma > 0 ? d.lanebelopp / bruttoSumma : 0;
@@ -498,10 +469,13 @@ export function beraknaKalkyl(u: KalkylUnderlag): KalkylResultat {
 
   const minKontantinsats = bostadsvarde * MIN_KONTANTINSATS_ANDEL;
   const kontantinsatsFel =
-    bostadsvarde > 0 && u.kontantinsats !== undefined && d.kontantinsats < minKontantinsats - 0.5
-      ? `Kontantinsatsen måste vara minst ${Math.round(MIN_KONTANTINSATS_ANDEL * 100)} % av bostadens värde (${kr(minKontantinsats)}).`
-      : null;
-
+    u.pris === undefined || u.kontantinsats === undefined
+      ? null
+      : d.kontantinsats > bostadsvarde
+        ? `Kontantinsatsen kan inte vara större än priset (${kr(bostadsvarde)}).`
+        : bostadsvarde > 0 && d.kontantinsats < minKontantinsats - 0.5
+          ? `Kontantinsatsen måste vara minst ${Math.round(MIN_KONTANTINSATS_ANDEL * 100)} % av priset (${kr(minKontantinsats)}).`
+          : null;
   const { driftRader, hushall: hushallSkatt } = nu;
   const nettoPerManad = hushallSkatt.nettoinkomstPerManad;
 
@@ -566,8 +540,7 @@ export function beraknaKalkyl(u: KalkylUnderlag): KalkylResultat {
 export function sammanfattaKalkyl(u: KalkylUnderlag): KalkylSammanfattning {
   const r = beraknaKalkyl(u);
   return {
-    totalPerManad: r.fyllt.total ? r.nu.summor.nettoLag : null,
-    totalPerManadHog: r.fyllt.total ? r.nu.summor.nettoHog : null,
+    totalPerManad: r.fyllt.total ? r.nu.summor.netto : null,
     belaningsgradProcent: r.fyllt.belaning
       ? Math.round(r.lan.belaningsgradProcent * 10) / 10
       : null,

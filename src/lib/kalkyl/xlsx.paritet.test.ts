@@ -15,6 +15,8 @@ import ExcelJS from "exceljs";
 import { HyperFormula } from "hyperformula";
 import { describe, expect, it } from "vitest";
 import { beraknaKalkyl } from "./berakna";
+import { BOAREA_HINT, PERSONER_HINT } from "@/lib/analysis/calc/schabloner";
+import { REGELVERSION, REGLER } from "./regler";
 import { BLAD_BERAKNING, BLAD_INDATA, BLAD_OM, BLAD_REGLER, byggKalkylArbetsbok } from "./xlsx";
 import { BARN_ALDRAR } from "./sida";
 import { KALKYL_UNDERLAG_VERSION, KalkylUnderlagSchema, type KalkylUnderlag } from "./underlag";
@@ -120,7 +122,7 @@ function rng(seed: number): () => number {
   };
 }
 
-const TRI = ["ja", "nej", "okant"] as const;
+const TRI = ["ja", "nej"] as const;
 
 function slumpaUnderlag(seed: number): KalkylUnderlag {
   const r = rng(seed);
@@ -154,7 +156,7 @@ function slumpaUnderlag(seed: number): KalkylUnderlag {
 
   const u: KalkylUnderlag = {
     version: KALKYL_UNDERLAG_VERSION,
-    ...(ibland(0.95) ? { lanebelopp: lan + tv } : {}),
+    ...(ibland(0.95) ? { pris: bostadsvarde + tv } : {}),
     ...(ibland(0.95) ? { kontantinsats: kontant } : {}),
     ...(ibland(0.95) ? { rantaProcent: pick([0, 2, 3.35, 3.6, 4.1, 5.25, 8]) } : {}),
     ...(ibland(0.92) ? { manadsavgift: heltal(1500, 9000) + pick([0, 0.4, 0.5]) } : {}),
@@ -190,12 +192,12 @@ function slumpaUnderlag(seed: number): KalkylUnderlag {
 function sarfall(): KalkylUnderlag[] {
   const bas: KalkylUnderlag = {
     version: KALKYL_UNDERLAG_VERSION,
-    lanebelopp: 3_500_000,
+    pris: 7_000_000,
     kontantinsats: 3_500_000, // exakt 50 %
     rantaProcent: 3.6,
     manadsavgift: 4_300,
     boarea: 58,
-    avgiftInkluderar: { varme: "okant", vatten: "ja", el: "nej", bredband: "okant", tv: "okant" },
+    avgiftInkluderar: { varme: "nej", vatten: "ja", el: "nej", bredband: "nej", tv: "ja" },
     antalLantagare: 2,
     inkomst1: 510_000,
     inkomst2: 450_000,
@@ -209,14 +211,16 @@ function sarfall(): KalkylUnderlag[] {
   };
   return [
     bas,
-    { ...bas, lanebelopp: 7_000_000, kontantinsats: 3_000_000 }, // exakt 70 %
+    { ...bas, pris: 10_000_000, kontantinsats: 3_000_000 }, // exakt 70 %
     {
       ...bas,
-      lanebelopp: 1_000_000,
+      pris: 1_000_000,
       kontantinsats: 0,
       inkomst1: 0,
       inkomst2: undefined,
     } as KalkylUnderlag,
+    { ...bas, pris: 2_000_000, kontantinsats: 2_500_000 }, // insats över priset: 0 kr lån, fel
+    { ...bas, pris: undefined }, // inget pris: inget lån
     { ...bas, antalLantagare: 1, inkomst1: 5_000_00 },
     { ...bas, antalLantagare: 1, inkomst1: 2_550_00 }, // pensionsavgift på exakt halvt hundratal
     { ...bas, inkomst1: 25_042, inkomst2: 25_041 },
@@ -224,7 +228,7 @@ function sarfall(): KalkylUnderlag[] {
       ...bas,
       inkomst1: 1_200_000,
       inkomst2: 900_000,
-      lanebelopp: 9_000_000,
+      pris: 10_000_000,
       kontantinsats: 1_000_000,
     },
     { ...bas, barn: ["0-3", "4-6", "15-17"], antalVuxna: 2 },
@@ -271,11 +275,8 @@ function jamfor(m: Motor, u: KalkylUnderlag, ctx: string): void {
     kr(`${c} avdrag/år`, tal(m, "avdragAr", kol), s.ranteavdragPerAr);
     kr(`${c} förlorat`, tal(m, "forlorat", kol), s.ranteavdragForloratPerAr);
     kr(`${c} avgift`, tal(m, "avgiftPost", kol), s.manadsavgift);
-    kr(`${c} netto låg`, tal(m, "nettoLag", kol), s.summor.nettoLag);
-    kr(`${c} netto hög`, tal(m, "nettoHog", kol), s.summor.nettoHog);
-    kr(`${c} brutto låg`, tal(m, "bruttoLag", kol), s.summor.bruttoLag);
-    kr(`${c} brutto hög`, tal(m, "bruttoHog", kol), s.summor.bruttoHog);
-    expect(tal(m, "harSpann", kol) === 1, `${c} spann`).toBe(s.summor.harSpann);
+    kr(`${c} netto`, tal(m, "totNetto", kol), s.summor.netto);
+    kr(`${c} brutto`, tal(m, "totBrutto", kol), s.summor.brutto);
     if (r.fyllt.boarea) {
       kr(`${c} drift`, tal(m, "driftSumma", "B"), s.drift);
       kr(`${c} betalar`, tal(m, "betalar", kol), s.betalarPerManad);
@@ -301,6 +302,7 @@ describe("Excel-export: paritet med beraknaKalkyl", () => {
     const m = await skapaMotor(sarfall()[0]!);
     expect([...m.blad.keys()]).toEqual([BLAD_INDATA, BLAD_REGLER, BLAD_BERAKNING, BLAD_OM]);
     for (const n of [
+      "Pris",
       "Lanebelopp",
       "Kontantinsats",
       "Ranta",
@@ -331,6 +333,7 @@ describe("Excel-export: paritet med beraknaKalkyl", () => {
       "Statlig_Skatt",
       "KV_Mat",
       "Schablon_Varme_Per_M2",
+      "Schablon_Vatten_Per_Person",
     ]) {
       expect(m.namn.has(n), `namn ${n}`).toBe(true);
     }
@@ -368,7 +371,7 @@ describe("Excel-export: paritet med beraknaKalkyl", () => {
     // 10 % kontantinsats: godkänd vid 90 % tak.
     const u = KalkylUnderlagSchema.parse({
       ...sarfall()[0]!,
-      lanebelopp: 4_500_000,
+      pris: 5_000_000,
       kontantinsats: 500_000,
     });
     const m = await skapaMotor(u);
@@ -388,12 +391,66 @@ describe("Excel-export: paritet med beraknaKalkyl", () => {
   it("jämförelsen slår larm när en regel ändras (mätarens kontroll)", async () => {
     const u = KalkylUnderlagSchema.parse({
       ...sarfall()[0]!,
-      lanebelopp: 6_000_000,
+      pris: 7_000_000,
       kontantinsats: 1_000_000,
     });
     const m = await skapaMotor(u);
     jamfor(m, u, "orörd");
     satt(m, "Kommunalskatt", 40);
     expect(() => jamfor(m, u, "ändrad skatt")).toThrow();
+  });
+
+  it("bladet Regler och antaganden visar samma värden som regelregistret (inkl. vatten per person)", () => {
+    const { workbook } = byggKalkylArbetsbok(sarfall()[0]!, {
+      genererad: new Date("2026-10-28T12:00:00Z"),
+    });
+    const ws = workbook.getWorksheet(BLAD_REGLER)!;
+    expect(String(ws.getCell("A1").value)).toContain(REGELVERSION);
+    const rader = new Map<string, { varde: unknown; enhet: unknown }>();
+    ws.eachRow((row) => {
+      rader.set(String(row.getCell(1).value), {
+        varde: row.getCell(2).value,
+        enhet: row.getCell(3).value,
+      });
+    });
+    for (const regel of REGLER) {
+      const rad = rader.get(regel.namn);
+      expect(rad, regel.namn).toBeDefined();
+      expect(rad?.varde, regel.namn).toBe(regel.varde);
+      expect(rad?.enhet, regel.namn).toBe(regel.enhet);
+    }
+    expect(rader.get(REGLER.find((r) => r.id === "schablon_vatten_per_person")!.namn)?.varde).toBe(
+      135,
+    );
+    expect(
+      [...rader.keys()].some((k) => k.includes("per m² boarea") && k.startsWith("Vatten")),
+    ).toBe(false);
+  });
+
+  it("fälthintarna på bladet Indata är samma som sidans, och posterna har två lägen", () => {
+    const { workbook } = byggKalkylArbetsbok(sarfall()[0]!);
+    const ws = workbook.getWorksheet(BLAD_INDATA)!;
+    const hint = (etikett: string): string => {
+      let ut = "";
+      ws.eachRow((row) => {
+        if (String(row.getCell(1).value) === etikett) ut = String(row.getCell(4).value);
+      });
+      return ut;
+    };
+    expect(hint("Boarea")).toBe(BOAREA_HINT);
+    expect(hint("Antal personer i hushållet")).toBe(PERSONER_HINT);
+    expect(hint("Pris du räknar med")).toContain("Lånet är priset minus kontantinsatsen");
+    expect(hint("Ingår vatten i avgiften?")).not.toMatch(/vet ej/i);
+  });
+
+  it("vatten som inte ingår i avgiften kostar 135 kr per person i Excel (+270 för två personer)", async () => {
+    const bas = sarfall()[0]!;
+    const m = await skapaMotor({
+      ...bas,
+      avgiftInkluderar: { ...bas.avgiftInkluderar, vatten: "ja" },
+    });
+    const fore = tal(m, "totNetto");
+    satt(m, "Avgift_Vatten", "nej");
+    expect(tal(m, "totNetto") - fore).toBe(270);
   });
 });

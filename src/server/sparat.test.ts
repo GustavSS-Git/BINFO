@@ -34,8 +34,8 @@ const prisInput: PrisInput = {
 };
 
 const underlag: KalkylUnderlag = {
-  version: 1,
-  lanebelopp: 3_000_000,
+  version: 2,
+  pris: 3_000_000,
   rantaProcent: 3.6,
   manadsavgift: 4200,
   avgiftInkluderar: { varme: "ja", vatten: "ja", el: "nej", bredband: "ja", tv: "nej" },
@@ -201,8 +201,11 @@ describe("sparaKalkyl", () => {
     const t = await bygg();
     for (const u of [
       { ...underlag, extra: 1 },
-      { ...underlag, version: 2 },
-      { ...underlag, lanebelopp: -1 },
+      { ...underlag, version: 1 },
+      { ...underlag, version: 3 },
+      { ...underlag, pris: -1 },
+      { ...underlag, lanebelopp: 1_000_000 }, // fältet finns bara i version 1
+      { ...underlag, avgiftInkluderar: { ...underlag.avgiftInkluderar, el: "okant" } },
       { ...underlag, antalLantagare: 3 },
       { ...underlag, barn: ["99-100"] },
       "x",

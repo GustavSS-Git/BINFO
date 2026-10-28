@@ -1,16 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Callout,
-  Card,
-  Field,
-  PageHeader,
-  Badge,
-  Toggle,
-  Tag,
-  TristateChoice,
-} from "@/components/ui/binfo";
+import { Callout, Card, Field, PageHeader, Badge, Toggle, Tag } from "@/components/ui/binfo";
 import { avgiftPoster, kr, kalkylDefaults } from "@/data/mockData";
 import { KalkylExport } from "@/components/kalkyl/KalkylExport";
 import { FelRuta, InfoRuta } from "@/components/konto/AuthSida";
@@ -30,8 +21,11 @@ import { parseBolanekalkylSearch, type BolanekalkylSearch } from "@/lib/bolaneka
 import { beraknaKalkyl } from "@/lib/kalkyl/berakna";
 import { tolkaTal } from "@/lib/kalkyl/indata";
 import { REGLER, STATUS_ETIKETT, tal, type Regel } from "@/lib/kalkyl/regler";
+import { BOAREA_HINT, PERSONER_HINT } from "@/lib/analysis/calc/schabloner";
 import {
   BARN_ALDRAR,
+  andraAvgift,
+  andraFalt,
   sidaFranSokning,
   kalpArAndrad,
   sidaFranUnderlag,
@@ -152,9 +146,9 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   useEffect(() => setMonterad(true), []);
 
   // Sidans fält som text. Förifylld vid länk från en färdig analys
-  // (?pris=…&manadsavgift=…&boarea=…): kalkylen har inget eget pris-fält, så
-  // priset delas upp i minsta kontantinsats (bolånetaket) och lån på resten.
-  // Läses bara vid mount. Avgiftsposterna (vad som ingår) delas med övriga
+  // (?pris=…&manadsavgift=…&boarea=…&ingar=…&ingarEj=…): priset fyller prisfältet,
+  // kontantinsatsen förifylls med minsta tillåtna (10 %), och förifyllda värden märks
+  // "Från rapporten" (märket försvinner när fältet ändras). Läses bara vid mount. Avgiftsposterna (vad som ingår) delas med övriga
   // sidor via uppgifter-butiken och läggs på vid varje beräkning.
   const [sida, setSida] = useState<KalkylSida>(() =>
     oppnad?.typ === "ok" ? sidaFranUnderlag(oppnad.underlag) : sidaFranSokning(search),
@@ -166,13 +160,12 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   const [sparadId, setSparadId] = useState<string | undefined>(
     oppnad?.typ === "ok" ? oppnad.kalkyl.id : undefined,
   );
-  const [manadsavgiftFranAnalys] = useState(search.manadsavgift !== undefined);
-  const [prisFranAnalys] = useState(search.pris !== undefined);
   const [prisUppskattningFranAnalys] = useState(search.prisUppskattning === true);
   const [boareaFranAnalys] = useState(search.boarea !== undefined);
 
   const sat = <K extends keyof KalkylSida>(nyckel: K, varde: KalkylSida[K]) =>
-    setSida((s) => ({ ...s, [nyckel]: varde }));
+    setSida((s) => andraFalt(s, nyckel, varde));
+  const franRapport = sida.franRapport;
 
   // Boareans schabloner (el/värme/försäkring) kräver boarea. Den hämtas inte
   // längre från den delade butiken, vars förvalda 58 m² inte går att skilja
@@ -185,6 +178,10 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
     if (oppnad?.typ === "ok") {
       for (const id of AVGIFT_IDS) setIngar(id, oppnad.underlag.avgiftInkluderar[id]);
     }
+    // Länk från en rapport: det rapporten säger ingår/inte ingår läggs i den delade butiken.
+    for (const id of AVGIFT_IDS) {
+      if (sida.franRapport.avgift?.[id] === true) setIngar(id, sida.avgiftInkluderar[id]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,9 +191,19 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
     for (const id of AVGIFT_IDS) setIngar(id, u.avgiftInkluderar[id]);
   };
 
+  // Vad som ingår i avgiften: poster som rapporten angav (märkta "Från rapporten") gäller
+  // direkt; övriga kommer från den delade butiken. Att slå om en chip rensar märket.
+  const ingar = useMemo(() => {
+    const ut = { ...uppgifter.ingar };
+    for (const id of AVGIFT_IDS) {
+      if (sida.franRapport.avgift?.[id] === true) ut[id] = sida.avgiftInkluderar[id];
+    }
+    return ut;
+  }, [uppgifter.ingar, sida.franRapport.avgift, sida.avgiftInkluderar]);
+
   const { underlag, fel } = useMemo(
-    () => underlagFranSida({ ...sida, avgiftInkluderar: { ...uppgifter.ingar } }),
-    [sida, uppgifter.ingar],
+    () => underlagFranSida({ ...sida, avgiftInkluderar: ingar }),
+    [sida, ingar],
   );
   const r = useMemo(() => beraknaKalkyl(underlag), [underlag]);
   // Fördjupningen är stängd som standard, men öppen så snart någon KALP-uppgift
@@ -214,7 +221,6 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   const lantagare = sida.antalLantagare;
   const nu = r.nu;
   const summor = nu.summor;
-  const harSpann = summor.harSpann;
 
   const boendeSchablonPoster = r.drift.filter((p) => !p.ingarIAvgift);
 
@@ -356,20 +362,20 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
         <Card>
           <div className="grid gap-5">
             <Field
-              id="kalkyl-lanebelopp"
-              label="Lånebelopp"
+              id="kalkyl-pris"
+              label="Pris du räknar med"
               suffix="kr"
               type="text"
               inputMode="decimal"
-              value={sida.lanebelopp}
-              onChange={(v) => sat("lanebelopp", v)}
-              placeholder={exempel(kalkylDefaults.lanebelopp)}
-              error={fel.lanebelopp ?? null}
-              {...(prisFranAnalys
+              value={sida.pris}
+              onChange={(v) => sat("pris", v)}
+              placeholder={exempel(kalkylDefaults.lanebelopp + kalkylDefaults.kontantinsats)}
+              error={fel.pris ?? null}
+              {...(franRapport.pris === true
                 ? {
                     hint: prisUppskattningFranAnalys
-                      ? "Förifyllt utifrån en uppskattning av priset i din analys, med minsta kontantinsats (10 %) — ändra om beloppet inte stämmer."
-                      : "Förifyllt utifrån priset i din analys, med minsta kontantinsats (10 %) — ändra om beloppet inte stämmer.",
+                      ? "Från rapporten (Binfos uppskattning av priset) — ändra om du räknar med ett annat pris."
+                      : "Från rapporten (Binfos värdering) — ändra om du räknar med ett annat pris.",
                   }
                 : {})}
             />
@@ -383,7 +389,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               onChange={(v) => sat("kontantinsats", v)}
               placeholder={exempel(kalkylDefaults.kontantinsats)}
               error={fel.kontantinsats ?? r.lan.kontantinsatsFel}
-              hint={`Bolånetaket är ${tal("bolanetak")} % — minst ${100 - tal("bolanetak")} % kontantinsats krävs.`}
+              hint={`Bolånetaket är ${tal("bolanetak")} % — minst ${100 - tal("bolanetak")} % kontantinsats krävs. Lånet är priset minus kontantinsatsen${fyllt.lan ? ` (${kr(r.lan.lanebelopp)})` : ""}.`}
             />
             <Field
               id="kalkyl-ranta"
@@ -407,8 +413,8 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               placeholder="t.ex. 3 240"
               error={fel.manadsavgift ?? null}
               hint={
-                manadsavgiftFranAnalys
-                  ? "Förifylld från din analys — ändra om avgiften har uppdaterats."
+                franRapport.manadsavgift === true
+                  ? "Från rapporten — ändra om avgiften har uppdaterats."
                   : "Från föreningens senaste årsredovisning eller objektsbeskrivning."
               }
             />
@@ -419,8 +425,8 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               <div className="border-t border-border px-4 pb-4 pt-3">
                 <p className="mb-4 max-w-prose text-xs leading-relaxed text-muted-foreground sm:text-sm sm:leading-relaxed">
                   Värme och vatten ingår normalt i avgiften i en bostadsrätt, så de är förvalda som
-                  ”Ingår”. Betalar du dem separat väljer du ”Ingår ej” — då räknar vi med en
-                  uppskattning. Vet du inte? Välj ”Vet ej” — då visar vi totalen som ett spann.
+                  ”Ingår”. Betalar du en post separat väljer du ”Ingår ej” — då räknar vi med en
+                  uppskattning.
                 </p>
                 <div className="space-y-3">
                   {avgiftPoster.map((post) => (
@@ -428,11 +434,20 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                       key={post.id}
                       className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
                     >
-                      <span className="text-sm text-foreground">{post.label}</span>
-                      <TristateChoice
-                        value={uppgifter.ingar[post.id]}
-                        onChange={(value) => setIngar(post.id, value)}
-                        labels={{ ja: "Ingår", nej: "Ingår ej" }}
+                      <span className="flex flex-wrap items-center gap-2 text-sm text-foreground">
+                        {post.label}
+                        {franRapport.avgift?.[post.id] === true ? <Tag>Från rapporten</Tag> : null}
+                      </span>
+                      <Toggle
+                        value={ingar[post.id] === "ja" ? "ja" : "nej"}
+                        onChange={(value) => {
+                          setIngar(post.id, value);
+                          setSida((s) => andraAvgift(s, post.id, value));
+                        }}
+                        options={[
+                          { value: "ja", label: "Ingår" },
+                          { value: "nej", label: "Ingår ej" },
+                        ]}
                       />
                     </div>
                   ))}
@@ -449,7 +464,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               onChange={(v) => sat("boarea", v)}
               placeholder="t.ex. 58"
               error={fel.boarea ?? null}
-              hint="Styr schablonerna för el, värme och hemförsäkring. Utan boarea kan vi inte räkna ut totalen."
+              hint={`${BOAREA_HINT}. Utan boarea kan vi inte räkna ut totalen.`}
             />
             <Field
               id="kalkyl-antal-personer"
@@ -460,7 +475,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               onChange={(v) => sat("antalPersoner", v)}
               placeholder={String(underlag.antalPersoner)}
               error={fel.antalPersoner ?? null}
-              hint="Styr schablonen för vattenkostnad."
+              hint={PERSONER_HINT}
             />
             <div>
               <span className="mb-1.5 block text-sm font-medium text-foreground">
@@ -580,7 +595,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                   label="Månadsavgift"
                   value={nu.manadsavgift}
                   okant={!fyllt.avgift}
-                  {...(manadsavgiftFranAnalys ? { note: "från din analys" } : {})}
+                  {...(franRapport.manadsavgift === true ? { note: "från rapporten" } : {})}
                 />
                 {boendeSchablonPoster.map((p) => (
                   <SchablonRad
@@ -588,7 +603,6 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                     label={p.namn}
                     value={p.belopp}
                     egen={p.egen}
-                    osaker={p.osaker}
                     onChange={(v) =>
                       sat("egnaKostnader", {
                         ...sida.egnaKostnader,
@@ -608,21 +622,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
             <div className="mt-8 border-t border-border pt-6">
               <p className={RUBRIK}>Total månadskostnad</p>
               {harTotal ? (
-                harSpann ? (
-                  <>
-                    <p className="mt-2 font-display text-4xl text-foreground">
-                      {Math.round(summor.nettoLag).toLocaleString("sv-SE")} – {kr(summor.nettoHog)}
-                      /mån
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Beroende på vad som ingår i avgiften.
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-2 font-display text-5xl text-foreground">
-                    {kr(summor.nettoLag)}
-                  </p>
-                )
+                <p className="mt-2 font-display text-5xl text-foreground">{kr(summor.netto)}</p>
               ) : (
                 <p className="mt-2 font-display text-5xl text-muted-foreground">{VET_EJ}</p>
               )}
@@ -632,12 +632,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                   : "Fyll i uppgifterna till vänster."}
               </p>
               {harTotal ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Brutto:{" "}
-                  {harSpann
-                    ? `${Math.round(summor.bruttoLag).toLocaleString("sv-SE")} – ${kr(summor.bruttoHog)}`
-                    : kr(summor.bruttoLag)}
-                </p>
+                <p className="mt-2 text-sm text-muted-foreground">Brutto: {kr(summor.brutto)}</p>
               ) : null}
               {harTotal && r.ranteavdrag.not ? (
                 <p className="mt-2 text-xs text-muted-foreground">{r.ranteavdrag.not}</p>
@@ -777,8 +772,8 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               vanligtvis ligger på 5–6 × bruttoinkomsten.
             </p>
             <p className="mt-3 text-xs text-muted-foreground">
-              Bostadens värde beräknas som lånebelopp + kontantinsats
-              {fyllt.lan ? ` (${kr(r.lan.bostadsvarde)}).` : "."}
+              Bostadens värde är priset du räknar med
+              {fyllt.lan ? ` (${kr(r.lan.bostadsvarde)}); lånet är ${kr(r.lan.lanebelopp)}.` : "."}
             </p>
           </Card>
 
@@ -858,11 +853,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                           {s.namn} ({procentText(s.rantaProcent)} %)
                         </span>
                         <span className="text-sm font-medium text-foreground">
-                          {harTotal
-                            ? s.summor.harSpann
-                              ? `${Math.round(s.summor.nettoLag).toLocaleString("sv-SE")} – ${kr(s.summor.nettoHog)}`
-                              : kr(s.summor.nettoLag)
-                            : VET_EJ}
+                          {harTotal ? kr(s.summor.netto) : VET_EJ}
                         </span>
                       </div>
                       {harTotal ? (
@@ -1108,13 +1099,11 @@ function SchablonRad({
   label,
   value,
   egen,
-  osaker,
   onChange,
 }: {
   label: string;
   value: number | null;
   egen: boolean;
-  osaker: boolean;
   onChange: (v: number) => void;
 }) {
   const [redigerar, setRedigerar] = useState(false);
@@ -1135,9 +1124,6 @@ function SchablonRad({
       <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         {label}
         <Tag>{egen ? "ditt värde" : "schablon"}</Tag>
-        {osaker ? (
-          <span className="text-xs text-muted-foreground/80">okänt om det ingår i avgiften</span>
-        ) : null}
       </span>
       {value === null && !egen ? (
         <span className="text-sm text-muted-foreground">{VET_EJ}</span>

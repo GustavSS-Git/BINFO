@@ -19,6 +19,7 @@
  */
 import ExcelJS from "exceljs";
 import { PDF_DISCLAIMER } from "@/components/pdf/theme";
+import { BOAREA_HINT, PERSONER_HINT } from "@/lib/analysis/calc/schabloner";
 import { FALTGRANSER } from "@/lib/kalkyl/indata";
 import {
   KONSUMENTVERKET_2026,
@@ -100,7 +101,7 @@ const REGELNAMN: Record<string, string> = {
   skuldkvot_bankstak: "Skuldkvot_Bankstak",
   kalp_barn_under_8_avdrag: "KV_Barn_Under_8_Avdrag",
   schablon_varme_per_m2: "Schablon_Varme_Per_M2",
-  schablon_vatten_per_m2: "Schablon_Vatten_Per_M2",
+  schablon_vatten_per_person: "Schablon_Vatten_Per_Person",
   schablon_bredband: "Schablon_Bredband",
 };
 
@@ -184,7 +185,7 @@ function stil(
   if (s.fmt !== undefined) cell.numFmt = s.fmt;
 }
 
-const AVGIFT_TEXT = { ja: "ja", nej: "nej", okant: "vet ej" } as const;
+const AVGIFT_TEXT = { ja: "ja", nej: "nej" } as const;
 
 // ---------------------------------------------------------------------------
 // Blad: Indata
@@ -206,24 +207,24 @@ function indataFalt(u: KalkylUnderlag): Array<IndataFalt | string> {
   const g = FALTGRANSER;
   const dec = (min: number, max: number) => ({ typ: "decimal" as const, min, max });
   const hel = (min: number, max: number) => ({ typ: "whole" as const, min, max });
-  const lista = { typ: "lista" as const, alternativ: '"ja,nej,vet ej"' };
+  const lista = { typ: "lista" as const, alternativ: '"ja,nej"' };
   return [
     "Lån och bostad",
     {
-      namn: "Lanebelopp",
-      etikett: "Lånebelopp",
-      varde: u.lanebelopp,
+      namn: "Pris",
+      etikett: "Pris du räknar med",
+      varde: u.pris,
       enhet: "kr",
-      hint: "Hur mycket du lånar av banken.",
+      hint: "Priset du räknar med att betala. Lånet är priset minus kontantinsatsen.",
       fmt: FMT.kr,
-      validering: dec(g.lanebelopp.min, g.lanebelopp.max),
+      validering: dec(g.pris.min, g.pris.max),
     },
     {
       namn: "Kontantinsats",
       etikett: "Kontantinsats",
       varde: u.kontantinsats,
       enhet: "kr",
-      hint: "Det du betalar själv. Bostadens värde räknas som lånebelopp + kontantinsats.",
+      hint: "Det du betalar själv, minst 10 % av priset. Lånebeloppet räknas på bladet Beräkning.",
       fmt: FMT.kr,
       validering: dec(g.kontantinsats.min, g.kontantinsats.max),
     },
@@ -250,7 +251,7 @@ function indataFalt(u: KalkylUnderlag): Array<IndataFalt | string> {
       etikett: "Boarea",
       varde: u.boarea,
       enhet: "m²",
-      hint: "Behövs för schablonerna för värme och vatten.",
+      hint: BOAREA_HINT,
       fmt: FMT.decimal,
       validering: dec(g.boarea.min, g.boarea.max),
     },
@@ -267,11 +268,11 @@ function indataFalt(u: KalkylUnderlag): Array<IndataFalt | string> {
       namn,
       etikett: `Ingår ${etikett.toLowerCase()} i avgiften?`,
       varde: AVGIFT_TEXT[v],
-      enhet: "ja / nej / vet ej",
+      enhet: "ja / nej",
       hint:
         namn === "Avgift_Tv"
           ? "Påverkar inga belopp i kalkylen (det finns ingen TV-schablon)."
-          : "Vet ej: kalkylen visar ett spann med och utan posten.",
+          : "Nej: kalkylen räknar med en schablon för posten.",
       validering: lista,
     })),
     "Hushåll",
@@ -306,7 +307,7 @@ function indataFalt(u: KalkylUnderlag): Array<IndataFalt | string> {
       etikett: "Antal personer i hushållet",
       varde: u.antalPersoner,
       enhet: "personer",
-      hint: "Styr schablonerna för hushållsel och hemförsäkring.",
+      hint: PERSONER_HINT,
       validering: hel(g.antalPersoner.min, g.antalPersoner.max),
     },
     {
@@ -432,7 +433,7 @@ function byggIndata(wb: ExcelJS.Workbook, u: KalkylUnderlag, etikett: string | u
         formulae: [val.alternativ],
         showErrorMessage: true,
         errorTitle: "Ogiltigt värde",
-        error: "Välj ja, nej eller vet ej.",
+        error: "Välj ja eller nej.",
       };
     } else if (val !== undefined) {
       v.dataValidation = {
@@ -570,6 +571,8 @@ type Fmt = (typeof FMT)[keyof typeof FMT] | "text";
 
 interface RadSpec {
   key?: string;
+  /** Namngiven cell (kolumn B) som andra formler och användaren kan referera till. */
+  namn?: string;
   etikett: string;
   /** En mall för alla kolumner, eller en mall per kolumn (null = tom). */
   f?: string | Array<string | null>;
@@ -608,7 +611,7 @@ function sektioner(): Sektion[] {
   const kv13 = kvIndex("1-3");
 
   const andel = (namn: string) => `ROUND(${namn}/100,10)`;
-  const status = (namn: string) => `IF(${namn}="ja","ja",IF(${namn}="nej","nej","vet ej"))`;
+  const status = (namn: string) => `IF(${namn}="ja","ja","nej")`;
 
   const scenKol = ["B", "C", "D", "E", "F", "G"];
   const scenRubriker = [
@@ -639,9 +642,6 @@ function sektioner(): Sektion[] {
           : `IF(ISNUMBER(Egen_${id}),Egen_${id},{d_${id}@B})`,
         namn === null
           ? `IF(ISNUMBER(Egen_${id}),Egen_${id}-{d_${id}@B},0)`
-          : `IF(AND(ISNUMBER(Egen_${id}),{d_${id}@C}="nej"),Egen_${id}-{d_${id}@B},0)`,
-        namn === null
-          ? `IF(ISNUMBER(Egen_${id}),Egen_${id}-{d_${id}@B},0)`
           : `IF(AND(ISNUMBER(Egen_${id}),{d_${id}@C}<>"ja"),Egen_${id}-{d_${id}@B},0)`,
       ],
       fmt: FMT.kr,
@@ -654,20 +654,11 @@ function sektioner(): Sektion[] {
       kolumner: ["B"],
       rader: [
         {
-          etikett: "Total månadskostnad efter ränteavdrag, lägsta",
-          f: "{nettoLag@B}",
+          etikett: "Total månadskostnad efter ränteavdrag",
+          f: "{totNetto@B}",
           fmt: FMT.kr,
           stark: true,
           resultat: true,
-          hint: "Osäkra poster (vet ej) antas ingå i avgiften.",
-        },
-        {
-          etikett: "Total månadskostnad efter ränteavdrag, högsta",
-          f: "{nettoHog@B}",
-          fmt: FMT.kr,
-          stark: true,
-          resultat: true,
-          hint: "Osäkra poster (vet ej) antas inte ingå i avgiften.",
         },
         { etikett: "Belåningsgrad", f: "{belaningsgrad@B}", fmt: FMT.proc1, resultat: true },
         { etikett: "Amortering per år", f: "{takt@B}", fmt: FMT.proc1, resultat: true },
@@ -686,14 +677,22 @@ function sektioner(): Sektion[] {
       rader: [
         {
           key: "bostadsvarde",
-          etikett: "Bostadens värde (lånebelopp + kontantinsats)",
-          f: "N(Lanebelopp)+N(Kontantinsats)".replace(/N\((\w+)\)/g, "IF(ISNUMBER($1),$1,0)"),
+          etikett: "Bostadens värde (priset du räknar med)",
+          f: "IF(ISNUMBER(Pris),Pris,0)",
           fmt: FMT.kr,
+        },
+        {
+          key: "lan",
+          namn: "Lanebelopp",
+          etikett: "Lånebelopp (pris − kontantinsats)",
+          f: "IF(AND(ISNUMBER(Pris),ISNUMBER(Kontantinsats)),MAX(0,Pris-Kontantinsats),0)",
+          fmt: FMT.kr,
+          hint: "Tomt pris eller tom kontantinsats ger 0 kr lån.",
         },
         {
           key: "belaningsgrad",
           etikett: "Belåningsgrad",
-          f: "IF({bostadsvarde}>0,Lanebelopp/{bostadsvarde}*100,0)",
+          f: "IF({bostadsvarde}>0,{lan}/{bostadsvarde}*100,0)",
           fmt: FMT.proc2,
           hint: "Lånebelopp ÷ bostadens värde.",
         },
@@ -712,8 +711,8 @@ function sektioner(): Sektion[] {
         },
         {
           key: "kontantFel",
-          etikett: "Kontantinsatsen är för liten (1 = ja)",
-          f: "IF(AND({bostadsvarde}>0,ISNUMBER(Kontantinsats),Kontantinsats<{minKontant}-0.5),1,0)",
+          etikett: "Kontantinsatsen är för liten eller större än priset (1 = ja)",
+          f: "IF(AND(ISNUMBER(Pris),ISNUMBER(Kontantinsats)),IF(OR(Kontantinsats>{bostadsvarde},AND({bostadsvarde}>0,Kontantinsats<{minKontant}-0.5)),1,0),0)",
           fmt: FMT.tal,
           hint: "Räknas om om du ändrar bolånetaket på bladet Regler och antaganden.",
         },
@@ -732,7 +731,7 @@ function sektioner(): Sektion[] {
         {
           key: "skuldkvot",
           etikett: "Skuldkvot (lån ÷ bruttoårsinkomst)",
-          f: "IF({bruttoSumma}>0,Lanebelopp/{bruttoSumma},0)",
+          f: "IF({bruttoSumma}>0,{lan}/{bruttoSumma},0)",
           fmt: FMT.andel,
           hint: "Bara information; styr inte amorteringen. Bankernas typiska tak är ett antagande.",
         },
@@ -886,14 +885,13 @@ function sektioner(): Sektion[] {
     },
     {
       rubrik: "3. Drift: schabloner och egna belopp",
-      kolumner: ["B", "C", "D", "E", "F", "G"],
+      kolumner: ["B", "C", "D", "E", "F"],
       kolumnRubriker: [
         "Schablon",
         "Ingår i avgiften?",
         "Eget belopp",
         "Belopp som räknas",
-        "Ändring, lägsta",
-        "Ändring, högsta",
+        "Ändring mot schablon",
       ],
       rader: [
         ...drift(
@@ -913,14 +911,14 @@ function sektioner(): Sektion[] {
         ...drift(
           "Vatten",
           "Vatten",
-          "ROUND(Schablon_Vatten_Per_M2*IF(ISNUMBER(Boarea),Boarea,0),0)",
+          "ROUND(Schablon_Vatten_Per_Person*MAX(1,INT(AntalPersoner)),0)",
           "Avgift_Vatten",
-          true,
+          false,
         ),
         ...drift("Bredband", "Bredband", "ROUND(Schablon_Bredband,0)", "Avgift_Bredband", false),
         ...drift(
           "Hemforsakring",
-          "Hemförsäkring inkl. bostadsrättstillägg",
+          "Hemförsäkring (utan bostadsrättstillägg)",
           "INDEX(KV_G_Hemforsakring,MIN(7,MAX(1,INT(AntalPersoner))))",
           null,
           false,
@@ -935,31 +933,17 @@ function sektioner(): Sektion[] {
           stark: true,
         },
         {
-          key: "baseLow",
-          etikett: "Drift i lägsta fallet (osäkra poster ingår i avgiften), schablon",
-          f: [
-            'IF({d_Hushallsel@C}="nej",{d_Hushallsel@B},0)+IF({d_Varme@C}="nej",{d_Varme@B},0)+IF({d_Vatten@C}="nej",{d_Vatten@B},0)+IF({d_Bredband@C}="nej",{d_Bredband@B},0)+{d_Hemforsakring@B}',
-          ],
-          fmt: FMT.kr,
-        },
-        {
-          key: "baseHigh",
-          etikett: "Drift i högsta fallet (osäkra poster ingår inte), schablon",
+          key: "baseDrift",
+          etikett: "Drift som inte ingår i avgiften, schablon",
           f: [
             'IF({d_Hushallsel@C}="ja",0,{d_Hushallsel@B})+IF({d_Varme@C}="ja",0,{d_Varme@B})+IF({d_Vatten@C}="ja",0,{d_Vatten@B})+IF({d_Bredband@C}="ja",0,{d_Bredband@B})+{d_Hemforsakring@B}',
           ],
           fmt: FMT.kr,
         },
         {
-          key: "deltaLow",
-          etikett: "Egna belopp: ändring mot schablon, lägsta",
+          key: "deltaDrift",
+          etikett: "Egna belopp: ändring mot schablon",
           f: ["{d_Hushallsel@F}+{d_Varme@F}+{d_Vatten@F}+{d_Bredband@F}+{d_Hemforsakring@F}"],
-          fmt: FMT.kr,
-        },
-        {
-          key: "deltaHigh",
-          etikett: "Egna belopp: ändring mot schablon, högsta",
-          f: ["{d_Hushallsel@G}+{d_Varme@G}+{d_Vatten@G}+{d_Bredband@G}+{d_Hemforsakring@G}"],
           fmt: FMT.kr,
         },
       ],
@@ -1011,7 +995,7 @@ function sektioner(): Sektion[] {
         {
           key: "arlig",
           etikett: "Räntekostnad per år",
-          f: "IF(ISNUMBER(Lanebelopp),Lanebelopp,0)*({rate}/100)",
+          f: "{lan@B}*({rate}/100)",
           fmt: FMT.kr,
         },
         {
@@ -1023,7 +1007,7 @@ function sektioner(): Sektion[] {
         {
           key: "amortRaw",
           etikett: "Amortering per månad, oavrundad",
-          f: "IF(ISNUMBER(Lanebelopp),Lanebelopp,0)*({takt@B}/100)/12",
+          f: "{lan@B}*({takt@B}/100)/12",
           fmt: FMT.decimal,
         },
         {
@@ -1095,50 +1079,24 @@ function sektioner(): Sektion[] {
           fmt: FMT.decimal,
         },
         {
-          key: "bruttoLagBas",
-          etikett: "Total före ränteavdrag, lägsta (schablon)",
-          f: "ROUND({fasta}+{baseLow@B},0)",
+          key: "bruttoBas",
+          etikett: "Total före ränteavdrag (schablon)",
+          f: "ROUND({fasta}+{baseDrift@B},0)",
           fmt: FMT.kr,
         },
         {
-          key: "bruttoHogBas",
-          etikett: "Total före ränteavdrag, högsta (schablon)",
-          f: "ROUND({fasta}+{baseHigh@B},0)",
+          key: "totBrutto",
+          etikett: "Total före ränteavdrag",
+          f: "{bruttoBas}+{deltaDrift@B}",
           fmt: FMT.kr,
         },
         {
-          key: "bruttoLag",
-          etikett: "Total före ränteavdrag, lägsta",
-          f: "{bruttoLagBas}+{deltaLow@B}",
-          fmt: FMT.kr,
-        },
-        {
-          key: "bruttoHog",
-          etikett: "Total före ränteavdrag, högsta",
-          f: "{bruttoLag}+({bruttoHogBas}-{bruttoLagBas})+({deltaHigh@B}-{deltaLow@B})",
-          fmt: FMT.kr,
-        },
-        {
-          key: "nettoLag",
-          etikett: "Total månadskostnad efter ränteavdrag, lägsta",
-          f: "{bruttoLag}-{avdrag}",
+          key: "totNetto",
+          etikett: "Total månadskostnad efter ränteavdrag",
+          f: "{totBrutto}-{avdrag}",
           fmt: FMT.kr,
           stark: true,
           resultat: true,
-        },
-        {
-          key: "nettoHog",
-          etikett: "Total månadskostnad efter ränteavdrag, högsta",
-          f: "{bruttoHog}-{avdrag}",
-          fmt: FMT.kr,
-          stark: true,
-          resultat: true,
-        },
-        {
-          key: "harSpann",
-          etikett: "Totalen är ett spann (1 = ja)",
-          f: "IF({nettoHog}>{nettoLag},1,0)",
-          fmt: FMT.tal,
         },
         {
           key: "betalar",
@@ -1167,7 +1125,7 @@ function sektioner(): Sektion[] {
         {
           key: "kalpSaknas",
           etikett: "Saknas",
-          f: '=IF(ISNUMBER(Lanebelopp),"","lånebelopp, ")&IF(ISNUMBER(Kontantinsats),"","kontantinsats, ")&IF(ISNUMBER(Manadsavgift),"","månadsavgift, ")&IF({inkomstIfylld@B}=1,"","bruttoinkomst, ")&IF(ISNUMBER(Boarea),"","boarea, ")'.slice(
+          f: '=IF(ISNUMBER(Pris),"","pris, ")&IF(ISNUMBER(Kontantinsats),"","kontantinsats, ")&IF(ISNUMBER(Manadsavgift),"","månadsavgift, ")&IF({inkomstIfylld@B}=1,"","bruttoinkomst, ")&IF(ISNUMBER(Boarea),"","boarea, ")'.slice(
             1,
           ),
           fmt: "text",
@@ -1198,13 +1156,13 @@ function sektioner(): Sektion[] {
         {
           key: "kalpRanta",
           etikett: "Ränta vid kalkylräntan",
-          f: "ROUND(IF(ISNUMBER(Lanebelopp),Lanebelopp,0)*(Kalkylranta/100)/12,0)",
+          f: "ROUND({lan@B}*(Kalkylranta/100)/12,0)",
           fmt: FMT.kr,
         },
         {
           key: "kalpAmort",
           etikett: "Amortering",
-          f: "ROUND(IF(ISNUMBER(Lanebelopp),Lanebelopp,0)*({takt@B}/100)/12,0)",
+          f: "ROUND({lan@B}*({takt@B}/100)/12,0)",
           fmt: FMT.kr,
         },
         {
@@ -1416,6 +1374,7 @@ function byggBerakning(wb: ExcelJS.Workbook): Map<string, number> {
     for (const r of s.rader) {
       const a = ws.getCell(`A${rad}`);
       a.value = r.etikett;
+      if (r.namn !== undefined) wb.definedNames.add(adr(BLAD_BERAKNING, `$B$${rad}`), r.namn);
       if (r.stark) stil(a, { bold: true });
       s.kolumner.forEach((kol, i) => {
         const mall = Array.isArray(r.f) ? r.f[i] : r.f;

@@ -9,7 +9,7 @@ function kalkyl(delar: Partial<KalkylSida> = {}): KalkylUnderlag {
 }
 
 const KOMPLETT: Partial<KalkylSida> = {
-  lanebelopp: "3960000",
+  pris: "4950000",
   kontantinsats: "990000",
   ranta: "3,6",
   manadsavgift: "3240",
@@ -22,7 +22,9 @@ const KOMPLETT: Partial<KalkylSida> = {
 
 describe("belåningsgrad och amorteringstakt (Lag 2026:226 7 §)", () => {
   const takt = (lan: string, kont: string) =>
-    beraknaKalkyl(kalkyl({ ...KOMPLETT, lanebelopp: lan, kontantinsats: kont })).lan;
+    beraknaKalkyl(
+      kalkyl({ ...KOMPLETT, pris: String(Number(lan) + Number(kont)), kontantinsats: kont }),
+    ).lan;
 
   it("exakt 50 % ger ingen amortering, strax över ger 1 %", () => {
     expect(takt("5000000", "5000000").amorteringstaktProcent).toBe(0);
@@ -45,7 +47,7 @@ describe("belåningsgrad och amorteringstakt (Lag 2026:226 7 §)", () => {
 
   it("skuldkvoten påverkar aldrig takten", () => {
     const r = beraknaKalkyl(
-      kalkyl({ ...KOMPLETT, lanebelopp: "4500000", kontantinsats: "500000", inkomst1: "100000" }),
+      kalkyl({ ...KOMPLETT, pris: "5000000", kontantinsats: "500000", inkomst1: "100000" }),
     );
     expect(r.lan.amorteringstaktProcent).toBe(2);
     expect(r.lan.overBankernasTypiskaTak).toBe(true);
@@ -60,16 +62,36 @@ describe("belåningsgrad och amorteringstakt (Lag 2026:226 7 §)", () => {
 describe("bolånetaket 90 %", () => {
   it("exakt 10 % kontantinsats är godkänt, strax under ger fel", () => {
     expect(
-      beraknaKalkyl(kalkyl({ lanebelopp: "9000000", kontantinsats: "1000000" })).lan
-        .kontantinsatsFel,
+      beraknaKalkyl(kalkyl({ pris: "10000000", kontantinsats: "1000000" })).lan.kontantinsatsFel,
     ).toBeNull();
-    const fel = beraknaKalkyl(kalkyl({ lanebelopp: "9000100", kontantinsats: "999900" })).lan
+    const fel = beraknaKalkyl(kalkyl({ pris: "10000000", kontantinsats: "999900" })).lan
       .kontantinsatsFel;
-    expect(fel).toMatch(/minst 10 %/);
+    expect(fel).toMatch(/minst 10 % av priset/);
   });
 
-  it("inget fel när kontantinsatsen inte är ifylld", () => {
-    expect(beraknaKalkyl(kalkyl({ lanebelopp: "3000000" })).lan.kontantinsatsFel).toBeNull();
+  it("kontantinsats större än priset ger ett eget fel och 0 kr lån", () => {
+    const r = beraknaKalkyl(kalkyl({ pris: "3000000", kontantinsats: "3000001" }));
+    expect(r.lan.kontantinsatsFel).toMatch(/inte vara större än priset/);
+    expect(r.lan.lanebelopp).toBe(0);
+    // Kontantinsats lika med priset: inget lån, inget fel.
+    const lika = beraknaKalkyl(kalkyl({ pris: "3000000", kontantinsats: "3000000" }));
+    expect(lika.lan.kontantinsatsFel).toBeNull();
+    expect(lika.lan.lanebelopp).toBe(0);
+    expect(lika.lan.amorteringstaktProcent).toBe(0);
+  });
+
+  it("lån = pris − kontantinsats och bostadens värde = priset", () => {
+    const r = beraknaKalkyl(kalkyl({ ...KOMPLETT, pris: "5260000", kontantinsats: "789000" }));
+    expect(r.lan.lanebelopp).toBe(4_471_000);
+    expect(r.lan.bostadsvarde).toBe(5_260_000);
+    expect(r.lan.belaningsgradProcent).toBeCloseTo(85, 5);
+  });
+
+  it("inget fel när kontantinsatsen inte är ifylld, och inget lån räknas", () => {
+    const r = beraknaKalkyl(kalkyl({ pris: "3000000" }));
+    expect(r.lan.kontantinsatsFel).toBeNull();
+    expect(r.lan.lanebelopp).toBe(0);
+    expect(r.fyllt.belaning).toBe(false);
   });
 });
 
@@ -80,7 +102,7 @@ describe("ränteavdrag: en beräkning överallt", () => {
         ...KOMPLETT,
         antalLantagare: "1",
         inkomst1: "150000",
-        lanebelopp: "4455000",
+        pris: "4950000",
         kontantinsats: "495000",
         ranta: "3",
       }),
@@ -100,7 +122,7 @@ describe("ränteavdrag: en beräkning överallt", () => {
         ...KOMPLETT,
         antalLantagare: "1",
         inkomst1: "900000",
-        lanebelopp: "3750000",
+        pris: "5000000",
         kontantinsats: "1250000",
         ranta: "4",
       }),
@@ -114,7 +136,7 @@ describe("ränteavdrag: en beräkning överallt", () => {
         ...KOMPLETT,
         inkomst1: "900000",
         inkomst2: "900000",
-        lanebelopp: "3750000",
+        pris: "5000000",
         kontantinsats: "1250000",
         ranta: "4",
       }),
@@ -159,7 +181,7 @@ describe("tomma och ogiltiga fält", () => {
     expect(r.kalp.beraknad).toBe(false);
     expect(r.kalp.kvarAttLevaPa).toBeNull();
     expect(r.kalp.saknas).toEqual([
-      "lånebelopp",
+      "pris",
       "kontantinsats",
       "månadsavgift",
       "bruttoinkomst",
@@ -167,7 +189,6 @@ describe("tomma och ogiltiga fält", () => {
     ]);
     expect(sammanfattaKalkyl(kalkyl())).toEqual({
       totalPerManad: null,
-      totalPerManadHog: null,
       belaningsgradProcent: null,
       amorteringstaktProcent: null,
       kvarAttLevaPaKalp: null,
@@ -179,10 +200,10 @@ describe("tomma och ogiltiga fält", () => {
       ...tomSida(),
       ...KOMPLETT,
       ranta: "abc",
-      lanebelopp: "-5",
+      pris: "-5",
     });
     expect(fel.ranta).toBeTruthy();
-    expect(fel.lanebelopp).toBe("Värdet kan inte vara negativt.");
+    expect(fel.pris).toBe("Värdet kan inte vara negativt.");
     expect(underlag.rantaProcent).toBeUndefined();
     const r = beraknaKalkyl(underlag);
     expect(Number.isNaN(r.nu.betalarPerManad)).toBe(false);
@@ -194,10 +215,10 @@ describe("tomma och ogiltiga fält", () => {
     expect(r.fyllt.boarea).toBe(false);
     expect(r.fyllt.total).toBe(false);
     const rad = (id: string) => r.drift.find((d) => d.id === id);
-    // Värme och vatten är per m² boarea och saknar värde utan boarea;
-    // hushållsel och hemförsäkring följer antal personer (Konsumentverket 2026).
+    // Bara värme är per m² boarea och saknar värde utan boarea; vatten (135 kr per
+    // person sedan 2026-10-28), hushållsel och hemförsäkring följer antal personer.
     expect(rad("varme")?.schablon).toBeNull();
-    expect(rad("vatten")?.schablon).toBeNull();
+    expect(rad("vatten")?.schablon).toBe(270); // 2 personer
     expect(rad("hushallsel")?.schablon).toBe(530); // 2 personer
     expect(rad("hemforsakring")?.schablon).toBe(170); // 2 personer
     expect(rad("bredband")?.schablon).toBe(349);
@@ -217,22 +238,71 @@ describe("drift och egna värden", () => {
     expect(alla - utanVarme).toBe(1218); // 21 × 58
   });
 
-  it("okänd post ger ett spann; eget värde flyttar bara de scenarier där posten räknas", () => {
-    const okant = { varme: "okant", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" } as const;
-    const bas = beraknaKalkyl(kalkyl({ ...KOMPLETT, avgiftInkluderar: okant }));
-    expect(bas.nu.summor.harSpann).toBe(true);
-    expect(bas.nu.summor.nettoHog - bas.nu.summor.nettoLag).toBe(1218);
+  it("eget värde flyttar totalen bara för poster som räknas med", () => {
+    const bas = beraknaKalkyl(
+      kalkyl({
+        ...KOMPLETT,
+        avgiftInkluderar: { varme: "ja", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" },
+      }),
+    );
     const med = beraknaKalkyl(
       kalkyl({
         ...KOMPLETT,
-        avgiftInkluderar: okant,
+        avgiftInkluderar: { varme: "ja", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" },
         egnaKostnader: { varme: 1500, hushallsel: 1000 },
       }),
     );
-    // El (nej): +470 i båda; värme (okänt): +282 bara i högt scenario.
-    const elDiff = 1000 - 530;
-    expect(med.nu.summor.nettoLag - bas.nu.summor.nettoLag).toBe(elDiff);
-    expect(med.nu.summor.nettoHog - bas.nu.summor.nettoHog).toBe(elDiff + (1500 - 1218));
+    // El (ingår ej): +470. Värme ingår i avgiften, så ett eget värme-belopp påverkar inget.
+    expect(med.nu.summor.netto - bas.nu.summor.netto).toBe(1000 - 530);
+  });
+
+  it("regressionsfall (design 2026-10-28): 19 828 kr/mån", () => {
+    const fall = {
+      pris: "5260000",
+      kontantinsats: "789000",
+      ranta: "3",
+      manadsavgift: "3503",
+      boarea: "48",
+      antalPersoner: "2",
+      antalLantagare: "2" as const,
+      inkomst1: "",
+      inkomst2: "",
+      avgiftInkluderar: {
+        varme: "ja",
+        vatten: "ja",
+        el: "nej",
+        bredband: "nej",
+        tv: "ja",
+      } as const,
+    };
+    const r = beraknaKalkyl(kalkyl(fall));
+    const rad = (id: string) => r.drift.find((d) => d.id === id);
+    expect(r.nu.rantekostnad).toBe(11_178);
+    expect(r.nu.ranteavdragPerManad).toBe(3_353);
+    expect(r.nu.amortering).toBe(7_452);
+    expect(r.nu.manadsavgift).toBe(3_503);
+    expect(rad("hushallsel")?.belopp).toBe(530);
+    expect(rad("bredband")?.belopp).toBe(349);
+    expect(rad("hemforsakring")?.belopp).toBe(170);
+    expect(r.nu.summor.netto).toBe(19_828);
+    expect(r.nu.summor.brutto).toBe(19_828 + 3_353);
+    expect(sammanfattaKalkyl(kalkyl(fall)).totalPerManad).toBe(19_828);
+
+    // Vatten ingår ej: +135 kr × 2 personer.
+    const utanVatten = beraknaKalkyl(
+      kalkyl({ ...fall, avgiftInkluderar: { ...fall.avgiftInkluderar, vatten: "nej" } }),
+    );
+    expect(utanVatten.nu.summor.netto - r.nu.summor.netto).toBe(270);
+  });
+
+  it("förvalen i kalkylen: värme och vatten ingår, el, bredband och tv ingår ej", () => {
+    expect(kalkyl().avgiftInkluderar).toEqual({
+      varme: "ja",
+      vatten: "ja",
+      el: "nej",
+      bredband: "nej",
+      tv: "nej",
+    });
   });
 });
 
@@ -256,7 +326,7 @@ describe("räntescenarier", () => {
 
   it("första raden är samma tal som huvudräkningen utan stress", () => {
     const r = beraknaKalkyl(u);
-    expect(r.scenarier[0]?.summor.nettoLag).toBe(r.nu.summor.nettoLag);
+    expect(r.scenarier[0]?.summor.netto).toBe(r.nu.summor.netto);
   });
 
   it("utan räntekänslighet stressas bara räntan, med känslighet även avgiften", () => {

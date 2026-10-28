@@ -13,12 +13,20 @@ function regelvarde(id: string): number {
  * (src/lib/kalkyl/regler.ts), som är enda källan:
  *  - hushållsel och hemförsäkring: Konsumentverket, Hushållskostnader 2026,
  *    per antal personer i hushållet (ingen del per m²);
- *  - värme och vatten: Nils Holgersson-rapporten 2026, per m² boarea och
- *    månad (räknas bara med när de inte ingår i avgiften);
+ *  - värme (inklusive energin för varmvatten): Nils Holgersson 2026, per m²
+ *    boarea och månad (räknas bara med när värmen inte ingår i avgiften);
+ *  - vatten: 135 kr per person och månad (Konsumentverket 2026, 45,61 m³ per
+ *    person och år × Nils Holgersson 2026, Stockholm, ca 35,54 kr/m³),
+ *    räknas bara med när vatten inte ingår i avgiften;
  *  - bredband: Binfos uppskattning (ingen publicerad källa).
  *
  * TODO: unverified placeholder — bredbandsbeloppet (349 kr) saknar källa.
  */
+
+/** Field hints on /bolanekalkyl; schabloner.test.ts checks that they match
+ *  what the schablons depend on (boarea: värme; persons: el, vatten, försäkring). */
+export const BOAREA_HINT = "Styr schablonen för värme";
+export const PERSONER_HINT = "Styr schablonerna för hushållsel, vatten och hemförsäkring";
 
 export type SchablonId = "el" | "varme" | "vatten" | "bredband" | "forsakring";
 
@@ -59,16 +67,17 @@ export function schablonVarme(boarea: number): Figure {
   const perM2 = regelvarde("schablon_varme_per_m2");
   return schablon(
     perM2 * boarea,
-    `Nils Holgersson 2026: ${perM2} kr/m² boarea och månad × ${boarea} m² boarea`,
+    `Nils Holgersson 2026 (inklusive energin för varmvatten): ${perM2} kr/m² boarea och månad × ${boarea} m² boarea`,
   );
 }
 
-/** Vatten — kr per m² boarea och månad (Nils Holgersson 2026, VA Stockholm). */
-export function schablonVatten(boarea: number): Figure {
-  const perM2 = regelvarde("schablon_vatten_per_m2");
+/** Vatten — kr per person och månad (Konsumentverket 2026 × Nils Holgersson 2026, Stockholm). */
+export function schablonVatten(personer: number): Figure {
+  const perPerson = regelvarde("schablon_vatten_per_person");
+  const antal = Math.max(1, Math.trunc(personer) || 1);
   return schablon(
-    perM2 * boarea,
-    `Nils Holgersson 2026: ${perM2} kr/m² boarea och månad × ${boarea} m² boarea`,
+    perPerson * antal,
+    `Konsumentverket 2026 (45,61 m³ per person och år) × Nils Holgersson 2026 (Stockholm, ca 35,54 kr/m³): ${perPerson} kr per person och månad × ${antal} ${antal === 1 ? "person" : "personer"}`,
   );
 }
 
@@ -90,7 +99,7 @@ export function schabloner(boarea: number, personer: number): Record<SchablonId,
   return {
     el: schablonEl(personer),
     varme: schablonVarme(boarea),
-    vatten: schablonVatten(boarea),
+    vatten: schablonVatten(personer),
     bredband: schablonBredband(),
     forsakring: schablonForsakring(personer),
   };

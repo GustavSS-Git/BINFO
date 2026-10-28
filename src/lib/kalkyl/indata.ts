@@ -35,7 +35,7 @@ export interface Faltgrans {
 }
 
 export const FALTGRANSER = {
-  lanebelopp: { min: 0, max: 100_000_000, enhet: "kr" },
+  pris: { min: 0, max: 100_000_000, enhet: "kr" },
   kontantinsats: { min: 0, max: 100_000_000, enhet: "kr" },
   ranta: { min: 0, max: 30, enhet: "%" },
   manadsavgift: { min: 0, max: 100_000, enhet: "kr" },

@@ -128,7 +128,7 @@ export function beraknaManadskostnad(
     },
     {
       id: "hemforsakring",
-      label: "Hemförsäkring inkl. bostadsrättstillägg",
+      label: "Hemförsäkring (utan bostadsrättstillägg)",
       figure: s.forsakring,
       overriddenByUser: false,
       ingarIAvgift: false,

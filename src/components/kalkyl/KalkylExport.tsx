@@ -6,7 +6,7 @@ type Status = "vilar" | "pdf" | "excel" | "fel";
 
 /** Minsta uppgifter för att en export ska vara meningsfull. */
 function kanExportera(u: KalkylUnderlag): boolean {
-  return u.lanebelopp !== undefined && u.rantaProcent !== undefined;
+  return u.pris !== undefined && u.rantaProcent !== undefined;
 }
 
 export function KalkylExport({
@@ -49,7 +49,7 @@ export function KalkylExport({
       </div>
       {!klar ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Fyll i lånebelopp och ränta för att kunna ladda ner kalkylen.
+          Fyll i pris och ränta för att kunna ladda ner kalkylen.
         </p>
       ) : (
         <p className="mt-2 text-sm text-muted-foreground">

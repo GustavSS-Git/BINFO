@@ -15,7 +15,12 @@ const noop = () => {};
 const vy = (lage: ExportLage) =>
   renderToStaticMarkup(<SparadKalkylExportVy lage={lage} onKlick={noop} />);
 
-const underlag = underlagFranSida({ ...tomSida(), lanebelopp: "2000000", ranta: "4" }).underlag;
+const underlag = underlagFranSida({
+  ...tomSida(),
+  pris: "2500000",
+  kontantinsats: "500000",
+  ranta: "4",
+}).underlag;
 const kalkyl = (u: SparadKalkyl["underlag"]): HamtaSparadKalkylSvar => ({
   ok: true,
   kalkyl: {

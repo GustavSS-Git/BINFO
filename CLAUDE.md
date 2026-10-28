@@ -225,8 +225,10 @@ per-apartment cost in kronor, and what to do before bidding.
   - Drift schablons (2026-10-26, `REGELVERSION` "2026-10-26b"; `regler.ts` is
     the single source, `calc/schabloner.ts` reads it; `docs/driftschabloner-kallor.md`):
     hushållsel and hemförsäkring = Konsumentverket 2026 by persons (1–7);
-    värme 21 kr/m² and vatten 6 kr/m² boarea (Nils Holgersson 2026, Stockholm),
-    only when "Ingår ej" (default "Ingår"); bredband 349 kr and the 5× bank
+    värme 21 kr/m² boarea (Nils Holgersson 2026, Stockholm, incl. varmvatten);
+    vatten 135 kr per person (since 2026-10-28, `REGELVERSION` "2026-10-28":
+    KV 45,61 m³/person × NH Stockholm 35,54 kr/m³); värme and vatten only when
+    "Ingår ej" (default "Ingår"); bredband 349 kr and the 5× bank
     skuldkvot stay "Binfos uppskattning"/"antagande" (no published source).
     Värme and vatten exist ONLY in the kalkyl: the analysis/report never asks
     about, counts or shows them (owner 2026-10-26).
