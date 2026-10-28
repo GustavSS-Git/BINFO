@@ -75,6 +75,7 @@ function AnalysSida() {
     <div className="mx-auto w-full max-w-[1200px] px-4 py-12 sm:px-8 md:py-16">
       <AnalysRapport
         analys={analys}
+        lankaFranKalkyl
         sparaSlot={<SparaAnalysVy variant="topp" {...sparaTillstand} />}
         sparaKort={<SparaAnalysVy variant="kort" {...sparaTillstand} />}
       />

@@ -12,7 +12,10 @@ import type { AnalysisResult } from "@/types/analysis";
  * De två åtgärderna som rapporten erbjuder på flera ställen (huvudet och slutrutan):
  * ladda ner PDF och räkna vidare i bolånekalkylen med uppgifterna ur rapporten.
  */
-export function useRapportAtgarder(analys: AnalysisResult) {
+export function useRapportAtgarder(
+  analys: AnalysisResult,
+  { lankaTillbaka = false }: { lankaTillbaka?: boolean } = {},
+) {
   const navigate = useNavigate();
   const [pdfStatus, setPdfStatus] = useState<"vilande" | "skapar" | "fel">("vilande");
 
@@ -54,6 +57,8 @@ export function useRapportAtgarder(analys: AnalysisResult) {
         ? true
         : undefined,
     ...ingarForSok(analys.forening.avgiftInkluderarEnligtForening),
+    // Bara riktiga rapporter: /exempel har ingen analys att gå tillbaka till.
+    ...(lankaTillbaka ? { analys: analys.analysisId } : {}),
   };
 
   const tillKalkyl = () => void navigate({ to: "/bolanekalkyl", search: bolanekalkylSearch });

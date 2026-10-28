@@ -133,6 +133,7 @@ export function sidaFranSokning(search: BolanekalkylSearch): KalkylSida {
       ...(search.prisUppskattning !== undefined
         ? { prisArUppskattning: search.prisUppskattning }
         : {}),
+      ...(search.analys !== undefined ? { analysisId: search.analys } : {}),
     };
   }
   return sida;

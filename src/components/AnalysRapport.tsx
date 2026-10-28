@@ -26,15 +26,20 @@ export function AnalysRapport({
   analys,
   sparaSlot,
   sparaKort,
+  lankaFranKalkyl = false,
 }: {
   analys: AnalysisResult;
+  /** Sant på /forhandsvisning och /analys: bolånekalkylen får länka tillbaka hit. */
+  lankaFranKalkyl?: boolean;
   /** "Spara analysen" som knapp i åtgärdsraden (på /forhandsvisning och /analys).
    *  Saknas på /exempel. */
   sparaSlot?: ReactNode;
   /** Den större "Spara analysen i din profil"-rutan före friskrivningen. */
   sparaKort?: ReactNode;
 }) {
-  const { pdfStatus, hamtaPdf, tillKalkyl } = useRapportAtgarder(analys);
+  const { pdfStatus, hamtaPdf, tillKalkyl } = useRapportAtgarder(analys, {
+    lankaTillbaka: lankaFranKalkyl,
+  });
   const byggarJamforelse = analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar");
   const omrade = rapportOmrade(analys.prisanalys.varderingsunderlag);
 

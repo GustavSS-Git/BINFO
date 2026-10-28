@@ -197,6 +197,14 @@ describe("/bolanekalkyl: redesignad sida", () => {
     expect(html).not.toContain("Till rapporten");
   });
 
+  it("remsan länkar 'Till rapporten' när rapporten skickade sitt id", () => {
+    const id = "3f2c1a9e-8b7d-4c6e-9a10-1234567890ab";
+    sokning.current = { pris: 5_260_000, analys: id };
+    const html = rita();
+    // Link är mockad i testet (ingen href); att länken renderas räcker här.
+    expect(html).toContain("Till rapporten");
+  });
+
   it("uppskattat pris märks som uppskattning", () => {
     sokning.current = { pris: 5_000_000, prisUppskattning: true };
     expect(rita()).toContain("Binfos uppskattning av priset enligt rapporten");

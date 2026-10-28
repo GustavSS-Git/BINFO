@@ -161,6 +161,7 @@ function KlarInnehall({ analysisId, loaderData }: { analysisId: string; loaderDa
 
       <AnalysRapport
         analys={analys}
+        lankaFranKalkyl
         sparaSlot={<SparaAnalysVy variant="topp" {...sparaTillstand} />}
         sparaKort={<SparaAnalysVy variant="kort" {...sparaTillstand} />}
       />

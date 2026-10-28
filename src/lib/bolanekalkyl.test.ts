@@ -23,6 +23,12 @@ describe("parseBolanekalkylSearch", () => {
     expect(parseBolanekalkylSearch({ prisUppskattning: 2 }).prisUppskattning).toBeUndefined();
   });
 
+  it("tolkar analys (uuid) för länken tillbaka och ignorerar skräp", () => {
+    const id = "3f2c1a9e-8b7d-4c6e-9a10-1234567890ab";
+    expect(parseBolanekalkylSearch({ analys: id }).analys).toBe(id);
+    expect(parseBolanekalkylSearch({ analys: "inte-ett-id" }).analys).toBeUndefined();
+  });
+
   it("tolkar sparad (uuid) och spara (bara kalkyl) och kastar aldrig på skräp", () => {
     const id = "3f2c1a9e-8b7d-4c6e-9a10-1234567890ab";
     expect(parseBolanekalkylSearch({ sparad: id }).sparad).toBe(id);

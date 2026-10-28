@@ -48,6 +48,9 @@ export interface BolanekalkylSearch {
   /** Avgiftsposter som rapporten säger INTE ingår i avgiften. Samma format. En nyckel
    *  som står i både `ingar` och `ingarEj` är motsägelsefull och ignoreras i båda. */
   ingarEj?: string | undefined;
+  /** Id (uuid) på analysen som länkade hit, så att kalkylen kan länka tillbaka
+   *  ("Till rapporten"). Sätts bara av riktiga rapporter, aldrig av /exempel. */
+  analys?: string | undefined;
   /** Id (uuid) på en sparad kalkyl i kontot som ska öppnas (`?sparad=`).
    *  Valfri nyckel så att länkar från andra sidor inte behöver ange den; tolkaren
    *  sätter den ändå alltid (till `undefined` vid skräp), se kommentaren ovan. */
@@ -171,6 +174,7 @@ export function parseBolanekalkylSearch(search: Record<string, unknown>): Bolane
     boarea: tolkaPositivtTal(search["boarea"]),
     prisUppskattning: tolkaBoolean(search["prisUppskattning"]),
     ...tolkaAvgiftListor(search),
+    analys: tolkaUuid(search["analys"]),
     sparad: tolkaUuid(search["sparad"]),
     spara: parseSparaTyp(search["spara"]) === "kalkyl" ? "kalkyl" : undefined,
   };
