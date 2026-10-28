@@ -1,75 +1,78 @@
 import type { ReactNode } from "react";
-import { Card, Badge } from "@/components/ui/binfo";
+import { Badge, Eyebrow } from "@/components/ui/binfo";
 import { kr } from "@/data/mockData";
-import { byggarMarkor, formatSkapadDatum } from "@/lib/analysisView";
+import { byggarMarkor, formatBoareaKort, formatSkapadDatum } from "@/lib/analysisView";
 import type { Faltjamforelse, PropertyInput } from "@/types/analysis";
 
 /**
- * Liten sammanfattning av objektet — visas överst på rapportskärmar. Kräver
- * sina props explicit (inget prop-löst fallback-läge) så att ingen call-site
- * av misstag kan råka rendera exempeldata i tron att det är en ofarlig
- * placeholder — se AnalysRapport.tsx för den enda call-siten.
+ * Rapportens huvud (redesign v4): "Rapport · analyserad <datum>", adressen som h1,
+ * en rad med objektets uppgifter och åtgärdsknapparna (`children`). Det ÄR sidans
+ * rubrik, så rapportsidorna lägger ingen egen PageHeader. Kräver sina props explicit
+ * (inget prop-löst fallback-läge) så att ingen call-site av misstag kan råka rendera
+ * exempeldata — se AnalysRapport.tsx för den enda call-siten.
  */
 export function PropertySummary({
   input,
   foreningNamn,
   skapad,
   byggarJamforelse,
+  omrade,
+  children,
 }: {
   input: PropertyInput;
   foreningNamn: string;
   skapad: string;
   /** Raden `falt === "byggar"` ur `uppgiftsjamforelse`; saknas på äldre resultat. */
   byggarJamforelse?: Faltjamforelse | undefined;
+  /** Området värderingen gäller (modellens område, annars kommunen). */
+  omrade?: string | undefined;
+  /** Åtgärdsknapparna (PDF, Spara, kalkyl). */
+  children?: ReactNode;
 }) {
   const byggar = byggarMarkor(byggarJamforelse, input.byggar);
-  const rows: Array<[string, ReactNode]> = [
-    // Utgångspriset är valfritt: raden utelämnas helt när det saknas.
-    ...(input.utgangspris !== undefined
-      ? [["Utgångspris", kr(input.utgangspris)] as [string, ReactNode]]
-      : []),
-    ["Boarea", `${input.boarea.toFixed(1).replace(".", ",")} m²`],
-    ["Månadsavgift", `${kr(input.manadsavgift)}/mån`],
-    // Kontraktet har ingen "våning X av N" — bara en enskild våning, om känd.
-    ["Våning", input.vaning !== undefined ? String(input.vaning) : "Okänt"],
-    [
-      "Byggår",
-      <>
-        <span title={byggar.forklaring} className="inline-flex flex-wrap items-center gap-2">
-          {byggar.varde}
-          {byggar.markor ? <Badge tone={byggar.markor.ton}>{byggar.markor.text}</Badge> : null}
-          {byggar.forklaring ? <span className="sr-only">{byggar.forklaring}</span> : null}
-        </span>
-        {byggar.rad ? (
-          <span className="mt-1 block text-xs font-normal text-muted-foreground">{byggar.rad}</span>
-        ) : null}
-      </>,
-    ],
-  ];
+  // Adressen rensas efter 12 månader (GDPR); rapporten finns kvar och rubriken blir föreningens namn.
+  const adressKvar = input.adress !== "";
+  const byggarDel =
+    byggar.varde === "Okänt"
+      ? undefined
+      : byggar.markor?.text === "Värdeår enligt årsredovisningen"
+        ? `värdeår ${byggar.varde} enligt årsredovisningen`
+        : byggar.markor?.text === "Från årsredovisningen"
+          ? `byggår ${byggar.varde} enligt årsredovisningen`
+          : `byggår ${byggar.varde}`;
+  const delar = [
+    adressKvar ? foreningNamn : undefined,
+    omrade,
+    `${input.antalRum} rum`,
+    formatBoareaKort(input.boarea),
+    input.vaning !== undefined ? `våning ${input.vaning}` : undefined,
+    `avgift ${kr(input.manadsavgift)}/mån`,
+    input.utgangspris !== undefined ? `utgångspris ${kr(input.utgangspris)}` : undefined,
+    byggarDel,
+  ].filter((d): d is string => d !== undefined);
+
   return (
-    <Card className="mb-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl text-foreground">{foreningNamn}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {/* Adressen rensas efter 12 månader (GDPR); rapporten finns kvar. */}
-            {/* Bara adressen (ingen ort): området framgår av postnumret i värderingen. */}
-            {input.adress !== "" ? input.adress : "Adressen raderad efter 12 månader"} ·{" "}
-            {input.antalRum} rum
+    <header className="flex flex-wrap items-end justify-between gap-6">
+      <div className="flex min-w-0 max-w-[820px] flex-1 basis-[480px] flex-col gap-2">
+        <Eyebrow>Rapport · analyserad {formatSkapadDatum(skapad)}</Eyebrow>
+        <h1 className="font-display text-[34px] font-semibold leading-[1.1] text-primary md:text-[44px]">
+          {adressKvar ? input.adress : foreningNamn}
+        </h1>
+        <p
+          className="text-[17px] text-text-2"
+          {...(byggar.forklaring ? { title: byggar.forklaring } : {})}
+        >
+          {delar.join(" · ")}
+        </p>
+        {byggar.rad ? (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-text-2">
+            {byggar.markor ? <Badge tone={byggar.markor.ton}>{byggar.markor.text}</Badge> : null}
+            {byggar.rad}
+            {byggar.forklaring ? <span className="sr-only">{byggar.forklaring}</span> : null}
           </p>
-        </div>
-        <Badge tone="teal">Analyserad {formatSkapadDatum(skapad)}</Badge>
+        ) : null}
       </div>
-      <dl
-        className={`mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-6 ${rows.length === 4 ? "md:grid-cols-4" : "md:grid-cols-5"}`}
-      >
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="mt-1 text-sm font-medium text-foreground">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </Card>
+      {children ? <div className="flex flex-wrap items-center gap-2.5">{children}</div> : null}
+    </header>
   );
 }

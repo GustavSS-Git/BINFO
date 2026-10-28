@@ -6,6 +6,7 @@
  * domain figure — it selects, ranks, and formats.
  */
 import { kr } from "@/data/mockData";
+import { BETYG_TITEL } from "@/lib/betygVy";
 import { BENCHMARKS, visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
   SPARMAL_SCHABLON_KR_PER_M2,
@@ -23,7 +24,10 @@ import type {
   FeeInclusion,
   Faltjamforelse,
   Figure,
+  Forening,
+  Grade,
   KeyFigure,
+  KeyFigureId,
   PageRef,
   Prisanalys,
   RedFlag,
@@ -1410,4 +1414,664 @@ export function rantestressVy(
         },
     kommentar: r.kommentar,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Rapporten i redesign v4 (2026-10-28): rubriker, sammanfattningskort, tabeller.
+// Allt här väljer och formaterar det som redan finns i analysen; inget räknas om.
+// ---------------------------------------------------------------------------
+
+const TAL_I_ORD: Record<number, string> = {
+  0: "noll",
+  1: "en",
+  2: "två",
+  3: "tre",
+  4: "fyra",
+  5: "fem",
+  6: "sex",
+  7: "sju",
+  8: "åtta",
+  9: "nio",
+  10: "tio",
+  11: "elva",
+  12: "tolv",
+};
+
+/** 0–12 i ord ("en" för 1, i samma form som "en sak" och "en fråga"); större tal som siffror. */
+export function antalIOrd(n: number): string {
+  return TAL_I_ORD[n] ?? String(n);
+}
+
+export function medVersal(text: string): string {
+  return text.length === 0 ? text : text.charAt(0).toLocaleUpperCase("sv-SE") + text.slice(1);
+}
+
+/** "a", "a och b", "a, b och c". */
+export function listaPaSvenska(delar: string[]): string {
+  if (delar.length <= 1) return delar.join("");
+  return `${delar.slice(0, -1).join(", ")} och ${delar[delar.length - 1]}`;
+}
+
+/** "s. 4" / "s. 4, 7": unika sidnummer i stigande ordning; tom sträng utan sidor. */
+export function sidhanvisning(sidor: Array<number | undefined>): string {
+  const unika = [...new Set(sidor.filter((s): s is number => s !== undefined))].sort(
+    (a, b) => a - b,
+  );
+  return unika.length === 0 ? "" : `s. ${unika.join(", ")}`;
+}
+
+/**
+ * Första meningen av en längre text (betygsmotiveringen), för sammanfattningskortet.
+ * Bryter vid första punkt/utrop/frågetecken följd av ny mening; är den längre än `max`
+ * tecken kortas den vid ett ord och får "…".
+ */
+export function forstaMening(text: string, max = 150): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  const traff = /^(.+?[.!?])(?=\s+[A-ZÅÄÖ0-9]|$)/.exec(t);
+  const mening = traff?.[1] ?? t;
+  if (mening.length <= max) return mening;
+  const klipp = mening.slice(0, max);
+  const sista = klipp.lastIndexOf(" ");
+  return `${(sista > 40 ? klipp.slice(0, sista) : klipp).replace(/[\s,;:]+$/, "")}…`;
+}
+
+/** Rubriken för avsnitt 1: "Stabil ekonomi, två saker att hålla koll på". */
+export function foreningenRubrik(betyg: Grade, antalFlaggor: number): string {
+  const titel = BETYG_TITEL[betyg];
+  if (antalFlaggor <= 0) return `${titel}, inga större varningsflaggor`;
+  if (antalFlaggor === 1) return `${titel}, en sak att hålla koll på`;
+  return `${titel}, ${antalIOrd(antalFlaggor)} saker att hålla koll på`;
+}
+
+/** Nyckeltalens ordning i tabellen (sparande först, den ej bedömda sist). */
+export const NYCKELTAL_ORDNING: KeyFigureId[] = [
+  "sparande_per_m2_totalyta",
+  "skuldsattning_per_m2_brf_yta",
+  "skuldsattning_per_m2_totalyta",
+  "rantekanslighet",
+  "arsavgift_per_m2_brf_yta",
+  "energikostnad_per_m2_totalyta",
+  "arsavgift_andel_av_rorelseintakter",
+];
+
+export function sorteraNyckeltal<T extends { id: KeyFigureId }>(kfs: T[]): T[] {
+  const rang = (id: KeyFigureId) => {
+    const i = NYCKELTAL_ORDNING.indexOf(id);
+    return i === -1 ? NYCKELTAL_ORDNING.length : i;
+  };
+  return kfs
+    .map((kf, index) => ({ kf, index }))
+    .sort((a, b) => rang(a.kf.id) - rang(b.kf.id) || a.index - b.index)
+    .map((x) => x.kf);
+}
+
+export const OBEDOMT_NYCKELTAL_TEXT = "Lagstadgat nyckeltal som Binfo inte bedömer";
+
+/** "Riksgenomsnitt" / "Stockholmssnitt" ur jämförelsevärdets etikett (benchmarks.ts, ej ändrad). */
+export function jamforelseNamn(label: string): string {
+  if (/^riksgenomsnitt/i.test(label)) return "Riksgenomsnitt";
+  if (/^snitt stockholm/i.test(label)) return "Stockholmssnitt";
+  const forsta = label.split(",")[0]?.trim();
+  return forsta ? forsta : label;
+}
+
+/**
+ * Kolumnen "Jämförelse": "Riksgenomsnitt: 7 117 kr/m²", "Behov för huset: ca 300 kr/m²"
+ * (sparande, när föreningens sparbehov finns), förklaringen för det ej bedömda
+ * nyckeltalet, annars tomt.
+ */
+export function nyckeltalJamforelse(
+  kf: Pick<KeyFigure, "id" | "status" | "figure" | "benchmark">,
+  sparbehovMal?: number | undefined,
+): string {
+  if (BENCHMARKS[kf.id].riktning === "informativ") return OBEDOMT_NYCKELTAL_TEXT;
+  if (kf.id === "sparande_per_m2_totalyta" && sparbehovMal !== undefined) {
+    return `Behov för huset: ca ${Math.round(sparbehovMal).toLocaleString("sv-SE")} kr/m²`;
+  }
+  if (kf.benchmark && kf.status !== "okant") {
+    return `${jamforelseNamn(kf.benchmark.label)}: ${formatVarde(kf.benchmark.value, kf.figure.unit)}`;
+  }
+  return "";
+}
+
+const AVGIFT_POSTER: Array<[keyof FeeInclusion, string]> = [
+  ["varme", "värme"],
+  ["vatten", "vatten"],
+  ["el", "el"],
+  ["bredband", "bredband"],
+  ["tv", "tv"],
+];
+
+/**
+ * "I avgiften" som en mening över alla fem posterna, grupperade efter vad
+ * årsredovisningen säger: "Värme, vatten och tv ingår (s. 14). El ingår inte (s. 8).
+ * Bredband framgår inte." Individuell mätning läggs till som egna meningar.
+ * undefined när årsredovisningen inte behandlar avgiften alls.
+ */
+export function avgiftIngarText(
+  f: Pick<
+    Forening,
+    "avgiftInkluderarEnligtForening" | "avgiftInkluderarKallor" | "individuellMatning"
+  >,
+): string | undefined {
+  const status = f.avgiftInkluderarEnligtForening;
+  if (!status) return undefined;
+  const grupp = (vilken: "ja" | "nej" | "okant", verb: string): string | undefined => {
+    const poster = AVGIFT_POSTER.filter(([nyckel]) => status[nyckel] === vilken);
+    if (poster.length === 0) return undefined;
+    const sidor = sidhanvisning(poster.map(([nyckel]) => f.avgiftInkluderarKallor?.[nyckel]?.page));
+    return `${medVersal(listaPaSvenska(poster.map(([, namn]) => namn)))} ${verb}${sidor ? ` (${sidor})` : ""}.`;
+  };
+  const meningar = [
+    grupp("ja", "ingår"),
+    grupp("nej", "ingår inte"),
+    grupp("okant", "framgår inte"),
+  ];
+  const matning = f.individuellMatning;
+  if (matning) {
+    const poster: Array<["el" | "vatten" | "varme", string]> = [
+      ["varme", "värme"],
+      ["vatten", "vatten"],
+      ["el", "el"],
+    ];
+    for (const vilken of ["ja", "nej"] as const) {
+      const med = poster.filter(([nyckel]) => matning[nyckel]?.matning === vilken);
+      if (med.length === 0) continue;
+      const sidor = sidhanvisning(med.map(([nyckel]) => matning[nyckel]?.ref.page));
+      meningar.push(
+        `${vilken === "ja" ? "Individuell mätning av" : "Ingen individuell mätning av"} ${listaPaSvenska(med.map(([, namn]) => namn))}${sidor ? ` (${sidor})` : ""}.`,
+      );
+    }
+  }
+  const ut = meningar.filter((m): m is string => m !== undefined);
+  return ut.length === 0 ? undefined : ut.join(" ");
+}
+
+/**
+ * "Föreningen" under "Mer ur årsredovisningen": de citerade antalen och byggår/värdeår,
+ * t.ex. "39 lägenheter (varav 3 hyresrätter), 2 lokaler, 49 medlemmar (s. 4, 7). Värdeår 1931 (s. 4)."
+ */
+export function foreningFaktaText(
+  f: Pick<
+    Forening,
+    "antalLagenheter" | "antalHyresratter" | "antalLokaler" | "antalMedlemmar" | "byggar"
+  >,
+): string | undefined {
+  const antal = (
+    fig: Figure | undefined,
+    singular: string,
+    plural: string,
+  ): { text: string; sida?: number } | undefined => {
+    if (!fig || fig.value === null) return undefined;
+    const n = Math.round(fig.value);
+    const osaker = fig.osaker ? ` (osäkert: ${fig.osaker})` : "";
+    return {
+      text: `${n.toLocaleString("sv-SE")} ${n === 1 ? singular : plural}${osaker}`,
+      ...(fig.ref ? { sida: fig.ref.page } : {}),
+    };
+  };
+  const lagenheter = antal(f.antalLagenheter, "lägenhet", "lägenheter");
+  const hyres = antal(f.antalHyresratter, "hyresrätt", "hyresrätter");
+  const lokaler = antal(f.antalLokaler, "lokal", "lokaler");
+  const medlemmar = antal(f.antalMedlemmar, "medlem", "medlemmar");
+  const delar: string[] = [];
+  if (lagenheter) delar.push(hyres ? `${lagenheter.text} (varav ${hyres.text})` : lagenheter.text);
+  else if (hyres) delar.push(hyres.text);
+  if (lokaler) delar.push(lokaler.text);
+  if (medlemmar) delar.push(medlemmar.text);
+  const meningar: string[] = [];
+  if (delar.length > 0) {
+    const sidor = sidhanvisning([lagenheter?.sida, hyres?.sida, lokaler?.sida, medlemmar?.sida]);
+    meningar.push(`${delar.join(", ")}${sidor ? ` (${sidor})` : ""}.`);
+  }
+  const by = f.byggar;
+  if (by && by.value !== null) {
+    const vardear = /värdeår/i.test(by.ref?.excerpt ?? "");
+    const sida = by.ref ? ` (s. ${by.ref.page})` : "";
+    meningar.push(`${vardear ? "Värdeår" : "Byggår"} ${Math.round(by.value)}${sida}.`);
+  }
+  return meningar.length === 0 ? undefined : meningar.join(" ");
+}
+
+/** Vart utgångspriset hamnar mot spannet, eller null utan pris/värdering. */
+export function prisRubrik(lage: "under" | "inom" | "over" | null): string {
+  if (lage === null) return "Binfos värdering";
+  return `Utgångspriset ligger ${lage === "over" ? "över" : lage === "under" ? "under" : "inom"} spannet`;
+}
+
+export const SPANN_FORKLARING_KORT = `Spannet är Binfos värdering ± ${VARDESPANN_PROCENT} %`;
+
+/** Version ur modellens id: "valuation-v3.1" blir "3.1". */
+export function modellVersionText(modellVersion: string): string {
+  const m = /v(\d+(?:\.\d+)*)/i.exec(modellVersion);
+  return m?.[1] ?? modellVersion;
+}
+
+/** "Binfos värderingsmodell (version 3.1), tränad på … januari–augusti 2026, med data från Svensk Mäklarstatistik." */
+export function modellKallaRad(
+  u: Pick<Varderingsunderlag, "modellVersion" | "dataperiod">,
+): string {
+  return (
+    `Binfos värderingsmodell (version ${modellVersionText(u.modellVersion)}), tränad på ` +
+    `bostadsrättsförsäljningar i Stockholm ${formatDataperiodLang(u.dataperiod)}, ` +
+    "med data från Svensk Mäklarstatistik."
+  );
+}
+
+/** Förklaringen till faktorlistan i "Så har vi räknat" (utan att upprepa att modellen är utgångsläget). */
+export const MODELL_FAKTORER_INTRO =
+  "Här är vad som i stora drag påverkar värderingen och åt vilket håll (det rör sig om samband i försäljningsdata, inte om orsaker):";
+
+export const OMRADES_KALLA_RAD =
+  "© OpenStreetMap-bidragsgivare (ODbL), Stockholms stad och GeoNames (CC BY 4.0).";
+
+/** Avrundar komponenternas prisbidrag till 1 000 kr så att de summerar exakt till
+ *  totalen avrundad till 1 000 kr (resten läggs på det största bidraget). */
+export function avrundaKomponentEffekter(
+  bidrag: Record<string, number>,
+  total: number,
+): { effekter: Record<string, number>; total: number } {
+  const steg = 1_000;
+  const avrunda = (v: number) => {
+    const r = Math.round(v / steg) * steg;
+    return r === 0 ? 0 : r;
+  };
+  const ids = Object.keys(bidrag);
+  const effekter: Record<string, number> = {};
+  for (const id of ids) effekter[id] = avrunda(bidrag[id] ?? 0);
+  const mal = avrunda(total);
+  const rest = mal - ids.reduce((a, id) => a + (effekter[id] ?? 0), 0);
+  if (rest !== 0 && ids.length > 0) {
+    const storst = ids.reduce((a, id) =>
+      Math.abs(bidrag[id] ?? 0) > Math.abs(bidrag[a] ?? 0) ? id : a,
+    );
+    effekter[storst] = (effekter[storst] ?? 0) + rest;
+  }
+  return { effekter, total: mal };
+}
+
+/** Kort namn på en komponent i raden "Föreningens ekonomi" vid priset. */
+export const KOMPONENT_KORTNAMN: Record<AvgiftsKomponent["id"], string> = {
+  spargap: "lågt sparande",
+  refinansiering: "lån som läggs om",
+  underhall: "underhåll utan pengar",
+  lokaler: "lokalhyra som kan falla bort",
+  energi: "energiprojekt",
+  beslutad_hojning: "beslutad avgiftshöjning",
+};
+
+// --- Kort 3 och avsnitt 3: avgiften framåt --------------------------------------
+
+/** "två år" / "ett år" / "18 månader". */
+export function horisontText(manader: number): string {
+  if (manader === 12) return "ett år";
+  return manader % 12 === 0 ? `${antalIOrd(manader / 12)} år` : `${manader} månader`;
+}
+
+const ORSAK_UPP: Record<AvgiftsKomponent["id"], string> = {
+  spargap: "föreningen sparar för lite till underhåll",
+  refinansiering: "föreningens lån läggs om till högre ränta",
+  underhall: "kommande underhåll behöver finansieras",
+  lokaler: "lokalhyror kan falla bort",
+  energi: "ett energiprojekt behöver finansieras",
+  beslutad_hojning: "en beslutad avgiftshöjning ännu inte gäller",
+};
+
+const ORSAK_NER: Partial<Record<AvgiftsKomponent["id"], string>> = {
+  spargap: "föreningen sparar mer än underhållsbehovet",
+  refinansiering: "föreningens lån läggs om till lägre ränta",
+};
+
+const SAKNAR_BELOPP: Record<AvgiftsKomponent["id"], string> = {
+  spargap: "sparandet",
+  refinansiering: "lånen",
+  underhall: "kommande underhåll",
+  lokaler: "lokalhyrorna",
+  energi: "energiprojekt",
+  beslutad_hojning: "beslutade höjningar",
+};
+
+/** Komponenten som förklarar mest av förändringen (samma riktning som totalen), eller undefined. */
+export function avgiftHuvudorsak(
+  p: Pick<Avgiftsprognos, "komponenter" | "totalKrPerManad">,
+): { id: AvgiftsKomponent["id"]; orsak: string; andel: number } | undefined {
+  const total = p.totalKrPerManad;
+  if (total === null || Math.abs(total) < TYDLIG_FORANDRING_KR) return undefined;
+  let basta: AvgiftsKomponent | undefined;
+  for (const k of p.komponenter) {
+    if (k.status !== "beraknad" || k.krPerManad === null || k.krPerManad === 0) continue;
+    if (Math.sign(k.krPerManad) !== Math.sign(total)) continue;
+    if (!basta || Math.abs(k.krPerManad) > Math.abs(basta.krPerManad ?? 0)) basta = k;
+  }
+  if (!basta || basta.krPerManad === null) return undefined;
+  const orsak =
+    total > 0
+      ? ORSAK_UPP[basta.id]
+      : (ORSAK_NER[basta.id] ?? basta.label.toLocaleLowerCase("sv-SE"));
+  return { id: basta.id, orsak, andel: basta.krPerManad / total };
+}
+
+/** Komponenter som saknar belopp ("kommande underhåll saknar belopp"), eller undefined. */
+function saknarBeloppText(p: Pick<Avgiftsprognos, "komponenter">): string | undefined {
+  const saknar = p.komponenter.filter((k) => k.status === "saknar_underlag");
+  if (saknar.length === 0) return undefined;
+  return `${listaPaSvenska(saknar.map((k) => SAKNAR_BELOPP[k.id]))} saknar belopp`;
+}
+
+export interface AvgiftKort {
+  /** Stora talet: "+463 kr/mån", "Ingen tydlig förändring" eller "Kan inte uppskattas". */
+  varde: string;
+  /** "3 503 → ca 3 966 kr" när en förändring kan räknas. */
+  rad: string | null;
+  text: string;
+}
+
+export function avgiftKort(p: Avgiftsprognos | undefined, dagens: number | null): AvgiftKort {
+  if (!p) {
+    return {
+      varde: "Kan inte uppskattas",
+      rad: null,
+      text: "Den här analysen har ingen prognos för avgiften.",
+    };
+  }
+  const tid = horisontText(p.horisontManader);
+  const total = p.totalKrPerManad;
+  if (total === null) {
+    return {
+      varde: "Kan inte uppskattas",
+      rad: null,
+      text: "Lägenhetens andel av föreningens avgifter gick inte att fastställa.",
+    };
+  }
+  const saknar = saknarBeloppText(p);
+  if (Math.abs(total) < TYDLIG_FORANDRING_KR) {
+    return {
+      varde: "Ingen tydlig förändring",
+      rad: null,
+      text: `Årsredovisningen pekar inte på någon tydlig förändring av avgiften inom ${tid}.${saknar ? ` Kan bli mer: ${saknar}.` : ""}`,
+    };
+  }
+  const orsak = avgiftHuvudorsak(p);
+  const text = [
+    orsak ? `Främst för att ${orsak.orsak}.` : `Förändring inom ${tid}.`,
+    saknar ? `Kan bli mer: ${saknar}.` : undefined,
+  ]
+    .filter((t): t is string => t !== undefined)
+    .join(" ");
+  return {
+    varde: formatSigneratKr(total, "kr/mån"),
+    rad:
+      dagens === null
+        ? null
+        : `${Math.round(dagens).toLocaleString("sv-SE")} → ca ${Math.round(dagens + total).toLocaleString("sv-SE")} kr`,
+    text,
+  };
+}
+
+/** Rubriken för avsnitt 3. */
+export function avgiftRubrik(p: Avgiftsprognos | undefined): string {
+  if (!p) return "Vad händer om räntan stiger?";
+  const tid = horisontText(p.horisontManader);
+  const total = p.totalKrPerManad;
+  if (total === null) return "Vi kan inte uppskatta hur avgiften utvecklas";
+  if (Math.abs(total) < TYDLIG_FORANDRING_KR) {
+    return `Ingen tydlig förändring av avgiften inom ${tid}`;
+  }
+  return `Räkna med ca ${heltal(total)} kr ${total > 0 ? "mer" : "mindre"} i månaden inom ${tid}`;
+}
+
+/** Ingressen till avsnitt 3: största drivaren och en hänvisning till reglaget. */
+export function avgiftLead(p: Avgiftsprognos | undefined): string {
+  const slut = "Hur mycket räntan påverkar ser du längre ner.";
+  if (!p) return slut;
+  const orsak = avgiftHuvudorsak(p);
+  if (!orsak) return slut;
+  const inledning = orsak.andel >= 0.5 ? "Det mesta beror på att" : "Främst beror det på att";
+  return `${inledning} ${orsak.orsak}. ${slut}`;
+}
+
+export interface DrivarRad {
+  key: string;
+  label: string;
+  forklaring: string;
+  /** "+400 kr/mån", "Okänt" eller "0 kr/mån". */
+  varde: string;
+  ton: Ton;
+  dimmad: boolean;
+  /** Pressure colour of the component, for the screen-reader label next to the colour. */
+  tryck?: Tryck;
+  ref?: PageRef;
+}
+
+const GRUPP_FRASER: Record<string, string> = {
+  beslutad_hojning: "beslutade höjningar",
+  lokaler: "lokalhyra",
+  energi: "energiprojekt",
+};
+
+/**
+ * Raderna i "Det här driver den förväntade avgiften". Komponenterna som inte är aktuella
+ * (beslutade höjningar, lokalhyra, energiprojekt) slås ihop till en rad bara när ALLA
+ * som finns är "ej aktuell"; annars får varje komponent en egen rad.
+ */
+export function drivareRader(p: Pick<Avgiftsprognos, "komponenter">): DrivarRad[] {
+  const gruppOrdning = Object.keys(GRUPP_FRASER);
+  const grupp = p.komponenter
+    .filter((k) => k.id in GRUPP_FRASER)
+    .sort((a, b) => gruppOrdning.indexOf(a.id) - gruppOrdning.indexOf(b.id));
+  const slaIhop = grupp.length >= 2 && grupp.every((k) => k.status === "ej_aktuell");
+  const rader: DrivarRad[] = [];
+  let gruppLagd = false;
+  for (const k of p.komponenter) {
+    if (slaIhop && k.id in GRUPP_FRASER) {
+      if (gruppLagd) continue;
+      gruppLagd = true;
+      rader.push({
+        key: "grupp",
+        label: medVersal(grupp.map((g) => GRUPP_FRASER[g.id] ?? g.label).join(", ")),
+        forklaring: grupp.map((g) => g.forklaring).join(" "),
+        varde: "0 kr/mån",
+        ton: "neutral",
+        dimmad: true,
+      });
+      continue;
+    }
+    const ref = k.ref ? { ref: k.ref } : {};
+    const bas = { key: k.id, label: k.label, forklaring: k.forklaring, ...ref };
+    if (k.status === "saknar_underlag" || (k.status === "beraknad" && k.krPerManad === null)) {
+      rader.push({ ...bas, varde: "Okänt", ton: "neutral", dimmad: true });
+    } else if (k.status === "ej_aktuell" || k.krPerManad === null) {
+      rader.push({ ...bas, varde: "0 kr/mån", ton: "neutral", dimmad: true });
+    } else {
+      rader.push({
+        ...bas,
+        varde: formatSigneratKr(k.krPerManad, "kr/mån"),
+        ton: tonForTryck(k.tryck),
+        dimmad: k.krPerManad === 0,
+        ...(k.tryck ? { tryck: k.tryck } : {}),
+      });
+    }
+  }
+  return rader;
+}
+
+export interface ByggdelTabellRad {
+  key: string;
+  label: string;
+  /** "2025", "Inget nämnt, troligen original (1931)" eller "Inget nämnt". */
+  senast: string;
+  sida?: number;
+  livslangd: string;
+  lage: { text: string; ton: "success" | "warning" | "neutral" };
+  excerpt?: string;
+}
+
+const BYGGDEL_LAGE: Record<ByggdelRad["status"], ByggdelTabellRad["lage"]> = {
+  nyligen: { text: "Nyligen", ton: "success" },
+  ok: { text: "Ok", ton: "success" },
+  eftersatt: { text: "Troligen eftersatt", ton: "warning" },
+  okant: { text: "Okänt", ton: "neutral" },
+};
+
+export function byggdelTabell(sb: Pick<Sparbehov, "byggdelar">): ByggdelTabellRad[] {
+  return (sb.byggdelar ?? []).map((b) => ({
+    key: b.byggdel,
+    label: b.label,
+    senast:
+      b.senast === undefined
+        ? "Inget nämnt"
+        : b.senastKalla === "atgard"
+          ? String(b.senast)
+          : b.senastKalla === "byggar"
+            ? `Inget nämnt, troligen original (${b.senast})`
+            : "Inget nämnt",
+    ...(b.senastKalla === "atgard" && b.ref ? { sida: b.ref.page } : {}),
+    livslangd: `${b.livslangd.lag}–${b.livslangd.hog} år`,
+    lage: BYGGDEL_LAGE[b.status],
+    ...(b.ref?.excerpt ? { excerpt: b.ref.excerpt } : {}),
+  }));
+}
+
+export const BYGGDEL_KALLOR = "FAR 2025 och SIB M84:10";
+export const BYGGDEL_KALLA_RAD = `Livslängder enligt ${BYGGDEL_KALLOR}.`;
+
+export interface SparRad {
+  label: string;
+  note: string;
+  varde: string;
+  total?: boolean;
+}
+
+/**
+ * Sparandet mot underhållsbehovet som fyra rader: behov, sparar, glapp och hur det blir
+ * din avgift. Gäller både schablon (byggdelarna flyttar målet) och föreningens egen plan.
+ */
+export function sparRader(prognos: Avgiftsprognos): SparRad[] | undefined {
+  const sb = prognos.sparbehov;
+  if (!sb) return undefined;
+  const komp = sparKomponent(prognos);
+  const schablon = sb.malKalla === "schablon";
+  const sida = (r: PageRef | undefined) => (r ? `, s. ${r.page}` : "");
+  const behovNot = schablon
+    ? `Vad föreningen borde spara per år för husets byggdelar, spann ${SPARMAL_SCHABLON_MIN}–${SPARMAL_SCHABLON_MAX} kr/m²`
+    : `Enligt föreningens underhållsplan${sida(sb.malRef)}`;
+  const rader: SparRad[] = [
+    {
+      label: "Indikerat underhållsbehov",
+      note: behovNot,
+      varde: `ca ${Math.round(sb.malKrPerM2).toLocaleString("sv-SE")} kr/m² per år`,
+    },
+    {
+      label: "Föreningen sparar i dag",
+      note: `Avsättning enligt årsredovisningen${sida(sb.sparandeRef)}`,
+      varde:
+        sb.sparandeKrPerM2 === null
+          ? "Uppgift saknas"
+          : `${Math.round(sb.sparandeKrPerM2).toLocaleString("sv-SE")} kr/m² per år`,
+    },
+  ];
+  if (sb.glappKrPerM2 !== null) {
+    const under = sb.glappKrPerM2 > 0;
+    rader.push({
+      label: under ? "Sparar för lite" : "Sparar mer än behovet",
+      note: "Skillnaden mellan behovet och det föreningen sparar i dag",
+      varde: `ca ${Math.abs(Math.round(sb.glappKrPerM2)).toLocaleString("sv-SE")} kr/m² per år`,
+    });
+  }
+  if (komp && komp.krPerManad !== null) {
+    const andel = prognos.andel?.varde;
+    const formel =
+      sb.glappKrPerM2 !== null && sb.totalyta !== null && andel !== undefined
+        ? `${Math.round(sb.glappKrPerM2).toLocaleString("sv-SE")} kr/m² × ${Math.round(sb.dampning * 100)} % (så stor del av glappet räknar vi med) × ${Math.round(sb.totalyta).toLocaleString("sv-SE")} m² totalyta × din andel av avgifterna ${(andel * 100).toLocaleString("sv-SE", { maximumFractionDigits: 2 })} % ÷ 12 månader`
+        : komp.forklaring;
+    rader.push({
+      label: "Så blir det din avgift",
+      note: formel,
+      varde: `ca ${formatSigneratKr(komp.krPerManad, "kr/mån")}`,
+      total: true,
+    });
+  }
+  return rader;
+}
+
+export const RANTEKANSLIGHET_PRIS_RAD =
+  "Räntekänsligheten påverkar inte värderingen, bara avgiften i stresstestet.";
+
+export interface LanTabellRad {
+  key: string;
+  forfaller: string;
+  belopp: string;
+  ranta: string;
+  lage: { text: string; ton: "success" | "warning" | "info" | "neutral" };
+}
+
+/** Lånen som tabell: förfallodag, belopp, ränta i årsredovisningen och läge. */
+export function lanTabell(
+  r: NonNullable<Avgiftsprognos["refinansiering"]>,
+  horisontManader: number,
+): LanTabellRad[] {
+  const rader = lanRader(r, horisontManader);
+  return (r.lan ?? []).map((l, i) => {
+    const rad = rader[i];
+    const bas = {
+      key: rad?.key ?? String(i),
+      forfaller: (rad?.forfaller ?? "").replace(/^Förföll\s*/, "") || "Datum saknas",
+      belopp: rad?.belopp ?? formatVarde(l.belopp, "kr"),
+      ranta: l.rantaProcent === null ? "Ränta saknas" : formatProcentTal(l.rantaProcent),
+    };
+    if (l.fas === "forfallit") {
+      return { ...bas, lage: { text: "Redan omsatt, ny ränta okänd", ton: "info" as const } };
+    }
+    if (l.fas === "senare") {
+      return { ...bas, lage: { text: rad?.fas ?? "Senare", ton: "neutral" as const } };
+    }
+    const ton: "success" | "warning" | "info" =
+      l.rantaProcent === null || l.rantaProcent === r.nyRantaProcent
+        ? "info"
+        : r.nyRantaProcent > l.rantaProcent
+          ? "warning"
+          : "success";
+    return { ...bas, lage: { text: `Ca ${formatProcentTal(r.nyRantaProcent)} väntas`, ton } };
+  });
+}
+
+/** Meningen under lånetabellen: vilka sidor lånen står på. */
+export function lanKallaText(r: NonNullable<Avgiftsprognos["refinansiering"]>): string | undefined {
+  const sidor = sidhanvisning((r.lan ?? []).map((l) => l.ref?.page));
+  return sidor ? `Lånen enligt årsredovisningen, ${sidor}.` : undefined;
+}
+
+// --- Frågor ------------------------------------------------------------------------
+
+export type SvarssignalDelar =
+  { typ: "tva"; bra: string; varning: string } | { typ: "en"; text: string };
+
+/**
+ * Delar `svarssignal` i "Bra svar" och "Varningssignal" när båda etiketterna finns;
+ * annars en rad som förut (fritext får rubriken "Bra svar / varningssignal:" framför).
+ */
+export function svarssignalDelar(signal: string): SvarssignalDelar {
+  const text = signal.trim();
+  const m = /^bra svar:\s*(.*?)\s*varningssignal:\s*(.*)$/is.exec(text);
+  if (m && m[1] !== undefined && m[2] !== undefined && m[1] !== "" && m[2] !== "") {
+    return { typ: "tva", bra: m[1], varning: m[2] };
+  }
+  return {
+    typ: "en",
+    text: /^(bra svar|varningssignal):/i.test(text) ? text : `Bra svar / varningssignal: ${text}`,
+  };
+}
+
+// --- Rapportens huvud --------------------------------------------------------------
+
+/** "48 m²" (heltal utan decimal), "48,5 m²" annars. */
+export function formatBoareaKort(m2: number): string {
+  return `${m2.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} m²`;
+}
+
+/** Området i metaraden: modellens område, annars kommunen. */
+export function rapportOmrade(
+  u: Pick<Varderingsunderlag, "omrade" | "kommun"> | undefined,
+): string | undefined {
+  return u?.omrade ?? u?.kommun ?? undefined;
 }

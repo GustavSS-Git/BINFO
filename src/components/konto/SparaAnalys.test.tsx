@@ -103,18 +103,24 @@ describe("SparaAnalysVy", () => {
   });
 });
 
-describe("AnalysRapport sparaSlot", () => {
-  it("renderas under betygskortet, och saknas helt utan slot (/exempel)", () => {
+describe("AnalysRapport sparaSlot och sparaKort", () => {
+  it("slot i åtgärdsraden i huvudet, kort före friskrivningen, och inget av dem utan props (/exempel)", () => {
     const med = renderToStaticMarkup(
-      <AnalysRapport analys={sampleAnalysis} sparaSlot={<p>SLOT-HAR</p>} />,
+      <AnalysRapport
+        analys={sampleAnalysis}
+        sparaSlot={<p>SLOT-HAR</p>}
+        sparaKort={<p>KORT-HAR</p>}
+      />,
     );
-    const betyg = med.indexOf("Sammanvägt riskbetyg");
+    const rubrik = med.indexOf("<h1");
     const slot = med.indexOf("SLOT-HAR");
-    expect(betyg).toBeGreaterThan(-1);
-    expect(slot).toBeGreaterThan(betyg);
-    expect(slot).toBeLessThan(med.indexOf("Föreningens ekonomi"));
-    expect(renderToStaticMarkup(<AnalysRapport analys={sampleAnalysis} />)).not.toContain(
-      "SLOT-HAR",
-    );
+    expect(rubrik).toBeGreaterThan(-1);
+    expect(slot).toBeGreaterThan(rubrik);
+    expect(slot).toBeLessThan(med.indexOf("1 · Föreningen"));
+    expect(med.indexOf("KORT-HAR")).toBeGreaterThan(med.indexOf("Har du råd med just den här?"));
+    expect(med.indexOf("KORT-HAR")).toBeLessThan(med.indexOf("Rapporten är beslutsstöd"));
+    const utan = renderToStaticMarkup(<AnalysRapport analys={sampleAnalysis} />);
+    expect(utan).not.toContain("SLOT-HAR");
+    expect(utan).not.toContain("KORT-HAR");
   });
 });

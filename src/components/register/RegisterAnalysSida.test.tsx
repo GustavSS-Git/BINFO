@@ -37,12 +37,25 @@ describe("RegisterAnalysSida (hela analysen)", () => {
 
   it("visar motivering, röda flaggor, nyckeltal och frågor", () => {
     expect(html).toContain(sampleAnalysis.betygMotivering);
+    expect(html).toContain("Stabil ekonomi");
+    expect(html).toContain('aria-label="Betyg B"');
     const flagga = sampleAnalysis.rodaFlaggor[0]!;
     expect(html).toContain(flagga.titel);
-    expect(html).toContain("Föreningens ekonomi");
-    expect(html).toContain("Frågor att ställa");
+    expect(html).toContain("Att hålla koll på");
+    expect(html).toContain("De sju nyckeltalen");
+    expect(html).toContain("Ingen bedömning");
+    expect(html).toContain("Fem frågor till mäklaren och styrelsen");
     const fraga = sampleAnalysis.fragor.find((f) => f.ursprung === "analys")!;
     expect(html).toContain(fraga.fraga);
+  });
+
+  it("har ingen köpardata: ingen värdering, avgiftsprognos eller prisavsnitt, och ingen prognosfras", () => {
+    for (const t of ["2 · Priset", "Avgiften framåt", "Binfos värdering", "avgiftsprognosen"]) {
+      expect(html).not.toContain(t);
+    }
+    expect(html).not.toContain("Behov för huset");
+    // Betyget står en gång som motivering i betygskortet (ingressen i avsnitt 1 utelämnas).
+    expect(html.split(sampleAnalysis.betygMotivering).length - 1).toBe(1);
   });
 
   it("har brödsmulor med 'Analys 2025', länk tillbaka och köparens CTA", () => {

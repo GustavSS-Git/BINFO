@@ -1,13 +1,16 @@
 import { Link } from "@tanstack/react-router";
+import { ForeningSektion } from "@/components/rapport/RapportForening";
+import { Fragor } from "@/components/rapport/RapportFragor";
 import {
-  Betygskort,
-  Foreningsekonomi,
-  Fragor,
-  OvrigInfo,
-  RodaFlaggor,
-} from "@/components/AnalysRapport";
-import { Callout, Card, LinkButton, PageHeader } from "@/components/ui/binfo";
-import { SKANNAD_NOTIS, arSkannad, formatSkapadDatum } from "@/lib/analysisView";
+  Callout,
+  Card,
+  GradeBadge,
+  GradeScale,
+  LinkButton,
+  PageHeader,
+} from "@/components/ui/binfo";
+import { formatSkapadDatum } from "@/lib/analysisView";
+import { BETYG_TITEL } from "@/lib/betygVy";
 import { ALDRE_VERSION_TEXT, foreningPath, type RegisterAnalysVy } from "@/lib/registerVy";
 
 /**
@@ -58,7 +61,7 @@ export function RegisterAnalysSida({ vy }: { vy: RegisterAnalysVy }) {
   const a = vy.analys;
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-14">
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-12 sm:px-8 md:py-16">
       <Brodsmulor vy={vy} />
       <PageHeader
         eyebrow="Hela analysen"
@@ -66,46 +69,47 @@ export function RegisterAnalysSida({ vy }: { vy: RegisterAnalysVy }) {
         lead={`Den sparade analysen av årsredovisningen för räkenskapsåret ${a.rakenskapsar}, gjord ${formatSkapadDatum(a.analysdatum)}. Varje siffra visar vilken sida i årsredovisningen den kommer från.`}
       />
 
-      {arSkannad(a) ? (
-        <div className="mb-6">
-          <Callout variant="flag" title="Skannad årsredovisning">
-            <p>{SKANNAD_NOTIS}</p>
+      <div className="flex flex-col gap-16">
+        {a.aldreVersion ? (
+          <Callout variant="notice" title="Analys från en tidigare version">
+            <p>{ALDRE_VERSION_TEXT}</p>
           </Callout>
-        </div>
-      ) : null}
-      {a.aldreVersion ? (
-        <p className="mb-6 text-sm text-muted-foreground">{ALDRE_VERSION_TEXT}</p>
-      ) : null}
+        ) : null}
 
-      <Betygskort betyg={a.betyg} motivering={a.betygMotivering} />
-      <RodaFlaggor analys={a} />
-      <Foreningsekonomi analys={a} />
-      <OvrigInfo analys={a} />
-      <Fragor analys={a} />
+        <Card className="flex flex-wrap items-center gap-6">
+          <GradeBadge grade={a.betyg} size="lg" />
+          <div className="flex min-w-0 max-w-[820px] flex-1 flex-col gap-2">
+            <GradeScale grade={a.betyg} />
+            <p className="text-[19px] font-semibold text-foreground">{BETYG_TITEL[a.betyg]}</p>
+            <p className="text-[15px] text-text-2">{a.betygMotivering}</p>
+          </div>
+        </Card>
 
-      <div className="mt-8">
+        <ForeningSektion analys={a} visaLead={false} />
+        <Fragor analys={a} medPrognos={false} />
+
         <TillbakaLank slug={vy.slug} namn={vy.namn} />
-      </div>
 
-      <Card className="mt-10">
-        <h2 className="font-display text-2xl tracking-tight text-foreground">
-          Köper du i den här föreningen?
-        </h2>
-        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Fyll i uppgifterna om lägenheten så får du en priskontroll, månadskostnad och räntestress
-          för just din bostad. Årsredovisningen har vi redan.
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-display text-2xl font-semibold text-primary">
+            Köper du i den här föreningen?
+          </h2>
+          <p className="max-w-xl text-[15px] text-text-2">
+            Fyll i uppgifterna om lägenheten så får du en priskontroll, månadskostnad och
+            räntestress för just din bostad. Årsredovisningen har vi redan.
+          </p>
+          <div>
+            <LinkButton to={`/analysera?forening=${encodeURIComponent(vy.slug)}`} size="lg">
+              Analysera en lägenhet i föreningen
+            </LinkButton>
+          </div>
+        </Card>
+
+        <p className="text-sm text-muted-foreground">
+          Siffrorna är hämtade ur föreningens årsredovisning och kan innehålla tolkningsfel.
+          Analysen är beslutsstöd, inte finansiell rådgivning.
         </p>
-        <div className="mt-5">
-          <LinkButton to={`/analysera?forening=${encodeURIComponent(vy.slug)}`} size="lg">
-            Analysera en lägenhet i föreningen
-          </LinkButton>
-        </div>
-      </Card>
-
-      <p className="mt-8 text-xs text-muted-foreground">
-        Siffrorna är hämtade ur föreningens årsredovisning och kan innehålla tolkningsfel. Analysen
-        är beslutsstöd, inte finansiell rådgivning.
-      </p>
+      </div>
     </div>
   );
 }
@@ -116,7 +120,7 @@ export function RegisterAnalysSida({ vy }: { vy: RegisterAnalysVy }) {
  */
 export function RegisterAnalysNekad({ slug, meddelande }: { slug: string; meddelande: string }) {
   return (
-    <div className="mx-auto max-w-4xl px-5 py-14">
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-12 sm:px-8 md:py-16">
       <PageHeader
         eyebrow="Hela analysen"
         title="Analysen är inte tillgänglig just nu"

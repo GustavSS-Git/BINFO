@@ -4,23 +4,45 @@ import { PropertySummary } from "@/components/PropertySummary";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
 import type { Faltjamforelse, PropertyInput } from "@/types/analysis";
 
-describe("PropertySummary — utgångspris är valfritt", () => {
-  it("visar Utgångspris-raden när priset finns", () => {
-    const html = renderToStaticMarkup(
-      <PropertySummary input={sampleAnalysis.input} foreningNamn="Brf Test" skapad="2026-10-12" />,
+const rita0 = (input: PropertyInput, extra: Record<string, unknown> = {}) =>
+  renderToStaticMarkup(
+    <PropertySummary input={input} foreningNamn="Brf Test" skapad="2026-10-12" {...extra} />,
+  ).replace(/[\s\u00a0]+/g, " ");
+
+describe("PropertySummary — rapportens huvud", () => {
+  it("eyebrow med datum, adressen som h1 och metaraden med utgångspriset", () => {
+    const html = rita0(sampleAnalysis.input, { omrade: "Kungsholmen" });
+    expect(html).toContain("Rapport · analyserad 12 okt. 2026");
+    expect(html).toMatch(/<h1[^>]*>Baltzar von Platens gata 6<\/h1>/);
+    expect(html).toContain(
+      "Brf Test · Kungsholmen · 2 rum · 48 m² · våning 4 · avgift 3 503 kr/mån · utgångspris 4 995 000 kr · byggår 1931",
     );
-    expect(html).toContain("Utgångspris");
-    expect(html).toContain("md:grid-cols-5");
   });
 
-  it("utelämnar raden helt när priset saknas", () => {
-    const { utgangspris: _u, ...utanPris } = sampleAnalysis.input;
+  it("utelämnar utgångspris, våning och område helt när de saknas", () => {
+    const { utgangspris: _u, vaning: _v, ...utan } = sampleAnalysis.input;
+    const html = rita0(utan);
+    expect(html).not.toContain("utgångspris");
+    expect(html).not.toContain("våning");
+    expect(html).toContain("Brf Test · 2 rum · 48 m² · avgift");
+    expect(html).not.toContain("undefined");
+  });
+
+  it("raderad adress: h1 är föreningens namn som inte upprepas i metaraden", () => {
+    const html = rita0({ ...sampleAnalysis.input, adress: "" }, { omrade: "Kungsholmen" });
+    expect(html).toMatch(/<h1[^>]*>Brf Test<\/h1>/);
+    expect(html).toContain("Kungsholmen · 2 rum");
+    expect(html).not.toContain("Brf Test · Kungsholmen");
+  });
+
+  it("åtgärderna ligger i huvudet", () => {
     const html = renderToStaticMarkup(
-      <PropertySummary input={utanPris} foreningNamn="Brf Test" skapad="2026-10-12" />,
+      <PropertySummary input={sampleAnalysis.input} foreningNamn="Brf Test" skapad="2026-10-12">
+        <button>KNAPP-A</button>
+      </PropertySummary>,
     );
-    expect(html).not.toContain("Utgångspris");
-    expect(html).toContain("Boarea");
-    expect(html).toContain("md:grid-cols-4");
+    expect(html).toContain("KNAPP-A");
+    expect(html.indexOf("KNAPP-A")).toBeGreaterThan(html.indexOf("<h1"));
   });
 });
 
@@ -75,7 +97,7 @@ describe("PropertySummary — byggårsmarkör", () => {
       }),
       utanByggar,
     );
-    expect(html).toContain("Värdeår enligt årsredovisningen");
+    expect(html).toContain("värdeår 1931 enligt årsredovisningen");
   });
 
   it("avviker: visar årsredovisningens år och avvikelsen synligt, inte bara i tooltip", () => {
@@ -100,8 +122,7 @@ describe("PropertySummary — byggårsmarkör", () => {
       byggar({ status: "endast_rapport", rapport: 1958, anvant: 1958 }),
       utanByggar,
     );
-    expect(html).toContain("1958");
-    expect(html).toContain("Från årsredovisningen");
+    expect(html).toContain("byggår 1958 enligt årsredovisningen");
     expect(html).not.toContain("Okänt");
   });
 
