@@ -1,6 +1,6 @@
 # Redesign v4: plan (2026-10-28)
 
-Status: **APPROVED 2026-10-28 with the answers in §6.1; in progress.** Branch `redesign-v4` (from `main` 4f1a27a).
+Status: **IMPLEMENTED 2026-10-29 on `redesign-v4` (not merged; owner checks in Lovable first). Outcome: §9.** Branch `redesign-v4` (from `main` 4f1a27a).
 Never merged/pushed to `main` by Claude; Lovable deploys from `main`.
 
 Design source: the "BINFO REDESIGN" canvas
@@ -409,3 +409,48 @@ Commits: one per step or sub-step (e.g. "design tokens + fonts", "kit components
   possible; listed in the report).
 - **Paid runs:** ≤ 3 real analyses (one text PDF, one scan, one register hit = free) ≈ 10–15
   kr, logged in `docs/api-test-log.md` (Q16).
+
+---
+
+## 9. Outcome (2026-10-29)
+
+Built per route as planned (§4); every step committed separately on `redesign-v4`.
+Final checks: `npm run typecheck` clean; `npm test` 171 files / 3 503 tests pass;
+`npm run lint` 0 errors (9 pre-existing react-refresh warnings); `npm run build`
+OK, Worker bundle ≈ 1.9 MB gzipped (limit 3 MB).
+
+Walkthrough on the local stack (Docker Supabase + local Edge Function, port 8080),
+Playwright at 1280 and 390 px, no console errors and no horizontal scroll on any
+route: /, /analysera, /forhandsvisning (waiting, done, failure, not found), /exempel,
+/bolanekalkyl (regression scenario shows 19 828 kr/mån), /kopguide, /brf, area page,
+förening page, /konto, all auth pages, /integritet. Journeys run end to end: B (real
+PDF upload at 390 px, 131 s), C (register mode, re-run of an old report), D (Booli
+error paths), E + F3 (create account → mail → confirm → analysis saved), F1, F2, G,
+H, I, K (incl. wrong-password copy), M (köpguide merged into the account), O
+(validation and non-PDF). Paid runs: 2 (8,34 kr, `docs/api-test-log.md` rows 137–138).
+
+Deviations beyond §5 (all decided by the rules or found during QA):
+
+- Report/landing price figures use two decimals in mkr where the artboard mixes one
+  and two (the inside/outside decision is made at 10 000 kr).
+- No "strax under/långt under" wording (no justified threshold); plain under/inom/över.
+- Calculator: "Om räntan stiger", exports and save sit in a row under the form/result
+  grid (only the result card is sticky); a fourth rule type "Referensvärde" (Nils
+  Holgersson/Konsumentverket values are not Binfo's guesses); 53 rules listed (the
+  generated `kv_*` rows stay out, as before).
+- Waiting screen: the bar stays at 0 % during step 1 (done steps ÷ 6).
+- Register: mobile area table is a card list; the förening page keeps the search-free
+  layout but the area page keeps its search box beside the sort select.
+- PDF: price lists stacked, rate section as boxes + table (no slider), all flags
+  listed (heading counts them all).
+
+Open items for the owner:
+
+1. Saved kalkyler from before 2026-10-28 that had "Vet ej" items reopen with those
+   items counted ("ingår ej"), so the reopened total can be higher than the total in
+   the /konto list (which is the stored summary).
+2. /brf/$slug shows the stored `betygMotivering` (owner Q6) next to statuses that are
+   re-graded on read; on reports older than p13 the text can disagree with a status.
+3. `Toggle` is a radiogroup of buttons without arrow-key navigation (every option is a
+   tab stop) — fine for two options, noted for Lovable.
+4. The two photos are owner-generated (Q2); no licence file needed.
