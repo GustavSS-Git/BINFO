@@ -76,6 +76,14 @@ per-apartment cost in kronor, and what to do before bidding.
   no TODO/ägarbeslut copy ("Binfos uppskattning"); värme/vatten default
   "ingår"; buyer's byggår always wins, never "Bekräftat"; `PropertyInput.ort`
   optional, no ort field. Findings: "Consistency audit" below.
+- **Web app published ≈ `main` (checked 2026-10-27 by fetching production
+  HTML):** binfo.slanesens.com already serves the Booli field, Priskoll steps,
+  postnummer help, the fee prognosis/"Förväntad avgift" tabs, the ±10 % span,
+  the "ca … kr/m²" line (3199443) and the kalkyl "Fördjupning". The "NOT
+  deployed" notes above are stale for the WEB APP; whether the matching
+  migrations and Edge Function (`PIPELINE_VERSION`) are in production was not
+  verified. The Booli fetch is challenged in production (`docs/booli.md`), so
+  live it ends in "fyll i manuellt".
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -112,7 +120,7 @@ per-apartment cost in kronor, and what to do before bidding.
 | `src/lib/kalkyl/`                               | Bolånekalkyl (client-safe, pure): `underlag.ts` (`KalkylUnderlag`, versioned input shared by page, saved kalkyl and exports), `regler.ts` (every rule/constant with source + date, `REGELVERSION`, Konsumentverket 2026 tables), `berakna.ts` (`beraknaKalkyl`, `sammanfattaKalkyl`), `levnadskostnader.ts` (KALP), `indata.ts` (input parsing/limits), `sida.ts` (page state ↔ underlag), `xlsx.ts` (Excel export with live formulas; exceljs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `src/lib/register/`                             | Public register areas: `omraden.ts` (19 areas + `ovriga-stockholm`, `losRegisteromrade`), generated `data/postnummerStadsdel.data.ts` (`npm run build:register-data`; never hand-edit)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `src/components/konto/`, `register/`, `kalkyl/` | Account UI (`SparaKnapp`, `SparaKalkylKnapp`, `useSparaKalkyl`, `ProfilListor`, `AuthSida`), register UI (`RegisterLista`, `ForeningSida`), `KalkylExport` (PDF/Excel buttons). `pdf/` also has `KalkylPdfDocument` + `kalkylViewModel` + `downloadKalkyl` (lazy).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `src/lib/`                                      | Client-safe helpers: `session.ts` (session hook over `hamtaSessionFn`), `utkast.ts` (logged-out Spara drafts: sessionStorage + 24 h localStorage mirror), `till.ts` (`saneraTill`: same-origin redirect targets only), `kontoTyper.ts` (account server-function types), `registerVy.ts`, `sitemap.ts`, `uppgifter.ts` (in-memory store shared across routes), `analyseraForm.ts` / `varderingForm.ts` (form parsing/validation), `senasteAnalyser.ts` (localStorage "recent analyses": per browser, not per IP or account; max 5, 12 months), `analysStatusCopy.ts` (error copy; its code union is type-checked against the server's), `analysStatusVy.ts` (status texts/notices), `analysisView.ts`, `bolanekalkyl.ts` (calculator search params), `skatt2026.ts` (2026 income tax, per-person ränteavdrag), `propertyType.ts`, `utils.ts`, `error-capture.ts` / `error-page.ts` (English, `lang="en"`) / `lovable-error-reporting.ts`                                                                                                                                                                                                                                                                                                                                                |
+| `src/lib/`                                      | Client-safe helpers: `session.ts` (session hook over `hamtaSessionFn`), `utkast.ts` (logged-out Spara drafts: sessionStorage + 24 h localStorage mirror), `till.ts` (`saneraTill`: same-origin redirect targets only), `kontoTyper.ts` (account server-function types), `registerVy.ts`, `sitemap.ts`, `uppgifter.ts` (in-memory store shared across routes), `analyseraForm.ts` / `varderingForm.ts` (form parsing/validation), `senasteAnalyser.ts` (localStorage "recent analyses": per browser, not per IP or account; max 5, 12 months), `analysStatusCopy.ts` (error copy; its code union is type-checked against the server's), `analysStatusVy.ts` (status texts/notices), `analysisView.ts`, `bolanekalkyl.ts` (calculator search params), `skatt2026.ts` (2026 income tax, per-person ränteavdrag), `propertyType.ts`, `utils.ts`, `error-capture.ts` / `error-page.ts` (Swedish, `lang="sv"`, "Sidan kunde inte laddas") / `lovable-error-reporting.ts`                                                                                                                                                                                                                                                                                                                     |
 | `src/lib/analysis/`                             | Pipeline: `pdf.ts` + `textlager.ts` (text layer: `ok`/`saknas`/`trasigt`), `identitet.ts` (local orgnr/year/name) + `identitetModell.ts` (Haiku on pages 1–3), `transkribering.ts` + `transkriptionsblock.ts` (scans: parallel page transcription → citable custom-content document), `runExtraction.ts` (grounding on PDF or transcription + structured extraction), `rimlighet.ts` (deterministic sanity checks → `Figure.osaker`), `analyze.ts` (judging), `prompts.ts` (+ `PROMPT_VERSION`), `schema.ts` (Zod mirror of the contract), `tolkaVarde.ts`, `benchmarks.ts`, `assemble.ts` (final `AnalysisResult`; shared price core `byggPrisanalysUtanForening`), `prisdata.ts`, `costGuard.ts` (prices per model, `STANDARD_MODELL`), `callMetrics.ts`, `korExtraktion.ts` (sequential composition for the CLIs), `extract.ts` (`extractWithRetry`: blind re-roll, no error feedback), `answerKey.ts`, `calc/` (`manadskostnad`, `amortering`, `ranteavdrag`, `rantestress`, `schabloner`, `spann`), CLIs `cli.ts` and `verifyAnswerKey.ts`                                                                                                                                                                                                                                        |
 | `src/lib/vardering/`                            | **Server-only** valuation engine: TS evaluator of the exported LightGBM trees, tiering (`tackning.ts`), drivers (`drivare.ts`), `budpremie.ts`, postcode/kommun maps (`postnummer.ts`, `kommunKodning.ts`), `vardera.ts` (entry), `features.ts`, `tree.ts`, `data.ts`, `types.ts`. `data/*.data.ts` is generated by `npm run build:vardering-data`; never hand-edit it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `src/server/`                                   | Server-only. `analysFn.ts` is the only client-importable file (server functions; **no module-scope values** — see Gotchas). `analys.ts` (create/status/result/preview), `register.ts` (register lookup, versioning, re-runs), `steg.ts` (job state machine on `rapport`), `prisuppskattning.ts` (price_estimate service), `kontext.ts` (device cookie + hashed IP + session → principal), `auth.ts` (Supabase Auth flows: register/login/logout/verify/reset/new password/delete account), `sessionCookies.ts` (`binfo_sa`/`binfo_sr`/`binfo_aterst`), `supabaseAuth.ts` (Auth adapter), `sparat.ts` (saved valuations/kalkyler, GDPR export; one ownership helper `kravAgare`), `registerPublik.ts` (public register reads: BRF-level only), `stegLogg.ts` (stage-failure logging), `lagratInput.ts`, `principal.ts`, `behorighet.ts` (entitlement policy), `kvot.ts` (rate limits), `spend.ts`, `cache.ts` (legacy caches), `fel.ts` (error → buyer-safe Swedish), `env.ts`, `portar.ts` (`Lager`/`Databas` port), `kontoPortar.ts`, `supabase.ts` / `supabaseKonto.ts` (adapters), `__fakes__/` (`lager.ts`, `konto.ts`: in-memory fakes mirroring the SQL), `cli/` (`registerCli.ts`, `kontoCli.ts`, `analysCli.ts`, `verifyRls.ts`), `edge/build.ts` (bundles `steg.ts` for Deno) |
@@ -158,9 +166,10 @@ per-apartment cost in kronor, and what to do before bidding.
   - **Steg 2: Granska föreningen (valfritt)** — always visible; the PDF
     dropzone (or, with `?forening=<slug>` from a `/brf/$slug` CTA, "finns
     redan hos Binfo" via `skapaAnalysFranRegisterFn`: no PDF, no API call,
-    loose quota only) plus adress and ort; everything else comes from step 1.
+    loose quota only) plus adress (no ort field since 2026-10-26); everything
+    else comes from step 1.
   - Required for the analysis: boarea, våning, avgift, rum, adress,
-    postnummer, ort. Utgångspris optional (shared `valideraValfrittUtgangspris`:
+    postnummer. Utgångspris optional (shared `valideraValfrittUtgangspris`:
     empty ok, invalid/0 = error; without it the report shows the "Binfos
     värdering" variant and the summary/PDF price rows are hidden).
   - Submits PDF + `PropertyInput` JSON as FormData to `skapaAnalysFn`.
@@ -779,6 +788,60 @@ cd ml && .venv/bin/pytest                  # ML tests
 - The xlsx export has no cached formula values (`fullCalcOnLoad`): Excel and
   Numbers compute on open (verified in Excel), but Quick Look shows empty cells.
 
+## Product surface (read-through 2026-10-27, for the feature inventory)
+
+Facts that are easy to get wrong when describing the product. Full
+designer-facing inventory: `FEATURE_INVENTORY.md`, once written.
+
+- **Actors:** anonymous visitor (`binfo_enhet` device cookie only), anonymous
+  device principal (created on the first upload; owns its analyses), account
+  principal. Accounts have no roles. **There is no admin UI**: admin means the
+  CLIs (`register`, `konto`, `analys`, `verify-rls`) plus the env kill switches
+  and the Supabase/Lovable dashboards. Anyone holding an analysis UUID can read
+  that report (no owner check on reads).
+- **Entitlements** (`behorighet.ts`): `prisuppskattning`, `ladda_upp_analys`,
+  `full_rapport`, `se_registeranalys`, `hamta_annons` are checked;
+  `pdf_export` is defined but checked nowhere (PDF/Excel export is
+  client-side). All are granted to everyone. Only the saves need an account.
+- **Quotas** (`kvot.ts`, UTC windows): upload 5/device + 10/IP per day
+  (strict, refundable) and 30/100 (loose); Priskoll 60/IP per hour (saving a
+  valuation also takes one); Booli 20/device + 60/IP per hour; login 10/IP +
+  5/e-mail per 15 min; sign-up 5/IP per hour; reset 3/e-mail + 10/IP per hour;
+  register reads 300/IP per hour (a refusal there throws in the loader and
+  shows the generic route error page, not an inline message); 200 saved
+  valuations and 200 saved kalkyler per account.
+- **Not implemented**, though parts exist: changing e-mail (template, config
+  and `/konto/bekrafta` handling, but no UI); resending the confirmation mail;
+  MFA; social login. (Saved items DO have an optional name field: "Namn" on
+  the Priskoll save card, "Namn på kalkylen" on `/bolanekalkyl`.)
+- **Register areas ≠ valuation areas:** `/brf` browses 19 register areas +
+  `ovriga-stockholm` (`src/lib/register/omraden.ts`); the valuation model has
+  its own 13 areas (Database section). Different lists on purpose.
+- **Web vs PDF differences:** the web report shows at most two red flags
+  (`toppRodaFlaggor(…, 2)`) and hides the section when there are none; the PDF
+  lists every flag, with "Inga röda flaggor identifierade." when empty. The web
+  shows only questions with `ursprung === "analys"` in `Fragor`.
+- **Known UI/copy defects (unfixed, 2026-10-27):** the landing mock report's
+  step links point to `#foreningen`/`#priset`/`#kostnaden`, which don't exist
+  (its "Tolv steg"/"4 av 12" is correct: the köpguide shows 12 of its 13 steps
+  in BRF mode); the köpguide step "Medlemskap i föreningen" text
+  ends "…bostadsrättslagen,vanligtvis inom några veckor. U"; the `/bolanekalkyl`
+  hints for Boarea and Antal personer name the wrong schablon drivers; the
+  waiting screen says "3–5 minuter" (measured 1–3); the progress bar counts a
+  transkribering step for `trasigt` PDFs that the pipeline skips;
+  `BekraftaDialog` says "Tar bort…" for every delete; a wrong current password
+  shows "Fel e-postadress eller lösenord."; the `scanned_pdf` copy still says
+  to find a digital original; "kontakta oss" appears with no contact address.
+- **SEO details:** `/sitemap.xml` omits `/integritet`; `/brf` (index) has no
+  JSON-LD; `/exempel` has no nav/footer link (only from the landing page and
+  `/analysera`).
+- **Privacy page drift** (`/integritet`, last changed 2026-10-14): doesn't
+  mention the `binfo_spara` (7 days) and `binfo_aterst` (15 min) cookies, the
+  Booli prefill (listing URL in `property_input.kalla`, `annons_cache`,
+  Nominatim), or the e-mail hashes used as quota keys.
+- **E-mail templates** (`docs/epostmallar/`): signup, recovery, email_change;
+  plain inline-styled Arial with no logo, links to `/konto/bekrafta`.
+
 ## Consistency audit (2026-10-26; how numbers and texts are produced)
 
 Read before changing any report number or text; several sources can say the
@@ -827,7 +890,7 @@ of it; each bullet ends with what holds now (→).
   `krPerKrManad` × component kr/mån; the waterfall (`vattenfall`) adds the
   rounding remainder to the largest step, so the two differ by the remainder.
   The flat's share of a förening cost is the FEE share (`manadsavgift × 12 ÷
-  årsavgifter`, `raknaAndel`), not boarea ÷ yta; the texts don't say so. →
+årsavgifter`, `raknaAndel`), not boarea ÷ yta; the texts don't say so. →
   `komponentPris` (exact factor `belopp ÷ −total`, remainder once) feeds card,
   waterfall and PDF; every component text states its basis and the share.
 - **Byggår:** extraction falls back to värdeår when no byggår exists (prompts
@@ -881,8 +944,12 @@ and add it to a "For Lovable to polish" list reported at the end. Exception: the
 PDF export layout is ours to design, kept simple and consistent with the site.
 
 Owner-hidden elements are kept in the DOM with `hidden`: the valuation
-provider line and the valuation range (the drivers caveat went with the driver
-rows, 2026-10-24). Do not unhide them.
+provider line (`AnalysRapport.tsx`, web only; the PDF still prints it), the
+Hus/Bostadsrätt toggle on `/kopguide`, and the "Dina senaste analyser" box
+(`VISA_SENASTE_ANALYSER = false`, not rendered at all). The old 90 % valuation
+range row is gone, replaced by the visible "Ungefärligt spann (±10 %)" line
+(consistency round). The drivers caveat went with the driver rows (2026-10-24).
+Do not unhide them.
 
 ## Lovable sync workflow
 
