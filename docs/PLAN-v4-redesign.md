@@ -1,6 +1,6 @@
 # Redesign v4: plan (2026-10-28)
 
-Status: **PLANNED, awaiting owner approval.** Branch `redesign-v4` (from `main` 4f1a27a).
+Status: **APPROVED 2026-10-28 with the answers in §6.1; in progress.** Branch `redesign-v4` (from `main` 4f1a27a).
 Never merged/pushed to `main` by Claude; Lovable deploys from `main`.
 
 Design source: the "BINFO REDESIGN" canvas
@@ -328,6 +328,31 @@ köpguide migration deploy; Q14 PDF restyle scope; Q15 "Så räknar vi" target; 
 for end-to-end runs.
 
 ---
+
+### 6.1 Owner answers (2026-10-28)
+
+- Q1 `KONTAKT_EPOST` = contactbinfohere@gmail.com (footer "Kontakt", "Hittar du ett fel?").
+- Q2 photos: owner generated them; use them (`public/bilder/`).
+- Q3 calculator price prefill = Binfos värdering (as today).
+- Q4 yes: prefill "Ingår i avgiften" from the report (all five items the report states), each
+  chip still toggleable.
+- Q5 yes: status payload gains address, BRF name and the unadjusted valuation (server-side,
+  no API cost).
+- Q6 yes: fixed grade titles A "Stark ekonomi", B "Stabil ekonomi", C "Godtagbar, med
+  svagheter", D "Svag ekonomi", E "Mycket svag ekonomi"; `/brf/$slug` may show the stored
+  `betygMotivering`.
+- Q7 section-1 heading: supervisor decides (deterministic, adjusted to the analysis).
+- Q8 show värme and vatten in "I avgiften" as drawn (reverses the 2026-10-26 hide).
+- Q9 Supabase free plan: drop the leaked-password bullet.
+- Q10 remove the closing "Sammanfattning" from the web report AND the PDF.
+- Q11 split `svarssignal` into "Bra svar" / "Varningssignal" when both labels are present.
+- Q12 prepositions approved ("på" Kungsholmen, Östermalm, Södermalm, Norrmalm, Essingeöarna,
+  Djurgården & Gärdet; "i" elsewhere).
+- Q13 köpguide per account: build it; may be dropped if it gets difficult (low priority).
+- Q14 restyle the PDF to match the new report.
+- Q15 drop the "Så räknar vi" footer link (the footer itself stays: privacy link, disclaimer,
+  Kontakt).
+- Q16 ≤ 3 real analyses (≈ 10–15 kr) approved.
 
 ## 7. Order of work and subagents
 
