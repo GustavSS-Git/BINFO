@@ -144,6 +144,7 @@ Haiku 5.5 (from 2026-10-26, tiered by prompt size, per the owner's brief): $0.10
 | 135 | 2026-10-26 | Consistency round /exempel | Same, final prompt: grundning 2.530, extraktion 1.344, bedömning 0.460 kr; 84.9 s. Rejected: grounding missed the cited värdeår → model flag "Husets ålder framgår inte" | claude-sonnet-5-5 | 152557 | 14179 | 0 | 0 | 4.33 | ≈413.6 |
 | 136 | 2026-10-26 | Consistency round /exempel | Same, final prompt (bedömning 0.513 kr; 88.3 s total). USED for src/data/sampleAnalysis.ts (re-assembled free afterwards) | claude-sonnet-5-5 | — | — | 0 | 0 | 4.46 | ≈418.1 |
 | 137 | 2026-10-29 | Redesign v4 QA, journey C (local stack) | Brf Humlegården u.p.a (register, stored at p9) re-run on p13.i1.s1 via `/analysera?forening=`; local `spend_day` 2026-10-29 = 4.17 kr over 3 calls; waiting screen + report checked | claude-sonnet-5-5 | — | — | 0 | 0 | 4.17 | ≈422.3 |
+| 138 | 2026-10-29 | Redesign v4 QA, journey B (local stack) | Brf Pontonjären 3 årsredovisning 2025 uploaded on /analysera at 390 px, p13.i1.s1; 131 s upload→report; local `spend_day` delta 4.17 kr (8.34 − 4.17) over 3 calls | claude-sonnet-5-5 | — | — | 0 | 0 | 4.17 | ≈426.5 |
 
 Per-call raw records for W1-EVAL: `docs/api-runs/2026-10-09-scan-eval-calls.jsonl`. C1 per-call table: rows above, one per report run (calls summed).
 
@@ -151,4 +152,4 @@ Per-call raw records for entries 92-93 (E, new /exempel example): `docs/api-runs
 
 Per-call raw records for entry 96 (W3 full run): `docs/api-runs/2026-10-13-w3-v7-verify-calls.jsonl`. Entries 97-100 are single `npm run extract` runs (extraction only); only the CLI cost line was kept.
 
-**Running total: ≈422.3 SEK** (rows 102, 104 estimated). Round 2026-10-24b (rows 109–114): 54.28 kr of the 60 kr budget. Round 2026-10-24c (rows 115–122): 27.46 kr of the 40 kr budget. Round 2026-10-25b (rows 123–124): 5.65 kr of ≈20 kr. Haiku 5.5 measurement 2026-10-26 (rows 125–133): ≈23.3 kr of the 40 kr budget (row 125 includes ≈1.3 kr estimated for the failed reports). Consistency round /exempel (rows 134–136): 13.10 kr (≈10 kr estimated; two runs rejected, see rows). Redesign v4 QA (row 137–): 4.17 kr of the ≈15 kr budget (≤ 3 analyses).
+**Running total: ≈426.5 SEK** (rows 102, 104 estimated). Round 2026-10-24b (rows 109–114): 54.28 kr of the 60 kr budget. Round 2026-10-24c (rows 115–122): 27.46 kr of the 40 kr budget. Round 2026-10-25b (rows 123–124): 5.65 kr of ≈20 kr. Haiku 5.5 measurement 2026-10-26 (rows 125–133): ≈23.3 kr of the 40 kr budget (row 125 includes ≈1.3 kr estimated for the failed reports). Consistency round /exempel (rows 134–136): 13.10 kr (≈10 kr estimated; two runs rejected, see rows). Redesign v4 QA (rows 137–138): 8.34 kr of the ≈15 kr budget (2 of ≤ 3 analyses).
