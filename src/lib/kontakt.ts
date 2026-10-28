@@ -7,6 +7,6 @@
 /** Personuppgiftsansvarig (GDPR controller). */
 export const PERSONUPPGIFTSANSVARIG = "Binfo (binfo.slanesens.com)";
 
-/** Contact address for privacy requests and corrections. `null` until the
- *  owner supplies one; the pages then show a text without a link. */
-export const KONTAKT_EPOST: string | null = null;
+/** Contact address for privacy requests and corrections (owner 2026-10-28). `null` hides the
+ *  footer "Kontakt" and "Hittar du ett fel?" links. */
+export const KONTAKT_EPOST: string | null = "contactbinfohere@gmail.com";
