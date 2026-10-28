@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ReglerTabell } from "@/components/kalkyl/ReglerTabell";
+import { regelGrupper, regelTyp, reglerMeta } from "@/components/kalkyl/regelTyper";
 import { tomSida, underlagFranSida } from "@/lib/kalkyl/sida";
 import type { KalkylUnderlag } from "@/lib/kalkyl/underlag";
 
@@ -40,12 +42,12 @@ const rita = () =>
     </QueryClientProvider>,
   );
 
-const detailsTag = (html: string) => {
-  const i = html.indexOf('data-slot="kalkyl-fordjupning"');
+/** `<details>` som innehåller "Klarar ni bankens kalkyl?". */
+const kalpDetails = (html: string) => {
+  const i = html.indexOf("Klarar ni bankens kalkyl?");
   expect(i).toBeGreaterThan(-1);
-  const m = /<details[^>]*>/.exec(html.slice(i));
-  expect(m).not.toBeNull();
-  return m![0];
+  const start = html.lastIndexOf("<details", i);
+  return /<details[^>]*>/.exec(html.slice(start))![0];
 };
 
 const KALP_ID = [
@@ -65,21 +67,22 @@ const oppnadMed = (andra: Partial<KalkylUnderlag>) => {
   };
 };
 
-describe("/bolanekalkyl: enkel huvudvy och valfri fördjupning", () => {
+describe("/bolanekalkyl: redesignad sida", () => {
   beforeEach(() => {
     sokning.current = {};
     sparad.current = { laddar: false, ejInloggad: false, kalkyl: null, underlag: null };
   });
 
-  it("huvudformuläret har inga KALP-fält; de ligger i fördjupningen", () => {
+  it("har rubrik, tre formulärsektioner och KALP efter huvudfälten", () => {
     const html = rita();
-    const i = html.indexOf('data-slot="kalkyl-fordjupning"');
-    expect(i).toBeGreaterThan(-1);
-    for (const id of KALP_ID) {
-      const pos = html.indexOf(`id="${id}"`);
-      expect(pos, id).toBeGreaterThan(i); // finns, men först i fördjupningen
+    expect(html).toContain("Vad kostar bostaden per månad?");
+    expect(html).toContain("Med 2026 års amorteringsregler, ränteavdrag och skatt i Stockholm.");
+    const kalp = html.indexOf("Klarar ni bankens kalkyl?");
+    for (const rubrik of ["Lånet", "Bostaden", "Hushållet"]) {
+      const pos = html.indexOf(`>${rubrik}</h2>`);
+      expect(pos, rubrik).toBeGreaterThan(-1);
+      expect(pos, rubrik).toBeLessThan(kalp);
     }
-    // Huvudfälten finns kvar, inklusive boarea.
     for (const id of [
       "kalkyl-pris",
       "kalkyl-kontantinsats",
@@ -89,71 +92,170 @@ describe("/bolanekalkyl: enkel huvudvy och valfri fördjupning", () => {
     ]) {
       const pos = html.indexOf(`id="${id}"`);
       expect(pos, id).toBeGreaterThan(-1);
-      expect(pos, id).toBeLessThan(i);
+      expect(pos, id).toBeLessThan(kalp);
     }
-    expect(html).toContain("Fördjupning: räntescenarier och bankens kalkyl (valfritt)");
-    expect(html).toContain("Om räntan ändras");
-    expect(html).toContain("Bankens kalkyl (KALP)");
+    // KALP-fälten finns, men efter sammanfattningen.
+    for (const id of KALP_ID) expect(html.indexOf(`id="${id}"`), id).toBeGreaterThan(kalp);
+    expect(html).toContain("Om räntan stiger");
     expect(html).toContain("Regler och antaganden");
   });
 
-  it("Spara och export ligger före fördjupningen", () => {
+  it("Spara och export ligger före reglerna", () => {
     const html = rita();
     expect(html.indexOf('data-slot="kalkyl-atgarder"')).toBeLessThan(
-      html.indexOf('data-slot="kalkyl-fordjupning"'),
+      html.indexOf('data-slot="kalkyl-regler"'),
     );
+    expect(html).toContain("Namn på kalkylen");
+    expect(html).toContain("Ladda ner PDF");
+    expect(html).toContain("Ladda ner Excel");
   });
 
-  it("fördjupningen är stängd som standard", () => {
-    expect(detailsTag(rita())).not.toMatch(/\sopen/);
+  it("KALP är stängd som standard", () => {
+    expect(kalpDetails(rita())).not.toMatch(/\sopen/);
   });
 
   it.each([
     ["barn", { barn: ["0-3" as const] }],
     ["fler vuxna än låntagare", { antalVuxna: 3, antalLantagare: 2 as const }],
     ["annan kalkylränta", { kalkylrantaProcent: 8 }],
-  ])("är öppen när en sparad kalkyl har avvikande KALP-uppgifter (%s)", (_n, andra) => {
+  ])("KALP är öppen när en sparad kalkyl har avvikande uppgifter (%s)", (_n, andra) => {
     oppnadMed(andra);
     sokning.current = { sparad: "k1" };
-    expect(detailsTag(rita())).toMatch(/\sopen/);
+    expect(kalpDetails(rita())).toMatch(/\sopen/);
   });
 
-  it("är stängd när en sparad kalkyl har förvalda KALP-uppgifter", () => {
+  it("KALP är stängd när en sparad kalkyl har förvalda uppgifter", () => {
     oppnadMed({});
     sokning.current = { sparad: "k1" };
-    expect(detailsTag(rita())).not.toMatch(/\sopen/);
+    expect(kalpDetails(rita())).not.toMatch(/\sopen/);
   });
 
-  it("har fältet 'Pris du räknar med', ingen 'Vet ej' och inget spann", () => {
+  it("öppnad sparad kalkyl visar remsan 'Öppnad från ditt konto'", () => {
+    oppnadMed({});
+    sokning.current = { sparad: "k1" };
+    expect(rita()).toContain("Öppnad från ditt konto:");
+  });
+
+  it("tom sida: 'Pris du räknar med', t.ex.-platshållare, inget 'Vet ej', inget spann, ett enda totalbelopp", () => {
     const html = rita();
     expect(html).toContain("Pris du räknar med");
     expect(html).not.toContain("Lånebelopp");
     expect(html).not.toMatch(/Vet ej/);
     expect(html).not.toContain("spann");
+    expect(html).toContain('placeholder="t.ex.');
     expect(html).toContain("Styr schablonen för värme");
     expect(html).toContain("Styr schablonerna för hushållsel, vatten och hemförsäkring");
-    // Två lägen per avgiftspost: Ingår / Ingår ej (fem poster).
-    expect(html.match(/>Ingår ej</g)).toHaveLength(5);
+    expect(html).toContain("Fyll i bruttoinkomst för att se nettoinkomst");
+    expect(html).not.toContain('data-slot="kalkyl-remsa"');
+    expect(html).not.toContain("Från rapporten");
   });
 
-  it("länk från rapporten: priset fyller prisfältet, kontantinsats 10 %, 'Från rapporten' på det som rapporten angav", () => {
+  it("fem avgiftschips som växlar (aria-pressed), även när de är förifyllda", () => {
+    sokning.current = { pris: 5_000_000, ingar: "varme,vatten,tv", ingarEj: "el,bredband" };
+    const html = rita();
+    const fs = html.slice(
+      html.indexOf("Ingår i avgiften</legend>") === -1 ? 0 : html.indexOf("Ingår i avgiften"),
+    );
+    for (const namn of ["Värme", "Vatten", "Hushållsel", "Bredband", "Tv"]) {
+      expect(fs, namn).toMatch(
+        new RegExp(`aria-pressed="(true|false)"[^>]*>(<svg.*?</svg>)?${namn}<`),
+      );
+    }
+    expect(html.match(/aria-pressed="true"/g)).toHaveLength(3);
+    expect(html.match(/aria-pressed="false"/g)).toHaveLength(2);
+    expect(html).not.toContain("Ingår ej");
+  });
+
+  it("länk från rapporten: remsa, förifyllt pris och insats, 'Från rapporten' på det som rapporten angav", () => {
     sokning.current = {
       pris: 5_260_000,
       manadsavgift: 3503,
       boarea: 48,
+      rantekanslighet: 4.2,
       ingar: "varme,vatten",
       ingarEj: "el",
     };
     const html = rita();
     expect(html).toMatch(/id="kalkyl-pris"[^>]*value="5260000"/);
     expect(html).toMatch(/id="kalkyl-kontantinsats"[^>]*value="526000"/);
-    expect(html).toContain("Från rapporten (Binfos värdering)");
-    expect(html).toContain("Från rapporten — ändra om avgiften har uppdaterats.");
-    // Tre märkta chips: värme, vatten, el.
-    expect(html.match(/Från rapporten</g)).toHaveLength(3);
+    expect(html).toContain("Binfos värdering enligt rapporten");
+    expect(html).not.toContain("Vanligt bud");
+    expect(html).toContain("10 % av priset · minst 10 % krävs");
+    // Remsan: bara det som faktiskt fylldes i.
+    expect(html).toContain("Ifyllt från rapporten.");
+    expect(html).toContain(
+      "Pris, avgift, boarea, vad som ingår i avgiften och föreningens räntekänslighet.",
+    );
+    // Märken: pris, avgift, boarea och legenden för avgiftsposterna.
+    expect(html.match(/>Från rapporten</g)).toHaveLength(4);
   });
 
-  it("utan länk finns inga 'Från rapporten'-märken", () => {
-    expect(rita()).not.toContain("Från rapporten");
+  it("remsan har ingen länk 'Till rapporten' när ingen rapport kan pekas ut", () => {
+    sokning.current = { pris: 5_260_000 };
+    const html = rita();
+    expect(html).toContain("Ifyllt från rapporten.");
+    expect(html).not.toContain("Till rapporten");
+  });
+
+  it("uppskattat pris märks som uppskattning", () => {
+    sokning.current = { pris: 5_000_000, prisUppskattning: true };
+    expect(rita()).toContain("Binfos uppskattning av priset enligt rapporten");
+  });
+
+  it("räntestress: slider med namn, värdetext och skala", () => {
+    const html = rita();
+    expect(html).toMatch(/<label[^>]*for="kalkyl-rantestress"[^>]*>Räntestress</);
+    expect(html).toMatch(/id="kalkyl-rantestress"[^>]*aria-valuetext="\+0,0 procentenheter"/);
+    expect(html).toContain("+3 p.e.");
+  });
+
+  it("räntescenarier: +0 till +3 och bankens kalkylränta, med tabellrubriker", () => {
+    sokning.current = { pris: 5_000_000, manadsavgift: 3500, boarea: 50, rantekanslighet: 4 };
+    const html = rita();
+    // Ränta ifylld via sparad kalkyl behövs för tabellen: här saknas den.
+    expect(html).toContain("Fyll i ränta ovan för att se scenarierna.");
+    oppnadMed({ rantaProcent: 3.5, manadsavgift: 3500, boarea: 50, rantekanslighetProcent: 4 });
+    sokning.current = { sparad: "k1" };
+    const ok = rita();
+    expect(ok).toContain('scope="col">Din ränta<');
+    expect(ok).toContain("Totalt per månad");
+    expect(ok).toContain("Din ränta</span>");
+    expect(ok).toContain("+3 procentenheter");
+    expect(ok).toContain("Bankens kalkylränta");
+    expect(ok).toContain("Avgiften stiger");
+  });
+});
+
+describe("/bolanekalkyl: regler och antaganden", () => {
+  it("rubrikens antal är summan av grupperna och datumet är det senaste kontrolldatumet", () => {
+    const grupper = regelGrupper();
+    const summa = grupper.reduce((a, g) => a + g.regler.length, 0);
+    const alla = grupper.flatMap((g) => g.regler);
+    expect(reglerMeta(alla)).toMatch(
+      new RegExp(`^${summa} st, kontrollerade \\d+ \\p{L}+\\.? 20\\d\\d$`, "u"),
+    );
+    const html = renderToStaticMarkup(<ReglerTabell />);
+    expect(html).toContain(`${summa} st, kontrollerade`);
+    for (const g of grupper) expect(html).toContain(`${g.regler.length} st`);
+    // En tabell per grupp med kolumnrubriker och scope.
+    expect(html.match(/scope="col">Typ</g)).toHaveLength(grupper.length);
+    expect(html).toContain('scope="row"');
+  });
+
+  it("typmappning: regel, referensvärde, antagande, uppskattning", () => {
+    expect(regelTyp("faststalld").etikett).toBe("Regel");
+    expect(regelTyp("antagande").etikett).toBe("Antagande");
+    expect(regelTyp("schablon").etikett).toBe("Uppskattning");
+    // Ett publicerat värde med offentlig källa är inte Binfos gissning.
+    expect(regelTyp("referens").etikett).toBe("Referensvärde");
+    expect(regelTyp("referens").etikett).not.toBe(regelTyp("schablon").etikett);
+  });
+
+  it("varje rad i registret får en typ, och bara poster utan källa är 'Uppskattning'", () => {
+    for (const g of regelGrupper()) {
+      for (const r of g.regler) {
+        if (regelTyp(r.status).etikett === "Uppskattning") expect(r.kalla.url).toBeNull();
+      }
+    }
   });
 });

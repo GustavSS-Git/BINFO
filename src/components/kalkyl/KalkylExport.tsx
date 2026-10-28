@@ -38,12 +38,22 @@ export function KalkylExport({
   }
 
   return (
-    <div className="mt-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" disabled={!klar || upptagen} onClick={() => void kor("pdf")}>
+    <div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={!klar || upptagen}
+          onClick={() => void kor("pdf")}
+        >
           {status === "pdf" ? "Skapar PDF…" : "Ladda ner PDF"}
         </Button>
-        <Button variant="secondary" disabled={!klar || upptagen} onClick={() => void kor("excel")}>
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={!klar || upptagen}
+          onClick={() => void kor("excel")}
+        >
           {status === "excel" ? "Skapar Excel…" : "Ladda ner Excel"}
         </Button>
       </div>
@@ -57,7 +67,7 @@ export function KalkylExport({
         </p>
       )}
       {status === "fel" ? (
-        <p className="mt-2 text-sm text-danger" role="alert">
+        <p className="mt-2 text-sm text-danger-text" role="alert">
           Det gick inte att skapa filen just nu. Försök igen om en liten stund.
         </p>
       ) : null}
