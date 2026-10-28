@@ -34,7 +34,7 @@ describe("formatters", () => {
   });
 
   it("gives kr/m² only with a positive boarea", () => {
-    expect(kvmPris(4_995_000, 48)).toBe("ca 104 100 kr/m²");
+    expect(kvmPris(4_995_000, 48)?.replace(/\s/g, " ")).toBe("ca 104 100 kr/m²");
     expect(kvmPris(4_995_000, 0)).toBeNull();
   });
 
