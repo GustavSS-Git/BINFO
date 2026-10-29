@@ -15,11 +15,11 @@ const rita = (a = analysMedSparbehov()) =>
   renderToStaticMarkup(<AnalysRapport analys={a} />).replace(/[\s\u00a0]+/g, " ");
 
 describe("AnalysRapport — sparande, lån och färger (2026-10-24c)", () => {
-  it("märker de två värdena och visar vattenfallet med delbelopp i 'Så har vi räknat'", () => {
+  it("märker de två värdena och visar komponenternas delbelopp i prislistan", () => {
     const html = rita();
     expect(html).toContain("Vad liknande lägenheter säljs för");
     expect(html).toContain("Med föreningens ekonomi inräknad");
-    expect(html).toContain('data-slot="pris-vattenfall"');
+    expect(html).not.toContain('data-slot="pris-vattenfall"');
     // 300 kr/mån × 300 = 90 000, 500 × 300 = 150 000
     expect(html).toContain("−90 000 kr");
     expect(html).toContain("−150 000 kr");
@@ -78,7 +78,7 @@ describe("AnalysRapport — sparande, lån och färger (2026-10-24c)", () => {
     );
     // Raden "Din andel" följer med in i den förväntade avgiften.
     expect(html).toContain("Din andel");
-    expect(html).toContain("Räntekänsligheten påverkar inte värderingen");
+    expect(html).not.toContain("Räntekänsligheten påverkar inte värderingen");
   });
 
   it("mappar avgiftstryck till samma toner som nyckeltalens status", () => {

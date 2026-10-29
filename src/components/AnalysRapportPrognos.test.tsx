@@ -81,11 +81,11 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     const html = rita();
     expect(html).toContain("+500 kr/mån");
     expect(html).toContain("Okänt");
-    expect(html).toContain("≈ 300 kr i pris per krona i månadsavgift");
+    expect(html).not.toContain("≈ 300 kr i pris per krona i månadsavgift");
     // The range is not shown any more, so neither are its widening reasons.
     expect(html).not.toContain("Underhållsplanens belopp saknas");
     expect(html).toContain("Energikostnaden ingår redan i dagens avgift");
-    expect(html).toContain("statistiska sambandet");
+    expect(html).not.toContain("statistiska sambandet");
     expect(html).toContain("Lån som omsätts inom horisonten");
     expect(html).toContain("3-månaders statsskuldväxel");
     expect(html).toContain("50 % av skulden");

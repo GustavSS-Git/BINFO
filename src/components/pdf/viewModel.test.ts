@@ -249,7 +249,6 @@ describe("buildPdfViewModel: 2 Priset", () => {
     expect(gammal.vardering.find((r) => r.label === "Binfos värdering")?.note).toBe(
       "Utan justering för föreningens ekonomi",
     );
-    expect(gammal.rakning?.ekonomi).toBeUndefined();
   });
 
   it("med prognos: komponenteffekter som egen rad och 'Med föreningens ekonomi inräknad'", () => {
@@ -262,7 +261,8 @@ describe("buildPdfViewModel: 2 Priset", () => {
     expect(pp.byggarNotis).toBe(
       "Värderingen räknar med byggår 1958 enligt årsredovisningen, inte 1962 som du angav (s. 3).",
     );
-    expect(pp.rakning?.ekonomi?.texter.join(" ")).toContain("≈ 300 kr i pris per krona");
+    // The fee-to-price explanation lives in the price card and the fee section, not in "Så har vi räknat".
+    expect(pp.rakning).not.toHaveProperty("ekonomi");
   });
 
   it("utan utgångspris: rubriken 'Binfos värdering', ingen annonslista och ingen budnivå", () => {
@@ -363,13 +363,14 @@ describe("buildPdfViewModel: 2 Priset", () => {
     ).toBeUndefined();
   });
 
-  it("har 'Så har vi räknat' med modellens faktorer, källa och typiska fel", () => {
+  it("har 'Så har vi räknat' med modellens faktorer och källa, utan typiskt fel", () => {
     const m = p.rakning?.modell;
     expect(m?.faktorer.length).toBeGreaterThan(3);
     expect(m?.kalla).toContain("Svensk Mäklarstatistik");
     expect(m?.kalla).toContain("januari–augusti 2026");
     expect(m?.metadata).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
-    expect(m?.felText).toContain("Kungsholmen");
+    expect(m).not.toHaveProperty("felText");
+    expect(m).not.toHaveProperty("slutsats");
   });
 });
 

@@ -156,7 +156,9 @@ describe("Misslyckad", () => {
   it("okänd felkod blir 'unknown'; scanned_pdf säger inte att skanningar inte stöds", () => {
     expect(rita(<Misslyckad />)).toContain(FELKOD_INNEHALL.unknown.rubrik);
     const text = rita(<Misslyckad errorCode="scanned_pdf" />);
-    expect(text).toContain("Det händer med vissa skannade eller fotograferade sidor, och med skanningar på fler än 60 sidor.");
+    expect(text).toContain(
+      "Det händer med vissa skannade eller fotograferade sidor, och med skanningar på fler än 60 sidor.",
+    );
     expect(text).toContain("Försök med en digital version (med textlager)");
   });
 

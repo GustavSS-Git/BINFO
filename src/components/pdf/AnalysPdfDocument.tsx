@@ -790,45 +790,9 @@ function PrisRakning({ r }: { r: NonNullable<PdfPriset["rakning"]> }) {
           ))}
           <Text style={styles.body}>{r.modell.kalla}</Text>
           {r.modell.spannText ? <Text style={styles.body}>{r.modell.spannText}</Text> : null}
-          <Text style={styles.body}>{r.modell.felText}</Text>
-          <Text style={styles.body}>{r.modell.slutsats}</Text>
           <Text style={[styles.small, { marginTop: 4 }]}>{r.modell.omradeText}</Text>
           <Text style={styles.small}>{r.modell.metadata}</Text>
           {r.modell.metodText ? <Text style={styles.small}>{r.modell.metodText}</Text> : null}
-        </View>
-      ) : null}
-      {r.ekonomi ? (
-        <View style={{ marginTop: 8 }}>
-          <Text style={styles.h4}>Hur föreningens ekonomi påverkar priset</Text>
-          {r.ekonomi.texter.map((t) => (
-            <Text key={t} style={styles.body}>
-              {t}
-            </Text>
-          ))}
-          <Text style={styles.body}>{r.ekonomi.rantaRad}</Text>
-          <Text style={[styles.small, { marginTop: 3 }]}>{r.ekonomi.caveat}</Text>
-          {r.ekonomi.vattenfall.length > 0 ? (
-            <View style={{ marginTop: 5 }} wrap={false}>
-              <Text style={styles.small}>Så påverkar föreningens ekonomi priset</Text>
-              {r.ekonomi.vattenfall.map((v) => (
-                <View
-                  key={v.label}
-                  style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 2 }}
-                >
-                  <Text style={{ fontSize: 8.5 }}>{v.label}</Text>
-                  <Text
-                    style={{
-                      fontSize: 8.5,
-                      fontWeight: SEMI,
-                      color: v.typ === "steg" ? TON_TEXT[v.ton] : PDF_COLORS.ink,
-                    }}
-                  >
-                    {v.beloppText}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
         </View>
       ) : null}
     </View>

@@ -357,7 +357,7 @@ describe("AnalysRapport — avsnitt 2: Priset", () => {
     expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(1);
   });
 
-  it("'Så har vi räknat' är hopfälld och innehåller modell, spann och hur ekonomin påverkar priset", () => {
+  it("'Så har vi räknat' är hopfälld och innehåller bara värderingsmodellen och spannet", () => {
     const html = rita(analysMedSparbehov());
     const i = html.indexOf("Så har vi räknat");
     const tagg = /<details[^>]*>/.exec(html.slice(html.lastIndexOf("<details", i)))?.[0] ?? "";
@@ -368,12 +368,10 @@ describe("AnalysRapport — avsnitt 2: Priset", () => {
     expect(inne).toContain("Modellen är tränad på");
     expect(inne).toContain("Månadsavgift: högre avgift drar ner priset.");
     expect(inne).toContain("inget statistiskt konfidensintervall");
-    expect(inne).toContain("Hur föreningens ekonomi påverkar priset");
-    expect(inne).toContain("≈ 300 kr i pris per krona i månadsavgift");
-    expect(inne).toContain("statistiska sambandet");
-    expect(inne).toContain('data-slot="pris-vattenfall"');
-    expect(inne).toContain("−90 000 kr");
-    expect(inne).toContain("−150 000 kr");
+    // Owner 2026-10-29: no typical error, no model conclusion, no fee-to-price block here.
+    expect(inne).not.toContain("typiska fel");
+    expect(inne).not.toContain("Hur föreningens ekonomi påverkar priset");
+    expect(inne).not.toContain('data-slot="pris-vattenfall"');
   });
 });
 

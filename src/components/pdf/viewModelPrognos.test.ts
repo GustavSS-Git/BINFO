@@ -34,7 +34,6 @@ describe("buildPdfViewModel: avgiftsprognos", () => {
     const gammal = buildPdfViewModel(analysUtanPrognos());
     expect(gammal.avgiften.rantestress.prognosTabell).toBeUndefined();
     expect(gammal.avgiften.drivare).toBeUndefined();
-    expect(gammal.priset.rakning?.ekonomi).toBeUndefined();
     expect(gammal.huvud.byggarRad).toBeUndefined();
     expect(gammal.kort.avgift.stort).toBe("Kan inte uppskattas");
   });

@@ -6,11 +6,6 @@ describe("buildPdfViewModel: sparsteg och lån (2026-10-24c)", () => {
   const vm = buildPdfViewModel(analysMedSparbehov());
   const a = vm.avgiften;
 
-  it("tar med prisets komponentsteg i 'Så har vi räknat'", () => {
-    const rader = vm.priset.rakning?.ekonomi?.vattenfall ?? [];
-    expect(rader.map((r) => r.beloppText.replace(/\s/g, " "))).toContain("−150 000 kr");
-  });
-
   it("har färgton på drivarna och tryck på avsnittet", () => {
     expect(a.tryck).toEqual({ etikett: "Visst tryck på avgiften", ton: "warning" });
     const lan = a.drivare?.rader.find((r) => r.label === "Lån som omsätts");

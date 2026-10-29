@@ -351,24 +351,9 @@ export interface PdfPrisRakning {
         faktorer: string[];
         kalla: string;
         spannText: string | undefined;
-        felText: string;
         metadata: string;
         omradeText: string;
         metodText: string | undefined;
-        slutsats: string;
-      }
-    | undefined;
-  ekonomi:
-    | {
-        texter: string[];
-        rantaRad: string;
-        caveat: string;
-        vattenfall: Array<{
-          label: string;
-          beloppText: string;
-          ton: Ton;
-          typ: "bas" | "steg" | "slut";
-        }>;
       }
     | undefined;
 }
@@ -534,26 +519,9 @@ function buildPriset(analys: AnalysisResult): PdfPriset {
           faktorer: RAKNA_FAKTORER,
           kalla: varderingsKallaText(u.dataperiod),
           spannText: `Spannet ${formatSpannMkr(visat.exakt)} är Binfos värdering ± ${VARDESPANN_PROCENT} %. Det visar hur långt från värderingen ett pris kan ligga och ändå vara rimligt, och är inget statistiskt konfidensintervall.`,
-          felText: `Modellens typiska fel${omrade ? ` i ${omrade}` : ""} är ca ${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %.`,
           metadata: `${u.antalForsaljningar.toLocaleString("sv-SE")} försäljningar · typiskt fel ±${u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} % · modell ${u.modellVersion}`,
           omradeText: `Område: ${omrade ?? "Stockholm (postnumret saknas i vår områdesindelning)"}`,
           metodText: tackningTxt?.typ === "lan" ? tackningTxt.text : undefined,
-          slutsats: p.slutsats,
-        }
-      : undefined;
-
-  const ekonomiRakning =
-    prognos && p.justeradVardering
-      ? {
-          texter: prisEffektTexter(p),
-          rantaRad: RANTEKANSLIGHET_PRIS_RAD,
-          caveat: PRISEFFEKT_CAVEAT,
-          vattenfall: (vattenfall(p, prognos)?.rader ?? []).map((r) => ({
-            label: r.label,
-            beloppText: r.beloppText,
-            ton: r.ton,
-            typ: r.typ,
-          })),
         }
       : undefined;
 
@@ -594,7 +562,7 @@ function buildPriset(analys: AnalysisResult): PdfPriset {
       p.konfidens.niva === "lag" && p.konfidens.skal && p.konfidens.skal.length > 0
         ? `Låg tillförlitlighet: ${p.konfidens.skal.join(" ")}`
         : undefined,
-    rakning: modell || ekonomiRakning ? { modell, ekonomi: ekonomiRakning } : undefined,
+    rakning: modell ? { modell } : undefined,
   };
 }
 

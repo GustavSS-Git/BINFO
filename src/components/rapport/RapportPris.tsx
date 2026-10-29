@@ -9,10 +9,8 @@ import {
   Tag,
 } from "@/components/ui/binfo";
 import {
-  PRISEFFEKT_CAVEAT,
   RAKNA_FAKTORER,
   MODELL_FAKTORER_INTRO,
-  RANTEKANSLIGHET_PRIS_RAD,
   TON_BG,
   TON_TEXT,
   VARDESPANN_PROCENT,
@@ -30,16 +28,13 @@ import {
   lageMotVardespann,
   medVersal,
   modellVersionText,
-  prisEffektTexter,
   prisRubrik,
   rapportOmrade,
   vardespann,
   varderingsKallaText,
   varderingsTackningText,
-  vattenfall,
   visatVarde,
   type AndelAvSkuldRad,
-  type VattenfallRad,
 } from "@/lib/analysisView";
 import { formatMkr, formatSpannMkr, iEllerPaOmrade, kvmPris, vanligtBud } from "@/lib/prisVy";
 import { kr } from "@/data/mockData";
@@ -52,51 +47,6 @@ import type {
 } from "@/types/analysis";
 
 const LAGE_TEXT = { under: "under spannet", inom: "inom spannet", over: "över spannet" } as const;
-
-/** Stapeldiagram från "liknande lägenheter" till det justerade värdet (bara i "Så har vi räknat"). */
-function PrisVattenfall({
-  prisanalys,
-  prognos,
-}: {
-  prisanalys: PrisanalysUtanForening;
-  prognos: Avgiftsprognos;
-}) {
-  const v = vattenfall(prisanalys, prognos);
-  if (!v) return null;
-  return (
-    <div className="rounded-lg border border-border p-4" data-slot="pris-vattenfall">
-      <p className="mb-4 border-b border-divider pb-2 text-[13px] font-semibold text-muted-foreground">
-        Så påverkar föreningens ekonomi priset
-      </p>
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {v.rader.map((r: VattenfallRad) => (
-          <li
-            key={r.id}
-            className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[minmax(0,10rem)_1fr_auto] sm:gap-3"
-          >
-            <span className="min-w-0 text-[13px] text-foreground">{r.label}</span>
-            <span className="relative h-3 rounded-sm bg-track" aria-hidden>
-              <span
-                data-ton={r.ton}
-                className={`absolute inset-y-0 rounded-sm ${r.typ === "steg" ? TON_BG[r.ton] : "bg-muted-foreground"}`}
-                style={{ left: `${r.vansterPct}%`, width: `${r.breddPct}%` }}
-              />
-            </span>
-            <span
-              className={`text-right text-[13px] font-semibold ${r.typ === "steg" ? TON_TEXT[r.ton] : "text-foreground"}`}
-            >
-              {r.beloppText}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Skalan är utzoomad kring värdena.
-        {v.proportionell ? " Delbeloppen är fördelade efter komponenternas kr/mån." : ""}
-      </p>
-    </div>
-  );
-}
 
 function spannEtikett(
   lag: number,
@@ -401,7 +351,7 @@ export function PrisSektion({
         ) : null}
       </Card>
 
-      {u || avgiftsprognos ? (
+      {u ? (
         <Details summary="Så har vi räknat">
           <div className="flex flex-col gap-6">
             {u ? (
@@ -424,25 +374,6 @@ export function PrisSektion({
                     rimligt, och är inget statistiskt konfidensintervall.
                   </p>
                 ) : null}
-                <p>
-                  Modellens typiska fel{omrade ? ` i ${omrade}` : ""} är ca{" "}
-                  {u.typisktFelProcent.toLocaleString("sv-SE", { maximumFractionDigits: 1 })} %.
-                </p>
-                <p>{p.slutsats}</p>
-              </div>
-            ) : null}
-            {avgiftsprognos && p.justeradVardering ? (
-              <div className="flex flex-col gap-3">
-                <h4 className="text-base font-semibold text-foreground">
-                  Hur föreningens ekonomi påverkar priset
-                </h4>
-                {prisEffektTexter(p).map((t) => (
-                  <p key={t}>{t}</p>
-                ))}
-                <p>{RANTEKANSLIGHET_PRIS_RAD}</p>
-                <p className="text-[13px] text-muted-foreground">{PRISEFFEKT_CAVEAT}</p>
-                {/* Exact kronor live only here, in the method layer (owner 2026-10-26). */}
-                <PrisVattenfall prisanalys={p} prognos={avgiftsprognos} />
               </div>
             ) : null}
           </div>
