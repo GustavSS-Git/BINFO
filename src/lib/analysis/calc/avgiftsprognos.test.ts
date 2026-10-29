@@ -142,8 +142,9 @@ describe("andel", () => {
     expect(r.prognos.totalKrPerManad).toBeNull();
     expect(r.prognos.komponenter.every((k) => k.krPerManad === null)).toBe(true);
     // the BRF-level amount is still computed. Schablon target 300, gap 300 + 100 = 400,
-    // × 2 000 m² × dampening 0,5 = 400 000 (was 200 000 with the old negative-only logic)
-    expect(komp(r, "spargap").foreningKrPerAr).toBe(400_000);
+    // underskott 100 × 2 000 = 200 000 + lånebart 300 × 2 000 = 600 000 (skuld okänd →
+    // inget lånas, 2026-10-29) = 800 000
+    expect(komp(r, "spargap").foreningKrPerAr).toBe(800_000);
   });
   it("guards a share above 1 (årsavgifter 40 000 → 1,2) and falls through", () => {
     const r = kor(forening(), { kontrollsummor: { arsavgifter: fig(40_000) } });
@@ -154,7 +155,7 @@ describe("andel", () => {
   });
 });
 
-describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, dampening 0,5)", () => {
+describe("spargap (sparande mot underhållsbehov; no plan → schablon 300; skuld okänd → hela glappet via avgiften)", () => {
   const med = (kf: KeyFigure | null, extra: Partial<Forening> = {}) =>
     komp(
       kor(
@@ -166,17 +167,17 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
       ),
       "spargap",
     );
-  it("−100 kr/m²: gap 400 × 2 000 × 0,5 = 400 000 kr/year → × 0,01 / 12 = 333,33 → 333", () => {
+  it("−100 kr/m²: underskott 100 + lånebart 300 = 400 × 2 000 = 800 000 kr/year (skuld okänd) → × 0,01 / 12 = 666,67 → 667", () => {
     const k = med(sparande(-100));
-    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 400_000, krPerManad: 333 });
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 800_000, krPerManad: 667 });
     expect(k.ref?.page).toBe(5);
     expect(k.label).toBe("Sparande mot underhållsbehov");
   });
-  it("positive sparande is no longer ej_aktuell: 50 → gap 250 × 2 000 × 0,5 = 250 000 → 208,33 → 208", () => {
+  it("positive sparande is no longer ej_aktuell: 50 → gap 250 × 2 000 = 500 000 → 416,67 → 417", () => {
     expect(med(sparande(50))).toMatchObject({
       status: "beraknad",
-      foreningKrPerAr: 250_000,
-      krPerManad: 208,
+      foreningKrPerAr: 500_000,
+      krPerManad: 417,
     });
   });
   it("a surplus is negative: 500 → gap −200 × 2 000 × 0,5 = −200 000 → −166,67 → −167", () => {
@@ -184,7 +185,7 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
   });
   it("planned and financed withdrawal is no exception any more (schablon): calculated, and mentioned", () => {
     const k = med(sparande(-100), { sparandeUttag: { planerat: "ja", finansierat: "ja" } });
-    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 400_000 });
+    expect(k).toMatchObject({ status: "beraknad", foreningKrPerAr: 800_000 });
     expect(k.forklaring).toMatch(/finansierat uttag/);
   });
   it("plan target, financed withdrawal: gap logic as is (investeringsbehov 400, sparande −100 → 500 × 2 000 = 1 000 000)", () => {
@@ -198,11 +199,12 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
   it("forklaring is one Swedish sentence with target, source, sparande and gap", () => {
     const k = med(sparande(150));
     // 300 − 150 = 150 kr/m²
-    // 150 × 2 000 m² × 0,5 = 150 000 kr/år; andel 4 000 × 12 / 4 800 000 = 1 % → 125 kr/mån
+    // 150 × 2 000 m² = 300 000 kr/år (skuld okänd); andel 4 000 × 12 / 4 800 000 = 1 % → 250 kr/mån
     expect(k.forklaring.replace(/\s/g, " ")).toBe(
       "Sparandet är 150 kr/m² mot Binfos mål 300 kr/m² (schablon) – ett glapp på 150 kr/m². " +
-        "Vi räknar halva glappet på föreningens totalyta 2 000 m²: 150 000 kr/år. " +
-        "Din andel är 1 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 4,8 mkr), alltså ca 125 kr/mån.",
+        "Föreningens skuld per kvadratmeter framgår inte, så glappet betalas med avgiften. " +
+        "Sammanlagt når ca 300 000 kr/år föreningens avgift. " +
+        "Din andel är 1 % (din avgift × 12 ÷ föreningens årsavgifter ≈ 4,8 mkr), alltså ca 250 kr/mån.",
     );
   });
   it("value null with tecken negativ: saknar_underlag", () => {
@@ -223,7 +225,7 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
       totalyta: null,
     });
   });
-  it("byggår and hiss reach the schablon: byggår 1950 + hiss ja → 5/7 eftersatt → 336; gap 336 − 150 = 186 × 2 000 × 0,5 = 186 000", () => {
+  it("byggår and hiss reach the schablon: byggår 1950 + hiss ja → 5/7 eftersatt → 336; gap 336 − 150 = 186 × 2 000 = 372 000", () => {
     const f = forening({
       keyFigures: [sparande(150)],
       totalyta: fig(2000, { unit: "m2" }),
@@ -234,7 +236,7 @@ describe("spargap (sparande mot underhållsbehov; no plan → schablon 300, damp
       hiss: "ja",
     });
     expect(r.prognos.sparbehov).toMatchObject({ malKrPerM2: 336, malKalla: "schablon" });
-    expect(komp(r, "spargap").foreningKrPerAr).toBe(186_000);
+    expect(komp(r, "spargap").foreningKrPerAr).toBe(372_000);
   });
   it("plan target: investeringsbehov 400, sparande 150 → 250 × 2 000 = 500 000 (dampning 1) → 416,67 → 417", () => {
     const k = med(sparande(150), {
@@ -1048,10 +1050,10 @@ describe("energi", () => {
 
 describe("total, guard and counts", () => {
   it("total = Σ rounded beraknade components; saknar adds nothing and is counted", () => {
-    // spargap (schablon) 400 000 → 333 ; refinansiering 6 480 → 5 ; energi 100 000 → 83 ; underhåll saknar ; lokaler ej
+    // spargap (sparande 100: gap 200 × 2 000 = 400 000) → 333 ; refinansiering 6 480 → 5 ; energi 100 000 → 83 ; underhåll saknar ; lokaler ej
     const r = kor(
       forening({
-        keyFigures: [sparande(-100)],
+        keyFigures: [sparande(100)],
         totalyta: fig(2000, { unit: "m2" }),
         ...lanebok(1_000_000, [lan(1_000_000, 2.0, undefined, "rorlig")]),
         energiprojekt: [{ text: "Sol", finansierat: "nej", belopp: fig(1_000_000) }],
@@ -1063,13 +1065,13 @@ describe("total, guard and counts", () => {
     expect(r.prognos.berakningsdatum).toBe(IDAG);
     expect(r.prognos.osaker).toBeUndefined();
   });
-  it("30 % guard: sparande −1 200 → gap 1 500 × 2 000 × 0,5 = 1 500 000 → 1 250 kr > 0,3 × 4 000 = 1 200 → osäker", () => {
+  it("30 % guard: sparande −1 200 → underskott 1 200 + lånebart 300 = 1 500 × 2 000 = 3 000 000 → 2 500 kr > 0,3 × 4 000 = 1 200 → osäker", () => {
     const r = kor(forening({ keyFigures: [sparande(-1200)], totalyta: fig(2000, { unit: "m2" }) }));
-    expect(r.prognos.totalKrPerManad).toBe(1250);
+    expect(r.prognos.totalKrPerManad).toBe(2500);
     expect(r.prognos.osaker).toMatch(/osäker/);
   });
-  it("30 % guard: exactly 1 200 is not flagged (sparande −1 140 → gap 1 440 × 1 000 = 1 440 000 → 1 200)", () => {
-    const r = kor(forening({ keyFigures: [sparande(-1140)], totalyta: fig(2000, { unit: "m2" }) }));
+  it("30 % guard: exactly 1 200 is not flagged (sparande −420 → underskott 420 × 2 000 + lånebart 300 × 2 000 = 1 440 000 → 1 200)", () => {
+    const r = kor(forening({ keyFigures: [sparande(-420)], totalyta: fig(2000, { unit: "m2" }) }));
     expect(r.prognos.totalKrPerManad).toBe(1200);
     expect(r.prognos.osaker).toBeUndefined();
   });
@@ -1594,7 +1596,7 @@ describe("beslutad avgiftshöjning (internal check + component)", () => {
 });
 
 describe("a decided raise answers the savings gap (offset on spargap)", () => {
-  // Default flat: spargap with sparande −100 on totalyta 2 000: (300 − (−100)) × 2 000 × 0,5 = 400 000 kr/year.
+  // Default flat: spargap with sparande 100 on totalyta 2 000: (300 − 100) × 2 000 = 400 000 kr/year (no deficit part).
   // Revenue of the förening = 4 000 × 12 ÷ 0,01 = 4 800 000 kr/year.
   const andring = (procent: number, fran?: string): Avgiftsandring => ({
     procent: {
@@ -1611,7 +1613,7 @@ describe("a decided raise answers the savings gap (offset on spargap)", () => {
   const med = (andringar: Avgiftsandring[], extra: Partial<Forening> = {}) =>
     kor(
       forening({
-        keyFigures: [sparande(-100)],
+        keyFigures: [sparande(100)],
         totalyta: fig(2000, { unit: "m2" }),
         avgiftsandringar: andringar,
         ...extra,
@@ -1756,5 +1758,42 @@ describe("the flat's share is stated in every component text (round 2026-10-26)"
     expect(k.forklaring.replace(/\s/g, " ")).toContain(
       "Vi räknar din avgift 4 000 kr × 10 % = cirka 400 kr i månaden.",
     );
+  });
+});
+
+describe("Ingemar 8: borrowed gap reaches the fee as interest only (owner 2026-10-29)", () => {
+  it("BRF 36 060 kr/year → flat with avgift 3 100 and årsavgifter 1 359 772: ≈ 82 kr/month; text names the years and the ceiling", () => {
+    const r = kor(
+      forening({
+        rakenskapsar: 2025,
+        keyFigures: [
+          sparande(-3),
+          {
+            id: "skuldsattning_per_m2_totalyta",
+            label: "Skuld",
+            figure: fig(3411, { unit: "kr/m2" }),
+            status: "okant",
+            forklaring: "",
+          },
+        ],
+        totalyta: fig(2485, { unit: "m2" }),
+        sparandeHistorik: [-138, 125, 119].map((v, i) => ({
+          ar: 2024 - i,
+          figure: fig(v, { unit: "kr/m2" }),
+        })),
+      }),
+      { manadsavgift: 3100, kontrollsummor: { arsavgifter: fig(1_359_772) } },
+    );
+    const k = komp(r, "spargap");
+    expect(k.foreningKrPerAr).toBeGreaterThan(36_000);
+    expect(k.foreningKrPerAr).toBeLessThan(36_100);
+    expect(r.prognos.andel?.varde).toBeCloseTo((3100 * 12) / 1_359_772, 8);
+    expect(k.krPerManad).toBe(
+      Math.round(((k.foreningKrPerAr as number) * 3100 * 12) / 1_359_772 / 12),
+    );
+    expect(k.forklaring).toMatch(/snitt 2022–2025/);
+    expect(k.forklaring).toMatch(/under Binfos gräns på 5\s000 kr\/m²/);
+    expect(k.forklaring).toMatch(/inom två år når bara räntan avgiften/);
+    expect(k.forklaring).not.toMatch(/halva/);
   });
 });

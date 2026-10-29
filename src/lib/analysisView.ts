@@ -1953,6 +1953,7 @@ export function sparRader(prognos: Avgiftsprognos): SparRad[] | undefined {
   const komp = sparKomponent(prognos);
   const schablon = sb.malKalla === "schablon";
   const sida = (r: PageRef | undefined) => (r ? `, s. ${r.page}` : "");
+  const sparAr = sb.sparandeAr ?? [];
   const behovNot = schablon
     ? `Vad föreningen borde spara per år för husets byggdelar, spann ${SPARMAL_SCHABLON_MIN}–${SPARMAL_SCHABLON_MAX} kr/m²`
     : `Enligt föreningens underhållsplan${sida(sb.malRef)}`;
@@ -1963,8 +1964,13 @@ export function sparRader(prognos: Avgiftsprognos): SparRad[] | undefined {
       varde: `ca ${Math.round(sb.malKrPerM2).toLocaleString("sv-SE")} kr/m² per år`,
     },
     {
-      label: "Föreningen sparar i dag",
-      note: `Avsättning enligt årsredovisningen${sida(sb.sparandeRef)}`,
+      label: sparAr.length > 1 ? "Föreningen sparar (snitt)" : "Föreningen sparar i dag",
+      note:
+        sparAr.length > 1
+          ? `Snitt ${sparAr[sparAr.length - 1]?.ar}–${sparAr[0]?.ar} enligt årsredovisningen${sida(sb.sparandeRef)} (${sparAr
+              .map((a) => `${a.ar}: ${Math.round(a.krPerM2).toLocaleString("sv-SE")}`)
+              .join(", ")} kr/m²)`
+          : `Avsättning enligt årsredovisningen${sida(sb.sparandeRef)}`,
       varde:
         sb.sparandeKrPerM2 === null
           ? "Uppgift saknas"
@@ -1979,11 +1985,50 @@ export function sparRader(prognos: Avgiftsprognos): SparRad[] | undefined {
       varde: `ca ${Math.abs(Math.round(sb.glappKrPerM2)).toLocaleString("sv-SE")} kr/m² per år`,
     });
   }
+  const fin = sb.finansiering;
+  if (fin && sb.glappKrPerM2 !== null && sb.glappKrPerM2 > 0) {
+    const n = (x: number) => Math.round(x).toLocaleString("sv-SE");
+    // "ca" amounts are rounded: to 1 000 kr from 10 000 kr, else to 100 kr.
+    const ca = (x: number) =>
+      (
+        Math.round(x / (Math.abs(x) >= 10_000 ? 1000 : 100)) * (Math.abs(x) >= 10_000 ? 1000 : 100)
+      ).toLocaleString("sv-SE");
+    const tak = `Binfos gräns på ${n(fin.takKrPerM2)} kr/m²`;
+    const delar: string[] = [];
+    if (fin.underskottKrPerM2 > 0)
+      delar.push("Ett sparande under noll betalas alltid med avgiften.");
+    if (fin.lanebartKrPerM2 > 0) {
+      if (fin.skuldKrPerM2 === null) {
+        delar.push(
+          "Föreningens skuld per kvadratmeter framgår inte, så glappet betalas med avgiften.",
+        );
+      } else if (fin.lanatKr <= 0) {
+        delar.push(
+          `Föreningens skuld är ${n(fin.skuldKrPerM2)} kr/m², över ${tak}, så glappet betalas med avgiften.`,
+        );
+      } else if (fin.krPerArOlanat <= 0) {
+        delar.push(
+          `Föreningens skuld är ${n(fin.skuldKrPerM2)} kr/m², under ${tak}. Glappet kan därför lånas, och inom två år når bara räntan (${fin.rantaProcent.toLocaleString("sv-SE", { maximumFractionDigits: 2 })} %) avgiften.`,
+        );
+      } else {
+        delar.push(
+          `Föreningens skuld är ${n(fin.skuldKrPerM2)} kr/m², under ${tak}, men utrymmet räcker inte för hela glappet: ca ${ca(fin.lanatKr)} kr lånas under två år, resten och räntan betalas med avgiften.`,
+        );
+      }
+    }
+    rader.push({
+      label: "Så betalas glappet",
+      note: delar.join(" "),
+      varde: `ca ${ca(fin.krPerArUnderskott + fin.krPerArOlanat + fin.krPerArRanta)} kr/år för föreningen`,
+    });
+  }
   if (komp && komp.krPerManad !== null) {
     const andel = prognos.andel?.varde;
     const formel =
       sb.glappKrPerM2 !== null && sb.totalyta !== null && andel !== undefined
-        ? `${Math.round(sb.glappKrPerM2).toLocaleString("sv-SE")} kr/m² × ${Math.round(sb.dampning * 100)} % (så stor del av glappet räknar vi med) × ${Math.round(sb.totalyta).toLocaleString("sv-SE")} m² totalyta × din andel av avgifterna ${(andel * 100).toLocaleString("sv-SE", { maximumFractionDigits: 2 })} % ÷ 12 månader`
+        ? fin && sb.glappKrPerM2 > 0
+          ? `Föreningens kostnad per år × din andel av avgifterna ${(andel * 100).toLocaleString("sv-SE", { maximumFractionDigits: 2 })} % ÷ 12 månader`
+          : `${Math.round(sb.glappKrPerM2).toLocaleString("sv-SE")} kr/m² × ${Math.round(sb.dampning * 100)} % (så stor del av överskottet räknar vi med) × ${Math.round(sb.totalyta).toLocaleString("sv-SE")} m² totalyta × din andel av avgifterna ${(andel * 100).toLocaleString("sv-SE", { maximumFractionDigits: 2 })} % ÷ 12 månader`
         : komp.forklaring;
     rader.push({
       label: "Så blir det din avgift",

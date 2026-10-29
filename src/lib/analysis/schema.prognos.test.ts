@@ -261,3 +261,78 @@ describe("schema, round 2026-10-25 (avgiftsandringar, förlustsignaler, kontroll
     }
   });
 });
+
+describe("schema, PROMPT_VERSION 14 (sparandeHistorik) and the sparbehov additions", () => {
+  const hist = [
+    {
+      ar: 2024,
+      figure: {
+        value: -138,
+        unit: "kr/m2" as const,
+        source: "arsredovisning" as const,
+        ref: citat(4, "Sparande / kvm totalyta, kr -3 -138 125 119"),
+      },
+    },
+  ];
+
+  it("sparandeHistorik is optional and strict", () => {
+    const ex = structuredClone(extraktion);
+    expect(ForeningSchema.safeParse(ex.forening).success).toBe(true);
+    expect(ForeningSchema.safeParse({ ...ex.forening, sparandeHistorik: hist }).success).toBe(true);
+    for (const fel of [
+      [{ ...hist[0]!, extra: 1 }],
+      [{ ar: "2024", figure: hist[0]!.figure }],
+      [{ ar: 2024, figure: { ...hist[0]!.figure, ref: { page: 4 } } }],
+      [hist[0], hist[0], hist[0], hist[0]],
+    ]) {
+      expect(ForeningSchema.safeParse({ ...ex.forening, sparandeHistorik: fel }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("sparbehov accepts sparandeAr and finansiering, and still parses without them", () => {
+    const prognos = sampleAnalysis.avgiftsprognos!;
+    const bas = {
+      malKrPerM2: 300,
+      malKalla: "schablon" as const,
+      sparandeKrPerM2: 25,
+      glappKrPerM2: 275,
+      totalyta: 5500,
+      dampning: 1,
+    };
+    const med = (sparbehov: unknown) =>
+      AnalysisResultSchema.safeParse({
+        ...sampleAnalysis,
+        avgiftsprognos: { ...prognos, sparbehov },
+      });
+    expect(med(bas).success).toBe(true);
+    const fin = {
+      underskottKrPerM2: 0,
+      lanebartKrPerM2: 275,
+      skuldKrPerM2: null,
+      skuldBas: null,
+      takKrPerM2: 12000,
+      lanatKr: 0,
+      rantaProcent: 4.1,
+      krPerArUnderskott: 0,
+      krPerArOlanat: 0,
+      krPerArRanta: 0,
+    };
+    const full = {
+      ...bas,
+      sparandeAr: [
+        { ar: 2025, krPerM2: -3, ref: citat(4, "x") },
+        { ar: 2024, krPerM2: -138 },
+      ],
+      finansiering: fin,
+    };
+    expect(med(full).success).toBe(true);
+    expect(
+      med({ ...full, finansiering: { ...fin, skuldBas: "totalyta", skuldKrPerM2: 9000 } }).success,
+    ).toBe(true);
+    expect(med({ ...full, finansiering: { ...fin, skuldBas: "annat" } }).success).toBe(false);
+    expect(med({ ...full, finansiering: { ...fin, extra: 1 } }).success).toBe(false);
+    expect(med({ ...full, sparandeAr: [{ ar: 2024 }] }).success).toBe(false);
+  });
+});

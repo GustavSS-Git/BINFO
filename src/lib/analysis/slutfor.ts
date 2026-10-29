@@ -367,6 +367,38 @@ function rensaGenomfordaAtgarder(forening: Rad): void {
 }
 
 /**
+ * Sparande per m² totalyta for earlier fiscal years (PROMPT_VERSION 14). Kept:
+ * integer year strictly before the balance-sheet year and at most three years
+ * before it, a finite numeric value in a cited Figure, first entry per year.
+ * Latest first, at most three; the field is removed when nothing is left.
+ */
+function rensaSparandeHistorik(forening: Rad): void {
+  if (!Array.isArray(forening["sparandeHistorik"])) {
+    delete forening["sparandeHistorik"];
+    return;
+  }
+  const rar = forening["rakenskapsar"];
+  const sista = Number.isInteger(rar) ? (rar as number) : senasteMojligaAr(forening);
+  const sett = new Set<number>();
+  const kvar: Array<{ ar: number; figure: Rad }> = [];
+  if (sista !== undefined) {
+    for (const p of forening["sparandeHistorik"]) {
+      if (!arRad(p)) continue;
+      const ar = p["ar"];
+      if (typeof ar !== "number" || !Number.isInteger(ar)) continue;
+      if (ar >= sista || ar < sista - 3 || sett.has(ar)) continue;
+      const figur = behallFigur(p["figure"]);
+      if (!figur || figur["source"] !== "arsredovisning" || !arSida(figur["ref"])) continue;
+      sett.add(ar);
+      kvar.push({ ar, figure: figur });
+    }
+  }
+  kvar.sort((a, b) => b.ar - a.ar);
+  if (kvar.length > 0) forening["sparandeHistorik"] = kvar.slice(0, 3);
+  else delete forening["sparandeHistorik"];
+}
+
+/**
  * Cleans the new optional fields of `forening` in the model's raw JSON (a copy
  * already). Anything malformed, uncited where a citation is the evidence, or
  * empty is removed. Never invents a value.
@@ -383,6 +415,7 @@ export function rensaNyaFalt(raw: unknown): void {
   if (arRad(forening["underhallsplan"])) rensaUnderhall(forening["underhallsplan"]);
 
   rensaGenomfordaAtgarder(forening);
+  rensaSparandeHistorik(forening);
 
   const uttag = forening["sparandeUttag"];
   if (arRad(uttag) && arCitat(uttag["ref"])) {

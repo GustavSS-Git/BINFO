@@ -20,8 +20,17 @@
  * Plan-based targets count in full (dampning 1), the schablon at
  * SPARMAL_SCHABLON_DAMPNING.
  *
- * Gap = target − sparande (negative = surplus). BRF kr/year = gap × totalyta ×
- * dampning, null when sparande or totalyta is missing. A planned, financed
+ * Sparande = average of up to four years (the current key figure plus
+ * `forening.sparandeHistorik`, usable figures only; owner 2026-10-29), rounded
+ * to whole kr/m²; history alone is never used (no current year → no basis).
+ *
+ * Gap = target − sparande (negative = surplus), null when sparande or totalyta
+ * is missing. Gap ≤ 0: BRF kr/year = gap × totalyta × dampning (today's rule).
+ * Gap > 0 (owner 2026-10-29): the part below zero sparande (underskott, D) is
+ * paid by the fee in full; the rest (lanebart, G) is borrowed up to the debt
+ * ceiling over the horizon: lanat = min(2G, headroom), headroom = (SKULDTAK −
+ * skuld/m²) × area, 0 when the debt is unknown. The fee gets D + (G − lanat/2)
+ * + lanat × rate (interest only within the horizon); dampning = 1. A planned, financed
  * withdrawal (`sparandeUttag`) is NOT an exception any more: with a plan target
  * the plan already contains the withdrawal, with the schablon it is only
  * mentioned in the explanation text (decision 2026-10-24c).
@@ -34,6 +43,7 @@ import type {
   PageRef,
   PlaneradUnderhallskostnad,
   Sparbehov,
+  SparFinansiering,
   Tristate,
 } from "@/types/analysis";
 import {
@@ -47,6 +57,9 @@ import {
   SPARMAL_SCHABLON_KR_PER_M2,
   SPARMAL_SCHABLON_MAX,
   SPARMAL_SCHABLON_MIN,
+  SKULDTAK_KR_PER_M2,
+  BRF_MARGINAL_PROCENT,
+  REFERENSRANTA_RESERV,
 } from "./prognosantaganden";
 
 export interface SparbehovInput {
@@ -56,6 +69,9 @@ export interface SparbehovInput {
   hiss?: Tristate;
   /** YYYY-MM-DD. */
   idag: string;
+  /** Rate on newly borrowed money, % (reference rate + margin, as for refinancing).
+   *  Defaults to the reserve reference rate + margin. */
+  rantaProcent?: number;
 }
 
 export interface SparbehovResultat {
@@ -166,6 +182,58 @@ function positivt(f: Figure | undefined): number | null {
   return f?.value !== null && f?.value !== undefined && f.value > 0 && !f.osaker ? f.value : null;
 }
 
+function ok(f: Figure | undefined): number | null {
+  return f?.value !== null && f?.value !== undefined && f.value >= 0 && !f.osaker ? f.value : null;
+}
+
+/** Splits a positive gap into deficit (fee) and borrowable part (interest only). */
+function beraknaFinansiering(a: {
+  forening: Forening;
+  mal: number;
+  sparande: number;
+  totalyta: number;
+  rantaProcent: number;
+}): SparFinansiering {
+  const { forening, mal, sparande, totalyta, rantaProcent } = a;
+  const underskottKrPerM2 = Math.max(0, -sparande);
+  const lanebartKrPerM2 = Math.max(0, mal - Math.max(sparande, 0));
+  const D = underskottKrPerM2 * totalyta;
+  const G = lanebartKrPerM2 * totalyta;
+  const kf = (id: string) => forening.keyFigures.find((k) => k.id === id)?.figure;
+  let skuld: number | null = null;
+  let skuldBas: SparFinansiering["skuldBas"] = null;
+  let yta: number | null = null;
+  const perTotal = ok(kf("skuldsattning_per_m2_totalyta"));
+  if (perTotal !== null) {
+    skuld = perTotal;
+    skuldBas = "totalyta";
+    yta = totalyta;
+  } else {
+    const perBrf = ok(kf("skuldsattning_per_m2_brf_yta"));
+    const brfYta = ok(forening.bostadsrattsyta);
+    if (perBrf !== null && brfYta !== null && brfYta > 0) {
+      skuld = perBrf;
+      skuldBas = "bostadsrattsyta";
+      yta = brfYta;
+    }
+  }
+  const headroom =
+    skuld !== null && yta !== null ? Math.max(0, SKULDTAK_KR_PER_M2 - skuld) * yta : 0;
+  const lanatKr = Math.min(G * 2, headroom);
+  return {
+    underskottKrPerM2,
+    lanebartKrPerM2,
+    skuldKrPerM2: skuld,
+    skuldBas,
+    takKrPerM2: SKULDTAK_KR_PER_M2,
+    lanatKr: Math.round(lanatKr),
+    rantaProcent,
+    krPerArUnderskott: Math.round(D),
+    krPerArOlanat: Math.round(G - lanatKr / 2),
+    krPerArRanta: Math.round((lanatKr * rantaProcent) / 100),
+  };
+}
+
 export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
   const { forening, idag } = input;
   const up = forening.underhallsplan;
@@ -254,15 +322,51 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
   mal = Math.round(mal);
 
   const sf = forening.keyFigures.find((k) => k.id === "sparande_per_m2_totalyta")?.figure;
-  const sparandeVarde = sf?.value ?? null;
+  const nuVarde = sf?.value ?? null;
+  // Average of up to four years; history is only added to an existing current year.
+  const historik =
+    nuVarde === null
+      ? []
+      : (forening.sparandeHistorik ?? [])
+          .filter((h) => h.figure.value !== null && !h.figure.osaker)
+          .slice(0, 3);
+  const sparandeAr: NonNullable<Sparbehov["sparandeAr"]> =
+    nuVarde === null || historik.length === 0
+      ? []
+      : [
+          { ar: forening.rakenskapsar, krPerM2: nuVarde, ...(sf?.ref ? { ref: sf.ref } : {}) },
+          ...historik.map((h) => ({
+            ar: h.ar,
+            krPerM2: h.figure.value as number,
+            ...(h.figure.ref ? { ref: h.figure.ref } : {}),
+          })),
+        ];
+  const sparandeVarde =
+    sparandeAr.length > 0
+      ? Math.round(sparandeAr.reduce((s, a) => s + a.krPerM2, 0) / sparandeAr.length) || 0
+      : nuVarde;
   const glapp = sparandeVarde === null ? null : mal - sparandeVarde;
-  const krPerAr =
-    glapp === null || totalyta === null
-      ? null
-      : (() => {
-          const r = Math.round(glapp * totalyta * dampning);
-          return r === 0 ? 0 : r;
-        })();
+
+  let finansiering: SparFinansiering | undefined;
+  let krPerAr: number | null;
+  if (glapp === null || totalyta === null) {
+    krPerAr = null;
+  } else if (glapp > 0 && sparandeVarde !== null) {
+    dampning = 1;
+    finansiering = beraknaFinansiering({
+      forening,
+      mal,
+      sparande: sparandeVarde,
+      totalyta,
+      rantaProcent: input.rantaProcent ?? REFERENSRANTA_RESERV.procent + BRF_MARGINAL_PROCENT,
+    });
+    krPerAr = Math.round(
+      finansiering.krPerArUnderskott + finansiering.krPerArOlanat + finansiering.krPerArRanta,
+    );
+  } else {
+    const r = Math.round(glapp * totalyta * dampning);
+    krPerAr = r === 0 ? 0 : r;
+  }
 
   const sparbehov: Sparbehov = {
     malKrPerM2: mal,
@@ -270,9 +374,11 @@ export function beraknaSparbehov(input: SparbehovInput): SparbehovResultat {
     ...(malRef ? { malRef } : {}),
     sparandeKrPerM2: sparandeVarde,
     ...(sf?.ref ? { sparandeRef: sf.ref } : {}),
+    ...(sparandeAr.length > 0 ? { sparandeAr } : {}),
     glappKrPerM2: glapp,
     totalyta,
     dampning,
+    ...(finansiering ? { finansiering } : {}),
     ...(byggdelar ? { byggdelar } : {}),
   };
   return {

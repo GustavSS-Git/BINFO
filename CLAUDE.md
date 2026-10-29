@@ -1045,6 +1045,15 @@ Artboards hold example data (Brf Pontonjären 3) and placeholders
   deletion land on "/"; no leaked-password claims (Supabase free plan).
 - **PDF:** Inter + Source Serif 4 (self-hosted TTF + OFL in `public/fonts`;
   the old IBM Plex/Libre Baskerville files stay for `scripts/genereraOgBild.mjs`).
+- **Savings gap (owner 2026-10-29, PROMPT_VERSION 14 → `p14.i1.s1`):** the
+  sparande is the average of up to four years (`forening.sparandeHistorik` +
+  the key figure); a positive gap splits into a deficit part (below zero, paid
+  by the fee) and a borrowable part, borrowed while debt per m² stays under
+  `SKULDTAK_KR_PER_M2` = 5 000 (BENCHMARKS acceptabel/svag), so only interest
+  reaches the fee within the horizon (`Sparbehov.finansiering`); unknown debt →
+  nothing borrowed. Cash flow is deliberately not a price input. Page refs
+  tolerate private-use ligature gaps (Nabo PDFs). "Så har vi räknat" (price)
+  holds only the valuation model + span. Needs web app + `deploy:edge` together.
 - **Contact:** `KONTAKT_EPOST` = contactbinfohere@gmail.com (footer "Kontakt",
   report/BRF "Hittar du ett fel?", failure screens).
 - Fixed known defects: landing anchor links, köpguide "Medlemskap" text,

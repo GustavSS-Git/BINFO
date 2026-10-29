@@ -100,6 +100,13 @@ export const SPARMAL_SCHABLON_MAX = 350;
 export const SPARMAL_SCHABLON_DAMPNING = 0.5;
 
 /**
+ * Debt ceiling for borrowing the savings gap, kr/m² (totalyta or bostadsrättsyta,
+ * as the key figure's basis): the acceptabel/svag limit for skuldsättning per m²
+ * in BENCHMARKS.md (§3/§4). Owner decision 2026-10-29; Binfos antagande.
+ */
+export const SKULDTAK_KR_PER_M2 = 5000;
+
+/**
  * Typical lifetime per tracked building part, years (lag–hog across the
  * sources' variants). FAR "Komponentindelning i bostadsrättsförening"
  * (2025-06-25) and SIB M84:10 (1984); docs/underhall-referens.md §1a.

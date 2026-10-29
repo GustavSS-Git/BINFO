@@ -769,3 +769,53 @@ describe("slutforExtraktion: underhåll och genomförda åtgärder (PROMPT_VERSI
     expect(f.osaker).toMatch(/rimliga intervallet/);
   });
 });
+
+describe("slutforExtraktion: sparandeHistorik (PROMPT_VERSION 14)", () => {
+  // Brf Ingemar 8: "Sparande / kvm totalyta, kr  -3  -138  125  119", år 2025–2022.
+  const rad = "Sparande / kvm totalyta, kr -3 -138 125 119";
+  const post = (ar: unknown, value: number | null, extra: Rad = {}): Rad => ({
+    ar,
+    figure: fig(value, "kr/m2", 4, rad),
+    ...extra,
+  });
+  const kor = (historik: unknown) => {
+    const a = rå() as Rad;
+    a["forening"]["sparandeHistorik"] = historik;
+    return ok(a).forening.sparandeHistorik;
+  };
+
+  it("keeps the three earlier years, latest first, negative sign intact", () => {
+    const r = kor([post(2022, 119), post(2024, -138), post(2023, 125)]);
+    expect(r!.map((p) => [p.ar, p.figure.value])).toEqual([
+      [2024, -138],
+      [2023, 125],
+      [2022, 119],
+    ]);
+  });
+
+  it("drops the current year, later years, years more than three back, duplicates and bad items", () => {
+    const r = kor([
+      post(2025, -3), // current year: that is the key figure
+      post(2026, 1),
+      post(2021, 5), // more than 3 years back
+      post(2024, -138),
+      post(2024, 999), // duplicate year: first wins
+      post(2023.5, 1),
+      post("2023", 1),
+      post(2023, null),
+      { ar: 2023, figure: { value: 1, unit: "kr/m2", source: "arsredovisning" } }, // uncited
+      { ar: 2022, figure: { value: 1, unit: "kr/m2", source: "berakning" } },
+      "text",
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r![0]!.ar).toBe(2024);
+    expect(r![0]!.figure.value).toBe(-138);
+  });
+
+  it("caps at three and removes the field when nothing is left or it is malformed", () => {
+    expect(kor([post(2024, 1), post(2023, 2), post(2022, 3)])).toHaveLength(3);
+    expect(kor([post(2025, 1)])).toBeUndefined();
+    expect(kor("nej")).toBeUndefined();
+    expect(kor(undefined)).toBeUndefined();
+  });
+});

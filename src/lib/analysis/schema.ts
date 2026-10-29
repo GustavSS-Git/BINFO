@@ -434,6 +434,10 @@ export const ForeningSchema = z
           .strict(),
       )
       .optional(),
+    sparandeHistorik: z
+      .array(z.object({ ar: z.number().int().min(1800).max(2100), figure: FigureSchema }).strict())
+      .max(3)
+      .optional(),
     sparandeUttag: z
       .object({
         planerat: TristateSchema,
@@ -756,9 +760,35 @@ export const SparbehovSchema = z
     malRef: PageRefSchema.optional(),
     sparandeKrPerM2: z.number().nullable(),
     sparandeRef: PageRefSchema.optional(),
+    sparandeAr: z
+      .array(
+        z
+          .object({
+            ar: z.number().int(),
+            krPerM2: z.number(),
+            ref: PageRefSchema.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     glappKrPerM2: z.number().nullable(),
     totalyta: z.number().nullable(),
     dampning: z.number().min(0).max(1),
+    finansiering: z
+      .object({
+        underskottKrPerM2: z.number(),
+        lanebartKrPerM2: z.number(),
+        skuldKrPerM2: z.number().nullable(),
+        skuldBas: z.enum(["totalyta", "bostadsrattsyta"]).nullable(),
+        takKrPerM2: z.number(),
+        lanatKr: z.number(),
+        rantaProcent: z.number(),
+        krPerArUnderskott: z.number(),
+        krPerArOlanat: z.number(),
+        krPerArRanta: z.number(),
+      })
+      .strict()
+      .optional(),
     byggdelar: z
       .array(
         z

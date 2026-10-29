@@ -5,6 +5,7 @@ import {
   formatDag,
   komponentPris,
   lanRader,
+  sparRader,
   sparKedja,
   TRYCK_STATUS,
   TRYCK_TON,
@@ -166,5 +167,68 @@ describe("analysisView — visuell prognos", () => {
     });
     expect(rader[0]!.effektForening).toBeUndefined();
     expect(rader.slice(1).every((l) => !l.forfallit)).toBe(true);
+  });
+});
+
+describe("sparRader — snitt och finansiering (2026-10-29)", () => {
+  const med = (sb: Partial<NonNullable<typeof pg.sparbehov>>) => ({
+    ...pg,
+    sparbehov: { ...pg.sparbehov!, ...sb },
+  });
+  const fin = {
+    underskottKrPerM2: 0,
+    lanebartKrPerM2: 274,
+    skuldKrPerM2: 3411,
+    skuldBas: "totalyta" as const,
+    takKrPerM2: 5000,
+    lanatKr: 1_361_780,
+    rantaProcent: 2.648,
+    krPerArUnderskott: 0,
+    krPerArOlanat: 0,
+    krPerArRanta: 36_060,
+  };
+  const ar = [
+    { ar: 2025, krPerM2: -3 },
+    { ar: 2024, krPerM2: -138 },
+    { ar: 2023, krPerM2: 125 },
+    { ar: 2022, krPerM2: 119 },
+  ];
+
+  it("visar vilka år snittet täcker och årens värden", () => {
+    const rader = sparRader(med({ sparandeKrPerM2: 26, sparandeAr: ar, glappKrPerM2: 274 }))!;
+    const rad = rader.find((r) => r.label === "Föreningen sparar (snitt)")!;
+    expect(rad.note).toMatch(/Snitt 2022–2025/);
+    expect(rad.note).toContain("2024: −138");
+    expect(rad.varde).toMatch(/^26\skr\/m² per år$/);
+  });
+
+  it("säger att glappet kan lånas och att bara räntan når avgiften", () => {
+    const rader = sparRader(
+      med({
+        sparandeKrPerM2: 26,
+        sparandeAr: ar,
+        glappKrPerM2: 274,
+        finansiering: fin,
+        dampning: 1,
+      }),
+    )!;
+    const rad = rader.find((r) => r.label === "Så betalas glappet")!;
+    expect(rad.note).toMatch(/under Binfos gräns på 5\s000 kr\/m²/);
+    expect(rad.note).toMatch(/Glappet kan därför lånas/);
+    expect(rad.varde).toMatch(/ca 36\s000 kr\/år/);
+    const sista = rader[rader.length - 1]!;
+    expect(sista.note).not.toMatch(/så stor del av glappet/);
+  });
+
+  it("över gränsen och vid underskott betalas det med avgiften", () => {
+    const over = sparRader(
+      med({
+        glappKrPerM2: 400,
+        finansiering: { ...fin, underskottKrPerM2: 100, skuldKrPerM2: 6000, lanatKr: 0 },
+      }),
+    )!;
+    const note = over.find((r) => r.label === "Så betalas glappet")!.note;
+    expect(note).toMatch(/Ett sparande under noll betalas alltid med avgiften\./);
+    expect(note).toMatch(/över Binfos gräns på 5\s000 kr\/m², så glappet betalas med avgiften/);
   });
 });

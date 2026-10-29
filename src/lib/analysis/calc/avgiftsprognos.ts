@@ -275,6 +275,12 @@ function listaOch(delar: string[]): string {
 }
 
 /** Signed kr with a real minus sign ("−1 200"). */
+/** A "ca" amount: rounded to 1 000 kr from 10 000 kr, else to 100 kr. */
+function krCa(n: number): string {
+  const steg = Math.abs(n) >= 10_000 ? 1000 : 100;
+  return krT(Math.round(n / steg) * steg);
+}
+
 function krT(n: number): string {
   return `${n < 0 ? "−" : ""}${kr(n)}`;
 }
@@ -301,6 +307,7 @@ function sparandegap(
   const r = beraknaSparbehov({
     forening,
     idag: input.idag,
+    rantaProcent: input.referensranta.procent + BRF_MARGINAL_PROCENT,
     ...(input.byggar !== undefined ? { byggar: input.byggar } : {}),
     ...(input.hiss !== undefined ? { hiss: input.hiss } : {}),
   });
@@ -354,23 +361,59 @@ function sparandegap(
   const harledd = r.totalytaHarledd
     ? ` Totalytan (${kr(sb.totalyta as number)} m²) är beräknad ur skulden och skuldsättningen per kvadratmeter.`
     : "";
-  const nomen = glapp < 0 ? "överskottet" : "glappet";
+  const snitt =
+    sb.sparandeAr && sb.sparandeAr.length > 1
+      ? ` (snitt ${sb.sparandeAr[sb.sparandeAr.length - 1]?.ar}–${sb.sparandeAr[0]?.ar}, ${sb.sparandeAr
+          .map((a) => `${a.ar}: ${krT(a.krPerM2)}`)
+          .join(", ")})`
+      : "";
   const skillnad =
     glapp > 0
       ? `ett glapp på ${kr(glapp)} kr/m²`
       : glapp < 0
         ? `ett överskott på ${kr(glapp)} kr/m²`
         : "ingen skillnad";
-  const delText =
-    sb.dampning < 1
-      ? sb.dampning === 0.5
-        ? `halva ${nomen}`
-        : `${pct(sb.dampning * 100)} % av ${nomen}`
-      : `hela ${nomen}`;
-  const rakning =
-    glapp === 0
-      ? ""
-      : ` Vi räknar ${delText} på föreningens totalyta ${kr(sb.totalyta as number)} m²: ${krT(r.krPerAr)} kr/år.`;
+  const fin = sb.finansiering;
+  let rakning: string;
+  if (fin) {
+    const delar: string[] = [];
+    if (fin.underskottKrPerM2 > 0)
+      delar.push("Ett sparande under noll betalas alltid med avgiften.");
+    if (fin.lanebartKrPerM2 > 0) {
+      const tak = `Binfos gräns på ${kr(fin.takKrPerM2)} kr/m²`;
+      if (fin.skuldKrPerM2 === null) {
+        delar.push(
+          "Föreningens skuld per kvadratmeter framgår inte, så glappet betalas med avgiften.",
+        );
+      } else if (fin.lanatKr <= 0) {
+        delar.push(
+          `Föreningens skuld är ${kr(fin.skuldKrPerM2)} kr/m², över ${tak}, så glappet betalas med avgiften.`,
+        );
+      } else if (fin.krPerArOlanat <= 0) {
+        delar.push(
+          `Föreningens skuld är ${kr(fin.skuldKrPerM2)} kr/m², under ${tak}. Glappet kan därför lånas, och inom två år når bara räntan avgiften: ca ${krCa(fin.krPerArRanta)} kr/år för föreningen.`,
+        );
+      } else {
+        delar.push(
+          `Föreningens skuld är ${kr(fin.skuldKrPerM2)} kr/m², under ${tak}, men utrymmet räcker inte för hela glappet. Vi räknar med att ca ${krCa(fin.lanatKr)} kr lånas under två år; resten av glappet och räntan betalas med avgiften.`,
+        );
+      }
+    }
+    const enbartRanta = fin.krPerArUnderskott === 0 && fin.lanatKr > 0 && fin.krPerArOlanat === 0;
+    rakning = ` ${delar.join(" ")}${enbartRanta ? "" : ` Sammanlagt når ca ${krCa(r.krPerAr)} kr/år föreningens avgift.`}`;
+  } else {
+    const nomen = glapp < 0 ? "överskottet" : "glappet";
+    const delText =
+      sb.dampning < 1
+        ? sb.dampning === 0.5
+          ? `halva ${nomen}`
+          : `${pct(sb.dampning * 100)} % av ${nomen}`
+        : `hela ${nomen}`;
+    rakning =
+      glapp === 0
+        ? ""
+        : ` Vi räknar ${delText} på föreningens totalyta ${kr(sb.totalyta as number)} m²: ${krT(r.krPerAr)} kr/år.`;
+  }
   return {
     sparbehov: sb,
     komponent: komponent(
@@ -380,7 +423,7 @@ function sparandegap(
         status: "beraknad",
         foreningKrPerAr: r.krPerAr,
         forklaring:
-          `Sparandet är ${krT(sb.sparandeKrPerM2)} kr/m² mot ${malText(sb)} – ${skillnad}.` +
+          `Sparandet är ${krT(sb.sparandeKrPerM2)} kr/m²${snitt} mot ${malText(sb)} – ${skillnad}.` +
           rakning +
           uttag +
           forkastat +

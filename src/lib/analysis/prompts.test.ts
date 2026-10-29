@@ -871,14 +871,47 @@ describe("PROMPT_VERSION 12: lokalkontrakt med förlängning (fornyelse)", () =>
   });
 });
 
+describe("PROMPT_VERSION 14: sparande för tidigare år (sparandeHistorik)", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+  const exempel = () =>
+    JSON.parse(extr.slice(extr.indexOf('{\n  "schemaVersion"'), extr.indexOf("\n\nSkarpa regler")));
+
+  it("grundningen ber om sparande-raden för upp till tre tidigare år, efter de sju nyckeltalen", () => {
+    expect(grund).toMatch(/upp till tre år före räkenskapsåret/);
+    expect(grund).toMatch(/"-3" är minus tre/);
+    expect(grund.indexOf("FÖRST, och alltid")).toBeLessThan(grund.indexOf("tidigare år:"));
+  });
+
+  it("extraktionen förklarar sparandeHistorik: tecken, år före räkenskapsåret, aldrig beräknat, utelämna", () => {
+    expect(extr).toMatch(/- sparandeHistorik: sparande per m² totalyta för TIDIGARE räkenskapsår/);
+    expect(extr).toMatch(/"-138" är −138 och "-3" är −3/);
+    expect(extr).toMatch(/räkna aldrig ut eller uppskatta ett värde/);
+    expect(extr).toMatch(/Utelämna fältet helt när inga tidigare år finns/);
+    expect(extr).toMatch(/sparandeUttag, sparandeHistorik, lokaler/);
+  });
+
+  it("exemplet: år före räkenskapsåret, negativt värde med tecken, citerad tabellrad", () => {
+    const e = exempel();
+    const h = e.forening.sparandeHistorik;
+    expect(h.length).toBeLessThanOrEqual(3);
+    for (const p of h) {
+      expect(p.ar).toBeLessThan(e.forening.rakenskapsar);
+      expect(p.figure.ref.excerpt).toBeTruthy();
+      expect(p.figure.ref.page).toBeGreaterThan(0);
+    }
+    expect(h[0].figure.value).toBe(-138);
+  });
+});
+
 describe("PROMPT_VERSION", () => {
   it("exporteras som en icke-tom sträng", () => {
     expect(typeof PROMPT_VERSION).toBe("string");
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 13 sedan lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("13");
+  it("är 14 sedan sparande för tidigare år lades till (13: lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("14");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -908,7 +941,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("cd8e5d0f45e3150280e9735d1d989fe02d93653990f86523f2765ee90aacacc3");
+    expect(hash).toBe("1e68a5a6aa5195a1e38180271aa78932e7e586cde1c19543e69ab8d3805b2129");
   });
 });
 
