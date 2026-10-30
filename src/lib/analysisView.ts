@@ -13,6 +13,7 @@ import {
   SPARMAL_SCHABLON_KR_PER_M2,
   SPARMAL_SCHABLON_MAX,
   SPARMAL_SCHABLON_MIN,
+  SKULDTAK_KR_PER_M2,
 } from "@/lib/analysis/calc/prognosantaganden";
 import type {
   AnalysisResult,
@@ -1941,6 +1942,16 @@ export interface SparRad {
   note: string;
   varde: string;
   total?: boolean;
+}
+
+/**
+ * One general sentence on how a savings gap reaches the fee (owner 2026-10-29): shown
+ * under the savings rows whenever the gap is positive and the financing rule applies.
+ */
+export function sparPrincipText(prognos: Avgiftsprognos): string | undefined {
+  const sb = prognos.sparbehov;
+  if (!sb?.finansiering || sb.glappKrPerM2 === null || sb.glappKrPerM2 <= 0) return undefined;
+  return `En förening med låg skuld kan låna till underhållet, så då räknar vi bara med räntan. Det gäller upp till en skuld på ${SKULDTAK_KR_PER_M2.toLocaleString("sv-SE")} kr/m²; ett sparande under noll betalas alltid med avgiften.`;
 }
 
 /**

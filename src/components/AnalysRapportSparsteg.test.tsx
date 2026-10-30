@@ -54,6 +54,38 @@ describe("AnalysRapport — sparande, lån och färger (2026-10-24c)", () => {
     }
   });
 
+  it("visar principmeningen om lån till underhåll bara när finansieringsregeln gäller", () => {
+    const princip = "En förening med låg skuld kan låna till underhållet";
+    expect(rita()).not.toContain(princip);
+    const a = analysMedSparbehov();
+    const pg = a.avgiftsprognos!;
+    const sb = pg.sparbehov!;
+    const html = rita({
+      ...a,
+      avgiftsprognos: {
+        ...pg,
+        sparbehov: {
+          ...sb,
+          finansiering: {
+            underskottKrPerM2: 0,
+            lanebartKrPerM2: 190,
+            skuldKrPerM2: 3000,
+            skuldBas: "totalyta",
+            takKrPerM2: 5000,
+            lanatKr: 760_000,
+            rantaProcent: 2.65,
+            krPerArUnderskott: 0,
+            krPerArOlanat: 0,
+            krPerArRanta: 20_140,
+          },
+        },
+      },
+    });
+    expect(html).toContain(
+      "En förening med låg skuld kan låna till underhållet, så då räknar vi bara med räntan. Det gäller upp till en skuld på 5 000 kr/m²; ett sparande under noll betalas alltid med avgiften.",
+    );
+  });
+
   it("visar byggdelstabellen med statusar och källan för livslängder", () => {
     const html = rita();
     for (const t of ["Stambyte", "Inget nämnt, troligen original (1958)", "2019", "40–60 år"]) {

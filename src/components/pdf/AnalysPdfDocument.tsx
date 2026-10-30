@@ -1054,6 +1054,9 @@ function Avgiften({ a }: { a: PdfAvgiften }) {
               }))}
             />
           </View>
+          {a.spar.princip ? (
+            <Text style={[styles.small, { marginTop: 4 }]}>{a.spar.princip}</Text>
+          ) : null}
         </View>
       ) : null}
 

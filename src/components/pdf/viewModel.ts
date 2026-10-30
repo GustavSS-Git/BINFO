@@ -74,6 +74,7 @@ import {
   sorteraNyckeltal,
   sparKomponent,
   sparRader,
+  sparPrincipText,
   svarssignalDelar,
   tonForTryck,
   vardespann,
@@ -644,6 +645,7 @@ export interface PdfAvgiften {
         tryck: { etikett: string; ton: Ton } | undefined;
         byggdelar: PdfByggdel[];
         byggdelKalla: string | undefined;
+        princip: string | undefined;
         rader: Array<{ label: string; note: string; varde: string; total: boolean }>;
       }
     | undefined;
@@ -781,6 +783,7 @@ function buildAvgiften(analys: AnalysisResult): PdfAvgiften {
             varde: r.varde,
             total: r.total === true,
           })),
+          princip: sparPrincipText(prognos),
         }
       : undefined,
     lan:

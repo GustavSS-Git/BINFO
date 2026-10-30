@@ -37,6 +37,7 @@ import {
   refinansieringRader,
   sparKomponent,
   sparRader,
+  sparPrincipText,
   type RantestressFlik,
   type Ton,
 } from "@/lib/analysisView";
@@ -159,6 +160,7 @@ function DrivareDetaljer({ analys }: { analys: AnalysisResult }) {
   const rader = drivareRader(prognos);
   const sb = prognos.sparbehov;
   const sparrader = sparRader(prognos);
+  const sparPrincip = sparPrincipText(prognos);
   const byggdelar = sb ? byggdelTabell(sb) : [];
   const refi = prognos.refinansiering;
   const refiKomp = refiKomponent(prognos);
@@ -291,6 +293,9 @@ function DrivareDetaljer({ analys }: { analys: AnalysisResult }) {
                 ...(r.total ? { ton: "total" as const } : {}),
               }))}
             />
+            {sparPrincip ? (
+              <p className="text-[13px] text-muted-foreground">{sparPrincip}</p>
+            ) : null}
           </div>
         ) : null}
 
