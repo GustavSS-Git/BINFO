@@ -277,8 +277,18 @@ export interface Forening {
   };
 
   /** Major renovations already done, with the year (PROMPT_VERSION 10). Only
-   *  the tracked building parts; every item cited. */
-  genomfordaAtgarder?: Array<{ byggdel: Byggdel; ar: number; text: string; ref: PageRef }>;
+   *  the tracked building parts; every item cited. `omfattning` (PROMPT_VERSION
+   *  16, owner 2026-10-30): "byte" = the part was replaced; "forlangning" = a
+   *  renovation that only extends its life (relining, roof repaint, window
+   *  renovation, facade repair, new elcentral). Absent (older extractions) =
+   *  "byte". */
+  genomfordaAtgarder?: Array<{
+    byggdel: Byggdel;
+    ar: number;
+    omfattning?: "byte" | "forlangning";
+    text: string;
+    ref: PageRef;
+  }>;
 
   /** Whether the report says a negative sparande is a planned withdrawal, and
    *  whether it is financed (e.g. from the fund or a decided loan). Absent =
@@ -682,6 +692,10 @@ export interface ByggdelBedomning {
   livslangd: { lag: number; hog: number };
   status: "nyligen" | "ok" | "eftersatt" | "okant";
   ref?: PageRef;
+  /** The latest life-extending renovation after `senast` (owner 2026-10-30):
+   *  it keeps the part from counting as eftersatt until `tillAr`, never makes
+   *  it count as new. */
+  forlangning?: { ar: number; tillAr: number; ref: PageRef };
 }
 
 /** One loan in the refinancing calculation (round 2026-10-24c). */

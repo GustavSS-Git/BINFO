@@ -298,6 +298,23 @@ describe("formatGroundingForExtraction", () => {
   });
 });
 
+describe("byte eller förlängning (PROMPT_VERSION 16, ägaren 2026-10-30)", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+  it("grundningen letar också efter renoveringar som förlänger livslängden", () => {
+    expect(grund).toMatch(/relining av stammar/);
+    expect(grund).toMatch(/fönsterrenovering\/målning av fönster/);
+    expect(grund).toMatch(/förlänger delens livslängd/);
+  });
+  it("extraktionen anger omfattning byte eller forlangning, osäkert → forlangning", () => {
+    expect(extr).toMatch(/"omfattning"/);
+    expect(extr).toMatch(/"byte" när delen byttes/);
+    expect(extr).toMatch(/"forlangning" när den bara renoverades/);
+    expect(extr).toMatch(/är du osäker, välj "forlangning"/);
+    expect(extr).toMatch(/Relining av stuprör/);
+  });
+});
+
 describe("genomförda åtgärder med årtal i egen kolumn (PROMPT_VERSION 15)", () => {
   const grund = buildGroundingSystemPrompt();
   const extr = buildExtractionSystemPrompt();
@@ -1003,8 +1020,8 @@ describe("PROMPT_VERSION", () => {
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 15 sedan årtalet före ett citat följer med till extraktionen (14: sparande för tidigare år; 13: lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("15");
+  it("är 16 sedan åtgärder är byte eller förlängning (15: årtalet före ett citat följer med till extraktionen; 14: sparande för tidigare år; 13: lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("16");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -1034,7 +1051,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("4cd40b6e9054cb343bbe9d75b0f3cb1857b1a9321aa634e337d7ae89a0997fcb");
+    expect(hash).toBe("928f63de8a9cd111d2f05ebe4ba25136b415b388beadcf71fbb784355b64a9fc");
   });
 });
 

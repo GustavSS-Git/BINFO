@@ -7,6 +7,7 @@ import {
   avgiftLead,
   avgiftRubrik,
   avrundaKomponentEffekter,
+  byggdelFotnot,
   byggdelTabell,
   drivareRader,
   foreningFaktaText,
@@ -310,6 +311,40 @@ describe("byggdelar, sparande och lån", () => {
     expect(stam.lage).toEqual({ text: "Troligen eftersatt", ton: "warning" });
     expect(rader.find((r) => r.key === "fasad")?.lage).toEqual({ text: "Ok", ton: "success" });
     expect(rader.find((r) => r.key === "hiss")?.lage).toEqual({ text: "Okänt", ton: "neutral" });
+  });
+
+  it("en renovering som förlänger livslängden visas med år, sida och hur länge den räknas hålla", () => {
+    const sb = {
+      byggdelar: [
+        {
+          byggdel: "stambyte" as const,
+          label: "Stambyte",
+          senast: 1929,
+          senastKalla: "byggar" as const,
+          livslangd: { lag: 40, hog: 60 },
+          status: "ok" as const,
+          forlangning: { ar: 2016, tillAr: 2046, ref: { page: 5, excerpt: "Relining" } },
+        },
+        {
+          byggdel: "tak" as const,
+          label: "Tak",
+          senast: 1986,
+          senastKalla: "atgard" as const,
+          livslangd: { lag: 20, hog: 60 },
+          status: "ok" as const,
+          ref: { page: 5 },
+          forlangning: { ar: 2014, tillAr: 2024, ref: { page: 5 } },
+        },
+      ],
+    };
+    const rader = byggdelTabell(sb);
+    expect(rader[0]!.forlangning).toEqual({
+      text: "Relining 2016, räknas hålla till ca 2046",
+      sida: 5,
+    });
+    expect(rader[1]!.forlangning?.text).toBe("Renoverad 2014, räknas hålla till ca 2024");
+    expect(byggdelFotnot(rader)).toContain("En renovering räknas inte som ett byte");
+    expect(byggdelFotnot(byggdelTabell(p.sparbehov!))).not.toContain("renovering");
   });
 
   it("sparrader: behov, sparar, glapp och formeln för din avgift", () => {

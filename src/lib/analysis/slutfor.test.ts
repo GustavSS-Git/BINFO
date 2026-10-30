@@ -706,6 +706,27 @@ describe("slutforExtraktion: underhåll och genomförda åtgärder (PROMPT_VERSI
     expect(e.forening.genomfordaAtgarder!.map((x) => x.ar)).toEqual([1930]);
   });
 
+  it("omfattning (PROMPT_VERSION 16): giltig behålls, okänd tas bort, byte vinner över förlängning samma år", () => {
+    const e = ok(
+      med({
+        genomfordaAtgarder: [
+          atgard("stambyte", 2016, { omfattning: "forlangning" }),
+          atgard("tak", 2014, { omfattning: "ommålning" }),
+          atgard("fonster", 2018, { omfattning: "forlangning" }),
+          atgard("fonster", 2018, { omfattning: "byte" }),
+          atgard("el", 2020, { omfattning: "byte" }),
+          atgard("el", 2020, { omfattning: "forlangning" }),
+        ],
+      }),
+    );
+    expect(e.forening.genomfordaAtgarder!.map((a) => [a.byggdel, a.ar, a.omfattning])).toEqual([
+      ["stambyte", 2016, "forlangning"],
+      ["tak", 2014, undefined],
+      ["fonster", 2018, "byte"],
+      ["el", 2020, "byte"],
+    ]);
+  });
+
   it("ingen kvar -> fältet försvinner; icke-array -> fältet försvinner", () => {
     expect(
       ok(med({ genomfordaAtgarder: [atgard("tak", 2030)] })).forening.genomfordaAtgarder,

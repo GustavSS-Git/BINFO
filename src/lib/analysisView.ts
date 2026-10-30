@@ -10,6 +10,7 @@ import { kr } from "@/data/mockData";
 import { BETYG_TITEL } from "@/lib/betygVy";
 import { BENCHMARKS, visasIHuvudanalys } from "@/lib/analysis/benchmarks";
 import {
+  BYGGDEL_FORLANGNING_AR,
   SPARMAL_SCHABLON_KR_PER_M2,
   SPARMAL_SCHABLON_MAX,
   SPARMAL_SCHABLON_MIN,
@@ -1186,7 +1187,7 @@ export function byggdelRader(sb: Pick<Sparbehov, "byggdelar">): ByggdelRad[] {
     senast:
       b.senast === undefined
         ? "okänt"
-        : `${b.senast} (${b.senastKalla === "atgard" ? "åtgärd" : "byggår"})`,
+        : `${b.senast} (${b.senastKalla === "atgard" ? "åtgärd" : "byggår"})${b.forlangning ? `, renoverad ${b.forlangning.ar}` : ""}`,
     livslangd: `${b.livslangd.lag}–${b.livslangd.hog} år`,
     status: b.status,
     statusEtikett: BYGGDEL_STATUS[b.status].text,
@@ -1906,6 +1907,8 @@ export interface ByggdelTabellRad {
   livslangd: string;
   lage: { text: string; ton: "success" | "warning" | "neutral" };
   excerpt?: string;
+  /** A life-extending renovation after `senast` (owner 2026-10-30). */
+  forlangning?: { text: string; sida: number };
 }
 
 const BYGGDEL_LAGE: Record<ByggdelRad["status"], ByggdelTabellRad["lage"]> = {
@@ -1931,8 +1934,25 @@ export function byggdelTabell(sb: Pick<Sparbehov, "byggdelar">): ByggdelTabellRa
     livslangd: `${b.livslangd.lag}–${b.livslangd.hog} år`,
     lage: BYGGDEL_LAGE[b.status],
     ...(b.ref?.excerpt ? { excerpt: b.ref.excerpt } : {}),
+    ...(b.forlangning
+      ? {
+          forlangning: {
+            text: `${b.byggdel === "stambyte" ? "Relining" : "Renoverad"} ${b.forlangning.ar}, räknas hålla till ca ${b.forlangning.tillAr}`,
+            sida: b.forlangning.ref.page,
+          },
+        }
+      : {}),
   }));
 }
+
+/** Sources + how the parts move the target, plus the renovation rule when a row has one. */
+export function byggdelFotnot(rader: readonly ByggdelTabellRad[]): string {
+  const bas = `${BYGGDEL_KALLA_RAD} ${byggdelNot()}`;
+  return rader.some((r) => r.forlangning) ? `${bas} ${FORLANGNING_NOT}` : bas;
+}
+
+const F = BYGGDEL_FORLANGNING_AR;
+export const FORLANGNING_NOT = `En renovering räknas inte som ett byte, den skjuter bara upp när delen behöver bytas: relining ${F.stambyte} år, tak ${F.tak} år, fönster ${F.fonster} år, fasad ${F.fasad} år och el ${F.el} år (fasad och el är Binfos uppskattning).`;
 
 export const BYGGDEL_KALLOR = "FAR 2025 och SIB M84:10";
 export const BYGGDEL_KALLA_RAD = `Livslängder enligt ${BYGGDEL_KALLOR}.`;

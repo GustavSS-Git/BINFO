@@ -5,26 +5,29 @@
   "kalla": {
     "fil": "_F_ORG_T816_7800.pdf",
     "forvaltare": "okänd",
-    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren"
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; omklassad byte/förlängning 2026-10-30"
   },
-  "anmarkning": "Tabellen 'Sedan föreningen startade har följande större åtgärder genomförts' (sida 4). Byggår 1960. 2018-raden innehåller tak, fasad och dagvattenrelining; relining av dagvattenkanaler räknas inte som stambyte. Rapporten har inget investeringsbehov per m², ingen rekommenderad avsättning och ingen plantotal.",
+  "anmarkning": "Omfattning (2026-10-30): stambyte 2009 forlangning (relining av avloppsstammar), tak 2018 byte (ny takbeläggning), fasad 2018 forlangning (fasadrenovering). Dagvattenrelining 2018 räknas inte. Utanför: ventilation 2016 (nya fläktar, komponent), hiss 2023 (styrskor, komponent); ventilation 2019 (ny/kompletterande inluftsventilation) är osäkert och ligger kvar som tillatnaExtra.",
   "balansdag": "2024-12-31",
   "genomfordaAtgarder": [
     {
       "byggdel": "stambyte",
       "ar": 2009,
+      "omfattning": "forlangning",
       "sida": 4,
       "tryckt": "2009 Relining av avloppsstommar"
     },
     {
       "byggdel": "tak",
       "ar": 2018,
+      "omfattning": "byte",
       "sida": 4,
       "tryckt": "2018 Ny takbeläggning och byte av de underliggande bjälkar som vattenskadats."
     },
     {
       "byggdel": "fasad",
       "ar": 2018,
+      "omfattning": "forlangning",
       "sida": 4,
       "tryckt": "Fasadrenovering av samtliga putsade sektioner mot gatusidor och innergård."
     }

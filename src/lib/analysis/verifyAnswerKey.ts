@@ -687,7 +687,9 @@ async function main() {
         );
       }
       for (const a of forening.genomfordaAtgarder ?? []) {
-        console.log(`  · åtgärd ${a.byggdel} ${a.ar} (sida ${a.ref.page}): ${a.text}`);
+        console.log(
+          `  · åtgärd ${a.byggdel} ${a.ar} ${a.omfattning ?? "byte"} (sida ${a.ref.page}): ${a.text}`,
+        );
       }
       const up = forening.underhallsplan;
       console.log(

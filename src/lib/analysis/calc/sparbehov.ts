@@ -50,6 +50,7 @@ import {
   PLANMAL_MAX_ANDEL_AV_SCHABLON,
   PLANKOSTNAD_MIN_AR,
   PLANMAL_MIN_ANDEL_AV_SCHABLON,
+  BYGGDEL_FORLANGNING_AR,
   BYGGDEL_LIVSLANGD,
   HORISONT_MANADER,
   PLANKOSTNAD_MAX_AR,
@@ -132,11 +133,18 @@ function bedomaByggdelar(
   for (const byggdel of BYGGDELAR) {
     if (byggdel === "hiss" && hiss !== "ja") continue;
     const { label, lag, hog } = BYGGDEL_LIVSLANGD[byggdel];
+    const forlangsAr = BYGGDEL_FORLANGNING_AR[byggdel];
     const atgarder = (forening.genomfordaAtgarder ?? []).filter((a) => a.byggdel === byggdel);
-    const senaste = atgarder.reduce<(typeof atgarder)[number] | null>(
-      (best, a) => (best === null || a.ar > best.ar ? a : best),
-      null,
-    );
+    // A life-extending renovation (owner 2026-10-30) never sets the age; a part
+    // without an extension figure counts every action as a replacement.
+    const arForlangning = (a: (typeof atgarder)[number]): boolean =>
+      a.omfattning === "forlangning" && forlangsAr !== undefined;
+    const senastAv = (lista: typeof atgarder) =>
+      lista.reduce<(typeof atgarder)[number] | null>(
+        (best, a) => (best === null || a.ar > best.ar ? a : best),
+        null,
+      );
+    const senaste = senastAv(atgarder.filter((a) => !arForlangning(a)));
     let senast: number | undefined;
     let senastKalla: ByggdelBedomning["senastKalla"] = "okand";
     let ref: PageRef | undefined;
@@ -151,11 +159,26 @@ function bedomaByggdelar(
       senast = byggar;
       senastKalla = "byggar";
     }
+    // Only an extension after the last replacement (or the byggår) counts.
+    const forl = senastAv(
+      atgarder.filter((a) => arForlangning(a) && (senast === undefined || a.ar > senast)),
+    );
+    const forlangning =
+      forl && forlangsAr !== undefined
+        ? { ar: forl.ar, tillAr: forl.ar + forlangsAr, ref: forl.ref }
+        : undefined;
+    const haller = forlangning !== undefined && nu <= forlangning.tillAr;
     let status: ByggdelBedomning["status"] = "okant";
     if (senast !== undefined) {
       const alder = nu - senast;
       status =
-        senastKalla === "atgard" && alder < lag / 2 ? "nyligen" : alder > hog ? "eftersatt" : "ok";
+        senastKalla === "atgard" && alder < lag / 2
+          ? "nyligen"
+          : alder > hog && !haller
+            ? "eftersatt"
+            : "ok";
+    } else if (haller) {
+      status = "ok";
     }
     delar.push({
       byggdel,
@@ -165,6 +188,7 @@ function bedomaByggdelar(
       livslangd: { lag, hog },
       status,
       ...(ref ? { ref } : {}),
+      ...(forlangning ? { forlangning } : {}),
     });
   }
   const bedomda = delar.filter((d) => d.status !== "okant");

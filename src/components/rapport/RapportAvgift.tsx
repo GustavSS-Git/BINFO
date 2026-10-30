@@ -11,7 +11,6 @@ import {
   Toggle,
 } from "@/components/ui/binfo";
 import {
-  BYGGDEL_KALLA_RAD,
   ENERGI_TEXT,
   REFI_FASTRAD,
   TON_BG,
@@ -22,7 +21,7 @@ import {
   antalIOrd,
   avgiftLead,
   avgiftRubrik,
-  byggdelNot,
+  byggdelFotnot,
   byggdelTabell,
   drivareRader,
   formatForandringKr,
@@ -271,6 +270,12 @@ function DrivareDetaljer({ analys }: { analys: AnalysisResult }) {
                               </span>
                             </>
                           ) : null}
+                          {b.forlangning ? (
+                            <span className="block text-[13px] text-muted-foreground">
+                              {b.forlangning.text}{" "}
+                              <span className={SIDA}>(s. {b.forlangning.sida})</span>
+                            </span>
+                          ) : null}
                         </td>
                         <td className="whitespace-nowrap">{b.livslangd}</td>
                         <td>
@@ -280,9 +285,7 @@ function DrivareDetaljer({ analys }: { analys: AnalysisResult }) {
                     ))}
                   </tbody>
                 </DataTable>
-                <p className="text-[13px] text-muted-foreground">
-                  {BYGGDEL_KALLA_RAD} {byggdelNot()}
-                </p>
+                <p className="text-[13px] text-muted-foreground">{byggdelFotnot(byggdelar)}</p>
               </>
             ) : null}
             <KeyValueList

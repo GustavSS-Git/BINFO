@@ -337,7 +337,8 @@ function senasteMojligaAr(forening: Rad): number | undefined {
  * Renovations already done (PROMPT_VERSION 10). Dropped: uncited, unknown
  * byggdel, no integer year, a year after the balance-sheet year (that is
  * planned, not done), a year more than 10 before the construction year, and
- * repeats of the same byggdel + year.
+ * repeats of the same byggdel + year (a replacement beats a life extension).
+ * An unknown `omfattning` is removed (= byte).
  */
 function rensaGenomfordaAtgarder(forening: Rad): void {
   if (!Array.isArray(forening["genomfordaAtgarder"])) {
@@ -357,8 +358,17 @@ function rensaGenomfordaAtgarder(forening: Rad): void {
     if (sista !== undefined && (ar as number) > sista) continue;
     if (tidigast !== undefined && (ar as number) < tidigast) continue;
     if (typeof a["text"] !== "string" || a["text"].trim() === "") continue;
+    // omfattning (PROMPT_VERSION 16): an unknown value is dropped (= byte).
+    if (a["omfattning"] !== "byte" && a["omfattning"] !== "forlangning") delete a["omfattning"];
     const nyckel = `${String(a["byggdel"])}:${String(ar)}`;
-    if (sett.has(nyckel)) continue;
+    if (sett.has(nyckel)) {
+      // Same part and year twice: a replacement beats a life extension.
+      const i = kvar.findIndex((k) => `${String(k["byggdel"])}:${String(k["ar"])}` === nyckel);
+      if (i >= 0 && kvar[i]!["omfattning"] === "forlangning" && a["omfattning"] !== "forlangning") {
+        kvar[i] = a;
+      }
+      continue;
+    }
     sett.add(nyckel);
     kvar.push(a);
   }

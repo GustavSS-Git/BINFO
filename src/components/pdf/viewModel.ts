@@ -13,7 +13,6 @@
  */
 import { iEllerPaOmrade } from "@/lib/omradeText";
 import {
-  BYGGDEL_KALLA_RAD,
   ENERGI_TEXT,
   KOMPONENT_KORTNAMN,
   MODELL_FAKTORER_INTRO,
@@ -38,7 +37,7 @@ import {
   avrundaVardering,
   byggarMarkor,
   byggarPrisNotis,
-  byggdelNot,
+  byggdelFotnot,
   byggdelTabell,
   drivareRader,
   foreningFaktaText,
@@ -613,6 +612,8 @@ export interface PdfByggdel {
   label: string;
   senast: string;
   pageRef: string | undefined;
+  /** A life-extending renovation, with its page (owner 2026-10-30). */
+  forlangning: string | undefined;
   livslangd: string;
   lage: string;
   lageTon: "success" | "warning" | "neutral";
@@ -772,11 +773,14 @@ function buildAvgiften(analys: AnalysisResult): PdfAvgiften {
             label: b.label,
             senast: b.senast,
             pageRef: b.sida !== undefined ? `s. ${b.sida}` : undefined,
+            forlangning: b.forlangning
+              ? `${b.forlangning.text} (s. ${b.forlangning.sida})`
+              : undefined,
             livslangd: b.livslangd,
             lage: b.lage.text,
             lageTon: b.lage.ton,
           })),
-          byggdelKalla: byggdelar.length > 0 ? `${BYGGDEL_KALLA_RAD} ${byggdelNot()}` : undefined,
+          byggdelKalla: byggdelar.length > 0 ? byggdelFotnot(byggdelar) : undefined,
           rader: sparrader.map((r) => ({
             label: r.label,
             note: r.note,

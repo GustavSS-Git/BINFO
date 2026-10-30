@@ -1032,7 +1032,7 @@ function Avgiften({ a }: { a: PdfAvgiften }) {
                     <Text key="l" style={[styles.cell, { fontWeight: SEMI }]}>
                       {b.label}
                     </Text>,
-                    `${b.senast}${b.pageRef ? ` (${b.pageRef})` : ""}`,
+                    `${b.senast}${b.pageRef ? ` (${b.pageRef})` : ""}${b.forlangning ? `. ${b.forlangning}` : ""}`,
                     b.livslangd,
                     <Pill key="g" ton={b.lageTon} label={b.lage} />,
                   ],

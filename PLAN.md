@@ -2,6 +2,36 @@
 
 **Latest of all: stable building parts and loans (2026-10-30, branch `redesign-v4`), directly below.**
 
+# Replacement vs life extension (2026-10-30, PROMPT_VERSION 16)
+
+Status: **code DONE, NOT ready to ship**: Ingemar 8 regressed in the only run (below).
+Contract (owner OK 2026-10-30): `genomfordaAtgarder[].omfattning?: "byte" | "forlangning"`
+(absent = byte) and `ByggdelBedomning.forlangning?: { ar, tillAr, ref }`.
+
+- Owner rule: relining, roof repaint/renovation, window renovation, facade repair and a new
+  elcentral are NOT replacements. They keep the part from counting as eftersatt for
+  `BYGGDEL_FORLANGNING_AR` years (relining 30, tak/fönster/fasad/el 10; sources
+  `docs/underhall-referens.md` §1c) and never make it count as "nyligen". Ventilation and hiss
+  have no extension figure: every action is a replacement (hissmodernisering = byte).
+- Code: `calc/sparbehov.ts` (`bedomaByggdelar`: the latest replacement sets the age, only an
+  extension after it counts), `slutfor.ts` (unknown omfattning removed; same part + year: the
+  replacement wins), the "Husets byggdelar" table (web + PDF) shows "Relining 2016, räknas
+  hålla till ca 2046 (s. 5)" and the footnote `FORLANGNING_NOT` when a row has one.
+- Keys: the 9 maintenance keys reclassified (every required item has `omfattning`; extensions
+  moved in from `tillatnaExtra`); the scorer checks omfattning per item.
+- Run (api-test-log 147, 14.71 kr): Helsingborgshus 4/5 (tak 2023 renovation missed),
+  omfattning right on all found; Albohem 5/5, omfattning right; Granen ok; loans all key
+  fields. **Ingemar 8: 3/7**, only the three renovations; tak 1986, el 1986, fasad 2009 and
+  stambyte 2024 dropped by the extraction although the grounding carried every year. This time
+  the grounding's context lines copied the ligature-broken text ("Sambye", "Elsgar ubyta")
+  instead of clean words. PROMPT_VERSION 15 had Ingemar at 3/4 in both after-runs.
+- Open subagent calls on the keys: Hökensgata fasad 2020 (skyltskåp, maybe drop), Göken el
+  2017 (all el in one lokal, counted as extension), Beckasinen ventilation 2019 (left allowed),
+  Hökensgata relining 2016 of "avloppsrör" (not stammar: left allowed), Albohem fönster 2017
+  (målning = extension), Ingemar tak 2006 (extension).
+- Next (needs owner OK, ≈ 4 kr per Ingemar run): re-run Ingemar 8 twice to tell variance from a
+  v16 regression; if it repeats, ask the grounding to write clean words in its own text.
+
 # Stable building parts + loans (2026-10-30)
 
 Status: **code DONE, measured** (2 before + 2 after runs per report; the owner approved ≈ 11 kr

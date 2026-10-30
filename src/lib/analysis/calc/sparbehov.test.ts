@@ -375,6 +375,92 @@ describe("schablon target moved by building parts", () => {
   });
 });
 
+describe("life-extending renovations (owner 2026-10-30)", () => {
+  const sch = (extra: Partial<Forening> = {}, input: Partial<SparbehovInput> = {}) =>
+    kor(forening({ genomfordaAtgarder: [], ...extra }), input);
+  const del = (r: ReturnType<typeof sch>, d: Byggdel) =>
+    r.sparbehov.byggdelar?.find((b) => b.byggdel === d);
+  const forl = (byggdel: Byggdel, ar: number) => ({
+    ...atgard(byggdel, ar),
+    omfattning: "forlangning" as const,
+  });
+
+  it("relining 2016 on stammar from byggår 1950: ok until 2046 (30 years), never nyligen", () => {
+    const r = sch({ genomfordaAtgarder: [forl("stambyte", 2016)] }, { byggar: 1950 });
+    expect(del(r, "stambyte")).toMatchObject({
+      status: "ok",
+      senast: 1950,
+      senastKalla: "byggar",
+      forlangning: { ar: 2016, tillAr: 2046, ref: { page: 4 } },
+    });
+  });
+  it("an expired extension no longer helps: relining 1990 (until 2020) → eftersatt", () => {
+    const r = sch({ genomfordaAtgarder: [forl("stambyte", 1990)] }, { byggar: 1950 });
+    expect(del(r, "stambyte")?.status).toBe("eftersatt");
+  });
+  it("a recent extension is never nyligen: tak ommålning 2024 on a 1950 roof → ok", () => {
+    const r = sch({ genomfordaAtgarder: [forl("tak", 2024)] }, { byggar: 1950 });
+    expect(del(r, "tak")).toMatchObject({ status: "ok", forlangning: { tillAr: 2034 } });
+  });
+  it("roof, windows, facade and el extend 10 years", () => {
+    const r = sch({
+      genomfordaAtgarder: [
+        forl("tak", 2020),
+        forl("fonster", 2020),
+        forl("fasad", 2020),
+        forl("el", 2020),
+      ],
+    });
+    for (const d of ["tak", "fonster", "fasad", "el"] as const) {
+      expect(del(r, d)?.forlangning?.tillAr).toBe(2030);
+    }
+  });
+  it("an extension older than the last replacement is ignored", () => {
+    const r = sch({ genomfordaAtgarder: [atgard("stambyte", 2000), forl("stambyte", 1995)] });
+    expect(del(r, "stambyte")).toMatchObject({ senast: 2000, senastKalla: "atgard", status: "ok" });
+    expect(del(r, "stambyte")?.forlangning).toBeUndefined();
+  });
+  it("a later replacement after an extension: the replacement sets the age", () => {
+    const r = sch({ genomfordaAtgarder: [forl("stambyte", 2000), atgard("stambyte", 2020)] });
+    expect(del(r, "stambyte")).toMatchObject({ senast: 2020, status: "nyligen" });
+    expect(del(r, "stambyte")?.forlangning).toBeUndefined();
+  });
+  it("the latest extension counts (2000 and 2016 → until 2046)", () => {
+    const r = sch(
+      { genomfordaAtgarder: [forl("stambyte", 2000), forl("stambyte", 2016)] },
+      { byggar: 1950 },
+    );
+    expect(del(r, "stambyte")?.forlangning).toMatchObject({ ar: 2016, tillAr: 2046 });
+  });
+  it("only an extension, unknown byggår: ok while it lasts, okant after", () => {
+    expect(del(sch({ genomfordaAtgarder: [forl("fonster", 2020)] }), "fonster")).toMatchObject({
+      status: "ok",
+      senastKalla: "okand",
+    });
+    expect(del(sch({ genomfordaAtgarder: [forl("fonster", 2010)] }), "fonster")?.status).toBe(
+      "okant",
+    );
+  });
+  it("hiss modernisation and ventilation have no extension figure: counted as a replacement", () => {
+    const r = sch(
+      { genomfordaAtgarder: [forl("hiss", 2020), forl("ventilation", 2020)] },
+      { hiss: "ja" },
+    );
+    expect(del(r, "hiss")).toMatchObject({
+      senast: 2020,
+      senastKalla: "atgard",
+      status: "nyligen",
+    });
+    expect(del(r, "ventilation")).toMatchObject({ senast: 2020, status: "nyligen" });
+    expect(del(r, "hiss")?.forlangning).toBeUndefined();
+  });
+  it("an extension changes the target: byggår 1950 + relining 2016 → stambyte ok instead of eftersatt (3/6 → 325)", () => {
+    // ages 76: tak, fönster, el eftersatt; stambyte now ok; fasad, ventilation ok → 300 + 50 × 3/6 = 325
+    const r = sch({ genomfordaAtgarder: [forl("stambyte", 2016)] }, { byggar: 1950 });
+    expect(r.sparbehov.malKrPerM2).toBe(325);
+  });
+});
+
 describe("missing data", () => {
   it("no sparande key figure: target kept, sparande/gap/kr null", () => {
     const r = kor(forening({ keyFigures: [] }));

@@ -5,31 +5,34 @@
   "kalla": {
     "fil": "Årsredovisning 2025.pdf",
     "forvaltare": "okänd",
-    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren"
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; omklassad byte/förlängning 2026-10-30"
   },
-  "anmarkning": "Tabellen 'Sedan 2018 har följande större åtgärder genomförts' (sida 4). Byggår 1946. Intervall räknas med sista året. Rapporten har inget investeringsbehov per m², ingen rekommenderad avsättning och ingen plantotal.",
+  "anmarkning": "Omfattning (2026-10-30): hiss 2020 byte (modernisering räknas som byte), stambyte 2000 byte, el 2002 byte (nya elledningar, flyttad från tillatnaExtra). Utanför: ventilation 2018 (byte av enstaka frånluftsfläktar, komponent).",
   "balansdag": "2025-12-31",
   "genomfordaAtgarder": [
     {
       "byggdel": "hiss",
       "ar": 2020,
+      "omfattning": "byte",
       "sida": 4,
       "tryckt": "2020-2019 Modernisering av hissar i samtliga hus"
     },
     {
       "byggdel": "stambyte",
       "ar": 2000,
+      "omfattning": "byte",
       "sida": 4,
       "tryckt": "1999-2000 Stambyte och renovering av badrum"
-    }
-  ],
-  "tillatnaExtra": [
+    },
     {
       "byggdel": "el",
       "ar": 2002,
+      "omfattning": "byte",
       "sida": 4,
       "tryckt": "2000-2002 Nya elledningar till samtliga lägenheter, trapphus och allmänna utrymmen"
-    },
+    }
+  ],
+  "tillatnaExtra": [
     {
       "byggdel": "ventilation",
       "ar": 2018,

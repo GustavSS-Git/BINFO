@@ -141,7 +141,7 @@ describe("fixtures/answer-key-underhall", () => {
     orgnr: string;
     status: string;
     kalla: { fil: string };
-    genomfordaAtgarder: Array<{ byggdel: string; ar: number; sida: number }>;
+    genomfordaAtgarder: Array<{ byggdel: string; ar: number; omfattning?: string; sida: number }>;
     tillatnaExtra?: Array<{ byggdel: string; ar: number }>;
   }
   const BYGGDELAR = ["stambyte", "tak", "fasad", "fonster", "ventilation", "el", "hiss"];
@@ -157,6 +157,14 @@ describe("fixtures/answer-key-underhall", () => {
     for (const { fil, data } of nycklar) {
       expect(fil, fil).toBe(`${data.orgnr}.json`);
       expect(data.status, fil).toBe("UTKAST");
+    }
+  });
+
+  it("varje krävd åtgärd anger byte eller förlängning (ägaren 2026-10-30)", () => {
+    for (const { fil, data } of nycklar) {
+      for (const a of data.genomfordaAtgarder) {
+        expect(["byte", "forlangning"], `${fil} ${a.byggdel} ${a.ar}`).toContain(a.omfattning);
+      }
     }
   });
 

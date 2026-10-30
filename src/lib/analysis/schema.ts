@@ -428,6 +428,7 @@ export const ForeningSchema = z
           .object({
             byggdel: ByggdelSchema,
             ar: z.number().int().min(1800).max(2100),
+            omfattning: z.enum(["byte", "forlangning"]).optional(),
             text: z.string().min(1),
             ref: CitatPageRefSchema,
           })
@@ -800,6 +801,10 @@ export const SparbehovSchema = z
             livslangd: z.object({ lag: z.number(), hog: z.number() }).strict(),
             status: z.enum(["nyligen", "ok", "eftersatt", "okant"]),
             ref: PageRefSchema.optional(),
+            forlangning: z
+              .object({ ar: z.number().int(), tillAr: z.number().int(), ref: PageRefSchema })
+              .strict()
+              .optional(),
           })
           .strict(),
       )

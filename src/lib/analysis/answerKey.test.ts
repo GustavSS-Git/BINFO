@@ -191,6 +191,41 @@ describe("poangsattLan", () => {
   });
 });
 
+describe("poangsattUnderhall: byte eller förlängning", () => {
+  const facit: UnderhallFacitFil = {
+    genomfordaAtgarder: [
+      { byggdel: "stambyte", ar: 2016, omfattning: "forlangning" },
+      { byggdel: "tak", ar: 1986, omfattning: "byte" },
+      { byggdel: "fasad", ar: 2009, omfattning: "forlangning" },
+    ],
+  };
+  it("rätt omfattning godkänns, saknad omfattning räknas som byte, saknad post underkänns", () => {
+    const poang = poangsattUnderhall(facit, {
+      genomfordaAtgarder: [
+        { byggdel: "stambyte", ar: 2016, omfattning: "forlangning" },
+        { byggdel: "tak", ar: 1986 },
+      ],
+    });
+    const per = (f: string) => poang.find((p) => p.falt === f);
+    expect(per("atgard stambyte 2016 omfattning")?.godkand).toBe(true);
+    expect(per("atgard tak 1986 omfattning")?.godkand).toBe(true);
+    expect(per("atgard fasad 2009 omfattning")).toMatchObject({
+      godkand: false,
+      faktiskt: "saknas",
+    });
+  });
+  it("fel omfattning underkänns", () => {
+    const poang = poangsattUnderhall(facit, {
+      genomfordaAtgarder: [{ byggdel: "stambyte", ar: 2016, omfattning: "byte" }],
+    });
+    expect(poang.find((p) => p.falt === "atgard stambyte 2016 omfattning")).toMatchObject({
+      godkand: false,
+      forvantat: "forlangning",
+      faktiskt: "byte",
+    });
+  });
+});
+
 describe("poangsattUnderhall", () => {
   const facit: UnderhallFacitFil = {
     genomfordaAtgarder: [
