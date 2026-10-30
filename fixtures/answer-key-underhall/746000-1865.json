@@ -1,0 +1,55 @@
+{
+  "orgnr": "746000-1865",
+  "namn": "Brf Albohem",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "SBC årsredovisning.pdf",
+    "forvaltare": "SBC",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren (sida 5; årtal och åtgärd står i två kolumner, parade efter radens y-position i pdf.js; ett årtal gäller flera rader; trycksidan är 'Sida 3 av 17')"
+  },
+  "anmarkning": "'Utförda historiska underhåll' (sida 5, räkenskapsår 2024). Årtalet står bara på gruppens första rad; rader utan eget årtal tillhör årtalet ovanför (2004: två stamrader; 2012: tre rader). Stambyte 2004 (vatten + avlopp kök) och 2012 (vatten badrum + re-ling avlopp badrum) är var sitt objekt. Räknas inte: tvättstuga 2000, dörrar 2003, värmecentral 2012/2014, balkonger 2014, fönstermålning 2016–2017, innergård 2019, källarnedfart 2021, OVK/energideklaration/lås/garantibesiktning 2022, armaturer 2023. Gränsfall (tillåtna, inte krav): el 1999 'El-installation med kablage utbytt' (ommanövrerad kabeldragning, samma bedömning som Torsborgen 3 2000–2002 'Nya elledningar'), fasad 1983 'Tilläggsisoleras' (tilläggsisolering, inte renovering/omputsning), fasad 2020 'Huskropp utvändigt - Åtgärder efter underhållsplan' (oklart vad som gjorts), ventilation 2022 'Obligatorisk ventilationskontroll' är bara OVK och räknas inte. Ingen investeringsbehov per m², rekommenderad avsättning eller plantotal i rapporten.",
+  "balansdag": "2024-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "stambyte",
+      "ar": 2004,
+      "sida": 5,
+      "tryckt": "2004 Vatten - Byte av stammar till kök och nya ledningar till förbrukare i kök / Avlopp - Byte av stammar till kök och anslutande ledningar i kök"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2007,
+      "sida": 5,
+      "tryckt": "2007 Tak - Nytt tak samt renovering av takfönster"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2012,
+      "sida": 5,
+      "tryckt": "2012 Vatten - Byte stammar till badrum, nya ledningar till förbrukare i badrum / Avlopp - Re-ling stammar till badrum och anslutande ledningar i badrum"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "el",
+      "ar": 1999,
+      "sida": 5,
+      "tryckt": "1999 El - El-installation med kablage utbytt"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 1983,
+      "sida": 5,
+      "tryckt": "1983 Fasad - Tilläggsisoleras"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2020,
+      "sida": 5,
+      "tryckt": "2020 Huskropp utvändigt - Åtgärder efter underhållsplan"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

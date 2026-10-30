@@ -1,5 +1,65 @@
 # Binfo — current plan
 
+**Latest of all: stable building parts and loans (2026-10-30, branch `redesign-v4`), directly below.**
+
+# Stable building parts + loans (2026-10-30)
+
+Status: **code DONE, measurement INCOMPLETE** (the second after-run is missing for 3 of 4
+reports, budget). PROMPT_VERSION 15 (`p15.i1.s1`), no migration, NOT deployed (web app +
+`deploy:edge` together, like every bump). Spend 54.67 kr of 60 (api-test-log rows 141–145).
+
+## Answer keys (all UTKAST, read from pdf.js, years paired by y-position)
+
+- New: Ingemar 8 (both), Granen 10-11 (underhåll, empty: only minor work), Albohem (both),
+  Hökensgata 1 (both), Göken 29 (underhåll; debt-free, no loan key), Näcken 2 (lån; no history
+  table), Volontären 12 (lån; no history table). Existing 9 reviewed: no changes.
+- Owner to settle (decides required vs allowed): relining (Granen "Relining av stuprör" 2023,
+  Hökensgata 2016); rewiring/elcentral (Albohem 1999, Torsborgen 2000–2002, Göken 2015/2017,
+  Hökensgata 2013); fönsterrenovering vs byte (Ingemar 2018, Pontonjären 2012/2013, Hökensgata
+  2023, Göken 2020); roof repainting (Ingemar 2006/2014); Helsingborgshus "Takrenovering
+  2015–2016" is required while similar rows are allowed; a debt-free report's loan key
+  (empty `lan`?); Näcken 2's two identical loan rows; Volontären's amount arithmetic.
+
+## Where items were lost (baseline, 8 runs, PROMPT_VERSION 14)
+
+- Loans: 79/79 key fields in every run (10 loans incl. dates/rates, balansdag, sums,
+  räntekostnader). Nothing to fix; no deterministic loan cross-check added.
+- Stages c (slutfor.ts) and d (sidreferenser.ts) dropped NOTHING: raw model JSON = final in all
+  runs (new `<pdf>.underlag.json`).
+- Stage a (grounding), Ingemar 8 + Albohem: year column separate from the action column; every
+  quote is the action text without a year, the model's year text (an uncited block) was
+  discarded by `extractGroundingFindings`. Extraction then dropped the rows or guessed (Albohem
+  tak 2003 for 2007, twice). Ingemar's stambyte 2025 (row 139) = year guessed from the p.7 loan
+  sentence.
+- Stage b (extraction), Helsingborgshus: years inline and cited, but the extraction kept one
+  item per byggdel (fönster 2008 dropped twice; tak 2023 chosen over 2016 once). Ingemar after
+  the fix: "2009: Renovering av gårdshusets fasad…" reached the extraction but was skipped.
+
+## Fix
+
+1. Code: `foregaendeRad` keeps the last line (≤ 160 chars) of the uncited block before each
+   cited block as the finding's context (PDF and scan paths). Tests first.
+2. Grounding (d): write the row's year right before each quote; a year applies to the rows
+   below it; one row per quote, never the whole table; cite status lines ("Tak: Omlagt 1986").
+3. Extraction: one item per byggdel AND year; year from the quote or Sammanhang, never from a
+   neighbouring row; a whole-table quote with a separate year list pairs nothing; status lines
+   count; utbytta elstigar → `el`. Nyckeltal stay first in grounding.
+
+## Before / after (required building parts hit; wrong = outside key + allowed extras)
+
+| Report (required)                                                                             | before 1           | before 2           | after 1 (first wording) | after 2 (final) |
+| --------------------------------------------------------------------------------------------- | ------------------ | ------------------ | ----------------------- | --------------- |
+| Ingemar 8 (4)                                                                                 | 0                  | 0                  | 3 (fasad 2009 missed)   | not run         |
+| Albohem (3)                                                                                   | 2 + wrong tak 2003 | 0 + wrong tak 2003 | 0 + wrong el 2023       | 3, none wrong   |
+| Helsingborgshus 17 (3)                                                                        | 2                  | 1                  | 3                       | not run         |
+| Granen 10-11 (0)                                                                              | ok                 | ok                 | ok                      | not run         |
+| Loans (79 fields)                                                                             | 79                 | 79                 | 79                      | 13/13 (Albohem) |
+| Cost/time per report: before 3.65 kr / 67.9 s (n=8), after 3.62 kr / 66.7 s (n=4): no change. |
+| Open: the final wording has one run per report on Albohem only; Ingemar fasad 2009 (stage b). |
+| Next step (needs budget ≈ 11–15 kr): after-run 2 for Ingemar, Granen, Helsingborgshus.        |
+
+---
+
 **Latest of all: redesign v4 (2026-10-28, branch `redesign-v4`, PLANNED, awaiting owner approval): [`docs/PLAN-v4-redesign.md`](docs/PLAN-v4-redesign.md).**
 
 **Latest: consistency round 2026-10-26 (PLANNED, awaiting owner approval), directly below. Before it: owner feedback round 2026-10-25b (rate slider tabs, lokal rent only on a signal, internal fee-change check), below. Before it: postnummer help on /analysera (2026-10-25, done), below. Before it: sustainable fee + longer refinancing horizon (2026-10-24c, done), below. Before it: report → price via the expected fee rise (2026-10-24b). Before it: Booli prefill (2026-10-24). Before it: "Spara analysen" (2026-10-24, committed a73af11). Before it: round 3 of 2026-10-23 (no re-runs on read, register summary, grade bands, fixed figures, motivation check, CLI input check), below.** Background plan: [`docs/PLAN-v3.md`](docs/PLAN-v3.md)

@@ -9,7 +9,7 @@ import { beraknaFastaVarden, formateraFastaVarden, type FastaVarden } from "./fa
  * prompt. Se prompts.test.ts, som larmar om utdatan ändras utan att detta
  * värde höjs.
  */
-export const PROMPT_VERSION = "14";
+export const PROMPT_VERSION = "15";
 
 /**
  * The seven statutory key figures (BFNAR 2023:1), Swedish labels as given
@@ -70,7 +70,7 @@ Föreningens fastighet(er) och adress(er): fastighetsbeteckning(ar) (t.ex. "Pont
 
 Till sist, underlag för kommande avgiftsändringar (citera bara det som faktiskt står): planerade underhållskostnader som har ett BELOPP och hur de ska finansieras (nytt lån, fonden eller ett beslut), fondens saldo vid årets slut ("Fond för yttre underhåll") och den planerade årliga avsättningen; om ett negativt resultat eller uttag ur fonden är planerat och hur det finansieras; hyresintäkter från lokaler under året och hyresavtal för lokaler med slutdatum (och årshyra om den anges); namngivna energiprojekt (t.ex. solceller, bergvärme) med belopp och finansiering. Citera också (a) uttalanden om att en lokalhyra kommer att falla bort eller minska: uppsagt hyresavtal, hyresgäst som har sagt upp eller flyttar, lokal som står tom eller vakant, hyresgäst i konkurs eller obestånd, hyrestvist, hyresnedsättning eller omförhandling till lägre hyra, med årshyra om den anges — ett slutdatum, "löper till" eller automatisk förlängning är INTE ett sådant uttalande; och (b) beslutade eller aviserade/planerade ändringar av bostädernas årsavgift med procent, från vilket datum de gäller och om de är beslutade eller bara planerade (äldre föreningar skriver "hyra" för årsavgiften, t.ex. "föreningen har beslutat om en hyreshöjning med 25% från 1 maj 2024"); ta med ändringar under räkenskapsåret också, men inte lokalhyror och inte avgifter för individuell mätning eller el; och (c) för varje lokalhyresavtal med slutdatum: uttalanden om att just det avtalet har förlängts eller förnyats, eller att en ny hyresgäst har skrivit på (med det nya slutdatumet om det anges) — automatisk förlängning ("löper vidare om det inte sägs upp") räknas bara när rapporten uttryckligen säger det om just det avtalet.
 
-Underhåll och investeringsbehov, allra sist: (a) rapportens "investeringsbehov per kvm" / "genomsnittligt investeringsbehov" i kr per kvm och år (HSB-rapporter redovisar det ofta som ett nyckeltal), (b) vad underhållsplanen säger att föreningen BÖR avsätta per år, eller planens uttalade genomsnittliga underhållsbehov per år (t.ex. "underhållsbehov på 777 tkr per år") — skilt från den faktiska avsättningen enligt stadgarna, (c) en uttalad total för underhållsplanen över ett antal år (t.ex. "underhållsplanen omfattar 45 Mkr under 30 år"), och (d) större åtgärder som REDAN är genomförda, med årtal — stambyte (även relining), takomläggning/takbyte, fasadrenovering/omputsning, fönsterbyte, ventilation (ny FTX/ventilationsaggregat), elstigare/elcentraler och hissbyte/hissmodernisering. Leta i förvaltningsberättelsen, i tabeller över "tidigare genomförda åtgärder"/"utfört underhåll" och i noterna; citera varje åtgärd för sig med dess årtal. En rad eller ett år kan rymma flera åtgärder, ofta i ett långt stycke: läs hela stycket för varje år och citera varje byggdel för sig. En åtgärd i delar av beståndet räknas också, men inte mindre reparationer eller utbyte av enstaka delar (t.ex. styrskor till hissen, nya fläktar, lagningar). Ta inte med planerade åtgärder, och inte enbart OVK (obligatorisk ventilationskontroll).
+Underhåll och investeringsbehov, allra sist: (a) rapportens "investeringsbehov per kvm" / "genomsnittligt investeringsbehov" i kr per kvm och år (HSB-rapporter redovisar det ofta som ett nyckeltal), (b) vad underhållsplanen säger att föreningen BÖR avsätta per år, eller planens uttalade genomsnittliga underhållsbehov per år (t.ex. "underhållsbehov på 777 tkr per år") — skilt från den faktiska avsättningen enligt stadgarna, (c) en uttalad total för underhållsplanen över ett antal år (t.ex. "underhållsplanen omfattar 45 Mkr under 30 år"), och (d) större åtgärder som REDAN är genomförda, med årtal — stambyte (även relining), takomläggning/takbyte, fasadrenovering/omputsning, fönsterbyte, ventilation (ny FTX/ventilationsaggregat), elstigare/elcentraler och hissbyte/hissmodernisering. Leta i förvaltningsberättelsen, i tabeller över "tidigare genomförda åtgärder"/"utfört underhåll" och i noterna; citera varje åtgärd för sig med dess årtal. Står årtalen i en egen kolumn eller bara på gruppens första rad (då saknar citatet årtal): skriv radens årtal själv direkt före varje citat, t.ex. "1986: " och sedan citatet; ett årtal gäller raderna under det fram till nästa årtal. Citera en rad i taget, aldrig hela tabellen i ett enda citat. Citera också statusrader som "Tak: Omlagt 1986" eller "El: utbytt år 1986". En rad eller ett år kan rymma flera åtgärder, ofta i ett långt stycke: läs hela stycket för varje år och citera varje byggdel för sig. En åtgärd i delar av beståndet räknas också, men inte mindre reparationer eller utbyte av enstaka delar (t.ex. styrskor till hissen, nya fläktar, lagningar). Ta inte med planerade åtgärder, och inte enbart OVK (obligatorisk ventilationskontroll).
 
 För varje fakta du hittar: citera den exakta meningen eller stycket i rapporten där den framgår. Gissa aldrig — om ett värde inte uttryckligen anges i rapporten, säg det istället för att uppskatta.`;
 }
@@ -103,10 +103,34 @@ export interface Grundfynd {
 /** Pulls out every real, API-verified page citation. Ignores prose without
  *  citations and citation types other than page_location (shouldn't occur
  *  for a PDF document block, but never trust the shape blindly). */
+/** Longest tail of a preceding uncited line kept as context (≈ a table row). */
+const FOREGAENDE_RAD_MAX = 160;
+
+/**
+ * The last line of the uncited text block right before block `i`, or undefined.
+ * With citations on, text the model writes before a quote ("- 1986: ") arrives
+ * as its own block WITHOUT citations and used to be dropped; for a table whose
+ * years sit in a separate column (Nabo, SBC) the quote itself has no year, so
+ * that line is the only place the row's year survives (PROMPT_VERSION 15).
+ */
+export function foregaendeRad(
+  blocks: readonly { type: string; text: string; citations?: readonly unknown[] | null }[],
+  i: number,
+): string | undefined {
+  const fore = blocks[i - 1];
+  if (!fore || fore.type !== "text" || (fore.citations && fore.citations.length > 0)) {
+    return undefined;
+  }
+  const rad = (fore.text.trimEnd().split("\n").pop() ?? "").trim();
+  if (!/[\p{L}\p{N}]/u.test(rad)) return undefined;
+  return rad.length > FOREGAENDE_RAD_MAX ? rad.slice(-FOREGAENDE_RAD_MAX).trimStart() : rad;
+}
+
 export function extractGroundingFindings(blocks: GroundingTextBlock[]): Grundfynd[] {
   const findings: Grundfynd[] = [];
-  for (const block of blocks) {
+  for (const [i, block] of blocks.entries()) {
     if (block.type !== "text" || !block.citations) continue;
+    const fore = foregaendeRad(blocks, i);
     for (const citation of block.citations) {
       if (
         citation.type === "page_location" &&
@@ -114,7 +138,7 @@ export function extractGroundingFindings(blocks: GroundingTextBlock[]): Grundfyn
         typeof citation.start_page_number === "number"
       ) {
         findings.push({
-          text: block.text,
+          text: fore ? `${fore} ${block.text}` : block.text,
           citat: citation.cited_text,
           sida: citation.start_page_number,
         });
@@ -348,7 +372,7 @@ Skarpa regler mot exakt de misstag som brukar uppstå:
 - lokaler.forlustsignaler: ENDAST uttryckliga uttalanden i fynden om att en lokalhyra faller bort eller minskar: uppsagt hyresavtal, hyresgästen har sagt upp eller flyttar, lokalen står tom/vakant, hyresgäst i konkurs eller obestånd, hyrestvist, hyresnedsättning eller omförhandling till lägre hyra. ALDRIG ett slutdatum, "löper till" eller automatisk förlängning — att ett avtal har ett slutdatum är inte en förlustsignal. En post per uttalande { "text", "arshyra"? , "ref" }: arshyra är en Figure med årshyran för just den lokalen när rapporten anger den (annars utelämna den), ref med excerpt obligatoriskt. Utelämna forlustsignaler när fynden inte innehåller något sådant uttalande.
 - avgiftsandringar: beslutade ("beslutad") eller aviserade/planerade ("planerad") ändringar av bostädernas ÅRSAVGIFT. Äldre föreningar skriver "hyra" för årsavgiften (t.ex. "föreningen har beslutat om en hyreshöjning med 25% från 1 maj 2024" är en avgiftsändring), men lokalhyror och avgifter för individuell mätning/el är INTE årsavgift och hör inte hit. En post per ändring { "procent", "fran"?, "status", "text", "ref" }: procent är en Figure (unit "procent", med tecken: en höjning är positiv, en sänkning negativ) med eget citat; fran är första dagen den nya avgiften gäller som "YYYY-MM-DD" ("från 1 maj 2024" → "2024-05-01", "från 2025" eller "från årsskiftet" till 2025 → "2025-01-01") och utelämnas när rapporten inte anger när; status är "beslutad" eller "planerad"; text är en kort beskrivning; ref med excerpt ordagrant ur fyndlistan, obligatoriskt. Ta med ändringar som infördes under räkenskapsåret också (koden avgör vad som redan ingår i siffrorna). Skriv aldrig ett belopp i kronor som procent. Utelämna avgiftsandringar när fynden inte nämner någon.
 - underhallsplan.investeringsbehovPerM2: rapportens "investeringsbehov per kvm"/"genomsnittligt investeringsbehov" i kr per m² och år (unit "kr/m2"), ENDAST när rapporten uttryckligen anger det. rekommenderadAvsattning: vad underhållsplanen säger att föreningen bör avsätta per år, eller planens uttalade genomsnittliga underhållsbehov per år (t.ex. "underhållsbehov på 777 tkr per år") (kr/år, unit "kr"), ENDAST när rapporten anger det separat från den faktiska avsättningen — sätt den aldrig lika med arligAvsattning bara för att den saknas. planTotal: en uttalad total för underhållsplanen { "belopp": Figure (kr; mkr/tkr räknas om), "ar": antal år planen omfattar }, ENDAST när både belopp och antal år står i rapporten. Utelämna fälten annars.
-- genomfordaAtgarder: större åtgärder som REDAN är genomförda, en post per åtgärd { "byggdel", "ar", "text", "ref" } med ref och excerpt obligatoriskt. byggdel är exakt en av "stambyte" (även relining), "tak" (takomläggning/takbyte), "fasad" (fasadrenovering, omputsning), "fonster" (fönsterbyte), "ventilation" (ny FTX/ventilationsaggregat), "el" (elstigare/elcentraler), "hiss" (hissbyte/hissmodernisering) — inga andra byggdelar, och enbart OVK är INTE en renovering. "ar" är året arbetet utfördes (ett intervall → det sista året). En rad eller ett år med flera åtgärder ger en post per byggdel; läs hela stycket för året. En åtgärd i delar av beståndet räknas också, men inte mindre reparationer eller utbyte av enstaka delar (t.ex. styrskor till hissen, nya fläktar, lagningar). Ta aldrig med en planerad eller pågående åtgärd, och hitta aldrig på ett årtal. Utelämna fältet om fynden inte nämner någon.
+- genomfordaAtgarder: större åtgärder som REDAN är genomförda, en post per åtgärd { "byggdel", "ar", "text", "ref" } med ref och excerpt obligatoriskt. byggdel är exakt en av "stambyte" (även relining), "tak" (takomläggning/takbyte), "fasad" (fasadrenovering, omputsning), "fonster" (fönsterbyte), "ventilation" (ny FTX/ventilationsaggregat), "el" (elstigare/elcentraler), "hiss" (hissbyte/hissmodernisering) — inga andra byggdelar, och enbart OVK är INTE en renovering. "ar" är året arbetet utfördes (ett intervall → det sista året). En rad eller ett år med flera åtgärder ger en post per byggdel; läs hela stycket för året. En åtgärd i delar av beståndet räknas också, men inte mindre reparationer eller utbyte av enstaka delar (t.ex. styrskor till hissen, nya fläktar, lagningar). Samma byggdel kan förekomma flera gånger: en post per år, även äldre åtgärder (t.ex. fönster 2008 och 2022). Årtalet står i citatet eller i fyndets Sammanhang (vid en tabell med egen årtalskolumn står det först i Sammanhang, t.ex. "1986: Elstigar utbytta …"); står det i ingen av dem, utelämna posten och ta aldrig ett årtal från en grannrad. Ett citat med hela tabellen där årtalen står i en egen lista parar inte ihop åtgärd och år: utan årtal framför raden i Sammanhang, utelämna posten. En statusrad som "Tak: Omlagt 1986" eller "El: utbytt år 1986" är en genomförd åtgärd; utbytta elstigar är "el". Ta aldrig med en planerad eller pågående åtgärd, och hitta aldrig på ett årtal. Utelämna fältet om fynden inte nämner någon.
 - sparandeHistorik: sparande per m² totalyta för TIDIGARE räkenskapsår i flerårsöversikten (inte det senaste året, det är nyckeltalet), en post per år { "ar", "figure" } med högst tre år, det senaste först. "ar" är kolumnens årtal i tabellen (heltal, strikt före rakenskapsar och högst tre år före det). figure.value är talet exakt som det står i fynden, med tecken: "-138" är −138 och "-3" är −3, aldrig 138 eller 3; unit "kr/m2"; ref med excerpt ordagrant ur fyndlistan (tabellraden) och rätt sida. Ta bara med år vars värde faktiskt står bland fynden — räkna aldrig ut eller uppskatta ett värde, och gissa aldrig vilket år en kolumn tillhör. Utelämna fältet helt när inga tidigare år finns.
 - energiprojekt: ENDAST namngivna projekt (solceller, bergvärme, fönsterbyte för energi m.m.); belopp om det anges; finansierat "ja"/"nej" bara när rapporten säger det, annars "okant".
 - rakenskapsar är ETT årtal (number), aldrig ett datumintervall som sträng.

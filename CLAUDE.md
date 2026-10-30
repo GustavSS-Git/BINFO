@@ -534,7 +534,7 @@ npm test                    # vitest run (2026-10-26: 149 files, ~3180 tests, al
 npm run format              # prettier --write . (printWidth 100)
 npm run preview | build:dev # vite preview / development-mode build
 npm run extract -- <pdf> [input.json]      # pipeline standalone incl. scans (REAL spend)
-npm run verify-extraction -- <dir>         # score against fixtures/answer-key (+ answer-key-lan); spend; VERIFY_FROM_RESULTS=<dir> = free; VERIFY_ONLY=<orgnr,…> limits the reports
+npm run verify-extraction -- <dir>         # score against fixtures/answer-key (+ answer-key-lan, answer-key-underhall); spend; VERIFY_SAVE_RESULTS=<dir> keeps results + underlag; VERIFY_FROM_RESULTS=<dir> = free; VERIFY_ONLY=<orgnr,…> limits the reports
 npm run analys -- <pdf> <input.json>       # LIVE Supabase job + spend
 npm run register -- list|inspect|invalidate|backfill-legacy|rerun   # LIVE register admin
 npm run konto -- radera|exportera <principalId>                     # LIVE GDPR erasure/export
@@ -1054,6 +1054,24 @@ Artboards hold example data (Brf Pontonjären 3) and placeholders
   nothing borrowed. Cash flow is deliberately not a price input. Page refs
   tolerate private-use ligature gaps (Nabo PDFs). "Så har vi räknat" (price)
   holds only the valuation model + span. Needs web app + `deploy:edge` together.
+- **Building parts from year-column tables (2026-10-30, PROMPT_VERSION 15 →
+  `p15.i1.s1`, NOT deployed):** in Nabo/SBC "utfört underhåll" tables the
+  years sit in their own column, so a citation (pdf.js text order: all actions,
+  then all years) never holds a row's year. With citations on, text the model
+  writes before a quote arrives as its own UNCITED block, which
+  `extractGroundingFindings` used to drop: the year was lost before the
+  extraction (Ingemar 8: 0/4 parts in two runs). Now `foregaendeRad`
+  (prompts.ts, also used by `transkriptionsblock.ts`) prefixes each finding's
+  Sammanhang with the last line of the preceding uncited block ("- 1986: ");
+  grounding writes the row's year before each quote, one row per quote;
+  extraction takes the year from the quote or Sammanhang, never from a
+  neighbouring row, keeps one item per byggdel AND year, counts status lines
+  ("Tak: Omlagt 1986"), and maps utbytta elstigar → `el`. Loans were already
+  stable (79/79 key fields in all 8 baseline runs). Measurement and stage
+  evidence: PLAN.md "Stable building parts". `VERIFY_SAVE_RESULTS` also writes
+  `<pdf>.underlag.json` (grounding text + raw extraction JSON before
+  slutfor.ts). Draft keys: 10 in `fixtures/answer-key-lan/`, 9 in
+  `fixtures/answer-key-underhall/` (all UTKAST).
 - **Contact:** `KONTAKT_EPOST` = contactbinfohere@gmail.com (footer "Kontakt",
   report/BRF "Hittar du ett fel?", failure screens).
 - Fixed known defects: landing anchor links, köpguide "Medlemskap" text,

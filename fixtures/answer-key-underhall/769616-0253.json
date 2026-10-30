@@ -1,0 +1,24 @@
+{
+  "orgnr": "769616-0253",
+  "namn": "Brf Granen 10-11",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Nabo årsredovisning.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren (sida 5; årtal och åtgärd står i två kolumner, parade efter radens y-position i pdf.js; trycksidan är 'Sida 3 av 19')"
+  },
+  "anmarkning": "'Utförda historiska underhåll' (sida 5) listar bara småarbeten: målning av grunden, porttelefoner, kabel-tv-box, spolning av brunnar och stuprör, relining av stuprör (2023), LED-belysning i källare och vind, dörröppnare, övernattningslägenhet, renovering av dörrar. Ingen av dem är stambyte, tak, fasad, fönster, ventilation, el eller hiss, så genomfordaAtgarder är tom. 'Relining av stuprör' (2023) är gränsfall (stuprör är inte stammar; tillåtet, inte krav). Sida 7: 'En annan [hyresgäst] har fått ventilationen renoverad' gäller en lokalhyresgäst och är inte medtaget. Planerade underhåll (2026–2030) ska inte med. Not 6 (sida 17) är planerat underhåll. Ingen investeringsbehov per m², rekommenderad avsättning eller plantotal i rapporten.",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [],
+  "tillatnaExtra": [
+    {
+      "byggdel": "stambyte",
+      "ar": 2023,
+      "sida": 5,
+      "tryckt": "2023 Relining av stuprör"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

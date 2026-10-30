@@ -1,0 +1,49 @@
+{
+  "orgnr": "769616-3273",
+  "namn": "Brf Hökensgata 1",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Nabo 2 årsredovisning.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren; lånenoten på sida 19 (trycksida 17 av 18)"
+  },
+  "anmarkning": "Not 16 (Skulder till kreditinstitut); kolumnerna är Villkorsändringsdag, Räntesats 2025-12-31, Skuld 2025-12-31, Skuld 2024-12-31. Balansräkningen delar skulden i 6 441 584 långfristig + 6 974 449 kortfristig = 13 416 033 (stämmer med noten). Två lån har nästan samma ränta (2,84 %).",
+  "balansdag": "2025-12-31",
+  "lanenotSida": 19,
+  "totalSkuld": {
+    "belopp": 13416033,
+    "sida": 19,
+    "tryckt": "Summa 13 416 033 13 525 667"
+  },
+  "rantekostnader": {
+    "belopp": 403650,
+    "sida": 10,
+    "tryckt": "Räntekostnader och liknande resultatposter 11 -403 650 -825 205"
+  },
+  "lan": [
+    {
+      "kreditgivare": "SBAB",
+      "belopp": 2244007,
+      "ranta": 2.84,
+      "villkorsandringsdag": "2026-05-22",
+      "sida": 19,
+      "tryckt": "SBAB 2026-05-22 2,84 % 2 244 007 2 277 545"
+    },
+    {
+      "kreditgivare": "SBAB",
+      "belopp": 6468007,
+      "ranta": 2.84,
+      "villkorsandringsdag": "2027-05-11",
+      "sida": 19,
+      "tryckt": "SBAB 2027-05-11 2,84 % 6 468 007 6 501 545"
+    },
+    {
+      "kreditgivare": "SBAB",
+      "belopp": 4704019,
+      "ranta": 2.82,
+      "villkorsandringsdag": "2026-04-22",
+      "sida": 19,
+      "tryckt": "SBAB 2026-04-22 2,82 % 4 704 019 4 746 577"
+    }
+  ]
+}

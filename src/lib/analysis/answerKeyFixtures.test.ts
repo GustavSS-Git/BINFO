@@ -88,13 +88,18 @@ describe("fixtures/answer-key-lan", () => {
     data: JSON.parse(readFileSync(path.join(lanDir, f), "utf-8")) as LanFacitFilTest,
   }));
 
-  it("finns för de fem rapporterna med lånenot", () => {
+  it("finns för de tio rapporterna med lånenot", () => {
     expect(nycklar.map((n) => n.data.orgnr).sort()).toEqual([
+      "702000-9960",
+      "702002-5446",
       "716419-8579",
       "716420-0599",
       "716421-9722",
       "743000-3215",
+      "746000-1865",
       "769616-0253",
+      "769616-3273",
+      "769631-3761",
     ]);
   });
 
@@ -146,8 +151,8 @@ describe("fixtures/answer-key-underhall", () => {
       data: JSON.parse(readFileSync(path.join(dir, f), "utf-8")) as UnderhallNyckel,
     }));
 
-  it("finns för fyra rapporter, heter som sitt orgnr och är markerade UTKAST", () => {
-    expect(nycklar).toHaveLength(4);
+  it("finns för nio rapporter, heter som sitt orgnr och är markerade UTKAST", () => {
+    expect(nycklar).toHaveLength(9);
     for (const { fil, data } of nycklar) {
       expect(fil, fil).toBe(`${data.orgnr}.json`);
       expect(data.status, fil).toBe("UTKAST");
