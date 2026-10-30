@@ -1073,7 +1073,8 @@ Artboards hold example data (Brf Pontonjären 3) and placeholders
   slutfor.ts). Draft keys: 10 in `fixtures/answer-key-lan/`, 9 in
   `fixtures/answer-key-underhall/` (all UTKAST).
 - **Replacement vs life extension (owner 2026-10-30, PROMPT_VERSION 16 →
-  `p16.i1.s1`, NOT deployed, NOT ready: Ingemar 8 regressed, PLAN.md):**
+  `p16.i1.s1`, NOT deployed; Ingemar 8 building parts vary run to run,
+  3/7–6/7, PLAN.md):**
   `genomfordaAtgarder[].omfattning` "byte" | "forlangning" (absent = byte);
   an extension (relining 30 years, roof/window/facade/el 10,
   `BYGGDEL_FORLANGNING_AR`, `docs/underhall-referens.md` §1c) only delays

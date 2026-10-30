@@ -4,7 +4,8 @@
 
 # Replacement vs life extension (2026-10-30, PROMPT_VERSION 16)
 
-Status: **code DONE, NOT ready to ship**: Ingemar 8 regressed in the only run (below).
+Status: **DONE on the branch** (not deployed: needs web app + `deploy:edge` together). Ingemar 8
+varies run to run (3/7 and 6/7 in the variance check below); no systematic regression.
 Contract (owner OK 2026-10-30): `genomfordaAtgarder[].omfattning?: "byte" | "forlangning"`
 (absent = byte) and `ByggdelBedomning.forlangning?: { ar, tillAr, ref }`.
 
@@ -29,8 +30,11 @@ Contract (owner OK 2026-10-30): `genomfordaAtgarder[].omfattning?: "byte" | "for
   2017 (all el in one lokal, counted as extension), Beckasinen ventilation 2019 (left allowed),
   Hökensgata relining 2016 of "avloppsrör" (not stammar: left allowed), Albohem fönster 2017
   (målning = extension), Ingemar tak 2006 (extension).
-- Next (needs owner OK, ≈ 4 kr per Ingemar run): re-run Ingemar 8 twice to tell variance from a
-  v16 regression; if it repeats, ask the grounding to write clean words in its own text.
+- Variance check (api-test-log 148, 7.82 kr, owner OK): Ingemar 8 twice more → 3/7 and 6/7
+  (run 2 missed only fasad 2009, as every v15 run did), omfattning right on every item found.
+  The 3/7 in row 147 was run-to-run variance. Closed here (owner: move ahead). Possible later
+  improvement, not done: ask the grounding to write clean words where Nabo ligatures break the
+  cited text ("Sambye").
 
 # Stable building parts + loans (2026-10-30)
 
