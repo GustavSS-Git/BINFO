@@ -1,4 +1,4 @@
-import type { Grundfynd } from "./prompts";
+import { foregaendeRad, type Grundfynd } from "./prompts";
 
 /**
  * Grounding over a transcription (docs/PLAN-v2.md §1.9, "V2b"): the transcribed
@@ -96,8 +96,11 @@ export function extraheraTranskriptionsfynd(
 ): { fynd: Grundfynd[]; avvisade: number } {
   const fynd: Grundfynd[] = [];
   let avvisade = 0;
-  for (const b of svarsblock) {
+  for (const [i, b] of svarsblock.entries()) {
     if (b.type !== "text" || !b.citations) continue;
+    // The year line before the quote, as in extractGroundingFindings.
+    const fore = foregaendeRad(svarsblock, i);
+    const text = fore ? `${fore} ${b.text}` : b.text;
     for (const c of b.citations) {
       if (c.type !== "content_block_location") continue;
       if (!c.cited_text) continue;
@@ -133,7 +136,7 @@ export function extraheraTranskriptionsfynd(
       // content. Collapsing them keeps a multi-line quote from leaking a raw newline into
       // the extraction model's JSON string (which would not parse).
       const citat = c.cited_text.replace(/\s*\n\s*/g, " ");
-      for (const sida of sidor) fynd.push({ text: b.text, citat, sida });
+      for (const sida of sidor) fynd.push({ text, citat, sida });
     }
   }
   return { fynd, avvisade };

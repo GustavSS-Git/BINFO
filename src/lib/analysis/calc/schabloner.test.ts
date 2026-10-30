@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOAREA_HINT,
+  PERSONER_HINT,
   schablonBredband,
   schablonEl,
   schablonForsakring,
@@ -32,9 +34,33 @@ describe("cost schablons", () => {
     expect(schablonVarme(58).schablonBasis).toMatch(/Nils Holgersson 2026/);
   });
 
-  it("schablonVatten är 6 kr per m² boarea och månad", () => {
-    expect(schablonVatten(58).value).toBe(348);
-    expect(schablonVatten(0).value).toBe(0);
+  it("schablonVatten är 135 kr per person och månad (2026-10-28, tidigare 6 kr/m²)", () => {
+    expect([1, 2, 3, 4].map((p) => schablonVatten(p).value)).toEqual([135, 270, 405, 540]);
+    expect(schablonVatten(0).value).toBe(135); // som schablonEl: 0 personer räknas som 1
+    expect(schablonVatten(2).schablonBasis).toMatch(/Konsumentverket 2026/);
+    expect(schablonVatten(2).schablonBasis).toMatch(/Nils Holgersson 2026/);
+  });
+
+  it("schablonVarme säger att varmvattnet ingår", () => {
+    expect(schablonVarme(58).schablonBasis).toMatch(/varmvatten/);
+  });
+
+  it("fälthintarna stämmer med vad schablonerna faktiskt beror på", () => {
+    expect(BOAREA_HINT).toBe("Styr schablonen för värme");
+    expect(PERSONER_HINT).toBe("Styr schablonerna för hushållsel, vatten och hemförsäkring");
+    // Boarea ändrar värme men inget annat; personer ändrar el, vatten, försäkring men inte värme.
+    const a = schabloner(40, 2);
+    const b = schabloner(80, 2);
+    const c = schabloner(40, 4);
+    expect(b.varme.value).not.toBe(a.varme.value);
+    for (const id of ["el", "vatten", "bredband", "forsakring"] as const) {
+      expect(b[id].value).toBe(a[id].value);
+    }
+    expect(c.varme.value).toBe(a.varme.value);
+    expect(c.bredband.value).toBe(a.bredband.value);
+    for (const id of ["el", "vatten", "forsakring"] as const) {
+      expect(c[id].value).not.toBe(a[id].value);
+    }
   });
 
   it("schablonBredband är ett platt belopp, Binfos uppskattning", () => {
@@ -58,6 +84,6 @@ describe("cost schablons", () => {
     expect(s.el.value).toBe(530);
     expect(s.forsakring.value).toBe(170);
     expect(s.varme.value).toBe(1218);
-    expect(s.vatten.value).toBe(348);
+    expect(s.vatten.value).toBe(270);
   });
 });

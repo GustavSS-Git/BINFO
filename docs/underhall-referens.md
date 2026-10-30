@@ -89,6 +89,27 @@ owners **spent**, which in an underinvesting stock is below what is **needed**.
 
 ---
 
+### 1c. Life-extending renovations (owner decision 2026-10-30)
+
+A renovation that does not replace the part (relining, roof repaint, window
+renovation, facade repair, new elcentral) is not a replacement: it only keeps
+the part from counting as eftersatt for N years after the work and never makes
+it count as new (`BYGGDEL_FORLANGNING_AR`, `calc/sparbehov.ts`). No neutral
+source states "postpones a full replacement by N years"; the figures below are
+the life of the action or its repeat interval (research 2026-10-30).
+
+| Action                             | Figure                                                                                                       | Source                                                                                                                                                                                                                                                                                                                    | Used                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Relining of avloppsstammar         | ≈ 50 years in accelerated-ageing tests; ≈ 30 years of mostly successful use in Sweden; guarantees ≈ 10 years | af Klintberg, Högberg, Björk, _Stegvis renovering_, KTH TRITA-ABE-RPT-2023 (2020-09-04), https://www.diva-portal.org/smash/get/diva2:1465431/FULLTEXT01.pdf; Höije & af Klintberg, _Vägledning vid relining av avloppsrör i fastigheter_, SIRen 2016:1 (40–50 years); SVT / Sveriges Bostadsrättscentrum 2014 (guarantee) | 30 (owner)                      |
+| Repainting a plåttak               | repainted every 10–20 years in practice                                                                      | Källbom, _Målning av takplåt på kulturhistoriska byggnader_, Svenska kyrkan 2014                                                                                                                                                                                                                                          | 10                              |
+| Window renovation / repaint        | repaint every 10 years (M84:10); every 8 years (KTH 2020)                                                    | SIB M84:10 (§1a); KTH 2020 above                                                                                                                                                                                                                                                                                          | 10                              |
+| Facade repair, partial roof repair | nothing usable found                                                                                         | —                                                                                                                                                                                                                                                                                                                         | 10, Binfos uppskattning (owner) |
+| New elcentral / partial rewiring   | nothing usable found                                                                                         | —                                                                                                                                                                                                                                                                                                                         | 10, Binfos uppskattning (owner) |
+
+Ventilation and hiss have no extension figure: every action counts as a
+replacement (hissmodernisering = replacement, owner 2026-10-30). Commercial
+relining claims (50 years) and offerta/boio figures were not used.
+
 ## 2. Recommended annual savings (sparande / sparbehov), kr/m² per year
 
 ### 2a. Stated recommendations

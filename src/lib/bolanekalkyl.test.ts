@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildMinimalPropertyInput,
+  ingarForSok,
   parseBolanekalkylSearch,
   veljRantekanslighetForSok,
 } from "./bolanekalkyl";
@@ -20,6 +21,12 @@ describe("parseBolanekalkylSearch", () => {
     expect(parseBolanekalkylSearch({ prisUppskattning: false }).prisUppskattning).toBe(false);
     expect(parseBolanekalkylSearch({ prisUppskattning: 0 }).prisUppskattning).toBe(false);
     expect(parseBolanekalkylSearch({ prisUppskattning: 2 }).prisUppskattning).toBeUndefined();
+  });
+
+  it("tolkar analys (uuid) för länken tillbaka och ignorerar skräp", () => {
+    const id = "3f2c1a9e-8b7d-4c6e-9a10-1234567890ab";
+    expect(parseBolanekalkylSearch({ analys: id }).analys).toBe(id);
+    expect(parseBolanekalkylSearch({ analys: "inte-ett-id" }).analys).toBeUndefined();
   });
 
   it("tolkar sparad (uuid) och spara (bara kalkyl) och kastar aldrig på skräp", () => {
@@ -47,7 +54,43 @@ describe("parseBolanekalkylSearch", () => {
       pris: undefined,
       boarea: undefined,
       prisUppskattning: undefined,
+      ingar: undefined,
+      ingarEj: undefined,
     });
+    expect(Object.keys(parseBolanekalkylSearch({}))).toEqual(
+      expect.arrayContaining(["ingar", "ingarEj"]),
+    );
+  });
+
+  it("tolkar ingar/ingarEj strikt: bara kända nycklar, kanonisk ordning, utan dubbletter", () => {
+    const r = parseBolanekalkylSearch({ ingar: "vatten,varme,varme", ingarEj: " el , tv " });
+    expect(r.ingar).toBe("varme,vatten");
+    expect(r.ingarEj).toBe("el,tv");
+    // routern kan leverera en array (navigate) eller ett enskilt värde
+    expect(parseBolanekalkylSearch({ ingar: ["bredband", "el"] }).ingar).toBe("el,bredband");
+    expect(parseBolanekalkylSearch({ ingarEj: "varme" }).ingarEj).toBe("varme");
+  });
+
+  it("ignorerar skräp i ingar/ingarEj och kastar aldrig", () => {
+    for (const skrap of ["", "gas", "VARME", "varme;vatten", 5, true, null, {}, [1, 2], [], ",,"]) {
+      const r = parseBolanekalkylSearch({ ingar: skrap, ingarEj: skrap });
+      expect(r.ingar, String(skrap)).toBeUndefined();
+      expect(r.ingarEj, String(skrap)).toBeUndefined();
+      expect(Object.keys(r)).toEqual(expect.arrayContaining(["ingar", "ingarEj"]));
+    }
+    // okända nycklar bland kända tas bort, de kända behålls
+    expect(parseBolanekalkylSearch({ ingar: "gas,el" }).ingar).toBe("el");
+  });
+
+  it("en nyckel i både ingar och ingarEj är motsägelsefull och ignoreras i båda", () => {
+    const r = parseBolanekalkylSearch({ ingar: "varme,el", ingarEj: "el,tv" });
+    expect(r.ingar).toBe("varme");
+    expect(r.ingarEj).toBe("tv");
+  });
+
+  it("pris tolkas som tidigare (fyller prisfältet i kalkylen)", () => {
+    expect(parseBolanekalkylSearch({ pris: "5260000" }).pris).toBe(5_260_000);
+    expect(parseBolanekalkylSearch({ pris: "abc" }).pris).toBeUndefined();
   });
 
   // Regressionstest för en verklig bugg: TanStack Routers matchning bygger
@@ -204,5 +247,30 @@ describe("veljRantekanslighetForSok", () => {
 
   it("skickar med ett positivt tal oförändrat", () => {
     expect(veljRantekanslighetForSok(9.09)).toBe(9.09);
+  });
+});
+
+describe("ingarForSok", () => {
+  it("ja -> ingar, nej -> ingarEj, okant utelämnas", () => {
+    expect(
+      ingarForSok({ varme: "ja", vatten: "ja", el: "nej", bredband: "okant", tv: "okant" }),
+    ).toEqual({ ingar: "varme,vatten", ingarEj: "el" });
+  });
+
+  it("utelämnar nycklar utan innehåll och tål att rapporten saknar uppgiften", () => {
+    expect(ingarForSok(undefined)).toEqual({});
+    expect(
+      ingarForSok({ varme: "okant", vatten: "okant", el: "okant", bredband: "okant", tv: "okant" }),
+    ).toEqual({});
+    expect(
+      ingarForSok({ varme: "nej", vatten: "nej", el: "nej", bredband: "nej", tv: "nej" }),
+    ).toEqual({ ingarEj: "varme,vatten,el,bredband,tv" });
+  });
+
+  it("rundresa: det helper bygger tolkas tillbaka oförändrat av parseBolanekalkylSearch", () => {
+    const sok = ingarForSok({ varme: "ja", vatten: "nej", el: "ja", bredband: "nej", tv: "ja" });
+    const r = parseBolanekalkylSearch({ ...sok });
+    expect(r.ingar).toBe("varme,el,tv");
+    expect(r.ingarEj).toBe("vatten,bredband");
   });
 });

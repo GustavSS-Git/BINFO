@@ -1,6 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { AuthSida, FelRuta } from "@/components/konto/AuthSida";
+import {
+  AuthAside,
+  AuthSida,
+  FelRuta,
+  LANKKNAPP_SEKUNDAR,
+  TEXTLANK,
+} from "@/components/konto/AuthSida";
 import { GENERELLT_FEL, kontoHead } from "@/components/konto/kontoText";
 import { useGaTill } from "@/components/konto/useGaTill";
 import { Button, Field } from "@/components/ui/binfo";
@@ -64,40 +70,57 @@ function LoggaIn() {
           ? "Logga in för att spara. Dina uppgifter finns kvar när du kommer tillbaka."
           : "Logga in för att se dina sparade analyser, värderingar och kalkyler."
       }
+      aside={
+        <AuthAside
+          rubrik="Det här sparas på ditt konto"
+          punkter={[
+            "Dina analyser, så att du hittar tillbaka till rapporterna",
+            "Sparade värderingar, som du kan räkna om senare",
+            "Namngivna kalkyler från bolånekalkylen",
+            "Hur långt du har kommit i köpguiden",
+          ]}
+          not={
+            <>
+              Du behöver inget konto för att analysera en bostad.{" "}
+              <Link to="/analysera" className={TEXTLANK}>
+                Analysera utan att logga in
+              </Link>
+            </>
+          }
+        />
+      }
     >
-      <form onSubmit={skicka} className="space-y-5">
+      <form onSubmit={skicka} className="flex flex-col gap-[18px]">
         <Field
-          label="E-postadress"
+          label="E-post"
           type="email"
+          name="epost"
+          autoComplete="email"
           placeholder="namn@exempel.se"
           value={epost}
           onChange={setEpost}
         />
-        <Field label="Lösenord" type="password" value={losenord} onChange={setLosenord} />
+        <Field
+          label="Lösenord"
+          type="password"
+          name="losenord"
+          autoComplete="current-password"
+          value={losenord}
+          onChange={setLosenord}
+        />
         {fel !== null ? <FelRuta>{fel}</FelRuta> : null}
         <Button type="submit" size="lg" className="w-full" disabled={skickar}>
           {skickar ? "Loggar in…" : "Logga in"}
         </Button>
+        <Link to="/konto/glomt-losenord" className={`${TEXTLANK} self-start text-[15px]`}>
+          Glömt lösenordet?
+        </Link>
       </form>
-      <div className="mt-6 space-y-2 text-sm text-muted-foreground">
-        <p>
-          <Link
-            to="/konto/glomt-losenord"
-            className="font-medium text-primary underline underline-offset-2"
-          >
-            Glömt lösenordet?
-          </Link>
-        </p>
-        <p>
-          Har du inget konto?{" "}
-          <Link
-            to="/konto/skapa"
-            search={sok}
-            className="font-medium text-primary underline underline-offset-2"
-          >
-            Skapa konto
-          </Link>
-        </p>
+      <div className="flex flex-col gap-2.5 border-t border-border pt-4">
+        <p className="text-[15px] text-text-2">Har du inget konto?</p>
+        <Link to="/konto/skapa" search={sok} className={LANKKNAPP_SEKUNDAR}>
+          Skapa konto
+        </Link>
       </div>
     </AuthSida>
   );

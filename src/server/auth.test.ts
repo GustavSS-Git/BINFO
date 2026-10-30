@@ -508,7 +508,11 @@ describe("återställningsmarkör och omautentisering", () => {
           nuvarandeLosenord: "fel-lösenord-x",
         }),
       );
-    expect(svar[0]).toMatchObject({ ok: false, felKod: "ogiltig_inloggning" });
+    expect(svar[0]).toMatchObject({
+      ok: false,
+      felKod: "ogiltig_inloggning",
+      meddelande: "Fel nuvarande lösenord.",
+    });
     expect(svar[5]).toMatchObject({ ok: false, felKod: "kvot" });
     // even the right password is now refused
     expect(
@@ -561,6 +565,7 @@ describe("återställningsmarkör och omautentisering", () => {
     });
     expect(await raderaKonto(await t.beroenden(), { losenord: "fel-lösenord-x" })).toMatchObject({
       felKod: "ogiltig_inloggning",
+      meddelande: "Fel lösenord.",
     });
     expect(t.auth.anvandare.size).toBe(1);
     expect(t.db.principaler.size).toBeGreaterThan(0);

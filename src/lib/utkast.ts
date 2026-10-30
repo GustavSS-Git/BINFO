@@ -160,6 +160,8 @@ const TristateUtkast = z.enum(["ja", "nej", "okant"]);
 export const VarderingUtkastSchema = z
   .object({
     form: z.object({
+      /** Since redesign v4 (address required in step 1); absent in older drafts. */
+      adress: z.string().max(200).optional(),
       utgangspris: z.string().max(40),
       boarea: z.string().max(40),
       antalRum: z.string().max(40),

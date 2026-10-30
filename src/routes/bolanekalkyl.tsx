@@ -2,18 +2,21 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Badge,
   Callout,
   Card,
+  ChipGroup,
+  DataTable,
+  Details,
   Field,
   PageHeader,
-  Badge,
-  Toggle,
   Tag,
-  TristateChoice,
 } from "@/components/ui/binfo";
 import { avgiftPoster, kr, kalkylDefaults } from "@/data/mockData";
 import { KalkylExport } from "@/components/kalkyl/KalkylExport";
-import { FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { KortRubrik, Rad, Remsa, SchablonRad } from "@/components/kalkyl/KalkylDelar";
+import { VET_EJ, procentText } from "@/components/kalkyl/kalkylText";
+import { ReglerTabell } from "@/components/kalkyl/ReglerTabell";
 import { SparaKnapp } from "@/components/konto/SparaKnapp";
 import {
   sparaKalkylAnrop,
@@ -28,17 +31,20 @@ import { inloggningsSok } from "@/lib/till";
 import { useUppgifter, setUppgifter, setIngar } from "@/lib/uppgifter";
 import { parseBolanekalkylSearch, type BolanekalkylSearch } from "@/lib/bolanekalkyl";
 import { beraknaKalkyl } from "@/lib/kalkyl/berakna";
-import { tolkaTal } from "@/lib/kalkyl/indata";
-import { REGLER, STATUS_ETIKETT, tal, type Regel } from "@/lib/kalkyl/regler";
+import { tal } from "@/lib/kalkyl/regler";
+import { BOAREA_HINT, PERSONER_HINT } from "@/lib/analysis/calc/schabloner";
 import {
   BARN_ALDRAR,
+  andraAvgift,
+  andraFalt,
   sidaFranSokning,
   kalpArAndrad,
   sidaFranUnderlag,
   underlagFranSida,
   type KalkylSida,
 } from "@/lib/kalkyl/sida";
-import type { EgenKostnadId, KalkylUnderlag } from "@/lib/kalkyl/underlag";
+import type { AvgiftPostId, EgenKostnadId, KalkylUnderlag } from "@/lib/kalkyl/underlag";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/bolanekalkyl")({
   head: () => ({
@@ -70,11 +76,6 @@ export const Route = createFileRoute("/bolanekalkyl")({
  *  påhittad siffra räknas med i totalen. */
 const exempel = (n: number) => `t.ex. ${n.toLocaleString("sv-SE")}`;
 
-/** Utskriften för ett beräknat värde vars indata är tomma. */
-const VET_EJ = "—";
-
-const procentText = (n: number, decimaler = 1) => n.toFixed(decimaler).replace(".", ",");
-
 const BARN_ETIKETT: Record<(typeof BARN_ALDRAR)[number], string> = {
   "0-3": "Barn 0–3 år",
   "4-6": "Barn 4–6 år",
@@ -83,7 +84,19 @@ const BARN_ETIKETT: Record<(typeof BARN_ALDRAR)[number], string> = {
   "15-17": "Barn 15–17 år",
 };
 
-const RUBRIK = "text-xs font-semibold uppercase tracking-wide text-muted-foreground";
+/** Chipparna för vad som ingår i avgiften, med de namn köparen känner igen. */
+const CHIP_ETIKETT: Record<AvgiftPostId, string> = {
+  varme: "Värme",
+  vatten: "Vatten",
+  el: "Hushållsel",
+  bredband: "Bredband",
+  tv: "Tv",
+};
+
+/** Andel utan onödiga decimaler: 10 → "10 %", 12,5 → "12,5 %". */
+const andelText = (n: number) => `${procentText(n).replace(/,0$/, "")} %`;
+
+const lank = "font-semibold text-link underline underline-offset-2";
 
 /** Vad `?sparad=<id>` gav: en läsbar kalkyl, eller en förklaring till varför inte. */
 type Oppnad =
@@ -92,6 +105,20 @@ type Oppnad =
   | { typ: "fel"; meddelande: string };
 
 const AVGIFT_IDS = avgiftPoster.map((p) => p.id);
+
+function Sidhuvud() {
+  return (
+    <PageHeader
+      eyebrow="Bolånekalkyl"
+      title="Vad kostar bostaden per månad?"
+      lead="Med 2026 års amorteringsregler, ränteavdrag och skatt i Stockholm."
+    />
+  );
+}
+
+const Sidram = ({ children }: { children: React.ReactNode }) => (
+  <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-8 md:py-16">{children}</div>
+);
 
 function Bolanekalkyl() {
   const search: BolanekalkylSearch = Route.useSearch();
@@ -113,14 +140,12 @@ function Bolanekalkyl() {
 
   if (search.sparad !== undefined && (sparad.laddar || sparad.ejInloggad)) {
     return (
-      <div className="mx-auto max-w-5xl px-5 py-14">
-        <PageHeader
-          eyebrow="Bolånekalkyl"
-          title="Vad kostar bostaden per månad?"
-          lead="Räkna ut din totala månadskostnad direkt i webbläsaren"
-        />
-        <p className="text-sm text-muted-foreground">Hämtar den sparade kalkylen…</p>
-      </div>
+      <Sidram>
+        <Sidhuvud />
+        <p className="text-muted-foreground" role="status">
+          Hämtar den sparade kalkylen…
+        </p>
+      </Sidram>
     );
   }
 
@@ -142,6 +167,25 @@ function Bolanekalkyl() {
   return <Kalkyl key={search.sparad ?? "ny"} search={search} oppnad={oppnad} />;
 }
 
+/** "Pris, avgift och boarea" av det rapporten faktiskt fyllde i. */
+function rapportUppgifter(sida: KalkylSida): string[] {
+  const ut: string[] = [];
+  if (sida.franRapport.pris) ut.push("pris");
+  if (sida.franRapport.manadsavgift) ut.push("avgift");
+  if (sida.franRapport.boarea) ut.push("boarea");
+  if (Object.keys(sida.franRapport.avgift ?? {}).length > 0) ut.push("vad som ingår i avgiften");
+  if (sida.rantekanslighetProcent !== undefined) ut.push("föreningens räntekänslighet");
+  return ut;
+}
+
+const listaText = (delar: string[]) =>
+  delar.length <= 1
+    ? (delar[0] ?? "")
+    : `${delar.slice(0, -1).join(", ")} och ${delar[delar.length - 1]}`;
+
+const KORT_LAGE =
+  "has-checked:border-primary has-checked:bg-tint has-checked:font-semibold has-checked:text-primary";
+
 function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad | undefined }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -152,13 +196,16 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   useEffect(() => setMonterad(true), []);
 
   // Sidans fält som text. Förifylld vid länk från en färdig analys
-  // (?pris=…&manadsavgift=…&boarea=…): kalkylen har inget eget pris-fält, så
-  // priset delas upp i minsta kontantinsats (bolånetaket) och lån på resten.
-  // Läses bara vid mount. Avgiftsposterna (vad som ingår) delas med övriga
+  // (?pris=…&manadsavgift=…&boarea=…&ingar=…&ingarEj=…): priset fyller prisfältet,
+  // kontantinsatsen förifylls med minsta tillåtna (10 %), och förifyllda värden märks
+  // "Från rapporten" (märket försvinner när fältet ändras). Läses bara vid mount. Avgiftsposterna (vad som ingår) delas med övriga
   // sidor via uppgifter-butiken och läggs på vid varje beräkning.
   const [sida, setSida] = useState<KalkylSida>(() =>
     oppnad?.typ === "ok" ? sidaFranUnderlag(oppnad.underlag) : sidaFranSokning(search),
   );
+  // Remsan "Ifyllt från rapporten" avgörs en gång vid mount (märkena försvinner vid redigering).
+  const [rapportRemsa] = useState(() => (oppnad?.typ === "ok" ? [] : rapportUppgifter(sida)));
+  const [analysId] = useState(() => sida.kalla?.analysisId);
   // Namn på kalkylen och id på den sparade raden som Spara uppdaterar (om någon).
   const [etikett, setEtikett] = useState(
     oppnad?.typ === "ok" || oppnad?.typ === "okantFormat" ? (oppnad.kalkyl.etikett ?? "") : "",
@@ -166,13 +213,11 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   const [sparadId, setSparadId] = useState<string | undefined>(
     oppnad?.typ === "ok" ? oppnad.kalkyl.id : undefined,
   );
-  const [manadsavgiftFranAnalys] = useState(search.manadsavgift !== undefined);
-  const [prisFranAnalys] = useState(search.pris !== undefined);
   const [prisUppskattningFranAnalys] = useState(search.prisUppskattning === true);
-  const [boareaFranAnalys] = useState(search.boarea !== undefined);
 
   const sat = <K extends keyof KalkylSida>(nyckel: K, varde: KalkylSida[K]) =>
-    setSida((s) => ({ ...s, [nyckel]: varde }));
+    setSida((s) => andraFalt(s, nyckel, varde));
+  const franRapport = sida.franRapport;
 
   // Boareans schabloner (el/värme/försäkring) kräver boarea. Den hämtas inte
   // längre från den delade butiken, vars förvalda 58 m² inte går att skilja
@@ -185,6 +230,10 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
     if (oppnad?.typ === "ok") {
       for (const id of AVGIFT_IDS) setIngar(id, oppnad.underlag.avgiftInkluderar[id]);
     }
+    // Länk från en rapport: det rapporten säger ingår/inte ingår läggs i den delade butiken.
+    for (const id of AVGIFT_IDS) {
+      if (sida.franRapport.avgift?.[id] === true) setIngar(id, sida.avgiftInkluderar[id]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,19 +243,24 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
     for (const id of AVGIFT_IDS) setIngar(id, u.avgiftInkluderar[id]);
   };
 
+  // Vad som ingår i avgiften: poster som rapporten angav (märkta "Från rapporten") gäller
+  // direkt; övriga kommer från den delade butiken. Att slå om en chip rensar märket.
+  const ingar = useMemo(() => {
+    const ut = { ...uppgifter.ingar };
+    for (const id of AVGIFT_IDS) {
+      if (sida.franRapport.avgift?.[id] === true) ut[id] = sida.avgiftInkluderar[id];
+    }
+    return ut;
+  }, [uppgifter.ingar, sida.franRapport.avgift, sida.avgiftInkluderar]);
+
   const { underlag, fel } = useMemo(
-    () => underlagFranSida({ ...sida, avgiftInkluderar: { ...uppgifter.ingar } }),
-    [sida, uppgifter.ingar],
+    () => underlagFranSida({ ...sida, avgiftInkluderar: ingar }),
+    [sida, ingar],
   );
   const r = useMemo(() => beraknaKalkyl(underlag), [underlag]);
-  // Fördjupningen är stängd som standard, men öppen så snart någon KALP-uppgift
-  // avviker från förvalet (skrivs in, eller kommer med en öppnad/återställd kalkyl),
-  // så att ingens siffror göms.
+  // KALP-delen är stängd som standard, men öppen så snart någon uppgift avviker från förvalet
+  // (skrivs in, eller kommer med en öppnad/återställd kalkyl), så att ingens siffror göms.
   const kalpAndrad = kalpArAndrad(underlag);
-  const [fordjupningOppen, setFordjupningOppen] = useState(kalpAndrad);
-  useEffect(() => {
-    if (kalpAndrad) setFordjupningOppen(true);
-  }, [kalpAndrad]);
   const { fyllt } = r;
   const harRantekanslighet = underlag.rantekanslighetProcent !== undefined;
   const harTotal = fyllt.total;
@@ -214,12 +268,15 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   const lantagare = sida.antalLantagare;
   const nu = r.nu;
   const summor = nu.summor;
-  const harSpann = summor.harSpann;
+  const stressad = sida.rantestressPp > 0;
+  const rsText = `+${procentText(sida.rantestressPp)} p.e.`;
 
-  const boendeSchablonPoster = r.drift.filter((p) => !p.ingarIAvgift);
+  const insatsAndel =
+    underlag.pris !== undefined && underlag.pris > 0 && underlag.kontantinsats !== undefined
+      ? (underlag.kontantinsats / underlag.pris) * 100
+      : null;
+  const minInsatsProcent = 100 - tal("bolanetak");
 
-  /** Sparar via servern och minns raden, så att nästa Spara uppdaterar den i stället för att
-   *  skapa en dubblett. */
   const sparaAnrop: typeof sparaKalkylAnrop = async (indata) => {
     const svar = await sparaKalkylAnrop(indata);
     if (svar.ok) {
@@ -257,24 +314,39 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
   // Återställ knapparnas "Sparad"-läge när något ändras.
   const sparaNyckel = JSON.stringify([underlag, etikettText]);
 
-  return (
-    <div className="mx-auto max-w-5xl px-5 py-14">
-      <PageHeader
-        eyebrow="Bolånekalkyl"
-        title="Vad kostar bostaden per månad?"
-        lead="Räkna ut din totala månadskostnad direkt i webbläsaren"
-      />
+  const minus = harTotal && harInkomst && nu.kvarEfterBoende < 0;
+  const avgiftsokningPerPe = r.scenarier.find((s) => s.id === "plus1")?.avgiftsokning;
+  const rantekanslighetText =
+    harRantekanslighet && underlag.rantekanslighetProcent !== undefined
+      ? avgiftsokningPerPe !== undefined && fyllt.avgift
+        ? `Avgiften stiger ${kr(avgiftsokningPerPe)}/mån per procentenhet enligt rapporten.`
+        : `Avgiften stiger ${procentText(underlag.rantekanslighetProcent)} % per procentenhet enligt rapporten.`
+      : "Vi vet inte hur känslig föreningens avgift är, så bara din egen ränta räknas om.";
 
+  return (
+    <Sidram>
+      <Sidhuvud />
+
+      {rapportRemsa.length > 0 ? (
+        <Remsa
+          lank={
+            analysId !== undefined ? (
+              <Link to="/analys/$analysisId" params={{ analysisId: analysId }} className={lank}>
+                Till rapporten
+              </Link>
+            ) : undefined
+          }
+        >
+          <strong className="text-primary">Ifyllt från rapporten.</strong>{" "}
+          {`${listaText(rapportRemsa).replace(/^./, (c) => c.toUpperCase())}.`}
+        </Remsa>
+      ) : null}
       {oppnad?.typ === "ok" ? (
-        <div className="mb-6">
-          <Callout variant="tip" title="Öppnad från ditt konto">
-            <p>
-              Öppnad från ditt konto:{" "}
-              {oppnad.kalkyl.etikett ?? formatSkapadDatum(oppnad.kalkyl.uppdaterad)}. Spara
-              uppdaterar den här kalkylen; du kan också spara den som en ny.
-            </p>
-          </Callout>
-        </div>
+        <Remsa>
+          <strong className="text-primary">Öppnad från ditt konto:</strong>{" "}
+          {oppnad.kalkyl.etikett ?? formatSkapadDatum(oppnad.kalkyl.uppdaterad)}. Spara uppdaterar
+          den här kalkylen; du kan också spara den som en ny.
+        </Remsa>
       ) : null}
       {oppnad?.typ === "okantFormat" ? (
         <div className="mb-6">
@@ -282,7 +354,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
             <p>
               Den sparade kalkylen har ett format som inte längre stöds, så uppgifterna kan inte
               fyllas i. Du kan fortfarande räkna på en ny kalkyl här.{" "}
-              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+              <Link to="/konto" className={lank}>
                 Till Mitt konto
               </Link>
             </p>
@@ -294,7 +366,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
           <Callout variant="flag" title="Kalkylen kan inte öppnas">
             <p>
               {oppnad.meddelande} Du kan fortfarande räkna på en ny kalkyl här.{" "}
-              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+              <Link to="/konto" className={lank}>
                 Till Mitt konto
               </Link>
             </p>
@@ -309,7 +381,7 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
               <Link
                 to="/konto/logga-in"
                 search={inloggningsSok("/bolanekalkyl", "kalkyl")}
-                className="font-medium text-primary underline underline-offset-2"
+                className={lank}
               >
                 Logga in
               </Link>
@@ -328,477 +400,637 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
         </div>
       ) : null}
       {sparaStatus.typ === "sparar" ? (
-        <div className="mb-6">
-          <InfoRuta>
-            <p>Sparar din kalkyl…</p>
-          </InfoRuta>
+        <div className="mb-6" role="status">
+          <Callout variant="info" title="Sparar din kalkyl…">
+            <p>Det tar en liten stund.</p>
+          </Callout>
         </div>
       ) : null}
       {sparaStatus.typ === "sparad" ? (
-        <div className="mb-6">
-          <InfoRuta>
-            <p className="font-medium">Din kalkyl är sparad i ditt konto.</p>
+        <div className="mb-6" role="status">
+          <Callout variant="tip" title="Din kalkyl är sparad i ditt konto.">
             <p>
-              <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+              <Link to="/konto" className={lank}>
                 Se den i Mitt konto
               </Link>
             </p>
-          </InfoRuta>
+          </Callout>
         </div>
       ) : null}
       {sparaStatus.typ === "fel" ? (
-        <div className="mb-6">
-          <FelRuta>Kalkylen kunde inte sparas: {sparaStatus.meddelande}</FelRuta>
+        <div className="mb-6" role="alert">
+          <Callout variant="flag" title="Kalkylen kunde inte sparas">
+            <p>{sparaStatus.meddelande}</p>
+          </Callout>
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <Card>
-          <div className="grid gap-5">
-            <Field
-              id="kalkyl-lanebelopp"
-              label="Lånebelopp"
-              suffix="kr"
-              type="text"
-              inputMode="decimal"
-              value={sida.lanebelopp}
-              onChange={(v) => sat("lanebelopp", v)}
-              placeholder={exempel(kalkylDefaults.lanebelopp)}
-              error={fel.lanebelopp ?? null}
-              {...(prisFranAnalys
-                ? {
-                    hint: prisUppskattningFranAnalys
-                      ? "Förifyllt utifrån en uppskattning av priset i din analys, med minsta kontantinsats (10 %) — ändra om beloppet inte stämmer."
-                      : "Förifyllt utifrån priset i din analys, med minsta kontantinsats (10 %) — ändra om beloppet inte stämmer.",
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+        <form
+          noValidate
+          onSubmit={(e) => e.preventDefault()}
+          aria-label="Uppgifter till kalkylen"
+          className="space-y-6"
+        >
+          <Card>
+            <KortRubrik>Lånet</KortRubrik>
+            <div className="grid gap-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="kalkyl-pris"
+                  label="Pris du räknar med"
+                  suffix="kr"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.pris}
+                  onChange={(v) => sat("pris", v)}
+                  placeholder={exempel(kalkylDefaults.lanebelopp + kalkylDefaults.kontantinsats)}
+                  error={fel.pris ?? null}
+                  {...(franRapport.pris === true
+                    ? {
+                        badge: <Badge tone="teal">Från rapporten</Badge>,
+                        hint: prisUppskattningFranAnalys
+                          ? "Binfos uppskattning av priset enligt rapporten"
+                          : "Binfos värdering enligt rapporten",
+                      }
+                    : {})}
+                />
+                <Field
+                  id="kalkyl-kontantinsats"
+                  label="Kontantinsats"
+                  suffix="kr"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.kontantinsats}
+                  onChange={(v) => sat("kontantinsats", v)}
+                  placeholder={exempel(kalkylDefaults.kontantinsats)}
+                  error={fel.kontantinsats ?? null}
+                  hint={
+                    insatsAndel !== null
+                      ? `${andelText(insatsAndel)} av priset · minst ${minInsatsProcent} % krävs`
+                      : `Minst ${minInsatsProcent} % av priset krävs`
                   }
-                : {})}
-            />
-            <Field
-              id="kalkyl-kontantinsats"
-              label="Kontantinsats"
-              suffix="kr"
-              type="text"
-              inputMode="decimal"
-              value={sida.kontantinsats}
-              onChange={(v) => sat("kontantinsats", v)}
-              placeholder={exempel(kalkylDefaults.kontantinsats)}
-              error={fel.kontantinsats ?? r.lan.kontantinsatsFel}
-              hint={`Bolånetaket är ${tal("bolanetak")} % — minst ${100 - tal("bolanetak")} % kontantinsats krävs.`}
-            />
-            <Field
-              id="kalkyl-ranta"
-              label="Ränta"
-              suffix="%"
-              type="text"
-              inputMode="decimal"
-              value={sida.ranta}
-              onChange={(v) => sat("ranta", v)}
-              placeholder={exempel(kalkylDefaults.ranta)}
-              error={fel.ranta ?? null}
-            />
-            <Field
-              id="kalkyl-manadsavgift"
-              label="Månadsavgift"
-              suffix="kr"
-              type="text"
-              inputMode="decimal"
-              value={sida.manadsavgift}
-              onChange={(v) => sat("manadsavgift", v)}
-              placeholder="t.ex. 3 240"
-              error={fel.manadsavgift ?? null}
-              hint={
-                manadsavgiftFranAnalys
-                  ? "Förifylld från din analys — ändra om avgiften har uppdaterats."
-                  : "Från föreningens senaste årsredovisning eller objektsbeskrivning."
-              }
-            />
-            <details className="rounded-lg border border-border bg-secondary/40">
-              <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-                Vad ingår i avgiften?
-              </summary>
-              <div className="border-t border-border px-4 pb-4 pt-3">
-                <p className="mb-4 max-w-prose text-xs leading-relaxed text-muted-foreground sm:text-sm sm:leading-relaxed">
-                  Värme och vatten ingår normalt i avgiften i en bostadsrätt, så de är förvalda som
-                  ”Ingår”. Betalar du dem separat väljer du ”Ingår ej” — då räknar vi med en
-                  uppskattning. Vet du inte? Välj ”Vet ej” — då visar vi totalen som ett spann.
+                />
+              </div>
+              {r.lan.kontantinsatsFel !== null && fel.kontantinsats === undefined ? (
+                <p
+                  role="alert"
+                  className="m-0 rounded-sm bg-danger-tint px-3.5 py-3 text-[15px] text-danger-text"
+                >
+                  {r.lan.kontantinsatsFel} Bolånetaket är {tal("bolanetak")} %.
                 </p>
-                <div className="space-y-3">
-                  {avgiftPoster.map((post) => (
-                    <div
-                      key={post.id}
-                      className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
+              ) : null}
+              <div className="grid items-start gap-x-6 gap-y-3 sm:grid-cols-[minmax(0,200px)_1fr]">
+                <Field
+                  id="kalkyl-ranta"
+                  label="Ränta"
+                  suffix="%"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.ranta}
+                  onChange={(v) => sat("ranta", v)}
+                  placeholder={exempel(kalkylDefaults.ranta)}
+                  error={fel.ranta ?? null}
+                />
+                <p className="m-0 text-[15px] text-text-2 sm:pt-8" data-slot="kalkyl-lan">
+                  {fyllt.belaning ? (
+                    <>
+                      Lån: <strong className="text-foreground">{kr(r.lan.lanebelopp)}</strong> ·
+                      Belåningsgrad:{" "}
+                      <strong className="text-foreground">
+                        {procentText(r.lan.belaningsgradProcent)} %
+                      </strong>{" "}
+                      · amortering {r.lan.amorteringstaktProcent} % per år
+                    </>
+                  ) : (
+                    "Fyll i pris och kontantinsats för att se lånet, belåningsgraden och amorteringen."
+                  )}
+                </p>
+              </div>
+              <div className="border-t border-divider pt-5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <label htmlFor="kalkyl-rantestress" className="text-sm font-semibold">
+                    Räntestress
+                  </label>
+                  <strong className="text-[15px] text-link" aria-hidden="true">
+                    {rsText}
+                  </strong>
+                </div>
+                <input
+                  id="kalkyl-rantestress"
+                  type="range"
+                  min={0}
+                  max={3}
+                  step={0.1}
+                  value={sida.rantestressPp}
+                  aria-valuetext={`${rsText.replace("p.e.", "procentenheter")}`}
+                  onChange={(e) => sat("rantestressPp", Number(e.target.value))}
+                  className="mt-3 h-6 w-full accent-primary"
+                />
+                <div
+                  aria-hidden="true"
+                  className="mt-1 flex justify-between text-[13px] text-muted-foreground"
+                >
+                  <span>+0</span>
+                  <span>+1</span>
+                  <span>+2</span>
+                  <span>+3 p.e.</span>
+                </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {fyllt.ranta
+                    ? `Höjer din ränta (${procentText(r.nu.rantaProcent - sida.rantestressPp, 2)} %)`
+                    : "Höjer din ränta"}
+                  {harRantekanslighet
+                    ? " och föreningens avgift enligt rapportens räntekänslighet."
+                    : ". Vi vet inte hur känslig den här föreningens avgift är för räntehöjningar, så bara din egen ränta räknas om."}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <KortRubrik>Bostaden</KortRubrik>
+            <div className="grid gap-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="kalkyl-manadsavgift"
+                  label="Månadsavgift"
+                  suffix="kr/mån"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.manadsavgift}
+                  onChange={(v) => sat("manadsavgift", v)}
+                  placeholder="t.ex. 3 240"
+                  error={fel.manadsavgift ?? null}
+                  {...(franRapport.manadsavgift === true
+                    ? { badge: <Badge tone="teal">Från rapporten</Badge> }
+                    : {})}
+                />
+                <Field
+                  id="kalkyl-boarea"
+                  label="Boarea"
+                  suffix="m²"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.boarea}
+                  onChange={(v) => sat("boarea", v)}
+                  placeholder="t.ex. 58"
+                  error={fel.boarea ?? null}
+                  hint={BOAREA_HINT}
+                  {...(franRapport.boarea === true
+                    ? { badge: <Badge tone="teal">Från rapporten</Badge> }
+                    : {})}
+                />
+              </div>
+              <Field
+                id="kalkyl-antal-personer"
+                label="Personer i hushållet"
+                suffix="st"
+                type="text"
+                inputMode="numeric"
+                value={sida.antalPersoner}
+                onChange={(v) => sat("antalPersoner", v)}
+                placeholder={String(underlag.antalPersoner)}
+                error={fel.antalPersoner ?? null}
+                hint={PERSONER_HINT}
+              />
+              <fieldset className="m-0 min-w-0 border-0 p-0">
+                <legend className="mb-2.5 flex flex-wrap items-center gap-1.5 p-0 text-sm font-semibold text-foreground">
+                  Ingår i avgiften
+                  {Object.keys(franRapport.avgift ?? {}).length > 0 ? (
+                    <Badge tone="teal">Från rapporten</Badge>
+                  ) : null}
+                </legend>
+                <ChipGroup
+                  options={avgiftPoster.map((p) => ({ value: p.id, label: CHIP_ETIKETT[p.id] }))}
+                  values={AVGIFT_IDS.filter((id) => ingar[id] === "ja")}
+                  onToggle={(v) => {
+                    const id = v as AvgiftPostId;
+                    const nytt = ingar[id] === "ja" ? "nej" : "ja";
+                    setIngar(id, nytt);
+                    setSida((s) => andraAvgift(s, id, nytt));
+                  }}
+                />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Klicka för att ändra. Det som inte ingår räknar vi med som en uppskattning i
+                  månadskostnaden. Står i objektsbeskrivningen eller årsredovisningen.
+                </p>
+              </fieldset>
+            </div>
+          </Card>
+
+          <Card>
+            <KortRubrik>Hushållet</KortRubrik>
+            <div className="grid gap-5">
+              <fieldset className="m-0 min-w-0 border-0 p-0">
+                <legend className="mb-2.5 p-0 text-sm font-semibold text-foreground">
+                  Antal låntagare
+                </legend>
+                <div className="flex gap-2">
+                  {(["1", "2"] as const).map((n) => (
+                    <label
+                      key={n}
+                      className={cn(
+                        "flex min-h-11 w-24 cursor-pointer items-center justify-center gap-2 rounded-sm border border-input bg-card px-2 text-[15px] font-medium text-text-2",
+                        KORT_LAGE,
+                      )}
                     >
-                      <span className="text-sm text-foreground">{post.label}</span>
-                      <TristateChoice
-                        value={uppgifter.ingar[post.id]}
-                        onChange={(value) => setIngar(post.id, value)}
-                        labels={{ ja: "Ingår", nej: "Ingår ej" }}
+                      <input
+                        type="radio"
+                        name="kalkyl-lantagare"
+                        value={n}
+                        checked={lantagare === n}
+                        onChange={() => sat("antalLantagare", n)}
+                        className="m-0 accent-primary"
                       />
-                    </div>
+                      {n}
+                    </label>
                   ))}
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Ränteavdragets tak på {tal("ranteavdrag_tak").toLocaleString("sv-SE")} kr gäller
+                  per person och år.
+                </p>
+              </fieldset>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="kalkyl-inkomst1"
+                  label="Bruttoinkomst, låntagare 1"
+                  suffix="kr/år"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.inkomst1}
+                  onChange={(v) => sat("inkomst1", v)}
+                  placeholder={exempel(
+                    kalkylDefaults.bruttoinkomst / kalkylDefaults.antalLantagare,
+                  )}
+                  error={fel.inkomst1 ?? null}
+                  hint="Lön före skatt, inklusive fasta tillägg"
+                />
+                {lantagare === "2" ? (
+                  <Field
+                    id="kalkyl-inkomst2"
+                    label="Bruttoinkomst, låntagare 2"
+                    suffix="kr/år"
+                    type="text"
+                    inputMode="decimal"
+                    value={sida.inkomst2}
+                    onChange={(v) => sat("inkomst2", v)}
+                    placeholder={exempel(
+                      kalkylDefaults.bruttoinkomst / kalkylDefaults.antalLantagare,
+                    )}
+                    error={fel.inkomst2 ?? null}
+                    hint="Lön före skatt, inklusive fasta tillägg"
+                  />
+                ) : null}
               </div>
-            </details>
-            <Field
-              id="kalkyl-boarea"
-              label="Boarea"
-              suffix="m²"
-              type="text"
-              inputMode="decimal"
-              value={sida.boarea}
-              onChange={(v) => sat("boarea", v)}
-              placeholder="t.ex. 58"
-              error={fel.boarea ?? null}
-              hint="Styr schablonerna för el, värme och hemförsäkring. Utan boarea kan vi inte räkna ut totalen."
-            />
-            <Field
-              id="kalkyl-antal-personer"
-              label="Antal personer i hushållet"
-              type="text"
-              inputMode="numeric"
-              value={sida.antalPersoner}
-              onChange={(v) => sat("antalPersoner", v)}
-              placeholder={String(underlag.antalPersoner)}
-              error={fel.antalPersoner ?? null}
-              hint="Styr schablonen för vattenkostnad."
-            />
-            <div>
-              <span className="mb-1.5 block text-sm font-medium text-foreground">
-                Antal låntagare
-              </span>
-              <Toggle
-                value={lantagare}
-                onChange={(v) => sat("antalLantagare", v)}
-                options={[
-                  { value: "1", label: "1 låntagare" },
-                  { value: "2", label: "2 låntagare" },
-                ]}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Ränteavdragets tak på {tal("ranteavdrag_tak").toLocaleString("sv-SE")} kr gäller per
-                person och år.
+              <p className="m-0 text-sm text-muted-foreground">
+                Nettoinkomsten räknas ut med 2026 års skatteregler för Stockholm.
               </p>
             </div>
-            <Field
-              id="kalkyl-inkomst1"
-              label="Låntagare 1: bruttoinkomst per år"
-              suffix="kr/år"
-              type="text"
-              inputMode="decimal"
-              value={sida.inkomst1}
-              onChange={(v) => sat("inkomst1", v)}
-              placeholder={exempel(kalkylDefaults.bruttoinkomst / kalkylDefaults.antalLantagare)}
-              error={fel.inkomst1 ?? null}
-              hint="Lön före skatt per år, inklusive fasta tillägg."
-            />
-            {lantagare === "2" ? (
-              <Field
-                id="kalkyl-inkomst2"
-                label="Låntagare 2: bruttoinkomst per år"
-                suffix="kr/år"
-                type="text"
-                inputMode="decimal"
-                value={sida.inkomst2}
-                onChange={(v) => sat("inkomst2", v)}
-                placeholder={exempel(kalkylDefaults.bruttoinkomst / kalkylDefaults.antalLantagare)}
-                error={fel.inkomst2 ?? null}
-                hint="Lön före skatt per år, inklusive fasta tillägg."
-              />
+          </Card>
+
+          <Details
+            summary="Klarar ni bankens kalkyl?"
+            meta="kalkylränta, barn, levnadskostnader"
+            defaultOpen={kalpAndrad}
+          >
+            <div data-slot="kalkyl-kalp" className="space-y-5">
+              <p className="m-0">
+                Banken räknar med en högre ränta och Konsumentverkets levnadskostnader för att se om
+                lånet går ihop. Varje bank sätter sin egen kalkylränta; förvalt är{" "}
+                {tal("kalkylranta_standard")} %.
+              </p>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="kalkyl-kalkylranta"
+                  label="Kalkylränta"
+                  suffix="%"
+                  type="text"
+                  inputMode="decimal"
+                  value={sida.kalkylranta}
+                  onChange={(v) => sat("kalkylranta", v)}
+                  error={fel.kalkylranta ?? null}
+                  hint="Ett antagande, inte en regel"
+                />
+                <Field
+                  id="kalkyl-antal-vuxna"
+                  label="Vuxna i hushållet"
+                  suffix="st"
+                  type="text"
+                  inputMode="numeric"
+                  value={sida.antalVuxna}
+                  onChange={(v) => sat("antalVuxna", v)}
+                  placeholder={String(underlag.antalVuxna)}
+                  error={fel.antalVuxna ?? null}
+                  hint="Tomt = samma som antal låntagare"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
+                {BARN_ALDRAR.map((alder) => (
+                  <Field
+                    key={alder}
+                    id={`kalkyl-barn-${alder}`}
+                    label={BARN_ETIKETT[alder]}
+                    suffix="st"
+                    type="text"
+                    inputMode="numeric"
+                    value={sida.barn[alder]}
+                    onChange={(v) => sat("barn", { ...sida.barn, [alder]: v })}
+                    placeholder="0"
+                    error={fel[`barn:${alder}`] ?? null}
+                  />
+                ))}
+              </div>
+              {r.kalp.beraknad && r.kalp.kvarAttLevaPa !== null ? (
+                <>
+                  <dl className="m-0 text-[15px]">
+                    <Rad label="Hushållets nettoinkomst" varde={kr(r.kalp.nettoinkomstPerManad)} />
+                    <Rad
+                      label={`Boendet vid kalkylräntan ${procentText(r.kalp.kalkylrantaProcent)} %`}
+                      note="Ränta, amortering, avgift och värme om den inte ingår"
+                      varde={kr(r.kalp.boendeRader.reduce((a, rad) => a + rad.belopp, 0))}
+                    />
+                    <Rad
+                      label="Levnadskostnader (Konsumentverket 2026)"
+                      varde={kr(r.kalp.levnadskostnader?.summa ?? 0)}
+                    />
+                    <Rad
+                      label={
+                        r.kalp.utfall === "minus" ? "Underskott per månad" : "Överskott per månad"
+                      }
+                      varde={`${r.kalp.kvarAttLevaPa < 0 ? "−" : ""}${kr(Math.abs(r.kalp.kvarAttLevaPa))}`}
+                      ton={r.kalp.utfall === "minus" ? "negativ" : "positiv"}
+                    />
+                  </dl>
+                  <Details summary="Så räknas levnadskostnaderna">
+                    <dl className="m-0">
+                      {r.kalp.boendeRader.map((rad) => (
+                        <Rad
+                          key={rad.id}
+                          label={rad.namn}
+                          varde={kr(rad.belopp)}
+                          {...(rad.anmarkning !== undefined ? { note: rad.anmarkning } : {})}
+                        />
+                      ))}
+                      {r.kalp.levnadskostnader?.rader.map((rad) => (
+                        <Rad
+                          key={rad.id}
+                          label={rad.namn}
+                          note={rad.ingarIAvgift ? "ingår i avgiften" : undefined}
+                          varde={`${rad.belopp < 0 ? "− " : ""}${kr(Math.abs(rad.belopp))}`}
+                        />
+                      ))}
+                    </dl>
+                  </Details>
+                </>
+              ) : r.kalp.hushalletForStort ? (
+                <p className="m-0">
+                  Konsumentverkets tabell gäller hushåll upp till 7 personer, så vi kan inte räkna
+                  ut bankens kalkyl för ett större hushåll.
+                </p>
+              ) : (
+                <p className="m-0">
+                  Fyll i {r.kalp.saknas.join(", ")} för att räkna ut bankens kalkyl.
+                </p>
+              )}
+              <ul className="m-0 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {r.kalp.forutsattningar.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          </Details>
+        </form>
+
+        <aside aria-label="Resultat" className="lg:sticky lg:top-6">
+          <Card className="border-2 border-primary">
+            <p className="m-0 text-sm font-semibold text-text-2">Total månadskostnad</p>
+            <p
+              data-slot="kalkyl-total"
+              className={cn(
+                "m-0 mt-1 font-display text-[44px] font-semibold leading-none",
+                harTotal ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              {harTotal ? kr(summor.netto) : VET_EJ}
+            </p>
+            <p className="mt-3 text-[15px] text-text-2">
+              {!harTotal
+                ? "Fyll i uppgifterna till vänster."
+                : nu.amortering > 0
+                  ? `varav amortering ${kr(nu.amortering)}, som är sparande. Utan den: ${kr(summor.netto - nu.amortering)}.`
+                  : "Ingen amortering krävs vid den här belåningsgraden."}
+            </p>
+            {stressad ? (
+              <p className="mt-2">
+                <Tag tone="warning">Med räntestress {rsText}</Tag>
+              </p>
             ) : null}
-            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-medium text-foreground">Hushållets nettoinkomst</span>
-                <span className="text-sm font-medium text-foreground">
-                  {harInkomst ? `${kr(r.skatt.nettoinkomstPerManad)}/mån` : VET_EJ}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Uträknad efter skatt i Stockholm 2026, utan ränteavdrag.
-              </p>
-            </div>
-            <div>
-              <div className="flex items-baseline justify-between">
-                <label htmlFor="stress2" className="text-sm font-medium text-foreground">
-                  Räntestress
-                </label>
-                <span className="text-sm text-primary">
-                  +{sida.rantestressPp.toFixed(1).replace(".", ",")} p.e.
-                </span>
-              </div>
-              <input
-                id="stress2"
-                type="range"
-                min={0}
-                max={3}
-                step={0.1}
-                value={sida.rantestressPp}
-                onChange={(e) => sat("rantestressPp", Number(e.target.value))}
-                className="mt-3 w-full accent-primary"
+
+            <dl className="m-0 mt-5 border-t border-divider text-[15px]">
+              <Rad
+                label="Ränta"
+                varde={fyllt.ranteunderlag ? kr(nu.rantekostnad) : VET_EJ}
+                ton={fyllt.ranteunderlag ? "normal" : "dampad"}
+                {...(stressad && fyllt.ranteunderlag
+                  ? { note: `Räknat med ${procentText(nu.rantaProcent, 2)} % ränta` }
+                  : {})}
               />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {fyllt.ranta
-                  ? `Höjer din ränta (${procentText(nu.rantaProcent, 2)} %)`
-                  : "Höjer din ränta"}
-                {harRantekanslighet ? " och föreningens avgift." : "."}
-              </p>
-              {!harRantekanslighet ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Vi vet inte hur känslig den här föreningens avgift är för räntehöjningar — det
-                  kräver en uppladdad årsredovisning för att räkna med i totalen.
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </Card>
-
-        <div className="space-y-6">
-          <Card>
-            <div>
-              <p className={RUBRIK}>Lånekostnad</p>
-              <div className="mt-3 divide-y divide-border">
-                <Rad label="Räntekostnad" value={nu.rantekostnad} okant={!fyllt.ranteunderlag} />
-                <Rad label="Amortering" value={nu.amortering} okant={!fyllt.lan} />
-                <Rad
-                  label="Ränteavdrag"
-                  value={nu.ranteavdragPerManad}
-                  negativ
-                  okant={!fyllt.lan}
-                  {...(r.ranteavdrag.forutsatterSkatt ? { note: "förutsätter skatt" } : {})}
-                />
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <p className={RUBRIK}>Boendekostnad</p>
-              {boareaFranAnalys && fyllt.boarea ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Schablonerna nedan räknar med boarean från din analys ({sida.boarea} m²).
-                </p>
-              ) : null}
-              <div className="mt-3 divide-y divide-border">
-                <Rad
-                  label="Månadsavgift"
-                  value={nu.manadsavgift}
-                  okant={!fyllt.avgift}
-                  {...(manadsavgiftFranAnalys ? { note: "från din analys" } : {})}
-                />
-                {boendeSchablonPoster.map((p) => (
+              <Rad
+                label="Ränteavdrag"
+                varde={fyllt.lan ? `− ${kr(nu.ranteavdragPerManad)}` : VET_EJ}
+                ton={fyllt.lan ? "positiv" : "dampad"}
+                note={
+                  r.ranteavdrag.forutsatterSkatt
+                    ? "Betalas ut i deklarationen. Förutsätter att ni betalar tillräckligt med skatt."
+                    : "Betalas ut i deklarationen"
+                }
+              />
+              <Rad
+                label="Amortering"
+                varde={fyllt.lan ? kr(nu.amortering) : VET_EJ}
+                ton={fyllt.lan ? "normal" : "dampad"}
+              />
+              <Rad
+                label="Månadsavgift"
+                varde={fyllt.avgift ? kr(nu.manadsavgift) : VET_EJ}
+                ton={fyllt.avgift ? "normal" : "dampad"}
+                {...(stressad && nu.avgiftsokning > 0
+                  ? { note: `Inklusive ${kr(nu.avgiftsokning)} på grund av räntestressen` }
+                  : {})}
+              />
+              {r.drift.map((p) =>
+                p.ingarIAvgift ? (
+                  <Rad
+                    key={p.id}
+                    label={p.namn}
+                    note="Ingår i avgiften"
+                    varde={kr(0)}
+                    ton="dampad"
+                  />
+                ) : (
                   <SchablonRad
                     key={p.id}
                     label={p.namn}
+                    note={
+                      p.schablonBasis === undefined
+                        ? undefined
+                        : p.schablonBasis.startsWith("Binfos uppskattning")
+                          ? p.schablonBasis
+                          : `Uppskattning, ${p.schablonBasis}`
+                    }
                     value={p.belopp}
                     egen={p.egen}
-                    osaker={p.osaker}
                     onChange={(v) =>
                       sat("egnaKostnader", {
                         ...sida.egnaKostnader,
                         [p.id satisfies EgenKostnadId]: v,
                       })
                     }
+                    onNollstall={() => {
+                      const { [p.id]: _bort, ...resten } = sida.egnaKostnader;
+                      sat("egnaKostnader", resten);
+                    }}
                   />
-                ))}
-              </div>
-              {!fyllt.boarea ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Fyll i boarea till vänster för att räkna ut schablonerna.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="mt-8 border-t border-border pt-6">
-              <p className={RUBRIK}>Total månadskostnad</p>
-              {harTotal ? (
-                harSpann ? (
-                  <>
-                    <p className="mt-2 font-display text-4xl text-foreground">
-                      {Math.round(summor.nettoLag).toLocaleString("sv-SE")} – {kr(summor.nettoHog)}
-                      /mån
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Beroende på vad som ingår i avgiften.
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-2 font-display text-5xl text-foreground">
-                    {kr(summor.nettoLag)}
-                  </p>
-                )
-              ) : (
-                <p className="mt-2 font-display text-5xl text-muted-foreground">{VET_EJ}</p>
+                ),
               )}
-              <p className="mt-1 text-sm text-muted-foreground">
-                {harTotal
-                  ? "i snitt över året, efter ränteavdrag"
-                  : "Fyll i uppgifterna till vänster."}
+              <Rad
+                label="Det här betalar ni varje månad"
+                note="Före ränteavdraget, som kommer tillbaka i deklarationen"
+                varde={harTotal ? kr(nu.betalarPerManad) : VET_EJ}
+                ton={harTotal ? "normal" : "dampad"}
+              />
+            </dl>
+            {!fyllt.boarea ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Fyll i boarea för att räkna ut uppskattningarna.
               </p>
-              {harTotal ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Brutto:{" "}
-                  {harSpann
-                    ? `${Math.round(summor.bruttoLag).toLocaleString("sv-SE")} – ${kr(summor.bruttoHog)}`
-                    : kr(summor.bruttoLag)}
-                </p>
-              ) : null}
-              {harTotal && r.ranteavdrag.not ? (
-                <p className="mt-2 text-xs text-muted-foreground">{r.ranteavdrag.not}</p>
-              ) : null}
-            </div>
+            ) : null}
 
-            <div className="mt-8 border-t border-border pt-6">
-              <div className="divide-y divide-border">
-                <Rad
-                  label="Det här betalar ni varje månad"
-                  value={nu.betalarPerManad}
-                  okant={!harTotal}
-                />
-                <div className="flex items-center justify-between gap-3 py-3">
-                  <span className="text-sm text-muted-foreground">Andel av nettoinkomsten</span>
-                  <span className="text-sm font-medium text-foreground">
-                    {harTotal && harInkomst ? `${procentText(nu.andelAvNettoProcent)} %` : VET_EJ}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground">Kvar att leva på per månad</p>
-                <p
-                  className={`mt-1 font-display text-4xl ${
-                    !harTotal || !harInkomst
-                      ? "text-muted-foreground"
-                      : nu.kvarEfterBoende < 0
-                        ? "text-destructive"
-                        : "text-foreground"
-                  }`}
-                >
-                  {harTotal && harInkomst ? (
-                    <>
-                      {nu.kvarEfterBoende < 0 ? "−" : ""}
-                      {kr(Math.abs(nu.kvarEfterBoende))}
-                    </>
-                  ) : (
-                    VET_EJ
-                  )}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Efter boendekostnaderna ovan, före mat och övriga levnadskostnader.
-                </p>
-              </div>
-              <div className="mt-6 border-t border-border pt-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-muted-foreground">Tillbaka i deklarationen</span>
-                  <span className="text-sm font-medium text-foreground">
-                    {fyllt.lan ? `${kr(r.ranteavdrag.perAr)}/år` : VET_EJ}
-                  </span>
-                </div>
-                {fyllt.lan ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    motsvarar {kr(r.ranteavdrag.perAr / 12)}/mån
-                  </p>
-                ) : null}
-                {fyllt.lan && r.ranteavdrag.not ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{r.ranteavdrag.not}</p>
-                ) : null}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Ränteavdraget betalas ut som skatteåterbäring året efter, vanligtvis mellan april
-                  och juni. Vill ni ha det varje månad i stället kan ni ansöka om jämkning hos
-                  Skatteverket.
+            {harInkomst ? (
+              <div className="mt-5 rounded-lg bg-background p-4">
+                <dl className="m-0 text-[15px]">
+                  <Rad
+                    label="Hushållets nettoinkomst"
+                    varde={`${kr(r.skatt.nettoinkomstPerManad)}/mån`}
+                  />
+                  <Rad
+                    label="Andel av nettoinkomsten"
+                    varde={harTotal ? `${procentText(nu.andelAvNettoProcent)} %` : VET_EJ}
+                    ton={harTotal ? "normal" : "dampad"}
+                  />
+                  <Rad
+                    label="Kvar att leva på per månad"
+                    varde={
+                      harTotal ? `${minus ? "−" : ""}${kr(Math.abs(nu.kvarEfterBoende))}` : VET_EJ
+                    }
+                    ton={!harTotal ? "dampad" : minus ? "negativ" : "normal"}
+                  />
+                  <Rad
+                    label="Skuldkvot (lån / bruttoinkomst)"
+                    varde={fyllt.lan ? `${procentText(r.lan.skuldkvot, 2)} ×` : VET_EJ}
+                    ton={fyllt.lan ? "normal" : "dampad"}
+                  />
+                </dl>
+                <p className="mt-3 text-[13px] text-muted-foreground">
+                  Kvar att leva på är före mat och övriga levnadskostnader. Ränteavdraget,{" "}
+                  {kr(r.ranteavdrag.perAr)} per år (motsvarar {kr(r.ranteavdrag.perManad)}/mån),
+                  betalas ut i deklarationen året efter, vanligtvis mellan april och juni.
                 </p>
                 {r.ranteavdrag.forloratPerAr > 0 ? (
-                  <div className="mt-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
-                    <p className="text-xs text-foreground">
-                      {kr(r.ranteavdrag.forloratPerAr)} av ränteavdraget kan inte utnyttjas eftersom
-                      skatten inte räcker till.
-                    </p>
-                    {lantagare === "2" ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Den som betalar räntan får avdraget. Betalar den med högre inkomst en större
-                        del av räntan kan ni få tillbaka mer.
-                      </p>
-                    ) : null}
-                  </div>
+                  <p className="mt-2 text-[13px] text-muted-foreground">
+                    {kr(r.ranteavdrag.forloratPerAr)} av ränteavdraget kan inte utnyttjas eftersom
+                    skatten inte räcker till.
+                    {lantagare === "2"
+                      ? " Den som betalar räntan får avdraget. Betalar den med högre inkomst en större del av räntan kan ni få tillbaka mer."
+                      : ""}
+                  </p>
                 ) : null}
+                <p className="mt-2 text-[13px] text-muted-foreground">
+                  Skuldkvoten styr inte amorteringskravet. Banker använder den i sin egen
+                  kreditprövning, där det interna taket vanligtvis ligger på 5–6 × bruttoinkomsten.
+                  {fyllt.lan && r.lan.overBankernasTypiskaTak
+                    ? " Din skuldkvot ligger över det, vilket kan påverka kreditprövningen."
+                    : ""}
+                </p>
               </div>
-            </div>
+            ) : (
+              <p className="mt-5 text-sm text-text-2">
+                Fyll i bruttoinkomst för att se nettoinkomst, andel av lönen och kvar att leva på.
+              </p>
+            )}
           </Card>
+        </aside>
+      </div>
 
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="mb-2 font-display text-[22px] font-semibold leading-tight text-primary">
+            Om räntan stiger
+          </h2>
+          <p className="m-0 mb-4 text-[15px] text-text-2">
+            Både din ränta och föreningens. {rantekanslighetText}
+          </p>
+          {fyllt.ranta ? (
+            <DataTable minWidth={300}>
+              <thead>
+                <tr>
+                  <th scope="col">Din ränta</th>
+                  <th scope="col">Avgift</th>
+                  <th scope="col" className="!text-right">
+                    Totalt per månad
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {r.scenarier.map((s) => (
+                  <tr key={s.id} className={s.id === "kalkylranta" ? "bg-background" : undefined}>
+                    <th scope="row" className="text-[15px]">
+                      {procentText(s.rantaProcent, 2)} %
+                      <span className="mt-0.5 block text-[13px] font-normal text-muted-foreground">
+                        {s.id === "kalkylranta" ? "Bankens kalkylränta" : s.namn}
+                      </span>
+                    </th>
+                    <td className="text-[15px]">
+                      {fyllt.avgift ? kr(s.manadsavgift) : VET_EJ}
+                      {fyllt.avgift && s.avgiftsokning > 0 ? (
+                        <span className="mt-0.5 block text-[13px] text-muted-foreground">
+                          +{kr(s.avgiftsokning)}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="text-right text-[15px] font-semibold">
+                      {harTotal ? kr(s.summor.netto) : VET_EJ}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          ) : (
+            <p className="m-0 text-[15px] text-text-2">Fyll i ränta ovan för att se scenarierna.</p>
+          )}
+          <p className="mt-3 text-[13px] text-muted-foreground">
+            Total månadskostnad efter ränteavdrag. Raden med bankens kalkylränta visar vad banken
+            räknar med i sin prövning, inte vad du betalar idag.
+          </p>
+        </Card>
+
+        <div data-slot="kalkyl-atgarder" className="space-y-5">
+          <KalkylExport
+            underlag={underlag}
+            {...(etikettText !== "" ? { etikett: etikettText } : {})}
+          />
           <Card>
-            <h2 className="text-base font-semibold text-foreground">Amorteringskravet</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Enligt reglerna som gäller från 1 april 2026.
-            </p>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Belåningsgrad</dt>
-                <dd className="font-medium text-foreground">
-                  {fyllt.lan ? `${procentText(r.lan.belaningsgradProcent)} %` : VET_EJ}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Skuldkvot (lån / bruttoinkomst)</dt>
-                <dd className="font-medium text-foreground">
-                  {fyllt.lan && harInkomst ? `${procentText(r.lan.skuldkvot, 2)} ×` : VET_EJ}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Tillämpad amorteringstakt</dt>
-                <dd className="font-medium text-foreground">
-                  {fyllt.lan ? `${r.lan.amorteringstaktProcent} % per år` : VET_EJ}
-                </dd>
-              </div>
-            </dl>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {fyllt.lan ? (
-                <>
-                  <Badge
-                    tone={
-                      r.lan.amorteringsniva === "over70"
-                        ? "danger"
-                        : r.lan.amorteringsniva === "over50till70"
-                          ? "warning"
-                          : "success"
-                    }
-                  >
-                    {r.lan.amorteringsniva === "over70"
-                      ? `Över ${tal("amortering_troskel_hog")} % → ${tal("amortering_takt_hog")} %`
-                      : r.lan.amorteringsniva === "over50till70"
-                        ? `Över ${tal("amortering_troskel_lag")} % till ${tal("amortering_troskel_hog")} % → ${tal("amortering_takt_mellan")} %`
-                        : `Högst ${tal("amortering_troskel_lag")} % → inget krav`}
-                  </Badge>
-                  {r.lan.overBankernasTypiskaTak && harInkomst ? (
-                    <Badge tone="neutral">
-                      Över bankernas vanliga interna tak — kan påverka din kreditprövning.
-                    </Badge>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Skuldkvoten påverkar inte längre lagkravet — det skärpta amorteringskravet är slopat.
-              Bankerna använder den däremot i sin egen kreditprövning, där det interna taket
-              vanligtvis ligger på 5–6 × bruttoinkomsten.
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Bostadens värde beräknas som lånebelopp + kontantinsats
-              {fyllt.lan ? ` (${kr(r.lan.bostadsvarde)}).` : "."}
-            </p>
-          </Card>
-
-          <div data-slot="kalkyl-atgarder">
-            <KalkylExport
-              underlag={underlag}
-              {...(etikettText !== "" ? { etikett: etikettText } : {})}
-            />
-            <div className="mt-6 space-y-4">
-              <div className="max-w-sm">
-                <Field
-                  id="kalkyl-namn"
-                  label="Namn på kalkylen"
-                  optional
-                  type="text"
-                  placeholder="Till exempel adressen"
-                  value={etikett}
-                  onChange={(v) => setEtikett(v.slice(0, MAX_ETIKETT_TECKEN))}
-                />
-              </div>
+            <div className="space-y-4">
+              <Field
+                id="kalkyl-namn"
+                label="Namn på kalkylen"
+                type="text"
+                placeholder="Till exempel adressen"
+                value={etikett}
+                onChange={(v) => setEtikett(v.slice(0, MAX_ETIKETT_TECKEN))}
+              />
               <div className="flex flex-wrap items-start gap-3">
                 {monterad ? (
                   <SparaKnapp
@@ -818,359 +1050,13 @@ function Kalkyl({ search, oppnad }: { search: BolanekalkylSearch; oppnad: Oppnad
                 ) : null}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
-      <section
-        data-slot="kalkyl-fordjupning"
-        aria-label="Fördjupning"
-        className="mt-12 border-t border-border pt-8"
-      >
-        <details
-          open={fordjupningOppen}
-          onToggle={(e) => setFordjupningOppen(e.currentTarget.open)}
-          className="rounded-lg border border-border bg-secondary/40"
-        >
-          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-            Fördjupning: räntescenarier och bankens kalkyl (valfritt)
-          </summary>
-          <div className="space-y-6 border-t border-border px-4 pb-6 pt-4">
-            <p className="text-sm text-muted-foreground">
-              Det här behövs inte för att förstå månadskostnaden ovan. Här kan du se vad som händer
-              om räntan ändras och hur banken brukar räkna på om ni klarar lånet.
-            </p>
-            <Card>
-              <h3 className="text-base font-semibold text-foreground">Om räntan ändras</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Så mycket kan månadskostnaden bli om räntan stiger eller sjunker. Total
-                månadskostnad efter ränteavdrag.
-                {harRantekanslighet
-                  ? " Avgiften räknas upp med föreningens räntekänslighet."
-                  : " Bara din egen ränta stressas: avgiftens känslighet är okänd."}
-              </p>
-              {fyllt.ranta ? (
-                <div className="mt-3 divide-y divide-border">
-                  {r.scenarier.map((s) => (
-                    <div key={s.id} className="py-3">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm text-muted-foreground">
-                          {s.namn} ({procentText(s.rantaProcent)} %)
-                        </span>
-                        <span className="text-sm font-medium text-foreground">
-                          {harTotal
-                            ? s.summor.harSpann
-                              ? `${Math.round(s.summor.nettoLag).toLocaleString("sv-SE")} – ${kr(s.summor.nettoHog)}`
-                              : kr(s.summor.nettoLag)
-                            : VET_EJ}
-                        </span>
-                      </div>
-                      {harTotal ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Ränta {kr(s.rantekostnad)} · avgift {kr(s.manadsavgift)}
-                          {s.avgiftsokning > 0 ? ` (+${kr(s.avgiftsokning)})` : ""}
-                          {harInkomst ? ` · kvar efter boendet ${kr(s.kvarEfterBoende)}` : ""}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Fyll i ränta ovan för att se scenarierna.
-                </p>
-              )}
-            </Card>
-
-            <Card>
-              <div>
-                <h3 className="text-base font-semibold text-foreground">Bankens kalkyl (KALP)</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Banker räknar med en högre ränta och schablonkostnader för hushållet för att se om
-                  lånet går ihop även om räntan stiger. Här anger du vilka som bor i hushållet.
-                </p>
-                <div className="mt-4 grid gap-5">
-                  <Field
-                    id="kalkyl-antal-vuxna"
-                    label="Antal vuxna i hushållet"
-                    type="text"
-                    inputMode="numeric"
-                    value={sida.antalVuxna}
-                    onChange={(v) => sat("antalVuxna", v)}
-                    placeholder={String(underlag.antalVuxna)}
-                    error={fel.antalVuxna ?? null}
-                    hint="Lämna tomt för samma antal som låntagare."
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    {BARN_ALDRAR.map((alder) => (
-                      <Field
-                        key={alder}
-                        id={`kalkyl-barn-${alder}`}
-                        label={BARN_ETIKETT[alder]}
-                        suffix="st"
-                        type="text"
-                        inputMode="numeric"
-                        value={sida.barn[alder]}
-                        onChange={(v) => sat("barn", { ...sida.barn, [alder]: v })}
-                        placeholder="0"
-                        error={fel[`barn:${alder}`] ?? null}
-                      />
-                    ))}
-                  </div>
-                  <Field
-                    id="kalkyl-kalkylranta"
-                    label="Kalkylränta"
-                    suffix="%"
-                    type="text"
-                    inputMode="decimal"
-                    value={sida.kalkylranta}
-                    onChange={(v) => sat("kalkylranta", v)}
-                    error={fel.kalkylranta ?? null}
-                    hint="Ett antagande, inte en regel: varje bank sätter sin egen kalkylränta. Förvalt är 7 %."
-                  />
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <h2 className="text-base font-semibold text-foreground">
-                Kvar att leva på enligt bankens kalkyl
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Nettoinkomst minus ränta vid kalkylräntan ({procentText(r.kalp.kalkylrantaProcent)}{" "}
-                %), amortering, avgift, värme och Konsumentverkets levnadskostnader för hushållet.
-              </p>
-              {r.kalp.beraknad && r.kalp.kvarAttLevaPa !== null ? (
-                <>
-                  <div className="mt-3 divide-y divide-border">
-                    {r.kalp.boendeRader.map((rad) => (
-                      <Rad
-                        key={rad.id}
-                        label={rad.namn}
-                        value={rad.belopp}
-                        {...(rad.anmarkning !== undefined ? { note: rad.anmarkning } : {})}
-                      />
-                    ))}
-                    <Rad
-                      label="Levnadskostnader (Konsumentverket 2026)"
-                      value={r.kalp.levnadskostnader?.summa ?? 0}
-                    />
-                    <Rad label="Hushållets nettoinkomst" value={r.kalp.nettoinkomstPerManad} />
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      {r.kalp.utfall === "minus" ? "Underskott per månad" : "Överskott per månad"}
-                    </p>
-                    <p
-                      className={`mt-1 font-display text-4xl ${
-                        r.kalp.utfall === "minus" ? "text-destructive" : "text-foreground"
-                      }`}
-                    >
-                      {r.kalp.kvarAttLevaPa < 0 ? "−" : ""}
-                      {kr(Math.abs(r.kalp.kvarAttLevaPa))}
-                    </p>
-                  </div>
-                  <details className="mt-4 rounded-lg border border-border bg-secondary/40">
-                    <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-                      Så räknas levnadskostnaderna
-                    </summary>
-                    <div className="border-t border-border px-4 pb-4 pt-3">
-                      <div className="divide-y divide-border">
-                        {r.kalp.levnadskostnader?.rader.map((rad) => (
-                          <div
-                            key={rad.id}
-                            className="flex items-center justify-between gap-3 py-2 text-xs"
-                          >
-                            <span className="text-muted-foreground">
-                              {rad.namn}
-                              {rad.ingarIAvgift ? " (ingår i avgiften)" : ""}
-                            </span>
-                            <span className="font-medium text-foreground">
-                              {rad.belopp < 0 ? "− " : ""}
-                              {kr(Math.abs(rad.belopp))}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </details>
-                </>
-              ) : r.kalp.hushalletForStort ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Konsumentverkets tabell gäller hushåll upp till 7 personer, så vi kan inte räkna
-                  ut bankens kalkyl för ett större hushåll.
-                </p>
-              ) : (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Fyll i {r.kalp.saknas.join(", ")} för att räkna ut bankens kalkyl.
-                </p>
-              )}
-              <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-                {r.kalp.forutsattningar.map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card>
-              <h3 className="text-base font-semibold text-foreground">Regler och antaganden</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Det här är reglerna och siffrorna som kalkylen räknar med, och var de kommer ifrån.
-              </p>
-              <div>
-                <div className="mt-3 divide-y divide-border">
-                  {REGLER.filter((x) => !x.id.startsWith("kv_")).map((x) => (
-                    <RegelRad key={x.id} regel={x} />
-                  ))}
-                </div>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Konsumentverkets alla tabellvärden finns i{" "}
-                  <a
-                    className="underline"
-                    href="https://publikationer.konsumentverket.se/downloads/kostnadsberakningar-hushallskostnader-2026-sv-kov_tga_32d.pdf"
-                  >
-                    Hushållskostnader 2026
-                  </a>
-                  .
-                </p>
-              </div>
-            </Card>
-          </div>
-        </details>
-      </section>
-    </div>
-  );
-}
-
-function RegelRad({ regel }: { regel: Regel }) {
-  return (
-    <div className="py-3 text-xs">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1">
-        <span className="min-w-0 break-words leading-snug text-foreground">{regel.namn}</span>
-        <span className="max-w-[40vw] text-right font-medium text-foreground sm:max-w-none">
-          {typeof regel.varde === "number" ? regel.varde.toLocaleString("sv-SE") : regel.varde}
-          {typeof regel.varde === "number" ? ` ${regel.enhet}` : ""}
-        </span>
+      <div className="mt-10">
+        <ReglerTabell />
       </div>
-      <p className="mt-1 flex min-w-0 flex-wrap items-center gap-2 break-words text-muted-foreground">
-        <Tag>{STATUS_ETIKETT[regel.status]}</Tag>
-        {regel.kalla.url !== null ? (
-          <a className="underline" href={regel.kalla.url}>
-            {regel.kalla.titel}
-          </a>
-        ) : (
-          <span>{regel.kalla.titel}</span>
-        )}
-        {regel.referens ? <span>{regel.referens}</span> : null}
-        <span>
-          gäller från {regel.gallerFran}
-          {regel.verifierad !== null ? `, kontrollerad ${regel.verifierad}` : ", ej kontrollerad"}
-        </span>
-      </p>
-      {regel.anmarkning ? <p className="mt-1 text-muted-foreground">{regel.anmarkning}</p> : null}
-    </div>
-  );
-}
-
-function Rad({
-  label,
-  value,
-  note,
-  negativ,
-  okant,
-}: {
-  label: string;
-  value: number;
-  note?: string;
-  negativ?: boolean;
-  okant?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-3">
-      <span className="text-sm text-muted-foreground">
-        {label}
-        {note ? <span className="ml-2 text-xs text-muted-foreground/80">({note})</span> : null}
-      </span>
-      <span
-        className={`text-sm font-medium ${
-          okant ? "text-muted-foreground" : negativ ? "text-success" : "text-foreground"
-        }`}
-      >
-        {okant ? VET_EJ : `${negativ ? "− " : ""}${kr(value)}`}
-      </span>
-    </div>
-  );
-}
-
-/** Schablonrad — visuellt tydligt åtskild från kända belopp, och redigerbar.
- *  `value` är null när schablonen kräver boarea som inte är ifylld. */
-function SchablonRad({
-  label,
-  value,
-  egen,
-  osaker,
-  onChange,
-}: {
-  label: string;
-  value: number | null;
-  egen: boolean;
-  osaker: boolean;
-  onChange: (v: number) => void;
-}) {
-  const [redigerar, setRedigerar] = useState(false);
-  const [utkast, setUtkast] = useState(String(Math.round(value ?? 0)));
-
-  const spara = () => {
-    const t = tolkaTal(utkast);
-    if (t.art === "tal") onChange(t.varde);
-    setRedigerar(false);
-  };
-
-  return (
-    <div
-      className={`flex flex-wrap items-center justify-between gap-3 py-3 pl-3 ${
-        egen ? "border-l-2 border-border" : "border-l-2 border-dashed border-muted-foreground/40"
-      }`}
-    >
-      <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        {label}
-        <Tag>{egen ? "ditt värde" : "schablon"}</Tag>
-        {osaker ? (
-          <span className="text-xs text-muted-foreground/80">okänt om det ingår i avgiften</span>
-        ) : null}
-      </span>
-      {value === null && !egen ? (
-        <span className="text-sm text-muted-foreground">{VET_EJ}</span>
-      ) : redigerar ? (
-        <span className="flex items-center gap-2">
-          <input
-            autoFocus
-            inputMode="decimal"
-            aria-label={`${label}, kr per månad`}
-            value={utkast}
-            onChange={(e) => setUtkast(e.target.value)}
-            onBlur={spara}
-            onKeyDown={(e) => e.key === "Enter" && spara()}
-            className="w-24 rounded-lg border border-input bg-background px-2 py-1 text-right text-sm text-foreground outline-none focus:border-primary"
-          />
-          <span className="text-sm text-muted-foreground">kr</span>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => {
-            setUtkast(String(Math.round(value ?? 0)));
-            setRedigerar(true);
-          }}
-          className={`text-sm ${
-            egen
-              ? "font-medium text-foreground"
-              : "font-normal text-muted-foreground underline decoration-dashed underline-offset-4"
-          }`}
-        >
-          {kr(value ?? 0)}
-        </button>
-      )}
-    </div>
+    </Sidram>
   );
 }

@@ -39,50 +39,109 @@ const rita = () =>
   ).replace(/\s+/g, " ");
 
 describe("/analysera: priskoll och BRF-analys på en sida", () => {
-  it("visar båda stegen, med årsredovisningen som valfritt steg 2", () => {
+  it("visar rubrik, stegindikator och båda stegen i den ritade ordningen", () => {
     sokning.current = {};
     const html = rita();
-    expect(html).toContain("Steg 1: Priskoll");
-    expect(html).toContain("Gratis och direkt, ingen uppladdning");
-    expect(html).toContain("Se värderingen");
-    expect(html).toContain("Steg 2: Granska föreningen (valfritt)");
-    expect(html).toContain("Dra och släpp årsredovisningen här");
-    expect(html).toContain(">Analysera<");
-    // Adress hör till steg 2 (ort har inget fält, ägarbeslut 2026-10-26); resten av fälten finns bara en gång.
-    expect(html).toContain("Adress");
-    expect(html).not.toContain("falt-ort");
-    expect(html).not.toMatch(/>Ort</);
-    expect(html.match(/placeholder="116 25"/g)).toHaveLength(1);
-    expect(html.match(/placeholder="58"/g)).toHaveLength(1);
-    expect(html).toContain('id="vet-ej"');
+    expect(html).toContain("Vad är bostaden värd, och hur mår föreningen?");
+    expect(html).toContain("Analysera en bostad");
+    expect(html).toMatch(/aria-label="Steg"/);
+    for (const rubrik of ["Bostaden", "Föreningen", "Rapport"]) expect(html).toContain(rubrik);
+    expect(html).toContain("Om bostaden");
+    expect(html).toContain("Det här behöver vi för värderingen.");
+    expect(html).toContain("Granska föreningen");
+    expect(html).toContain(
+      "Ladda upp föreningens senaste årsredovisning. Den får du av mäklaren eller styrelsen.",
+    );
+    expect(html).toContain("Dra hit årsredovisningen, eller välj fil");
+    expect(html).toContain("PDF, högst 25 MB");
+    expect(html).toContain("Se värderingen utan hänsyn till föreningen");
+    expect(html).toContain("Tar några sekunder. Visas här nedanför.");
+    expect(html).toContain("Analysera bostaden och föreningen");
+    expect(html).toContain("Tar några minuter. Du följer analysen på nästa sida.");
+    expect(html.indexOf("Om bostaden")).toBeLessThan(html.indexOf("Granska föreningen"));
   });
 
-  it("har Booli-länkfältet och knappen före Steg 1, och rendering anropar ingen serverfunktion", () => {
+  it("säger aldrig gratis eller valfritt, och har inget ortfält", () => {
     sokning.current = {};
     const html = rita();
-    const lank = html.indexOf("Klistra in länk från Booli");
-    expect(lank).toBeGreaterThan(-1);
+    expect(html).not.toMatch(/gratis/i);
+    expect(html).not.toMatch(/valfri/i);
+    expect(html).not.toContain("(om du vet det)");
+    expect(html).not.toContain("falt-ort");
+    expect(html).not.toMatch(/>Ort</);
+  });
+
+  it("har alla fält i steg 1, med adress där och en gång var, samt #vet-ej", () => {
+    sokning.current = {};
+    const html = rita();
+    for (const id of [
+      "falt-adress",
+      "falt-postnummer",
+      "falt-boarea",
+      "falt-antalRum",
+      "falt-vaning",
+      "falt-manadsavgift",
+      "falt-byggar",
+      "falt-utgangspris",
+    ]) {
+      expect(html.match(new RegExp(`id="${id}"`, "g"))).toHaveLength(1);
+    }
+    expect(html).toContain('placeholder="Gatuadress och nummer"');
+    expect(html).toContain('placeholder="t.ex. 1965"');
+    expect(html).toContain("Fyller du i det jämför vi det med värderingen.");
+    expect(html).toContain("Fler uppgifter som ger en säkrare värdering");
+    expect(html).toContain('id="vet-ej"');
+    // Hiss och Balkong som fältgrupper med förklarande rubrik.
+    expect(html).toMatch(/<fieldset[^>]*><legend[^>]*>Hiss/);
+    expect(html).toMatch(/<fieldset[^>]*><legend[^>]*>Balkong/);
+    expect(html.match(/Vet ej/g)).toHaveLength(2);
+  });
+
+  it("har Booli-kortet före Steg 1, och rendering anropar ingen serverfunktion", () => {
+    sokning.current = {};
+    const html = rita();
+    const kort = html.indexOf("Snabbast: hämta från annonsen");
+    expect(kort).toBeGreaterThan(-1);
+    expect(html).toContain("Länk från Booli");
     expect(html).toContain("Hämta uppgifter");
     expect(html).toContain('placeholder="https://www.booli.se/annons/…"');
-    expect(html.indexOf("Hämta uppgifter")).toBeLessThan(html.indexOf("Steg 1: Priskoll"));
-    expect(lank).toBeLessThan(html.indexOf("Steg 1: Priskoll"));
-    // Ingen hämtning har gjorts: inga hint eller markeringar på fälten.
-    expect(html).not.toContain("Hämtat från Booli");
+    expect(html).toContain("Klistra in länken till annonsen så fyller vi i uppgifterna åt dig.");
+    expect(kort).toBeLessThan(html.indexOf("Om bostaden"));
+    // Ingen hämtning har gjorts: inga märken eller markeringar på fälten.
+    expect(html).not.toContain("Från annonsen<");
     expect(html).not.toContain("Fanns inte i annonsen");
+    expect(html).not.toContain("Vi fyllde i");
     expect(html).not.toContain("Booli anger föreningen");
     for (const fn of Object.values(servern)) {
       expect(fn).not.toHaveBeenCalled();
     }
   });
 
-  it("har PostNord-länken för postnummer, utan hint eller serveranrop vid rendering", () => {
+  it("har 'Hitta postnummer' mot PostNord, utan hint eller serveranrop vid rendering", () => {
     sokning.current = {};
     const html = rita();
-    expect(html).toContain("Vet du inte postnumret? Sök hos PostNord");
+    expect(html).toContain("Hitta postnummer");
     expect(html).toContain(POSTNORD_POSTNUMMER_URL);
     expect(html).toContain('rel="noopener noreferrer"');
     expect(html).not.toContain("Område:");
     expect(servern.hamtaPostnummerInfoFn).not.toHaveBeenCalled();
+  });
+
+  it("sidorutan: vad du får (rättade ord), exempelrapport, var hittar jag, korrekt integritetsrad", () => {
+    sokning.current = {};
+    const html = rita();
+    expect(html).toContain("Det här får du");
+    expect(html).toContain("Sju nyckeltal, förklarade och bedömda");
+    expect(html).not.toContain("jämförda med snittet");
+    expect(html).toContain("Se en exempelrapport →");
+    expect(html).toContain('href="/exempel"');
+    expect(html).toContain("Var hittar jag årsredovisningen?");
+    expect(html).toContain(
+      "Priskollen sparas inte. Vid en analys sparar vi lägenhetsuppgifterna i 12 månader.",
+    );
+    expect(html).not.toContain("Vi sparar inte uppgifterna om du inte loggar in");
+    expect(html).toContain("Integritet och personuppgifter");
+    expect(html).toContain('href="/integritet"');
   });
 
   it("länkar inte längre till den gamla priskollssidan", () => {
@@ -96,7 +155,15 @@ describe("/analysera: priskoll och BRF-analys på en sida", () => {
     sokning.current = { sparad: "abc" };
     const html = rita();
     expect(html).toContain("Hämtar den sparade värderingen");
-    expect(html).not.toContain("Steg 1: Priskoll");
+    expect(html).not.toContain("Om bostaden");
+  });
+
+  it("?forening=: medan föreningen hämtas visas laddtexten och uppladdningen finns inte än", () => {
+    sokning.current = { forening: "brf-test-123456-7890" };
+    const html = rita();
+    expect(html).toContain("Hämtar föreningen från registret…");
+    expect(html).not.toContain("Dra hit årsredovisningen");
+    expect(html).not.toMatch(/gratis|valfri/i);
   });
 });
 

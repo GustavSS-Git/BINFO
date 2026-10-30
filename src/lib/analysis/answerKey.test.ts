@@ -110,6 +110,24 @@ describe("jamforTecken", () => {
 });
 
 describe("poangsattLan", () => {
+  it("skuldfri förening: inga lån och total skuld 0 godkänns, ett lån underkänns", () => {
+    const skuldfri: LanFacitFil = { balansdag: "2025-12-31", skuldfri: true, lan: [] };
+    const ratt = poangsattLan(skuldfri, {
+      balansdag: "2025-12-31",
+      totalSkuld: { value: 0 },
+    });
+    expect(ratt.every((p) => p.godkand)).toBe(true);
+    expect(ratt.find((p) => p.falt === "lanebok.totalSkuld")?.godkand).toBe(true);
+    const fel = poangsattLan(skuldfri, {
+      balansdag: "2025-12-31",
+      totalSkuld: { value: 500000 },
+      lan: [{ belopp: { value: 500000 } }],
+    });
+    expect(fel.find((p) => p.falt === "lan.antal")?.godkand).toBe(false);
+    expect(fel.find((p) => p.falt === "lan.summa")?.godkand).toBe(false);
+    expect(fel.find((p) => p.falt === "lanebok.totalSkuld")?.godkand).toBe(false);
+  });
+
   const facit: LanFacitFil = {
     balansdag: "2025-12-31",
     rantekostnader: { belopp: 235636 },
@@ -170,6 +188,41 @@ describe("poangsattLan", () => {
     expect(bra.every((p) => p.godkand)).toBe(true);
     const enda = poangsattLan(tva, { lan: [lan(500, 1, "2026-01-01")] });
     expect(enda.filter((p) => !p.godkand).length).toBeGreaterThan(0);
+  });
+});
+
+describe("poangsattUnderhall: byte eller förlängning", () => {
+  const facit: UnderhallFacitFil = {
+    genomfordaAtgarder: [
+      { byggdel: "stambyte", ar: 2016, omfattning: "forlangning" },
+      { byggdel: "tak", ar: 1986, omfattning: "byte" },
+      { byggdel: "fasad", ar: 2009, omfattning: "forlangning" },
+    ],
+  };
+  it("rätt omfattning godkänns, saknad omfattning räknas som byte, saknad post underkänns", () => {
+    const poang = poangsattUnderhall(facit, {
+      genomfordaAtgarder: [
+        { byggdel: "stambyte", ar: 2016, omfattning: "forlangning" },
+        { byggdel: "tak", ar: 1986 },
+      ],
+    });
+    const per = (f: string) => poang.find((p) => p.falt === f);
+    expect(per("atgard stambyte 2016 omfattning")?.godkand).toBe(true);
+    expect(per("atgard tak 1986 omfattning")?.godkand).toBe(true);
+    expect(per("atgard fasad 2009 omfattning")).toMatchObject({
+      godkand: false,
+      faktiskt: "saknas",
+    });
+  });
+  it("fel omfattning underkänns", () => {
+    const poang = poangsattUnderhall(facit, {
+      genomfordaAtgarder: [{ byggdel: "stambyte", ar: 2016, omfattning: "byte" }],
+    });
+    expect(poang.find((p) => p.falt === "atgard stambyte 2016 omfattning")).toMatchObject({
+      godkand: false,
+      forvantat: "forlangning",
+      faktiskt: "byte",
+    });
   });
 });
 

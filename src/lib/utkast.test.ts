@@ -60,6 +60,15 @@ describe("utkast", () => {
     expect(u?.till).toBe("/analysera");
   });
 
+  it("läser ett utkast med adress (redesign v4) och ett äldre utan", () => {
+    const lager: UtkastLager = { session: minneslager(), lokal: minneslager() };
+    const medAdress = { ...utkast, form: { ...utkast.form, adress: "Hornsgatan 1" } };
+    skrivUtkast("vardering", medAdress, "/analysera", lager, NU);
+    expect(lasUtkast("vardering", VarderingUtkastSchema, lager, NU)?.data.form.adress).toBe(
+      "Hornsgatan 1",
+    );
+  });
+
   it("hittar utkastet i localStorage-spegeln när sessionStorage är tom (ny flik)", () => {
     const lokal = minneslager();
     skrivUtkast("vardering", utkast, "/analysera", { session: null, lokal }, NU);

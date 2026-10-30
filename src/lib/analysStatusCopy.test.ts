@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   arAnalysHittadesInteFel,
   FELKOD_INNEHALL,
+  kontaktDelar,
   STEG_ORDNING,
   STEG_TEXT,
   stegAndel,
@@ -75,9 +76,15 @@ describe("FELKOD_INNEHALL", () => {
     }
   });
 
-  it("scanned_pdf pekar mot att skaffa originalfilen, inte bara 'försök igen'", () => {
-    const text = `${FELKOD_INNEHALL.scanned_pdf.forklaring} ${FELKOD_INNEHALL.scanned_pdf.atgard}`;
-    expect(text).toMatch(/mäklaren|styrelsen|förvaltare/i);
+  it("scanned_pdf säger inte att skanningar stöds inte, och pekar mot en digital version", () => {
+    const { forklaring, atgard } = FELKOD_INNEHALL.scanned_pdf;
+    expect(forklaring).toBe(
+      "Det händer med vissa skannade eller fotograferade sidor, och med skanningar på fler än 60 sidor.",
+    );
+    expect(atgard).toBe(
+      "Försök med en digital version (med textlager) om du kan få en från mäklaren eller styrelsen.",
+    );
+    expect(`${forklaring} ${atgard}`).not.toMatch(/går inte att läsa maskinellt|var åttonde/i);
   });
 
   it("daily_cap och cost_cap läses som 'det är vi, inte du'", () => {
@@ -115,5 +122,36 @@ describe("arAnalysHittadesInteFel", () => {
     expect(arAnalysHittadesInteFel("sträng")).toBe(false);
     expect(arAnalysHittadesInteFel(null)).toBe(false);
     expect(arAnalysHittadesInteFel(undefined)).toBe(false);
+  });
+});
+
+describe("kontaktDelar", () => {
+  it("gör frasen till en mailto-länk när adressen finns", () => {
+    expect(
+      kontaktDelar("Kvarstår felet, hör av dig till oss så tittar vi på det.", "a@b.se"),
+    ).toEqual([
+      "Kvarstår felet, ",
+      { href: "mailto:a@b.se", text: "hör av dig till oss" },
+      " så tittar vi på det.",
+    ]);
+    expect(kontaktDelar("Försök igen. Kvarstår det, kontakta oss.", "a@b.se")).toContainEqual({
+      href: "mailto:a@b.se",
+      text: "kontakta oss",
+    });
+  });
+
+  it("utan adress tas meningen med kontaktfrasen bort, så att inget löfte lämnas", () => {
+    expect(kontaktDelar("Försök igen om en stund. Kvarstår det, kontakta oss.", null)).toEqual([
+      "Försök igen om en stund.",
+    ]);
+    expect(kontaktDelar("Ingen länk här.", null)).toEqual(["Ingen länk här."]);
+  });
+
+  it("varje felkods åtgärd är ren text utan kontaktlöfte när adressen saknas", () => {
+    for (const kod of ALLA_FELKODER) {
+      const delar = kontaktDelar(FELKOD_INNEHALL[kod].atgard, null);
+      expect(delar.every((d) => typeof d === "string")).toBe(true);
+      expect(delar.join("")).not.toMatch(/hör av dig|kontakta oss/i);
+    }
   });
 });

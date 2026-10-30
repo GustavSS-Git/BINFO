@@ -100,6 +100,13 @@ export const SPARMAL_SCHABLON_MAX = 350;
 export const SPARMAL_SCHABLON_DAMPNING = 0.5;
 
 /**
+ * Debt ceiling for borrowing the savings gap, kr/m² (totalyta or bostadsrättsyta,
+ * as the key figure's basis): the acceptabel/svag limit for skuldsättning per m²
+ * in BENCHMARKS.md (§3/§4). Owner decision 2026-10-29; Binfos antagande.
+ */
+export const SKULDTAK_KR_PER_M2 = 5000;
+
+/**
  * Typical lifetime per tracked building part, years (lag–hog across the
  * sources' variants). FAR "Komponentindelning i bostadsrättsförening"
  * (2025-06-25) and SIB M84:10 (1984); docs/underhall-referens.md §1a.
@@ -121,6 +128,28 @@ export const BYGGDEL_LIVSLANGD: Record<Byggdel, { label: string; lag: number; ho
   el: { label: "El", lag: 45, hog: 50 },
   // FAR 20–40, Hissförbundet 20–30
   hiss: { label: "Hiss", lag: 20, hog: 40 },
+};
+
+/**
+ * Years a life-EXTENDING renovation keeps a part from counting as eftersatt
+ * (owner 2026-10-30; docs/underhall-referens.md §1c). Parts without a figure
+ * (ventilation, hiss: modernisation is a replacement) count every action as
+ * a replacement.
+ * - stambyte (relining): KTH "Stegvis renovering" 2020 (af Klintberg et al.):
+ *   ≈ 50 years in accelerated-ageing tests, ≈ 30 years of mostly successful
+ *   use in Sweden; owner chose 30.
+ * - tak (repaint/renovation): Källbom, "Målning av takplåt" (Svenska kyrkan
+ *   2014): plåttak repainted every 10–20 years → 10.
+ * - fonster (renovation/repaint): SIB M84:10 repaint every 10 years; KTH 2020: 8.
+ * - fasad (repair), el (new elcentral, partial rewiring): no source found;
+ *   Binfos uppskattning 10 (owner 2026-10-30).
+ */
+export const BYGGDEL_FORLANGNING_AR: Partial<Record<Byggdel, number>> = {
+  stambyte: 30,
+  tak: 10,
+  fonster: 10,
+  fasad: 10,
+  el: 10,
 };
 
 /** A plan-based savings target below this share of the schablon is taken to

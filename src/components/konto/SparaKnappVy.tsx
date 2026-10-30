@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/binfo";
-import { FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { FelRuta, InfoRuta, TEXTLANK } from "@/components/konto/AuthSida";
 import type { SessionLage } from "@/lib/till";
 
 const UTLOGGAD_TIPS =
@@ -27,10 +27,10 @@ export function SparaKnappVy({
 }) {
   if (lage === "sparad") {
     return (
-      <InfoRuta>
-        <p className="font-medium">Sparad i ditt konto.</p>
+      <InfoRuta className="border-success/30 bg-success-tint text-success-text">
+        <p className="font-semibold">Sparad i ditt konto.</p>
         <p>
-          <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+          <Link to="/konto" className={TEXTLANK}>
             Se dina sparade uppgifter i Mitt konto
           </Link>
         </p>
@@ -48,7 +48,7 @@ export function SparaKnappVy({
           {lage === "sparar" ? "Sparar…" : etikettKnapp}
         </Button>
         {sessionLage === "utloggad" && utloggadTips !== null ? (
-          <span className="text-sm text-muted-foreground">{utloggadTips}</span>
+          <span className="text-sm text-text-2">{utloggadTips}</span>
         ) : null}
       </div>
       {lage === "fel" && fel !== null ? <FelRuta>{fel}</FelRuta> : null}

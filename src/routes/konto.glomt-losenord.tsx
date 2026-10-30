@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { AuthSida, FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { AuthAside, AuthSida, FelRuta, InfoRuta, TEXTLANK } from "@/components/konto/AuthSida";
 import { GENERELLT_FEL, kontoHead } from "@/components/konto/kontoText";
 import { Button, Field } from "@/components/ui/binfo";
 import { begarAterstallningFn } from "@/server/analysFn";
@@ -38,6 +38,16 @@ function GlomtLosenord() {
       eyebrow="Mitt konto"
       title="Glömt lösenord"
       lead="Ange e-postadressen till ditt konto så skickar vi en länk för att välja ett nytt lösenord."
+      aside={
+        <AuthAside
+          rubrik="Bra att veta"
+          punkter={[
+            "Vi skickar länken till e-postadressen du skapade kontot med.",
+            "Länken fungerar en gång och gäller en begränsad tid. Titta i skräpposten om mejlet dröjer.",
+            "Det här är för dig som har ett konto. Analyser och värderingar kan du göra utan konto.",
+          ]}
+        />
+      }
     >
       {skickat ? (
         <InfoRuta>
@@ -47,10 +57,12 @@ function GlomtLosenord() {
           </p>
         </InfoRuta>
       ) : (
-        <form onSubmit={skicka} className="space-y-5">
+        <form onSubmit={skicka} className="flex flex-col gap-[18px]">
           <Field
-            label="E-postadress"
+            label="E-post"
             type="email"
+            name="epost"
+            autoComplete="email"
             placeholder="namn@exempel.se"
             value={epost}
             onChange={setEpost}
@@ -61,11 +73,8 @@ function GlomtLosenord() {
           </Button>
         </form>
       )}
-      <p className="mt-6 text-sm text-muted-foreground">
-        <Link
-          to="/konto/logga-in"
-          className="font-medium text-primary underline underline-offset-2"
-        >
+      <p className="border-t border-border pt-4 text-[15px]">
+        <Link to="/konto/logga-in" className={TEXTLANK}>
           Tillbaka till inloggning
         </Link>
       </p>

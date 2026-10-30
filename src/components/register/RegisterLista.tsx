@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Badge, Button, Card, Field, LinkButton } from "@/components/ui/binfo";
+import { Button, Card, DataTable, Field, GradeBadge, LinkButton } from "@/components/ui/binfo";
 import { formatSkapadDatum, formatVarde } from "@/lib/analysisView";
 import {
+  SORT_ALTERNATIV,
+  antalForeningar,
+  sorteringsEtikett,
+  sorteringsVarde,
   standardRiktning,
+  tolkaSorteringsVarde,
   type RegisterListaSvar,
   type RegisterListrad,
   type RegisterRiktning,
@@ -12,21 +17,9 @@ import {
 
 /**
  * Delar av de publika register-sidorna som delas mellan `/brf` (sökresultat)
- * och `/brf/omrade/$omrade` (tabell). Byggt av befintliga komponenter ur
- * `@/components/ui/binfo` — ingen egen stil utöver enkla tabell-/layoutklasser
- * med projektets tokens.
+ * och `/brf/omrade/$omrade` (tabell). Betyg visas med `GradeBadge` i betygets
+ * färg (ägarbeslut 2026-10-28; tidigare var märket neutralt).
  */
-
-/** Betyget som bokstav. Ingen färgtolkning av A–E: gränsen mellan "bra" och
- *  "dålig" är en produktfråga, så märket är neutralt. */
-export function Betygsmarke({ betyg }: { betyg: string | null }) {
-  if (betyg === null) return <span className="text-muted-foreground">–</span>;
-  return (
-    <span title={`Betyg ${betyg}`}>
-      <Badge>Betyg {betyg}</Badge>
-    </span>
-  );
-}
 
 function kronorPerM2(v: number | null): string {
   return v === null ? "–" : formatVarde(v, "kr/m2");
@@ -37,35 +30,40 @@ export function SokFalt({
   startvarde,
   onSok,
   etikett = "Sök förening",
+  placeholder = "Namn eller organisationsnummer",
 }: {
   startvarde: string;
   onSok: (sok: string) => void;
   etikett?: string;
+  placeholder?: string;
 }) {
   const [text, setText] = useState(startvarde);
   return (
     <form
       role="search"
-      className="flex flex-wrap items-end gap-3"
+      className="flex flex-wrap items-end gap-2.5"
       onSubmit={(e) => {
         e.preventDefault();
         onSok(text.trim());
       }}
     >
-      <div className="min-w-60 flex-1">
+      <div className="min-w-60 flex-[1_1_320px]">
         <Field
           label={etikett}
           type="search"
           value={text}
           onChange={setText}
-          placeholder="Namn eller organisationsnummer"
+          placeholder={placeholder}
         />
       </div>
-      <Button type="submit">Sök</Button>
+      <Button type="submit" size="lg">
+        Sök
+      </Button>
       {startvarde !== "" ? (
         <Button
           type="button"
           variant="ghost"
+          size="lg"
           onClick={() => {
             setText("");
             onSok("");
@@ -78,14 +76,56 @@ export function SokFalt({
   );
 }
 
+/** "Sortera efter": en lista som sätter samma URL-läge som kolumnrubrikerna. */
+export function SorteraVal({
+  sortering,
+  riktning,
+  onAndra,
+}: {
+  sortering: RegisterSortering;
+  riktning: RegisterRiktning;
+  onAndra: (andring: TabellAndring) => void;
+}) {
+  const nu = sorteringsVarde(sortering, riktning);
+  const fasta = SORT_ALTERNATIV.map((a) => ({
+    varde: sorteringsVarde(a.sortering, a.riktning),
+    etikett: a.etikett,
+  }));
+  // A state reached only through a column header gets its own (last) option.
+  const alternativ = fasta.some((a) => a.varde === nu)
+    ? fasta
+    : [...fasta, { varde: nu, etikett: sorteringsEtikett(sortering, riktning) }];
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="register-sortering" className="text-sm font-semibold text-foreground">
+        Sortera efter
+      </label>
+      <select
+        id="register-sortering"
+        value={nu}
+        onChange={(e) => {
+          const val = tolkaSorteringsVarde(e.target.value);
+          if (val) onAndra({ ...val, sida: 1 });
+        }}
+        className="h-12 w-full rounded-sm border border-input bg-card px-3.5 text-base text-foreground"
+      >
+        {alternativ.map((a) => (
+          <option key={a.varde} value={a.varde}>
+            {a.etikett}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 interface Kolumn {
   id: RegisterSortering;
   rubrik: string;
   varde: (r: RegisterListrad) => string;
 }
 
-const KOLUMNER: Kolumn[] = [
-  { id: "betyg", rubrik: "Betyg", varde: (r) => r.betyg ?? "–" },
+const MATKOLUMNER: Kolumn[] = [
   {
     id: "skuld_brf",
     rubrik: "Skuld per m² bostadsrättsyta",
@@ -95,14 +135,6 @@ const KOLUMNER: Kolumn[] = [
   { id: "sparande", rubrik: "Sparande per m²", varde: (r) => kronorPerM2(r.sparandePerM2) },
 ];
 
-const SORT_ETIKETT: Record<RegisterSortering, string> = {
-  betyg: "Betyg",
-  skuld_brf: "Skuld per m² bostadsrättsyta",
-  avgift: "Årsavgift per m²",
-  sparande: "Sparande per m²",
-  analysdatum: "Analysdatum",
-};
-
 export interface TabellAndring {
   sortering?: RegisterSortering;
   riktning?: RegisterRiktning;
@@ -110,9 +142,10 @@ export interface TabellAndring {
 }
 
 /**
- * Föreningar som tabell (från `md`) eller kort (mobil), med sorterbara
- * rubriker (`<button>` + `aria-sort`) och sidnavigering. Själva navigeringen
- * (URL:en) äger routen — komponenten rapporterar bara önskad ändring.
+ * Föreningar som tabell (från `md`) eller kort (mobil, 390 px: sju kolumner
+ * hade krävt sidledsrullning), med sorterbara rubriker (`<button>` +
+ * `aria-sort`) och sidnavigering. Själva navigeringen (URL:en) äger routen —
+ * komponenten rapporterar bara önskad ändring.
  */
 export function ForeningsTabell({
   svar,
@@ -141,7 +174,7 @@ export function ForeningsTabell({
     <button
       type="button"
       onClick={() => sorteraPa(id)}
-      className="rounded-sm text-left font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="rounded-sm text-left font-semibold underline-offset-4 hover:underline"
     >
       {text}
       {pil(id)}
@@ -150,54 +183,27 @@ export function ForeningsTabell({
 
   return (
     <div>
-      {/* Mobil: sortering via lista, raderna blir kort. */}
-      <div className="mb-4 flex flex-wrap items-center gap-3 md:hidden">
-        <label className="text-sm font-medium text-foreground" htmlFor="register-sortering">
-          Sortera efter
-        </label>
-        <select
-          id="register-sortering"
-          value={sortering}
-          onChange={(e) => sorteraPa(e.target.value as RegisterSortering)}
-          className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
-        >
-          {(Object.keys(SORT_ETIKETT) as RegisterSortering[]).map((id) => (
-            <option key={id} value={id}>
-              {SORT_ETIKETT[id]}
-            </option>
-          ))}
-        </select>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => onAndra({ riktning: riktning === "asc" ? "desc" : "asc", sida: 1 })}
-          aria-label={riktning === "asc" ? "Stigande ordning" : "Fallande ordning"}
-        >
-          {riktning === "asc" ? "Stigande ↑" : "Fallande ↓"}
-        </Button>
-      </div>
-
-      <ul className="space-y-3 md:hidden">
+      <ul className="m-0 list-none space-y-3 p-0 md:hidden">
         {rader.map((r) => (
           <li key={r.orgnr}>
             <Link to="/brf/$slug" params={{ slug: r.slug }} className="block">
-              <Card className="p-5 md:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <h3 className="text-base font-semibold text-foreground">{r.namn}</h3>
-                  <Betygsmarke betyg={r.betyg} />
+              <Card className="p-5 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-base font-semibold text-primary">{r.namn}</h3>
+                  <GradeBadge grade={r.betyg} size="sm" />
                 </div>
                 {visaOmrade ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{r.omradeNamn}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{r.omradeNamn}</p>
                 ) : null}
                 <dl className="mt-4 grid grid-cols-1 gap-y-2 text-sm">
-                  {KOLUMNER.filter((k) => k.id !== "betyg").map((k) => (
+                  {MATKOLUMNER.map((k) => (
                     <div key={k.id} className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">{k.rubrik}</dt>
                       <dd className="font-medium text-foreground">{k.varde(r)}</dd>
                     </div>
                   ))}
                 </dl>
-                <p className="mt-3 text-xs text-muted-foreground">
+                <p className="mt-3 text-sm text-muted-foreground">
                   Räkenskapsår {r.rakenskapsar} · analyserad {formatSkapadDatum(r.analysdatum)}
                 </p>
               </Card>
@@ -206,57 +212,51 @@ export function ForeningsTabell({
         ))}
       </ul>
 
-      <div className="hidden overflow-x-auto rounded-lg border border-border bg-card md:block">
-        <table className="w-full text-sm">
+      <div className="hidden md:block">
+        <DataTable minWidth={860}>
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th scope="col" className="px-4 py-3 font-semibold">
-                Förening
+            <tr>
+              <th scope="col">Förening</th>
+              {visaOmrade ? <th scope="col">Område</th> : null}
+              <th scope="col" aria-sort={ariaSort("betyg")}>
+                {sortKnapp("betyg", "Betyg")}
               </th>
-              {visaOmrade ? (
-                <th scope="col" className="px-4 py-3 font-semibold">
-                  Område
-                </th>
-              ) : null}
-              {KOLUMNER.map((k) => (
-                <th key={k.id} scope="col" aria-sort={ariaSort(k.id)} className="px-4 py-3">
+              {MATKOLUMNER.map((k) => (
+                <th key={k.id} scope="col" aria-sort={ariaSort(k.id)}>
                   {sortKnapp(k.id, k.rubrik)}
                 </th>
               ))}
-              <th scope="col" className="px-4 py-3 font-semibold">
-                År
-              </th>
-              <th scope="col" aria-sort={ariaSort("analysdatum")} className="px-4 py-3">
+              <th scope="col">Räkenskapsår</th>
+              <th scope="col" aria-sort={ariaSort("analysdatum")}>
                 {sortKnapp("analysdatum", "Analyserad")}
               </th>
             </tr>
           </thead>
           <tbody>
             {rader.map((r) => (
-              <tr key={r.orgnr} className="border-b border-border last:border-0">
-                <th scope="row" className="px-4 py-3 text-left font-medium text-foreground">
+              <tr key={r.orgnr}>
+                <th scope="row">
                   <Link
                     to="/brf/$slug"
                     params={{ slug: r.slug }}
-                    className="text-primary underline-offset-2 hover:underline"
+                    className="font-semibold text-link underline-offset-2 hover:underline"
                   >
                     {r.namn}
                   </Link>
                 </th>
-                {visaOmrade ? <td className="px-4 py-3">{r.omradeNamn}</td> : null}
-                {KOLUMNER.map((k) => (
-                  <td key={k.id} className="px-4 py-3 text-foreground">
-                    {k.id === "betyg" ? <Betygsmarke betyg={r.betyg} /> : k.varde(r)}
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-muted-foreground">{r.rakenskapsar}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {formatSkapadDatum(r.analysdatum)}
+                {visaOmrade ? <td>{r.omradeNamn}</td> : null}
+                <td>
+                  <GradeBadge grade={r.betyg} size="sm" />
                 </td>
+                {MATKOLUMNER.map((k) => (
+                  <td key={k.id}>{k.varde(r)}</td>
+                ))}
+                <td>{r.rakenskapsar}</td>
+                <td className="text-muted-foreground">{formatSkapadDatum(r.analysdatum)}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </div>
 
       {totalt > sidstorlek ? (
@@ -273,7 +273,7 @@ export function ForeningsTabell({
             Föregående
           </Button>
           <p className="text-muted-foreground">
-            Sida {sida} av {antalSidor} · {totalt} föreningar
+            Sida {sida} av {antalSidor} · {antalForeningar(totalt)}
           </p>
           <Button
             type="button"
@@ -285,9 +285,7 @@ export function ForeningsTabell({
           </Button>
         </nav>
       ) : (
-        <p className="mt-4 text-xs text-muted-foreground">
-          {totalt} {totalt === 1 ? "förening" : "föreningar"}
-        </p>
+        <p className="mt-4 text-sm text-muted-foreground">{antalForeningar(totalt)}</p>
       )}
     </div>
   );
@@ -298,17 +296,19 @@ export function TomtLage({ sok }: { sok: string }) {
   return (
     <Card>
       {sok !== "" ? (
-        <p className="text-sm text-foreground">
+        <p className="text-base text-foreground">
           Inga föreningar matchar &quot;{sok}&quot;. Prova ett kortare namn eller bara
           organisationsnumret.
         </p>
       ) : (
         <>
-          <p className="text-sm text-foreground">
+          <p className="text-base text-foreground">
             Inga föreningar här ännu — ladda upp en årsredovisning så hamnar föreningen här.
           </p>
           <div className="mt-5">
-            <LinkButton to="/analysera">Analysera en bostad</LinkButton>
+            <LinkButton to="/analysera" size="lg">
+              Analysera en bostad
+            </LinkButton>
           </div>
         </>
       )}

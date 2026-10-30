@@ -71,6 +71,7 @@ import type { RegisterListaFraga } from "@/lib/registerVy";
 import {
   forberedSparaAnalys,
   hamtaMinaUppgifter,
+  hamtaKopguide,
   hamtaSparadKalkyl,
   hamtaSparstatus,
   hamtaSparadVardering,
@@ -79,6 +80,7 @@ import {
   raderaSparadVardering,
   sparaAnalys,
   sparaKalkyl,
+  sparaKopguide,
   sparaVardering,
   taBortAnalysFranLista,
   type SparaAnalysBeroenden,
@@ -498,6 +500,25 @@ export const sparaKalkylFn = createServerFn({ method: "POST" })
       });
     } catch (fel) {
       throw sakertFel("sparaKalkylFn", fel);
+    }
+  });
+
+/** Köpguidens avbockade steg för det inloggade kontot (redesign v4). */
+export const hamtaKopguideFn = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return await hamtaKopguide(await sparatFor(envFromProcess()));
+  } catch (fel) {
+    throw sakertFel("hamtaKopguideFn", fel);
+  }
+});
+
+export const sparaKopguideFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { klara: string[] }) => data)
+  .handler(async ({ data }) => {
+    try {
+      return await sparaKopguide(await sparatFor(envFromProcess()), data);
+    } catch (fel) {
+      throw sakertFel("sparaKopguideFn", fel);
     }
   });
 

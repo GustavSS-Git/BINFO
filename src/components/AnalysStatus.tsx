@@ -1,15 +1,29 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hamtaStatusFn } from "@/server/analysFn";
-import { Callout, Card, LinkButton, PageHeader } from "@/components/ui/binfo";
-import { FELKOD_INNEHALL, type AnalysErrorCode } from "@/lib/analysStatusCopy";
+import { Link } from "@tanstack/react-router";
+import {
+  Callout,
+  Card,
+  Eyebrow,
+  LinkButton,
+  PageHeader,
+  ProgressBar,
+  ProgressList,
+  Stepper,
+} from "@/components/ui/binfo";
+import { FELKOD_INNEHALL, kontaktDelar, type AnalysErrorCode } from "@/lib/analysStatusCopy";
 import {
   arSkannadRapport,
-  stegAndelFor,
-  stegTextFor,
+  designAndel,
+  designSteg,
   vantaNotiser,
+  vantskarmLiknande,
+  vantskarmRubrikrad,
+  VANTSKARM_TIPS,
   type StatusVyIndata,
 } from "@/lib/analysStatusVy";
+import { KONTAKT_EPOST } from "@/lib/kontakt";
 
 /**
  * Delad väntnings-/felskärm för jobbpollning av en analys — används av både
@@ -30,7 +44,7 @@ export type StatusSvar = Awaited<ReturnType<typeof hamtaStatusFn>>;
 /**
  * Pollningsintervall medan jobbet varken är klart eller misslyckat. Några
  * sekunder, inte snabbare — varje pollning är en riktig tur-och-retur till
- * servern, och ett jobb tar minuter (texten säger 3–5 minuter; uppmätt ca 1–3 min, se CLAUDE.md), så det
+ * servern, och ett jobb tar minuter (uppmätt ca 1–3 min, se CLAUDE.md; texten säger "några minuter"), så det
  * finns inget att vinna på tätare pollning.
  */
 export const POLLNINGSINTERVALL_MS = 5000;
@@ -94,24 +108,43 @@ export function AnalysStatusVakt({
   return <>{children()}</>;
 }
 
+const SIDA = "mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-8 md:py-14";
+
+/** Stegindikatorn överst på väntskärmen och dess fel-/hittades-inte-varianter: bostaden och
+ *  föreningen är inskickade, rapporten är det som pågår. */
+function RapportSteg() {
+  return (
+    <div className="mb-8">
+      <Stepper
+        steg={[
+          { label: "Bostaden", lage: "klar" },
+          { label: "Föreningen", lage: "klar" },
+          { label: "Rapport", lage: "aktuell" },
+        ]}
+      />
+    </div>
+  );
+}
+
 export function Vantar({ text }: { text: string }) {
   return (
-    <div className="mx-auto max-w-2xl px-5 py-14">
+    <div className={SIDA}>
       <PageHeader eyebrow="Ett ögonblick" title={text} />
     </div>
   );
 }
 
-/** Väntskärmen medan jobbet pollas — det steg som faktiskt pågår, ett
- *  ärligt tidsspann, och en enkel förloppsstapel. Aldrig ett löfte om att
- *  det snart är klart. */
+/** Väntskärmen medan jobbet pollas: sex steg (se `designSteg`), en ärlig
+ *  tidsangivelse och, när vi har den, Binfos värdering utan hänsyn till föreningen
+ *  medan man väntar. Aldrig ett löfte om att det snart är klart. */
 export function Pagar({ status }: { status: StatusVyIndata }) {
-  const andelProcent = Math.round(stegAndelFor(status) * 100);
   const notiser = vantaNotiser(status);
+  const rubrikrad = vantskarmRubrikrad(status);
+  const liknande = vantskarmLiknande(status);
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-14">
-      <PageHeader eyebrow="Analyserar" title="Din analys pågår" />
+    <div className={SIDA}>
+      <RapportSteg />
       {notiser.map((notis) => (
         <div key={notis.titel} className="mb-4">
           <Callout variant="tip" title={notis.titel}>
@@ -119,28 +152,74 @@ export function Pagar({ status }: { status: StatusVyIndata }) {
           </Callout>
         </div>
       ))}
-      <Card>
-        <p className="text-base font-medium text-foreground">{stegTextFor(status)}</p>
-        <div className="mt-4 h-1.5 w-full rounded-full bg-secondary">
-          <div
-            className="h-1.5 rounded-full bg-primary transition-[width]"
-            style={{ width: `${andelProcent}%` }}
-          />
-        </div>
-        <p className="mt-6 text-sm text-muted-foreground">
-          Det här tar normalt <strong className="font-medium text-foreground">3–5 minuter</strong>
-          {arSkannadRapport(status) ? (
-            <>
-              , för en skannad årsredovisning{" "}
-              <strong className="font-medium text-foreground">några minuter extra</strong>
-            </>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            {rubrikrad ? <Eyebrow>{rubrikrad}</Eyebrow> : null}
+            <h1 className="font-display text-[30px] font-semibold leading-[1.15] text-primary md:text-[38px]">
+              Vi läser årsredovisningen
+            </h1>
+            <p className="text-base text-text-2">
+              Det tar några minuter
+              {arSkannadRapport(status)
+                ? " (en skannad årsredovisning tar några minuter extra)"
+                : ""}
+              . Sidan uppdateras själv när rapporten är klar. Spara rapporten då, så hittar du den i
+              Mitt konto.{" "}
+              <Link to="/exempel" className="font-medium text-link underline underline-offset-2">
+                Så här ser en färdig rapport ut
+              </Link>
+            </p>
+          </div>
+          <ProgressBar andel={designAndel(status)} label="Så långt har analysen kommit" />
+          <ProgressList rader={designSteg(status)} ariaLabel="Stegen i analysen" />
+        </Card>
+        <aside className="flex flex-col gap-5">
+          <Eyebrow>Medan du väntar</Eyebrow>
+          {liknande ? (
+            <Card className="flex flex-col gap-2">
+              <h2 className="text-base font-semibold text-foreground">Liknande lägenheter</h2>
+              <p className="font-display text-[34px] font-semibold leading-none text-primary">
+                {liknande.varde}
+              </p>
+              <p className="text-sm text-text-2">{liknande.text}</p>
+            </Card>
           ) : null}
-          . Vi går igenom hela årsredovisningen, granskar nyckeltalen och tar fram potentiella
-          varningsflaggor. Du kan gärna låta fliken vara öppen, sidan uppdateras automatiskt så
-          snart analysen är klar.
-        </p>
-      </Card>
+          <Callout variant="tip" title="Inför visningen">
+            <p>{VANTSKARM_TIPS}</p>
+          </Callout>
+          <Link
+            to="/kopguide"
+            className="text-[15px] font-medium text-link underline underline-offset-2"
+          >
+            Se var du är i köpguiden
+          </Link>
+        </aside>
+      </div>
     </div>
+  );
+}
+
+/** En text där kontaktfrasen är en mailto-länk när adressen finns (se `kontaktDelar`). */
+export function MedKontakt({
+  text,
+  epost = KONTAKT_EPOST,
+}: {
+  text: string;
+  epost?: string | null;
+}) {
+  return (
+    <>
+      {kontaktDelar(text, epost).map((del, i) =>
+        typeof del === "string" ? (
+          <span key={i}>{del}</span>
+        ) : (
+          <a key={i} href={del.href} className="font-medium text-link underline underline-offset-2">
+            {del.text}
+          </a>
+        ),
+      )}
+    </>
   );
 }
 
@@ -155,15 +234,19 @@ export function Misslyckad({
   const innehall = FELKOD_INNEHALL[kod];
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-14">
-      <PageHeader eyebrow="Analysen kunde inte slutföras" title={innehall.rubrik} />
-      <Card>
-        <p className="text-sm text-foreground">{errorMessage ?? innehall.forklaring}</p>
-        {errorMessage ? (
-          <p className="mt-4 text-sm text-muted-foreground">{innehall.forklaring}</p>
-        ) : null}
-        <p className="mt-4 text-sm font-medium text-foreground">{innehall.atgard}</p>
-        <div className="mt-6 flex flex-wrap gap-3">
+    <div className={SIDA}>
+      <RapportSteg />
+      <Card className="flex max-w-[760px] flex-col gap-4">
+        <Eyebrow>Analysen kunde inte slutföras</Eyebrow>
+        <h1 className="font-display text-[30px] font-semibold leading-[1.15] text-primary md:text-[38px]">
+          {innehall.rubrik}
+        </h1>
+        <p className="text-base text-foreground">{errorMessage ?? innehall.forklaring}</p>
+        {errorMessage ? <p className="text-[15px] text-text-2">{innehall.forklaring}</p> : null}
+        <p className="text-[15px] font-semibold text-foreground">
+          <MedKontakt text={innehall.atgard} />
+        </p>
+        <div className="mt-2 flex flex-wrap gap-3">
           <LinkButton to="/analysera" size="lg">
             Till formuläret
           </LinkButton>
@@ -175,14 +258,18 @@ export function Misslyckad({
 
 export function HittadesInte() {
   return (
-    <div className="mx-auto max-w-2xl px-5 py-14">
-      <PageHeader eyebrow="Hittades inte" title="Vi hittar ingen analys med det här id:t" />
-      <Card>
-        <p className="text-sm text-muted-foreground">
+    <div className={SIDA}>
+      <RapportSteg />
+      <Card className="flex max-w-[760px] flex-col gap-4">
+        <Eyebrow>Hittades inte</Eyebrow>
+        <h1 className="font-display text-[30px] font-semibold leading-[1.15] text-primary md:text-[38px]">
+          Vi hittar ingen analys med det här id:t
+        </h1>
+        <p className="text-base text-text-2">
           Länken kan vara felstavad, eller så finns analysen inte längre. Ladda upp årsredovisningen
           på nytt för att starta en ny analys.
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-2 flex flex-wrap gap-3">
           <LinkButton to="/analysera" size="lg">
             Starta en ny analys
           </LinkButton>

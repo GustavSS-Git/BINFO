@@ -1,0 +1,74 @@
+{
+  "orgnr": "702000-9960",
+  "namn": "Brf Ingemar 8",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "494868__F_ORG_T1087_4812.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren (sida 5–6; årtal och åtgärd står i två kolumner, parade efter radens y-position i pdf.js; i textordningen kommer alla årtal efter alla åtgärder); omklassad byte/förlängning 2026-10-30"
+  },
+  "anmarkning": "Omfattning (ägarregel 2026-10-30): byte = full ersättning, forlangning = livsförlängande renovering. Byte: tak 1986, el 1986 (elstigar), stambyte 2024. Förlängning: fasad 2009 (renovering av gårdshusets fasad), tak 2006 (renovering/ommålning), tak 2014 (ommålning), fönster 2018 (renovering). Utanför (bara tillatnaExtra): fasad 2019 omputsning av gårdsmurar (murar, inte husfasad).",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "tak",
+      "ar": 1986,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "1986 Tak: Omlagt / Elstigar utbytta och taket omlagt"
+    },
+    {
+      "byggdel": "el",
+      "ar": 1986,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "1986 Elstigar utbytta och taket omlagt"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2009,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2009 Renovering av gårdshusets fasad, utbyte av alla dörrar i gårdshuset samt trapphusen målades om"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2024,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2024 Renovering och stambyte i tvättstugan källaren. Renovering och stambyte i hyreslokalerna. / Stambyte av alla stammar i källare samt köksstammar i lägenheter."
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2006,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2006 Gårdshusets tak renoverades och ommålades"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2014,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2014 Ommålning taket gathus"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2018,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2018 Fönsterrenovering (från trärent) och även samtliga entrédörrar"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "fasad",
+      "ar": 2019,
+      "sida": 5,
+      "tryckt": "2019 Omputsning gårdsmurar"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

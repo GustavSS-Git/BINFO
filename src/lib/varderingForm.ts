@@ -1,6 +1,8 @@
 import type { PrisInput, Tristate } from "@/types/analysis";
 import {
   parsePositivtTal,
+  valideraAdress,
+  valideraByggar,
   parseValfrittHeltal,
   parseVaning,
   valideraPostnummer,
@@ -14,13 +16,14 @@ import {
  * priskollen och analysen aldrig tolkar samma inmatning olika. Ingen
  * React-import.
  *
- * Priskollen är en delmängd av analysformuläret: ingen PDF, ingen adress/ort,
- * och utgångspriset är VALFRITT (utan det visas värderingen utan
- * prisjämförelse). `tillVarderingForm` plockar ut den delmängden ur det
+ * Priskollen är en delmängd av analysformuläret: ingen PDF, och utgångspriset kan
+ * lämnas tomt (utan det visas värderingen utan prisjämförelse). Adress och
+ * byggår är obligatoriska i formuläret (2026-10-28), men inte i PrisInput. `tillVarderingForm` plockar ut den delmängden ur det
  * gemensamma formulärtillståndet.
  */
 
 export interface VarderingFormFields {
+  adress: string;
   utgangspris: string;
   boarea: string;
   antalRum: string;
@@ -31,6 +34,7 @@ export interface VarderingFormFields {
 }
 
 export const TOM_VARDERING_FORM: VarderingFormFields = {
+  adress: "",
   utgangspris: "",
   boarea: "",
   antalRum: "",
@@ -43,6 +47,7 @@ export const TOM_VARDERING_FORM: VarderingFormFields = {
 /** Priskollens fält ur det gemensamma analysformuläret (steg 1 av /analysera). */
 export function tillVarderingForm(form: AnalyseraFormFields): VarderingFormFields {
   return {
+    adress: form.adress,
     utgangspris: form.utgangspris,
     boarea: form.boarea,
     antalRum: form.antalRum,
@@ -53,8 +58,10 @@ export function tillVarderingForm(form: AnalyseraFormFields): VarderingFormField
   };
 }
 
-/** Ett fel per fält som kan vara fel. `byggar` är valfritt och ingår inte. */
+/** Ett fel per fält som kan vara fel. */
 export interface VarderingFormFel {
+  adress: string | null;
+  byggar: string | null;
   utgangspris: string | null;
   boarea: string | null;
   antalRum: string | null;
@@ -63,9 +70,18 @@ export interface VarderingFormFel {
   vaning: string | null;
 }
 
-export function validateraVarderingForm(f: VarderingFormFields): VarderingFormFel {
+/**
+ * `utanAdress`: för ett återställt utkast (adressen följer inte med i utkastschemat, och
+ * PrisInput bär den inte) — då kräver vi bara det värderingen behöver.
+ */
+export function validateraVarderingForm(
+  f: VarderingFormFields,
+  opts: { utanAdress?: boolean } = {},
+): VarderingFormFel {
   return {
-    // Valfritt: se valideraValfrittUtgangspris.
+    adress: opts.utanAdress ? null : valideraAdress(f.adress),
+    byggar: valideraByggar(f.byggar),
+    // Kan lämnas tomt: se valideraValfrittUtgangspris.
     utgangspris: valideraValfrittUtgangspris(f.utgangspris),
     boarea: parsePositivtTal(f.boarea) === null ? "Ange en giltig boarea." : null,
     antalRum: parsePositivtTal(f.antalRum) === null ? "Ange antal rum." : null,

@@ -210,6 +210,10 @@ export interface RunExtractionResult {
   /** The page-reference check's findings (sidreferenser.ts); empty when no page
    *  texts were given. */
   sidreferenser?: Sidreferensfynd[];
+  /** Measurement only: the model's parsed JSON of the last extraction attempt,
+   *  before slutfor.ts cleans it (lets a verify run tell a model miss from a
+   *  cleaning drop). */
+  raExtraktion?: unknown;
 }
 
 /** Builds the real Anthropic client, cast to the narrow shape this module
@@ -823,10 +827,14 @@ export async function runStructuredExtraction(
   const ctx: ExtraktionsKontext = { pdfSaknarTextlager, kalla, sidtexter };
 
   let avstamd: AvstamdExtraktion;
+  let raExtraktion: unknown;
   try {
     avstamd = await provaMedOmforsok(
       () => anropa(extractionSystem, extractionUser),
-      (raw) => slutforExtraktion(raw, ctx),
+      (raw) => {
+        raExtraktion = structuredClone(raw);
+        return slutforExtraktion(raw, ctx);
+      },
       (zodError, raw, attempts) => new ExtractionValidationError(zodError, raw, attempts),
     );
   } catch (error) {
@@ -844,6 +852,7 @@ export async function runStructuredExtraction(
     spentSek,
     calls,
     sidreferenser: avstamd.sidreferenser,
+    raExtraktion,
   };
 }
 

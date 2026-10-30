@@ -11,8 +11,9 @@
  *
  * Two levels (owner decision 2026-10-23, src/lib/registerVy.ts):
  *   - `hamtaForening` (`/brf/$slug`, public, cacheable): identity + per year
- *     the betyg and the statutory nyckeltal with their status ONLY — no
- *     motivation, röda flaggor, frågor or sections;
+ *     the betyg and the statutory nyckeltal with their status, plus the stored
+ *     grade motivation of the NEWEST year (owner 2026-10-28) — no röda flaggor,
+ *     frågor or sections;
  *   - `hamtaRegisteranalys` (`/brf/$slug/analys/$ar`): the full stored
  *     BRF-level analysis of one year, behind the `se_registeranalys`
  *     entitlement (checked by the caller in analysFn.ts before any read).
@@ -295,11 +296,16 @@ export function publikaNyckeltal(vy: RegisterArsvy): RegisterNyckeltal[] {
 
 /** The public summary of one year: built field by field (an allow-list), so
  *  nothing else from the analysis can leak onto the public page. */
-export function byggArsSammanfattning(vy: RegisterArsvy): RegisterArsSammanfattning {
+export function byggArsSammanfattning(
+  vy: RegisterArsvy,
+  medMotivering = false,
+): RegisterArsSammanfattning {
   return {
     rakenskapsar: vy.rakenskapsar,
     analysdatum: vy.analysdatum,
     betyg: vy.betyg,
+    // Only the newest year (owner Q6): the stored text, exactly as the judge wrote it.
+    betygMotivering: medMotivering && vy.betygMotivering.trim() !== "" ? vy.betygMotivering : null,
     nyckeltal: publikaNyckeltal(vy),
     skannad: vy.datakvalitet.kalla === "skannad" || vy.datakvalitet.pdfSaknarTextlager,
     aldreVersion: vy.aldreVersion,
@@ -371,8 +377,8 @@ export async function hamtaForening(
       ...(a.postnummer !== undefined ? { postnummer: a.postnummer } : {}),
       ...(a.ort !== undefined ? { ort: a.ort } : {}),
     })),
-    senaste: byggArsSammanfattning(senaste),
-    tidigare: tidigare.map(byggArsSammanfattning),
+    senaste: byggArsSammanfattning(senaste, true),
+    tidigare: tidigare.map((ar) => byggArsSammanfattning(ar)),
   };
   return { status: "ok", forening: vy };
 }

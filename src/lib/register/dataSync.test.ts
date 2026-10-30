@@ -39,7 +39,9 @@ describe("generated register data is in sync with its CSV sources", () => {
       const [slug, namn, grupp, ordning] = l.split(",");
       return { slug, namn, grupp, ordning: Number(ordning) };
     });
-    expect(csv).toEqual(REGISTEROMRADEN.map((a) => ({ ...a })));
+    expect(csv).toEqual(
+      REGISTEROMRADEN.map(({ slug, namn, grupp, ordning }) => ({ slug, namn, grupp, ordning })),
+    );
   });
 
   it("all 117 stadsdel polygons resolve to an area", () => {

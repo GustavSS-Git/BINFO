@@ -35,7 +35,7 @@ import type {
   SessionSvar,
 } from "@/lib/kontoTyper";
 import type { Env } from "./env";
-import { kontoFel, KontoEjKonfigureratError } from "./fel";
+import { FEL_LOSENORD, FEL_NUVARANDE_LOSENORD, kontoFel, KontoEjKonfigureratError } from "./fel";
 import {
   ENHET_COOKIE,
   ENHET_COOKIE_ALTERNATIV,
@@ -281,6 +281,7 @@ async function verifieraLosenord(
   b: KontoBeroenden,
   epost: string,
   losenord: string,
+  felText: string,
 ): Promise<KontoFel | null> {
   const epostHash = await hashaEpost(epost, b.hemlighet);
   const kvot = await kontrolleraInloggningskvot(b.db, b.kontext, epostHash);
@@ -290,7 +291,7 @@ async function verifieraLosenord(
     switch (r.orsak) {
       case "ogiltig_inloggning":
       case "ej_bekraftad":
-        return kontoFel("ogiltig_inloggning");
+        return { ...kontoFel("ogiltig_inloggning"), meddelande: felText };
       case "kvot":
         return kontoFel("kvot");
       default:
@@ -320,7 +321,12 @@ export async function sattNyttLosenord(
   const medMarke = await harGiltigtAterstallningsmarke(b.kallor, b.hemlighet, konto.authUserId);
   if (!medMarke) {
     if (parsed.data.nuvarandeLosenord === undefined) return kontoFel("kraver_nuvarande_losenord");
-    const fel = await verifieraLosenord(b, konto.epost, parsed.data.nuvarandeLosenord);
+    const fel = await verifieraLosenord(
+      b,
+      konto.epost,
+      parsed.data.nuvarandeLosenord,
+      FEL_NUVARANDE_LOSENORD,
+    );
     if (fel !== null) return fel;
   }
 
@@ -362,8 +368,8 @@ export async function raderaKonto(b: KontoBeroenden, data: unknown): Promise<Rad
   const { konto, principalId } = b.kontext;
   if (konto === undefined || principalId === null) return kontoFel("ej_inloggad");
   const parsed = RaderaSchema.safeParse(arObjekt(data));
-  if (!parsed.success) return kontoFel("ogiltig_inloggning");
-  const fel = await verifieraLosenord(b, konto.epost, parsed.data.losenord);
+  if (!parsed.success) return { ...kontoFel("ogiltig_inloggning"), meddelande: FEL_LOSENORD };
+  const fel = await verifieraLosenord(b, konto.epost, parsed.data.losenord, FEL_LOSENORD);
   if (fel !== null) return fel;
   try {
     await b.db.raderaPrincipal(principalId);

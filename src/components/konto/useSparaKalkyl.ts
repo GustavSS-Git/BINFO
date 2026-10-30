@@ -4,7 +4,7 @@ import { hamtaSparadKalkylFn, sparaKalkylFn } from "@/server/analysFn";
 import type { SparaKnappProps, SparaUtfall } from "@/components/konto/SparaKnapp";
 import { useAterstallUtkast, type AterstallStatus } from "@/components/konto/useAterstallUtkast";
 import type { SparaKalkylSvar } from "@/lib/kontoTyper";
-import { KalkylUnderlagSchema, type KalkylUnderlag } from "@/lib/kalkyl/underlag";
+import { KalkylUnderlagInSchema, type KalkylUnderlag } from "@/lib/kalkyl/underlag";
 import { skrivUtkast } from "@/lib/utkast";
 import type { SparaTyp } from "@/lib/till";
 
@@ -36,8 +36,10 @@ export type SparaKalkylAnropTyp = (indata: SparaKalkylIndata) => Promise<SparaKa
 
 export const sparaKalkylAnrop: SparaKalkylAnropTyp = (data) => sparaKalkylFn({ data });
 
+/** `underlag` goes through `tolkaKalkylUnderlag`, so 24 h drafts written before
+ *  underlag version 2 (2026-10-28) are migrated, not discarded. */
 export const KalkylUtkastSchema = z
-  .object({ underlag: KalkylUnderlagSchema, etikett: z.string().max(200) })
+  .object({ underlag: KalkylUnderlagInSchema, etikett: z.string().max(200) })
   .strict();
 
 export function useSparaKalkyl(args: {

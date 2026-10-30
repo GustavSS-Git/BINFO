@@ -19,6 +19,7 @@ const senaste: RegisterArsSammanfattning = {
   rakenskapsar: 2025,
   analysdatum: "2026-10-13T10:00:00.000Z",
   betyg: sampleAnalysis.betyg,
+  betygMotivering: null,
   nyckeltal: sampleAnalysis.forening.keyFigures.map((k) => ({
     id: k.id,
     label: k.label,
@@ -167,5 +168,19 @@ describe("sitemap", () => {
   it("lastmodDatum tål skräp", () => {
     expect(lastmodDatum("inte ett datum")).toBeNull();
     expect(lastmodDatum(null)).toBeNull();
+  });
+});
+
+describe("antalForeningar och kortDatum", () => {
+  it("singular för 1, plural annars", async () => {
+    const { antalForeningar } = await import("@/lib/registerVy");
+    expect(antalForeningar(1)).toBe("1 förening");
+    expect(antalForeningar(0)).toBe("0 föreningar");
+    expect(antalForeningar(13)).toBe("13 föreningar");
+  });
+
+  it("kort datum utan år", async () => {
+    const { kortDatum } = await import("@/lib/registerVy");
+    expect(kortDatum("2026-10-24T10:00:00.000Z")).toBe("24 okt.");
   });
 });

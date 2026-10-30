@@ -136,6 +136,30 @@ Helsingborgshus 17 (−5 kr/mån), see the round summary in PLAN.md.
 **Calibration note:** with the schablon, a typical förening (sparande 85–225 kr/m²) gets a yellow
 or red savings step and roughly −1 to −3 % on the price. `SPARMAL_SCHABLON_DAMPNING` is the knob.
 
+## Round 2026-10-29: sparande average and how the gap is paid
+
+Replaces the dampning of a positive gap (owner 2026-10-29). Code: `calc/sparbehov.ts`
+(`beraknaFinansiering`), constants in `prognosantaganden.ts` (`SKULDTAK_KR_PER_M2`).
+
+**Sparande** = average of up to four years: the current key figure plus `forening.sparandeHistorik`
+(PROMPT_VERSION 14; null and osäker years skipped), rounded to whole kr/m². An old extraction
+without history uses the current year alone. History is never used without the current year.
+
+**Gap > 0** (target > sparande), per year:
+
+- underskott/m² = max(0, −sparande); lånebart/m² = target − max(sparande, 0). D = underskott × totalyta,
+  G = lånebart × totalyta.
+- Debt per m²: `skuldsattning_per_m2_totalyta` (area totalyta), else `skuldsattning_per_m2_brf_yta`
+  (area bostadsrättsyta, needs `forening.bostadsrattsyta`); osäker or missing = unknown.
+- headroom = max(0, 5 000 − skuld/m²) × area (0 when unknown); lånat = min(2G, headroom) (two years of
+  gap, `HORISONT_MANADER` 24).
+- BRF kr/year = D + (G − lånat/2) + lånat × rate. Rate = reference rate + `BRF_MARGINAL_PROCENT`
+  (the refinancing rate). `dampning` = 1.
+
+Gap ≤ 0 keeps the old rule (gap × totalyta × dampning, no `finansiering`). The `beslutad_hojning`
+offset applies to the new amount unchanged. Brf Ingemar 8 (2025): average 26, gap 274, G = 680 890,
+headroom 3 948 665 ≥ 2G → lånat 1 361 780, interest at 2,648 % ≈ 36 060 kr/year (before: ≈ 376 000).
+
 ## Round 2026-10-25: lokal rent (signal 100 %, ending lease 50 %), decided fee raises
 
 Owner feedback on Bf Volontären 12 (FY2023): a lokal lease with "Löptid t.o.m 2024-12-31" made the

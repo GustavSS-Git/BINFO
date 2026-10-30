@@ -1,8 +1,8 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Badge, Button, Callout, Card, PageHeader } from "@/components/ui/binfo";
-import { Prisrimlighet } from "@/components/AnalysRapport";
+import { Badge, Button, Callout, Card, Eyebrow, LinkButton } from "@/components/ui/binfo";
+import { PriskollResultat } from "@/components/analysera/PriskollResultat";
 import { FelRuta } from "@/components/konto/AuthSida";
 import { formatSkapadDatum } from "@/lib/analysisView";
 import { inloggningsSok } from "@/lib/till";
@@ -50,9 +50,10 @@ export function SparadVardering({ id }: { id: string }) {
     }
   };
 
+  let rubrik = "Priskoll";
   let innehall;
   if (q.isPending || kravInloggning) {
-    innehall = <p className="text-sm text-muted-foreground">Hämtar den sparade värderingen…</p>;
+    innehall = <p className="text-base text-muted-foreground">Hämtar den sparade värderingen…</p>;
   } else if (q.isError) {
     innehall = <FelRuta>{SERVERFEL_TEXT}</FelRuta>;
   } else if (!q.data.ok) {
@@ -64,35 +65,29 @@ export function SparadVardering({ id }: { id: string }) {
   } else {
     const v = q.data.vardering;
     const input = v.input;
+    rubrik = v.etikett ?? "Sparad värdering";
     innehall = (
-      <div className="space-y-6">
-        <Card>
+      <div className="flex flex-col gap-8">
+        <Card className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="font-display text-2xl text-foreground">
-              {v.etikett ?? "Sparad värdering"}
-            </h2>
             <Badge>Sparad {formatSkapadDatum(v.skapad)}</Badge>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="text-base text-text-2">
             Så här såg värderingen ut när du sparade den (modell {v.modellVersion}). Modellen
             uppdateras över tid; räkna om för att se vad dagens modell säger.
           </p>
           {input !== null ? (
-            <div className="mt-4">
+            <div>
               <Button onClick={() => void raknaOm(input)} disabled={raknarOm}>
                 {raknarOm ? "Räknar om…" : "Räkna om med dagens modell"}
               </Button>
             </div>
           ) : null}
-          {omFel !== null ? (
-            <div className="mt-4">
-              <FelRuta>{omFel}</FelRuta>
-            </div>
-          ) : null}
+          {omFel !== null ? <FelRuta>{omFel}</FelRuta> : null}
         </Card>
 
         {v.resultat !== null ? (
-          <Prisrimlighet prisanalys={v.resultat.prisanalys} boarea={v.resultat.input.boarea} />
+          <PriskollResultat resultat={v.resultat} harSteg2={false} />
         ) : (
           <Callout variant="flag" title="Kan inte visas som den sparades">
             <p>
@@ -105,35 +100,33 @@ export function SparadVardering({ id }: { id: string }) {
         )}
 
         {nyttResultat !== null ? (
-          <div>
-            <h2 className="mb-4 font-display text-2xl text-foreground">
-              Omräknat med dagens modell
-            </h2>
-            <Prisrimlighet
-              prisanalys={nyttResultat.prisanalys}
-              boarea={nyttResultat.input.boarea}
-            />
-          </div>
+          <PriskollResultat
+            resultat={nyttResultat}
+            id="omrakning"
+            eyebrow="Omräknat med dagens modell"
+            harSteg2={false}
+          />
         ) : null}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-14">
-      <PageHeader eyebrow="Sparad värdering" title="Priskoll" />
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-8 md:py-14">
+      <header className="mb-8 flex max-w-[760px] flex-col gap-3 md:mb-10">
+        <Eyebrow>Sparad värdering</Eyebrow>
+        <h1 className="font-display text-[34px] font-semibold leading-[1.1] text-primary md:text-[44px]">
+          {rubrik}
+        </h1>
+      </header>
       {innehall}
-      <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
-        <Link
-          to="/analysera"
-          search={{}}
-          className="font-medium text-primary underline underline-offset-2"
-        >
+      <div className="mt-10 flex flex-wrap items-center gap-3">
+        <LinkButton to="/analysera" variant="secondary">
           Gör en ny värdering
-        </Link>
-        <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+        </LinkButton>
+        <LinkButton to="/konto" variant="ghost">
           Till Mitt konto
-        </Link>
+        </LinkButton>
       </div>
     </div>
   );

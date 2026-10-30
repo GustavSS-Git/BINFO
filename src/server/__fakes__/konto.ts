@@ -85,6 +85,7 @@ export interface FakeKontoDatabas extends KontoDatabas {
   readonly behorigheter: Map<string, FakeBehorighetRad>;
   readonly sparadeVarderingar: Map<string, SparadVarderingRad>;
   readonly sparadeKalkyler: Map<string, SparadKalkylRad>;
+  readonly kopguide: Map<string, { klara: string[]; uppdaterad: string }>;
   readonly rapporter: Map<string, FakeRapportRad>;
   /** `annons_cache`, keyed by the canonical listing URL. */
   readonly annonsCache: Map<string, { svar: unknown; hamtad: string }>;
@@ -125,6 +126,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
   const behorigheter = new Map<string, FakeBehorighetRad>();
   const sparadeVarderingar = new Map<string, SparadVarderingRad>();
   const sparadeKalkyler = new Map<string, SparadKalkylRad>();
+  const kopguide = new Map<string, { klara: string[]; uppdaterad: string }>();
   const rapporter = new Map<string, FakeRapportRad>();
   const kvot = new Map<string, FakeKvotRad>();
   const annonsCache = new Map<string, { svar: unknown; hamtad: string }>();
@@ -170,6 +172,14 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
     for (const b of behorigheter.values()) if (b.principalId === fran) b.principalId = till;
     for (const v of sparadeVarderingar.values()) if (v.principalId === fran) v.principalId = till;
     for (const k of sparadeKalkyler.values()) if (k.principalId === fran) k.principalId = till;
+    // Same as the SQL: union into the survivor's row, drop the merged one's.
+    const franKg = kopguide.get(fran);
+    if (franKg) {
+      const tillKg = kopguide.get(till);
+      const union = [...new Set([...franKg.klara, ...(tillKg?.klara ?? [])])].sort();
+      if (union.length > 0) kopguide.set(till, { klara: union, uppdaterad: nu().toISOString() });
+      kopguide.delete(fran);
+    }
   }
 
   return {
@@ -178,6 +188,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
     behorigheter,
     sparadeVarderingar,
     sparadeKalkyler,
+    kopguide,
     rapporter,
     kvot,
     annonsCache,
@@ -286,6 +297,7 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
           resultat.sparadeKalkyler++;
         }
       }
+      for (const pid of ids) kopguide.delete(pid);
       for (const [k, r] of kvot) {
         if (suffix.some((s) => r.nyckel.endsWith(s))) {
           kvot.delete(k);
@@ -342,6 +354,11 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
             input: k.input,
             sammanfattning: k.sammanfattning,
           })),
+        kopguide:
+          [...kopguide.entries()]
+            .filter(([pid]) => ids.has(pid))
+            .map(([, v]) => ({ klara: [...v.klara], uppdaterad: v.uppdaterad }))
+            .sort((a, b) => b.uppdaterad.localeCompare(a.uppdaterad))[0] ?? null,
       };
     },
 
@@ -499,6 +516,21 @@ export function skapaFakeKontoDatabas(opts: FakeKontoOptions = {}): FakeKontoDat
 
     async raknaSparadeKalkyler(principalId) {
       return [...sparadeKalkyler.values()].filter((k) => k.principalId === principalId).length;
+    },
+
+    async lasKopguide(principalId: string): Promise<string[] | null> {
+      const rad = kopguide.get(principalId);
+      return rad ? [...rad.klara] : null;
+    },
+
+    async skrivKopguide(principalId: string, klara: string[]): Promise<void> {
+      if (!principaler.has(principalId)) {
+        throw new Error("kopguide_framsteg_principal_id_fkey: unknown principal");
+      }
+      if (klara.length > 20 || !klara.every((k) => /^[a-z]{2,20}$/.test(k))) {
+        throw new Error("kopguide_framsteg_klara_check: invalid klara");
+      }
+      kopguide.set(principalId, { klara: [...klara], uppdaterad: nu().toISOString() });
     },
 
     async listaAnalyser(principalId: string): Promise<AnalysListrad[]> {

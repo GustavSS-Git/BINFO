@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseSparaTyp } from "@/lib/till";
+import { AVGIFT_POSTER, type AvgiftPostId } from "@/lib/kalkyl/underlag";
 import type { FeeInclusion, PropertyInput } from "@/types/analysis";
 
 /**
@@ -25,9 +26,9 @@ export interface BolanekalkylSearch {
    *  årsredovisning. Får aldrig gissas fram; finns den inte i sökvägen
    *  körs ingen avgiftsstress. Samma `| undefined`-resonemang som ovan. */
   rantekanslighet: number | undefined;
-  /** Förifyllning av priset, t.ex. vid länk från en färdig analys — antingen
-   *  utgångspriset eller en extern värdering (se AnalysRapport). Samma
-   *  `| undefined`-resonemang som manadsavgift ovan. */
+  /** Förifyllning av fältet "Pris du räknar med", t.ex. vid länk från en färdig
+   *  analys — Binfos värdering (se AnalysRapport). Kontantinsatsen förifylls med
+   *  minsta tillåtna. Samma `| undefined`-resonemang som manadsavgift ovan. */
   pris: number | undefined;
   /** Förifyllning av boarean från en färdig analys. Samma
    *  `| undefined`-resonemang som manadsavgift ovan. */
@@ -40,6 +41,16 @@ export interface BolanekalkylSearch {
    *  tyst presentera talet som ett känt pris. Samma
    *  `| undefined`-resonemang som ovan. */
   prisUppskattning: boolean | undefined;
+  /** Avgiftsposter som rapporten säger ingår i avgiften: kommaseparerade nycklar
+   *  ur `varme,vatten,el,bredband,tv` (kanonisk ordning, utan dubbletter). Okända
+   *  nycklar ignoreras. Samma `| undefined`-resonemang som ovan. */
+  ingar?: string | undefined;
+  /** Avgiftsposter som rapporten säger INTE ingår i avgiften. Samma format. En nyckel
+   *  som står i både `ingar` och `ingarEj` är motsägelsefull och ignoreras i båda. */
+  ingarEj?: string | undefined;
+  /** Id (uuid) på analysen som länkade hit, så att kalkylen kan länka tillbaka
+   *  ("Till rapporten"). Sätts bara av riktiga rapporter, aldrig av /exempel. */
+  analys?: string | undefined;
   /** Id (uuid) på en sparad kalkyl i kontot som ska öppnas (`?sparad=`).
    *  Valfri nyckel så att länkar från andra sidor inte behöver ange den; tolkaren
    *  sätter den ändå alltid (till `undefined` vid skräp), se kommentaren ovan. */
@@ -103,6 +114,51 @@ function tolkaBoolean(varde: unknown): boolean | undefined {
   return undefined;
 }
 
+const AVGIFT_NYCKLAR: readonly AvgiftPostId[] = AVGIFT_POSTER;
+
+/** Tolkar en kommaseparerad lista av avgiftsnycklar strikt: bara kända nycklar, utan
+ *  dubbletter, i kanonisk ordning. Allt annat (fel typ, skräp) ger en tom lista. */
+function tolkaNyckellista(varde: unknown): AvgiftPostId[] {
+  const delar =
+    typeof varde === "string"
+      ? varde.split(",")
+      : Array.isArray(varde) && varde.every((x) => typeof x === "string")
+        ? (varde as string[])
+        : [];
+  const funna = new Set(delar.map((d) => d.trim()));
+  return AVGIFT_NYCKLAR.filter((k) => funna.has(k));
+}
+
+function tolkaAvgiftListor(search: Record<string, unknown>): {
+  ingar: string | undefined;
+  ingarEj: string | undefined;
+} {
+  const ja = tolkaNyckellista(search["ingar"]);
+  const nej = tolkaNyckellista(search["ingarEj"]);
+  const bada = new Set(ja.filter((k) => nej.includes(k)));
+  const rent = (l: AvgiftPostId[]) => l.filter((k) => !bada.has(k));
+  const text = (l: AvgiftPostId[]) => (l.length > 0 ? l.join(",") : undefined);
+  return { ingar: text(rent(ja)), ingarEj: text(rent(nej)) };
+}
+
+/**
+ * Bygger sökparametrarna `ingar`/`ingarEj` ur det en årsredovisning säger om vad
+ * avgiften täcker (`forening.avgiftInkluderarEnligtForening`). Bara "ja" och "nej"
+ * tas med; "okant" (rapporten säger inget) utelämnas så att kalkylens förval gäller.
+ */
+export function ingarForSok(feeInclusion: FeeInclusion | undefined): {
+  ingar?: string;
+  ingarEj?: string;
+} {
+  if (feeInclusion === undefined) return {};
+  const ja = AVGIFT_NYCKLAR.filter((k) => feeInclusion[k] === "ja");
+  const nej = AVGIFT_NYCKLAR.filter((k) => feeInclusion[k] === "nej");
+  return {
+    ...(ja.length > 0 ? { ingar: ja.join(",") } : {}),
+    ...(nej.length > 0 ? { ingarEj: nej.join(",") } : {}),
+  };
+}
+
 /**
  * Tolkar sökparametrarna utan att någonsin kasta — ett skräpvärde
  * ("?manadsavgift=abc") ska falla tillbaka till "inget värde", inte krascha
@@ -117,6 +173,8 @@ export function parseBolanekalkylSearch(search: Record<string, unknown>): Bolane
     pris: tolkaPositivtTal(search["pris"]),
     boarea: tolkaPositivtTal(search["boarea"]),
     prisUppskattning: tolkaBoolean(search["prisUppskattning"]),
+    ...tolkaAvgiftListor(search),
+    analys: tolkaUuid(search["analys"]),
     sparad: tolkaUuid(search["sparad"]),
     spara: parseSparaTyp(search["spara"]) === "kalkyl" ? "kalkyl" : undefined,
   };

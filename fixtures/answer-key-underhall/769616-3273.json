@@ -1,0 +1,99 @@
+{
+  "orgnr": "769616-3273",
+  "namn": "Brf Hökensgata 1",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Nabo 2 årsredovisning.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren (sida 5–6; årtal och åtgärd står i två kolumner, parade efter radens y-position i pdf.js; årtalet står bara på gruppens första rad; trycksidorna är 'Sida 3–4 av 18'); omklassad byte/förlängning 2026-10-30"
+  },
+  "anmarkning": "Omfattning (2026-10-30): byte: hiss 2014, stambyte 2020 och 2021 (avloppsstammar i lokal), ventilation 2020 (nytt system). Förlängning: tak 2012 (målning av plåttak), el 2013 (renovering av elcentral), fasad 2020 (renovering fasad/skyltskåp, liten del, osäkert), fönster 2023 (fönster renoverade). Osäkra och kvar som tillatnaExtra (avloppsrör, inte uttryckligen stammar): stambyte 2012, 2016 (relining), 2019, 2025 (vattenrör). Utanför: stuprör, entrépartier, hissens väggar, undercentral, OVK, takvärme, soprum, fiber. Ingen investeringsbehov per m², rekommenderad avsättning eller plantotal i rapporten.",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "hiss",
+      "ar": 2014,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "2014 Byte av hiss"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2020,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2020 Utbyte avloppsstammar i ombyggd lokal och butik"
+    },
+    {
+      "byggdel": "ventilation",
+      "ar": 2020,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2020 Installation av nytt ventilationssystem"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2021,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2021 Utbyte avloppsstam i lokal"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2012,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2012 Målning av plåttak"
+    },
+    {
+      "byggdel": "el",
+      "ar": 2013,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2013 Renovering av elcentral"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2020,
+      "omfattning": "forlangning",
+      "sida": 6,
+      "tryckt": "2020 Renovering av fasad/skyltskåp mot Götgatan"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2023,
+      "omfattning": "forlangning",
+      "sida": 6,
+      "tryckt": "2023 Fönster renoverade"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "stambyte",
+      "ar": 2012,
+      "sida": 5,
+      "tryckt": "2012 Nya avloppsrör i butikslokal"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2016,
+      "sida": 5,
+      "tryckt": "2016 Relining avloppsrör"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2019,
+      "sida": 6,
+      "tryckt": "2019 Byte avloppsrör under byggnaden"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2025,
+      "sida": 6,
+      "tryckt": "2025 Utbyte vattenrör till lokaler"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

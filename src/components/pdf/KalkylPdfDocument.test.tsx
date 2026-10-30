@@ -1,31 +1,13 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { extractText, getDocumentProxy } from "unpdf";
 import { beforeAll, describe, expect, it } from "vitest";
-import { registerPdfFonts, type PdfFontSources } from "@/components/pdf/fonts";
+import { registerPdfFonts } from "@/components/pdf/fonts";
 import { EXEMPEL } from "@/components/pdf/kalkylExempel.testdata";
 import { KalkylPdfDocument } from "@/components/pdf/KalkylPdfDocument";
 import { buildKalkylViewModel } from "@/components/pdf/kalkylViewModel";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const fontsDir = path.resolve(here, "../../../public/fonts");
-
-async function fontKallor(): Promise<PdfFontSources> {
-  const url = async (f: string) =>
-    `data:font/ttf;base64,${(await readFile(path.join(fontsDir, f))).toString("base64")}`;
-  return {
-    sans: {
-      regular: await url("IBMPlexSans-Regular.ttf"),
-      bold: await url("IBMPlexSans-Bold.ttf"),
-    },
-    serif: {
-      regular: await url("LibreBaskerville-Regular.ttf"),
-      bold: await url("LibreBaskerville-Bold.ttf"),
-    },
-  };
-}
+import { testFontSources } from "@/components/pdf/pdfTestFonts";
 
 describe("KalkylPdfDocument", () => {
   let buffer: Buffer;
@@ -33,7 +15,7 @@ describe("KalkylPdfDocument", () => {
   let sidor: number;
 
   beforeAll(async () => {
-    registerPdfFonts(await fontKallor());
+    registerPdfFonts(await testFontSources());
     const vm = buildKalkylViewModel(EXEMPEL, {
       datum: new Date("2026-10-13T10:00:00Z"),
       etikett: "Exempelkalkyl",
@@ -70,6 +52,10 @@ describe("KalkylPdfDocument", () => {
     expect(text).toContain("Schablon (uppskattning)");
     expect(text).toContain("Lag (2026:226)");
     expect(text).toContain("Binfo är ett beslutsstöd");
+  });
+
+  it("har sidnummer i sidfoten på varje sida (Inter + Source Serif 4 inbäddade)", () => {
+    for (let i = 1; i <= sidor; i++) expect(text).toContain(`Sida ${i} av ${sidor}`);
   });
 
   it("visar KALP-utfallet som tecken och belopp", () => {

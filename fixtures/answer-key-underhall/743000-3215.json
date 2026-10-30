@@ -5,43 +5,48 @@
   "kalla": {
     "fil": "Årsredovisning_2025_Riksbyggen.pdf",
     "forvaltare": "okänd",
-    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren"
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-24, ej verifierad av ägaren; omklassad byte/förlängning 2026-10-30"
   },
-  "anmarkning": "Tabellen 'Tidigare utfört underhåll' (sida 6). Sida 5: 'underhållsplan ... visar på ett underhållsbehov på 777 tkr per år för de närmaste 50 åren. Avsättning ... 762 tkr'. 777 tkr/år läses som planens rekommenderade avsättning (kan diskuteras: rapporten säger 'underhållsbehov', inte 'bör avsättas'); ingen plantotal och inget investeringsbehov per m² står i rapporten. 'Fönsterrenovering 2023–2024' och 'Tak, hängrännor och garageportar 2023' är gränsfall (renovering, inte byte) och får finnas med utan poängavdrag.",
+  "anmarkning": "Omfattning (2026-10-30): fönster 2008 och 2022 byte; tak 2016 (takrenovering 2015–2016), tak 2023 (tak, hängrännor, garageportar) och fönster 2024 (fönsterrenovering 2023–2024) forlangning. Utanför: ventilation 2015 (tilläggsisolering vindar och byte av takfläktar). 777 tkr/år läses som planens rekommenderade avsättning (kan diskuteras: rapporten säger \"underhållsbehov\"); ingen plantotal eller investeringsbehov per m² i rapporten.",
   "balansdag": "2025-12-31",
   "genomfordaAtgarder": [
     {
       "byggdel": "fonster",
       "ar": 2008,
+      "omfattning": "byte",
       "sida": 6,
       "tryckt": "Fönsterbyte 2008 Delar av beståndet"
     },
     {
       "byggdel": "tak",
       "ar": 2016,
+      "omfattning": "forlangning",
       "sida": 6,
       "tryckt": "Takrenovering 2015–2016"
     },
     {
       "byggdel": "fonster",
       "ar": 2022,
+      "omfattning": "byte",
       "sida": 6,
       "tryckt": "Fönsterbyte servicehus 2022"
-    }
-  ],
-  "tillatnaExtra": [
+    },
     {
       "byggdel": "fonster",
       "ar": 2024,
+      "omfattning": "forlangning",
       "sida": 6,
       "tryckt": "Fönsterrenovering 2023–2024"
     },
     {
       "byggdel": "tak",
       "ar": 2023,
+      "omfattning": "forlangning",
       "sida": 6,
       "tryckt": "Tak, hängrännor och garageportar 2023"
-    },
+    }
+  ],
+  "tillatnaExtra": [
     {
       "byggdel": "ventilation",
       "ar": 2015,

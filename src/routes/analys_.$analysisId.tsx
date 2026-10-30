@@ -4,7 +4,6 @@ import { hamtaResultatFn } from "@/server/analysFn";
 import { AnalysRapport } from "@/components/AnalysRapport";
 import { SparaAnalysVy } from "@/components/konto/SparaAnalys";
 import { useSparaAnalys } from "@/components/konto/useSparaAnalys";
-import { PageHeader } from "@/components/ui/binfo";
 import { sparaAnalys } from "@/lib/senasteAnalyser";
 import { parseAnalysSok } from "@/lib/till";
 
@@ -73,13 +72,13 @@ function AnalysSida() {
   }, [analys.analysisId, analys.skapad, analys.forening.namn]);
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-14">
-      <PageHeader eyebrow="Klar" title="Din analys" />
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-12 sm:px-8 md:py-16">
       <AnalysRapport
         analys={analys}
+        lankaFranKalkyl
         sparaSlot={<SparaAnalysVy variant="topp" {...sparaTillstand} />}
+        sparaKort={<SparaAnalysVy variant="kort" {...sparaTillstand} />}
       />
-      <SparaAnalysVy variant="kort" {...sparaTillstand} />
     </div>
   );
 }

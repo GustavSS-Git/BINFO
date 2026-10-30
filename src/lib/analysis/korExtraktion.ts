@@ -61,6 +61,10 @@ export interface KorExtraktionResultat {
   extraction: ExtractionResult;
   /** The page-reference check's findings (sidreferenser.ts). */
   sidreferenser: Sidreferensfynd[];
+  /** Measurement only: the grounding findings fed to the extraction call. */
+  groundingText: string;
+  /** Measurement only: the extraction's raw JSON before slutfor.ts. */
+  raExtraktion?: unknown;
   calls: ModelCallMetrics[];
   spentSek: number;
   steg: StegTid[];
@@ -195,6 +199,8 @@ export async function korExtraktion(
       tak: maxCostSek,
       extraction: strukturerad.extraction,
       sidreferenser: strukturerad.sidreferenser ?? [],
+      groundingText,
+      raExtraktion: strukturerad.raExtraktion,
       calls,
       spentSek,
       steg,

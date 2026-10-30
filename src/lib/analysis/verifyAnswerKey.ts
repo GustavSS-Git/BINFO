@@ -397,6 +397,7 @@ async function main() {
     let steg: StegTid[] = [];
     let textlager: string | undefined;
     let sidreferenser: Sidreferensfynd[] = [];
+    let underlag: { groundingText: string; raExtraktion?: unknown } | undefined;
     const wallStart = performance.now();
     try {
       if (sparatResultat) {
@@ -428,6 +429,7 @@ async function main() {
         steg = korning.steg;
         textlager = korning.textlager;
         sidreferenser = korning.sidreferenser;
+        underlag = { groundingText: korning.groundingText, raExtraktion: korning.raExtraktion };
       }
     } catch (error) {
       console.log(`  MISSLYCKADES — ${fixture.kalla.fil}: ${felText(error)}`);
@@ -498,6 +500,13 @@ async function main() {
           2,
         ),
       );
+      // Grounding findings + the extraction's raw JSON, to locate where an item is lost.
+      if (underlag) {
+        await writeFile(
+          path.join(sparResultatDir, `${namn}.underlag.json`),
+          JSON.stringify(underlag, null, 2),
+        );
+      }
     }
 
     // Nyckeltal and lanebok score into the draft tally when the key's values are a
@@ -632,6 +641,7 @@ async function main() {
         balansdag: extraction.forening.balansdag,
         lan: lanebok?.lan,
         rantekostnader: lanebok?.rantekostnader,
+        totalSkuld: lanebok?.totalSkuld,
       });
       console.log(
         `  Lån (facit ${fixture.lanFacit.status ?? "verifierad"}): ${lanebok?.lan?.length ?? 0} extraherade, ${fixture.lanFacit.lan.length} i facit`,
@@ -677,7 +687,9 @@ async function main() {
         );
       }
       for (const a of forening.genomfordaAtgarder ?? []) {
-        console.log(`  · åtgärd ${a.byggdel} ${a.ar} (sida ${a.ref.page}): ${a.text}`);
+        console.log(
+          `  · åtgärd ${a.byggdel} ${a.ar} ${a.omfattning ?? "byte"} (sida ${a.ref.page}): ${a.text}`,
+        );
       }
       const up = forening.underhallsplan;
       console.log(

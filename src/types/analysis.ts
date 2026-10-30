@@ -277,13 +277,28 @@ export interface Forening {
   };
 
   /** Major renovations already done, with the year (PROMPT_VERSION 10). Only
-   *  the tracked building parts; every item cited. */
-  genomfordaAtgarder?: Array<{ byggdel: Byggdel; ar: number; text: string; ref: PageRef }>;
+   *  the tracked building parts; every item cited. `omfattning` (PROMPT_VERSION
+   *  16, owner 2026-10-30): "byte" = the part was replaced; "forlangning" = a
+   *  renovation that only extends its life (relining, roof repaint, window
+   *  renovation, facade repair, new elcentral). Absent (older extractions) =
+   *  "byte". */
+  genomfordaAtgarder?: Array<{
+    byggdel: Byggdel;
+    ar: number;
+    omfattning?: "byte" | "forlangning";
+    text: string;
+    ref: PageRef;
+  }>;
 
   /** Whether the report says a negative sparande is a planned withdrawal, and
    *  whether it is financed (e.g. from the fund or a decided loan). Absent =
    *  the report doesn't address it. */
   sparandeUttag?: { planerat: Tristate; finansierat: Tristate; text?: string; ref?: PageRef };
+
+  /** Sparande per m² totalyta for the EARLIER fiscal years in the
+   *  flerårsöversikt (not the current year, which is the key figure), each
+   *  cited; at most three (PROMPT_VERSION 14, owner 2026-10-29). */
+  sparandeHistorik?: Array<{ ar: number; figure: Figure }>;
 
   /** Commercial premises the association lets out (PROMPT_VERSION 9). */
   lokaler?: {
@@ -620,16 +635,51 @@ export interface Sparbehov {
   malKrPerM2: number;
   malKalla: "investeringsbehov" | "rekommenderad_avsattning" | "planerade_kostnader" | "schablon";
   malRef?: PageRef;
-  /** The statutory sparande per m² totalyta; null when missing. */
+  /** The sparande per m² totalyta the gap uses: since 2026-10-29 the average
+   *  of up to four years (`sparandeAr`), else the latest year; null when missing. */
   sparandeKrPerM2: number | null;
   sparandeRef?: PageRef;
+  /** The years behind `sparandeKrPerM2`, latest first (absent before 2026-10-29). */
+  sparandeAr?: Array<{ ar: number; krPerM2: number; ref?: PageRef }>;
   /** Target − sparande, kr/m²/year; negative = surplus. */
   glappKrPerM2: number | null;
   totalyta: number | null;
-  /** Share of the gap that counts (1 with the förening's own plan, 0.5 with the schablon). */
+  /** Share of the gap that counts. Before 2026-10-29: 1 with the förening's own
+   *  plan, 0.5 with the schablon. Since then always 1: `finansiering` decides
+   *  how much of the gap reaches the fee. */
   dampning: number;
+  /** How the gap is paid within the horizon (since 2026-10-29). */
+  finansiering?: SparFinansiering;
   /** Only with the schablon target: the parts that moved it. */
   byggdelar?: ByggdelBedomning[];
+}
+
+/**
+ * How the förening pays its savings gap within the horizon (owner 2026-10-29).
+ * The gap below zero sparande (an operating deficit) is paid by the fee. The
+ * rest (from max(sparande, 0) up to the target) is borrowed while debt stays
+ * under the ceiling; only the interest on the borrowed amount reaches the fee.
+ * What does not fit under the ceiling is paid by the fee.
+ */
+export interface SparFinansiering {
+  /** Gap below zero sparande, kr/m² totalyta/year (0 when sparande ≥ 0). */
+  underskottKrPerM2: number;
+  /** Gap from max(sparande, 0) to the target, kr/m² totalyta/year (≥ 0). */
+  lanebartKrPerM2: number;
+  /** Interest-bearing debt per m² used for the headroom; null when unknown. */
+  skuldKrPerM2: number | null;
+  /** Which statutory key figure `skuldKrPerM2` is. */
+  skuldBas: "totalyta" | "bostadsrattsyta" | null;
+  /** Debt ceiling, kr/m² (BENCHMARKS.md acceptabel/svag limit). */
+  takKrPerM2: number;
+  /** Borrowed within the horizon, kr (0 without headroom or with unknown debt). */
+  lanatKr: number;
+  /** Rate on the borrowed amount, % (the prognosis' new-loan rate). */
+  rantaProcent: number;
+  /** BRF kr/year reaching the fee at the end of the horizon, by part. */
+  krPerArUnderskott: number;
+  krPerArOlanat: number;
+  krPerArRanta: number;
 }
 
 export interface ByggdelBedomning {
@@ -642,6 +692,10 @@ export interface ByggdelBedomning {
   livslangd: { lag: number; hog: number };
   status: "nyligen" | "ok" | "eftersatt" | "okant";
   ref?: PageRef;
+  /** The latest life-extending renovation after `senast` (owner 2026-10-30):
+   *  it keeps the part from counting as eftersatt until `tillAr`, never makes
+   *  it count as new. */
+  forlangning?: { ar: number; tillAr: number; ref: PageRef };
 }
 
 /** One loan in the refinancing calculation (round 2026-10-24c). */

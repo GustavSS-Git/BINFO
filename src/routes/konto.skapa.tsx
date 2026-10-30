@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { AuthSida, FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { AuthAside, AuthSida, FelRuta, InfoRuta, TEXTLANK } from "@/components/konto/AuthSida";
 import { GENERELLT_FEL, kontoHead } from "@/components/konto/kontoText";
 import { useGaTill } from "@/components/konto/useGaTill";
 import { Button, Field } from "@/components/ui/binfo";
@@ -63,7 +63,20 @@ function SkapaKonto() {
 
   if (skickat !== null) {
     return (
-      <AuthSida eyebrow="Mitt konto" title="Kolla din e-post">
+      <AuthSida
+        eyebrow="Mitt konto"
+        title="Kolla din e-post"
+        aside={
+          <AuthAside
+            rubrik="Bra att veta"
+            punkter={[
+              "Länken i mejlet fungerar en gång och gäller en begränsad tid.",
+              "Kommer inget mejl? Titta i skräpposten och kontrollera att adressen är rätt skriven.",
+              "Du kan öppna länken i en ny flik. Den här sidan går vidare när kontot är bekräftat.",
+            ]}
+          />
+        }
+      >
         <InfoRuta>
           <p>
             Om adressen {skickat} går att använda har vi skickat ett mejl med en länk för att
@@ -71,13 +84,9 @@ function SkapaKonto() {
           </p>
           <p>Du kan öppna länken i en ny flik. Den här sidan går vidare när kontot är bekräftat.</p>
         </InfoRuta>
-        <p className="mt-6 text-sm text-muted-foreground">
+        <p className="border-t border-border pt-4 text-[15px] text-text-2">
           Redan bekräftat?{" "}
-          <Link
-            to="/konto/logga-in"
-            search={inloggningsSok(till, spara)}
-            className="font-medium text-primary underline underline-offset-2"
-          >
+          <Link to="/konto/logga-in" search={inloggningsSok(till, spara)} className={TEXTLANK}>
             Logga in
           </Link>
         </p>
@@ -90,11 +99,25 @@ function SkapaKonto() {
       eyebrow="Mitt konto"
       title="Skapa konto"
       lead="Med ett konto kan du spara värderingar och bolånekalkyler och hitta tillbaka till dina analyser."
+      aside={
+        <AuthAside
+          rubrik="Det här sparas på ditt konto"
+          punkter={[
+            "Dina analyser, så att du hittar tillbaka till rapporterna",
+            "Sparade värderingar, som du kan räkna om senare",
+            "Namngivna kalkyler från bolånekalkylen",
+            "Hur långt du har kommit i köpguiden",
+          ]}
+          not="Du behöver inget konto för att analysera en bostad."
+        />
+      }
     >
-      <form onSubmit={skicka} className="space-y-5">
+      <form onSubmit={skicka} className="flex flex-col gap-[18px]">
         <Field
-          label="E-postadress"
+          label="E-post"
           type="email"
+          name="epost"
+          autoComplete="email"
           placeholder="namn@exempel.se"
           value={epost}
           onChange={setEpost}
@@ -102,6 +125,8 @@ function SkapaKonto() {
         <Field
           label="Lösenord"
           type="password"
+          name="losenord"
+          autoComplete="new-password"
           value={losenord}
           onChange={setLosenord}
           hint={`Minst ${MIN_LOSENORD_TECKEN} tecken.`}
@@ -111,20 +136,16 @@ function SkapaKonto() {
           {skickar ? "Skapar konto…" : "Skapa konto"}
         </Button>
       </form>
-      <p className="mt-4 text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Läs hur vi hanterar dina uppgifter i{" "}
-        <Link to="/integritet" className="underline underline-offset-2">
+        <Link to="/integritet" className={TEXTLANK}>
           integritetspolicyn
         </Link>
         .
       </p>
-      <p className="mt-6 text-sm text-muted-foreground">
+      <p className="border-t border-border pt-4 text-[15px] text-text-2">
         Har du redan ett konto?{" "}
-        <Link
-          to="/konto/logga-in"
-          search={inloggningsSok(till, spara)}
-          className="font-medium text-primary underline underline-offset-2"
-        >
+        <Link to="/konto/logga-in" search={inloggningsSok(till, spara)} className={TEXTLANK}>
           Logga in
         </Link>
       </p>

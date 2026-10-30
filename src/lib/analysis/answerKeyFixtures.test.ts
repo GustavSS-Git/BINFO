@@ -88,13 +88,19 @@ describe("fixtures/answer-key-lan", () => {
     data: JSON.parse(readFileSync(path.join(lanDir, f), "utf-8")) as LanFacitFilTest,
   }));
 
-  it("finns för de fem rapporterna med lånenot", () => {
+  it("finns för de tio rapporterna med lånenot och den skuldfria Göken 29", () => {
     expect(nycklar.map((n) => n.data.orgnr).sort()).toEqual([
+      "702000-9960",
+      "702002-5446",
       "716419-8579",
       "716420-0599",
       "716421-9722",
       "743000-3215",
+      "746000-1865",
+      "769603-2254",
       "769616-0253",
+      "769616-3273",
+      "769631-3761",
     ]);
   });
 
@@ -135,7 +141,7 @@ describe("fixtures/answer-key-underhall", () => {
     orgnr: string;
     status: string;
     kalla: { fil: string };
-    genomfordaAtgarder: Array<{ byggdel: string; ar: number; sida: number }>;
+    genomfordaAtgarder: Array<{ byggdel: string; ar: number; omfattning?: string; sida: number }>;
     tillatnaExtra?: Array<{ byggdel: string; ar: number }>;
   }
   const BYGGDELAR = ["stambyte", "tak", "fasad", "fonster", "ventilation", "el", "hiss"];
@@ -146,11 +152,19 @@ describe("fixtures/answer-key-underhall", () => {
       data: JSON.parse(readFileSync(path.join(dir, f), "utf-8")) as UnderhallNyckel,
     }));
 
-  it("finns för fyra rapporter, heter som sitt orgnr och är markerade UTKAST", () => {
-    expect(nycklar).toHaveLength(4);
+  it("finns för nio rapporter, heter som sitt orgnr och är markerade UTKAST", () => {
+    expect(nycklar).toHaveLength(9);
     for (const { fil, data } of nycklar) {
       expect(fil, fil).toBe(`${data.orgnr}.json`);
       expect(data.status, fil).toBe("UTKAST");
+    }
+  });
+
+  it("varje krävd åtgärd anger byte eller förlängning (ägaren 2026-10-30)", () => {
+    for (const { fil, data } of nycklar) {
+      for (const a of data.genomfordaAtgarder) {
+        expect(["byte", "forlangning"], `${fil} ${a.byggdel} ${a.ar}`).toContain(a.omfattning);
+      }
     }
   });
 

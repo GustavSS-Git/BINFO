@@ -1,0 +1,66 @@
+{
+  "orgnr": "746000-1865",
+  "namn": "Brf Albohem",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "SBC årsredovisning.pdf",
+    "forvaltare": "SBC",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren (sida 5; årtal och åtgärd står i två kolumner, parade efter radens y-position i pdf.js; ett årtal gäller flera rader; trycksidan är 'Sida 3 av 17'); omklassad byte/förlängning 2026-10-30"
+  },
+  "anmarkning": "Omfattning (2026-10-30): byte: stambyte 2004, tak 2007 (nytt tak), stambyte 2012 (byte stammar badrum; re-ling samma år, ett objekt med byte), el 1999 (kablage utbytt). Förlängning: fönster 2017 (målningsarbeten fönster och dörrar 2016–2017, intervall → sista året). Utanför: fasad 1983 (tilläggsisolering), fasad 2020 (Huskropp utvändigt, oklart vad), ventilation 2022 (bara OVK), tvättstuga 2000, dörrar 2003, värmecentral, balkonger, innergård, källarnedfart, energideklaration, lås, garantibesiktning, armaturer. Ingen investeringsbehov per m², rekommenderad avsättning eller plantotal i rapporten.",
+  "balansdag": "2024-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "stambyte",
+      "ar": 2004,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "2004 Vatten - Byte av stammar till kök och nya ledningar till förbrukare i kök / Avlopp - Byte av stammar till kök och anslutande ledningar i kök"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2007,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "2007 Tak - Nytt tak samt renovering av takfönster"
+    },
+    {
+      "byggdel": "stambyte",
+      "ar": 2012,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "2012 Vatten - Byte stammar till badrum, nya ledningar till förbrukare i badrum / Avlopp - Re-ling stammar till badrum och anslutande ledningar i badrum"
+    },
+    {
+      "byggdel": "el",
+      "ar": 1999,
+      "omfattning": "byte",
+      "sida": 5,
+      "tryckt": "1999 El - El-installation med kablage utbytt"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2017,
+      "omfattning": "forlangning",
+      "sida": 5,
+      "tryckt": "2016-2017 Fönster och dörrar - Målningsarbeten"
+    }
+  ],
+  "tillatnaExtra": [
+    {
+      "byggdel": "fasad",
+      "ar": 1983,
+      "sida": 5,
+      "tryckt": "1983 Fasad - Tilläggsisoleras"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2020,
+      "sida": 5,
+      "tryckt": "2020 Huskropp utvändigt - Åtgärder efter underhållsplan"
+    }
+  ],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

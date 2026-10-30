@@ -7,21 +7,41 @@
  * antal vuxna + barn, tomt "antal vuxna" betyder antal låntagare.
  */
 import type { BolanekalkylSearch } from "@/lib/bolanekalkyl";
-import { talTillFalttext, tolkaFalt, type GransNyckel } from "@/lib/kalkyl/indata";
+import {
+  beloppTillFalttext,
+  talTillFalttext,
+  tolkaFalt,
+  type GransNyckel,
+} from "@/lib/kalkyl/indata";
 import { MIN_KONTANTINSATS_ANDEL, tal } from "@/lib/kalkyl/regler";
 import {
+  AVGIFT_FORVAL,
   KALKYL_UNDERLAG_VERSION,
   KalkylUnderlagSchema,
+  tillKalkylAvgift,
+  type AvgiftPostId,
   type BarnAlder,
   type EgenKostnadId,
+  type KalkylAvgiftInkluderar,
   type KalkylUnderlag,
 } from "@/lib/kalkyl/underlag";
 import type { FeeInclusion } from "@/types/analysis";
 
 export const BARN_ALDRAR: readonly BarnAlder[] = ["0-3", "4-6", "7-10", "11-14", "15-17"];
 
+/** Which prefilled values still carry "Från rapporten": set by `sidaFranSokning`,
+ *  removed per field as soon as the user edits it (a chip loses the mark when it
+ *  is toggled). Kontantinsats is never marked: it is Binfo's default (10 %), not a
+ *  fact from the report. Never saved (not part of the underlag). */
+export interface FranRapport {
+  pris?: true;
+  manadsavgift?: true;
+  boarea?: true;
+  avgift?: Partial<Record<AvgiftPostId, true>>;
+}
+
 export interface KalkylSida {
-  lanebelopp: string;
+  pris: string;
   kontantinsats: string;
   ranta: string;
   manadsavgift: string;
@@ -35,14 +55,15 @@ export interface KalkylSida {
   barn: Record<BarnAlder, string>;
   rantestressPp: number;
   kalkylranta: string;
-  avgiftInkluderar: FeeInclusion;
+  avgiftInkluderar: KalkylAvgiftInkluderar;
   rantekanslighetProcent: number | undefined;
   egnaKostnader: Partial<Record<EgenKostnadId, number>>;
   kalla: KalkylUnderlag["kalla"];
+  franRapport: FranRapport;
 }
 
 export type SidaFalt =
-  | "lanebelopp"
+  | "pris"
   | "kontantinsats"
   | "ranta"
   | "manadsavgift"
@@ -56,19 +77,9 @@ export type SidaFalt =
 
 export type SidaFel = Partial<Record<SidaFalt, string>>;
 
-/** Värme och vatten ingår normalt i avgiften i en bostadsrätt: förvalt "ja" (0 kr),
- *  köparen väljer "nej" när de betalas separat. Övriga poster är okända. */
-const OKANT_ALLA: FeeInclusion = {
-  varme: "ja",
-  vatten: "ja",
-  el: "okant",
-  bredband: "okant",
-  tv: "okant",
-};
-
 export function tomSida(): KalkylSida {
   return {
-    lanebelopp: "",
+    pris: "",
     kontantinsats: "",
     ranta: "",
     manadsavgift: "",
@@ -81,41 +92,102 @@ export function tomSida(): KalkylSida {
     barn: { "0-3": "", "4-6": "", "7-10": "", "11-14": "", "15-17": "" },
     rantestressPp: 0,
     kalkylranta: talTillFalttext(tal("kalkylranta_standard")),
-    avgiftInkluderar: { ...OKANT_ALLA },
+    avgiftInkluderar: { ...AVGIFT_FORVAL },
     rantekanslighetProcent: undefined,
     egnaKostnader: {},
     kalla: undefined,
+    franRapport: {},
   };
 }
 
-/** Förifyllning från sökparametrarna (länk från en analys eller från priskollen på /analysera). */
-export function sidaFranSokning(
-  search: BolanekalkylSearch,
-  avgiftInkluderar?: FeeInclusion,
-): KalkylSida {
+/** Förifyllning från sökparametrarna (länk från en analys eller från priskollen på /analysera).
+ *  Priset fyller prisfältet direkt; kontantinsatsen förifylls med minsta tillåtna (10 %,
+ *  avrundat uppåt). Vad som ingår i avgiften (`ingar`/`ingarEj`) läggs på de förvalda svaren;
+ *  nycklar som inte nämns behåller förvalet. */
+export function sidaFranSokning(search: BolanekalkylSearch): KalkylSida {
   const sida = tomSida();
-  if (avgiftInkluderar) sida.avgiftInkluderar = { ...avgiftInkluderar };
   if (search.pris !== undefined) {
-    // Kalkylen har inget prisfält: priset delas i minsta kontantinsats och resten som lån.
-    const kontant = Math.ceil(search.pris * MIN_KONTANTINSATS_ANDEL);
-    sida.kontantinsats = String(kontant);
-    sida.lanebelopp = String(search.pris - kontant);
+    sida.pris = beloppTillFalttext(search.pris);
+    sida.kontantinsats = beloppTillFalttext(Math.ceil(search.pris * MIN_KONTANTINSATS_ANDEL));
+    sida.franRapport.pris = true;
   }
-  if (search.manadsavgift !== undefined) sida.manadsavgift = String(search.manadsavgift);
-  if (search.boarea !== undefined) sida.boarea = talTillFalttext(search.boarea);
+  if (search.manadsavgift !== undefined) {
+    sida.manadsavgift = beloppTillFalttext(search.manadsavgift);
+    sida.franRapport.manadsavgift = true;
+  }
+  if (search.boarea !== undefined) {
+    sida.boarea = talTillFalttext(search.boarea);
+    sida.franRapport.boarea = true;
+  }
   sida.rantekanslighetProcent = search.rantekanslighet;
+  const avgift = avgiftFranSokning(search);
+  for (const id of AVGIFT_ORDNING) {
+    const v = avgift[id];
+    if (v === undefined) continue;
+    sida.avgiftInkluderar[id] = v;
+    (sida.franRapport.avgift ??= {})[id] = true;
+  }
   if (search.pris !== undefined) {
     sida.kalla = {
       pris: search.pris,
       ...(search.prisUppskattning !== undefined
         ? { prisArUppskattning: search.prisUppskattning }
         : {}),
+      ...(search.analys !== undefined ? { analysisId: search.analys } : {}),
     };
   }
   return sida;
 }
 
-export function underlagFranSida(sida: KalkylSida): { underlag: KalkylUnderlag; fel: SidaFel } {
+const AVGIFT_ORDNING: readonly AvgiftPostId[] = ["varme", "vatten", "el", "bredband", "tv"];
+
+/** Avgiftsposterna som sökparametrarna anger: `ingar` -> "ja", `ingarEj` -> "nej". */
+export function avgiftFranSokning(
+  search: Pick<BolanekalkylSearch, "ingar" | "ingarEj">,
+): Partial<KalkylAvgiftInkluderar> {
+  const ut: Partial<KalkylAvgiftInkluderar> = {};
+  for (const id of search.ingar?.split(",") ?? []) {
+    if ((AVGIFT_ORDNING as readonly string[]).includes(id)) ut[id as AvgiftPostId] = "ja";
+  }
+  for (const id of search.ingarEj?.split(",") ?? []) {
+    if ((AVGIFT_ORDNING as readonly string[]).includes(id)) ut[id as AvgiftPostId] = "nej";
+  }
+  return ut;
+}
+
+/** Ändrar ett fält och tar bort dess "Från rapporten"-märke (en chip för en avgiftspost
+ *  tappar märket via `andraAvgift`). Rena funktioner så att sidan inte bär logiken. */
+export function andraFalt<K extends keyof KalkylSida>(
+  sida: KalkylSida,
+  nyckel: K,
+  varde: KalkylSida[K],
+): KalkylSida {
+  const { [nyckel as string]: _bort, ...franRapport } = sida.franRapport as Record<string, unknown>;
+  return { ...sida, [nyckel]: varde, franRapport: franRapport as FranRapport };
+}
+
+export function andraAvgift(
+  sida: KalkylSida,
+  id: AvgiftPostId,
+  varde: KalkylAvgiftInkluderar[AvgiftPostId],
+): KalkylSida {
+  const { [id]: _bort, ...avgift } = sida.franRapport.avgift ?? {};
+  const { avgift: _gammal, ...resten } = sida.franRapport;
+  return {
+    ...sida,
+    avgiftInkluderar: { ...sida.avgiftInkluderar, [id]: varde },
+    franRapport: Object.keys(avgift).length > 0 ? { ...resten, avgift } : resten,
+  };
+}
+
+/** Sidans indata: som `KalkylSida`, men avgiftsposterna får också vara tre-lägesvärden
+ *  (den delade butiken `uppgifter` har det); "okant" räknas som "nej". */
+export type SidaIndata = Omit<KalkylSida, "avgiftInkluderar" | "franRapport"> & {
+  avgiftInkluderar: FeeInclusion;
+  franRapport?: FranRapport;
+};
+
+export function underlagFranSida(sida: SidaIndata): { underlag: KalkylUnderlag; fel: SidaFel } {
   const fel: SidaFel = {};
   const les = (text: string, falt: SidaFalt, nyckel: GransNyckel): number | undefined => {
     const t = tolkaFalt(text, nyckel);
@@ -126,7 +198,7 @@ export function underlagFranSida(sida: KalkylSida): { underlag: KalkylUnderlag; 
     return t.art === "tal" ? t.varde : undefined;
   };
 
-  const lanebelopp = les(sida.lanebelopp, "lanebelopp", "lanebelopp");
+  const pris = les(sida.pris, "pris", "pris");
   const kontantinsats = les(sida.kontantinsats, "kontantinsats", "kontantinsats");
   const ranta = les(sida.ranta, "ranta", "ranta");
   const manadsavgift = les(sida.manadsavgift, "manadsavgift", "manadsavgift");
@@ -147,12 +219,12 @@ export function underlagFranSida(sida: KalkylSida): { underlag: KalkylUnderlag; 
 
   const underlag: KalkylUnderlag = {
     version: KALKYL_UNDERLAG_VERSION,
-    ...(lanebelopp !== undefined ? { lanebelopp } : {}),
+    ...(pris !== undefined ? { pris } : {}),
     ...(kontantinsats !== undefined ? { kontantinsats } : {}),
     ...(ranta !== undefined ? { rantaProcent: ranta } : {}),
     ...(manadsavgift !== undefined ? { manadsavgift } : {}),
     ...(boarea !== undefined ? { boarea } : {}),
-    avgiftInkluderar: { ...sida.avgiftInkluderar },
+    avgiftInkluderar: tillKalkylAvgift(sida.avgiftInkluderar),
     antalLantagare,
     ...(inkomst1 !== undefined ? { inkomst1 } : {}),
     ...(inkomst2 !== undefined ? { inkomst2 } : {}),
@@ -172,17 +244,18 @@ export function underlagFranSida(sida: KalkylSida): { underlag: KalkylUnderlag; 
 
 export function sidaFranUnderlag(u: KalkylUnderlag): KalkylSida {
   const s = (n: number | undefined) => (n === undefined ? "" : talTillFalttext(n));
+  const b = (n: number | undefined) => (n === undefined ? "" : beloppTillFalttext(n));
   const barn = tomSida().barn;
   for (const alder of u.barn) barn[alder] = String(Number(barn[alder] || "0") + 1);
   return {
-    lanebelopp: s(u.lanebelopp),
-    kontantinsats: s(u.kontantinsats),
+    pris: b(u.pris),
+    kontantinsats: b(u.kontantinsats),
     ranta: s(u.rantaProcent),
-    manadsavgift: s(u.manadsavgift),
+    manadsavgift: b(u.manadsavgift),
     boarea: s(u.boarea),
     antalLantagare: u.antalLantagare === 2 ? "2" : "1",
-    inkomst1: s(u.inkomst1),
-    inkomst2: s(u.inkomst2),
+    inkomst1: b(u.inkomst1),
+    inkomst2: b(u.inkomst2),
     antalPersoner: String(u.antalPersoner),
     antalVuxna: String(u.antalVuxna),
     barn,
@@ -192,6 +265,7 @@ export function sidaFranUnderlag(u: KalkylUnderlag): KalkylSida {
     rantekanslighetProcent: u.rantekanslighetProcent,
     egnaKostnader: { ...u.egnaKostnader },
     kalla: u.kalla,
+    franRapport: {},
   };
 }
 

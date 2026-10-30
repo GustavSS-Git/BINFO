@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { AuthSida, FelRuta, InfoRuta } from "@/components/konto/AuthSida";
+import { AuthAside, AuthSida, FelRuta, InfoRuta, TEXTLANK } from "@/components/konto/AuthSida";
 import { GENERELLT_FEL, kontoHead } from "@/components/konto/kontoText";
 import { useGaTill } from "@/components/konto/useGaTill";
 import { Button } from "@/components/ui/binfo";
@@ -25,6 +25,17 @@ export const Route = createFileRoute("/konto/bekrafta")({
   component: Bekrafta,
 });
 
+const aside = (
+  <AuthAside
+    rubrik="Bra att veta"
+    punkter={[
+      "Länken i mejlet fungerar en gång och gäller en begränsad tid.",
+      "Är länken ogiltig eller har gått ut kan du begära en ny.",
+      "Du måste trycka på knappen för att bekräfta. Då skyddas länken mot mejlskannrar som öppnar den i förväg.",
+    ]}
+  />
+);
+
 type Lage =
   | { typ: "vilar" }
   | { typ: "kontrollerar" }
@@ -44,13 +55,10 @@ function Bekrafta() {
 
   if (tokenHash === undefined || type === undefined) {
     return (
-      <AuthSida eyebrow="Mitt konto" title="Länken fungerar inte">
+      <AuthSida eyebrow="Mitt konto" title="Länken fungerar inte" aside={aside}>
         <FelRuta>Länken är ofullständig. Öppna den direkt från mejlet eller begär en ny.</FelRuta>
-        <p className="mt-6 text-sm text-muted-foreground">
-          <Link
-            to="/konto/logga-in"
-            className="font-medium text-primary underline underline-offset-2"
-          >
+        <p className="text-[15px] text-text-2">
+          <Link to="/konto/logga-in" className={TEXTLANK}>
             Till inloggningen
           </Link>
         </p>
@@ -87,11 +95,11 @@ function Bekrafta() {
 
   if (lage.typ === "klar") {
     return (
-      <AuthSida eyebrow="Mitt konto" title="Kontot är bekräftat">
+      <AuthSida eyebrow="Mitt konto" title="Kontot är bekräftat" aside={aside}>
         <InfoRuta>
           <p>Din e-postadress är bekräftad och du är inloggad.</p>
         </InfoRuta>
-        <Button size="lg" className="mt-6 w-full" onClick={() => gaTill(lage.mal, lage.spara)}>
+        <Button size="lg" className="w-full" onClick={() => gaTill(lage.mal, lage.spara)}>
           {lage.spara !== undefined ? "Fortsätt och spara" : "Fortsätt"}
         </Button>
       </AuthSida>
@@ -108,6 +116,7 @@ function Bekrafta() {
           ? "Tryck på knappen för att fortsätta och välja ett nytt lösenord."
           : "Tryck på knappen för att bekräfta din e-postadress och logga in."
       }
+      aside={aside}
     >
       <div className="space-y-5">
         {lage.typ === "fel" ? (
@@ -116,7 +125,7 @@ function Bekrafta() {
             <p className="text-sm text-muted-foreground">
               <Link
                 to={aterstallning ? "/konto/glomt-losenord" : "/konto/logga-in"}
-                className="font-medium text-primary underline underline-offset-2"
+                className={TEXTLANK}
               >
                 {aterstallning ? "Begär en ny länk" : "Till inloggningen"}
               </Link>

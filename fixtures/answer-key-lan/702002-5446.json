@@ -1,0 +1,65 @@
+{
+  "orgnr": "702002-5446",
+  "namn": "Bostadsföreningen Volontären 12 UPA",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "A_rsredovisning_2023_BF_Volonta_ren_12_u_p_a (1).pdf",
+    "forvaltare": "okänd",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren; lånenoten (Not 5,6) på sida 12 (kolumner parade efter x/y-position)"
+  },
+  "anmarkning": "Not 5,6 (Övriga skulder till kreditinstitut); kolumnerna är Lånebelopp 2022-12-31, Räntesats, Bundet till, Amortering år 2023, Lånebelopp 2023-12-31. Belopp = sista kolumnen (lån 4: 487 548 − 4 976 = 482 572; lån 5: 918 225 − 9 900 = 908 325). Räkenskapsår 2023. Hela skulden utom lån 5 förfaller 2024; summa 3 208 781 stämmer med balansräkningen (898 425 långfristig + 2 310 356 kortfristig). Räntekostnader: resultaträkningen har 'Räntekostnader för fastighetslån -91 233' och 'Övriga räntekostnader och liknande resultatposter 0' (ingen rad med exakt rubriken 'Räntekostnader och liknande resultatposter'); beloppet är summan. Lånenumren efter Stadshypotek är lånenummer, inte belopp.",
+  "balansdag": "2023-12-31",
+  "lanenotSida": 12,
+  "totalSkuld": {
+    "belopp": 3208781,
+    "sida": 12,
+    "tryckt": "Totalt 3 223 657 14 876 3 208 781"
+  },
+  "rantekostnader": {
+    "belopp": 91233,
+    "sida": 5,
+    "tryckt": "Räntekostnader för fastighetslån -91 233 -36 053"
+  },
+  "lan": [
+    {
+      "kreditgivare": "Stadshypotek",
+      "belopp": 1000000,
+      "ranta": 4.85,
+      "villkorsandringsdag": "2024-01-02",
+      "sida": 12,
+      "tryckt": "Stadshypotek 32753 1 000 000 4,85% 2024-01-02 0 1 000 000"
+    },
+    {
+      "kreditgivare": "Stadshypotek",
+      "belopp": 200000,
+      "ranta": 5.7,
+      "villkorsandringsdag": "2024-03-07",
+      "sida": 12,
+      "tryckt": "Stadshypotek 196279 200 000 5,70% 2024-03-07 0 200 000"
+    },
+    {
+      "kreditgivare": "Stadshypotek",
+      "belopp": 617884,
+      "ranta": 5.05,
+      "villkorsandringsdag": "2024-03-01",
+      "sida": 12,
+      "tryckt": "Stadshypotek 399800 617 884 5,05% 2024-03-01 0 617 884"
+    },
+    {
+      "kreditgivare": "Stadshypotek",
+      "belopp": 482572,
+      "ranta": 1.06,
+      "villkorsandringsdag": "2024-10-30",
+      "sida": 12,
+      "tryckt": "Stadshypotek 457472 487 548 1,06% 2024-10-30 4 976 482 572"
+    },
+    {
+      "kreditgivare": "Stadshypotek",
+      "belopp": 908325,
+      "ranta": 1.27,
+      "villkorsandringsdag": "2026-07-30",
+      "sida": 12,
+      "tryckt": "Stadshypotek 498737 918 225 1,27% 2026-07-30 9 900 908 325"
+    }
+  ]
+}

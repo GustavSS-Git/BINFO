@@ -36,6 +36,7 @@ import type { Prisdatakalla } from "@/lib/analysis/prisdata";
 import {
   MAX_ETIKETT_TECKEN,
   type AnalysPost,
+  type HamtaKopguideSvar,
   type HamtaMinaUppgifterSvar,
   type HamtaSparadKalkylSvar,
   type HamtaSparadVarderingSvar,
@@ -44,6 +45,7 @@ import {
   type ListaSparatSvar,
   type RaderaSparatSvar,
   type SparaKalkylSvar,
+  type SparaKopguideSvar,
   type SparaVarderingSvar,
   type SparadKalkyl,
   type SparadKalkylPost,
@@ -54,6 +56,7 @@ import {
   type HamtaSparstatusSvar,
   type SparaAnalysSvar,
 } from "@/lib/kontoTyper";
+import { MAX_KLARA, normaliseraKlara } from "@/lib/kopguide/framsteg";
 import { kontoFel } from "./fel";
 import type { Kontext, KontextKallor } from "./kontext";
 import type {
@@ -478,8 +481,39 @@ export async function hamtaMinaUppgifter(b: SparatBeroenden): Promise<HamtaMinaU
         })),
         sparadeVarderingar: exp.sparadeVarderingar,
         sparadeKalkyler: exp.sparadeKalkyler,
+        kopguide: exp.kopguide,
       },
     };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Köpguidens framsteg (redesign v4, steg 3c)
+// ---------------------------------------------------------------------------
+
+const KopguideIndataSchema = z.object({
+  klara: z.array(z.string().max(40)).max(MAX_KLARA),
+});
+
+/** The account's ticked-off köpguide steps (empty list when none saved). */
+export async function hamtaKopguide(b: SparatBeroenden): Promise<HamtaKopguideSvar> {
+  return skyddad<HamtaKopguideSvar>(async () => {
+    const principalId = kravAgare(b.kontext);
+    const klara = (await b.db.lasKopguide(principalId)) ?? [];
+    return { ok: true, klara: normaliseraKlara(klara) };
+  });
+}
+
+/** Replaces the account's progress. `data` = `{ klara: string[] }`; unknown
+ *  step ids are dropped, a malformed body is `ogiltig_indata`. */
+export async function sparaKopguide(b: SparatBeroenden, data: unknown): Promise<SparaKopguideSvar> {
+  return skyddad<SparaKopguideSvar>(async () => {
+    const principalId = kravAgare(b.kontext);
+    const tolkad = KopguideIndataSchema.safeParse(arObjekt(data));
+    if (!tolkad.success) return kontoFel("ogiltig_indata");
+    const klara = normaliseraKlara(tolkad.data.klara);
+    await b.db.skrivKopguide(principalId, klara);
+    return { ok: true, klara };
   });
 }
 

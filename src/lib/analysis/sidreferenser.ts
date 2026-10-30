@@ -123,7 +123,35 @@ export function kanoniseraText(text: string): string {
     .replace(/(^|[^\p{L}\p{N}])-(?=\d)/gu, `$1${MINUS}`)
     .replace(/-/g, "")
     .replace(/[\s"'`´“”„‘’‚«»•·▪●|]/gu, "")
-    .replaceAll(MINUS, "-");
+    .replaceAll(MINUS, "-")
+    .replace(/\p{Co}+/gu, LUCKA);
+}
+
+/**
+ * A gap in a broken text layer. Some PDF producers (Nabo's årsredovisningar,
+ * 2026) map the ligature glyphs "t", "ti", "tt", "fi", "fl", "ft" to
+ * private-use code points, so pdf.js reads "Värdeåret" as "Värdeåre\uE035" and
+ * "Fastighet" as "Fas\uE03Fghe\uE035". Every run of private-use characters
+ * becomes this one marker; `finnsIOrdning` lets it stand for 1–3 of those
+ * letters, or for nothing when the excerpt was copied from the broken layer.
+ */
+const LUCKA = "\uE000";
+/** Letters a ligature gap can swallow. */
+const LUCKBOKSTAVER = new Set(["f", "i", "l", "t"]);
+
+function regexTecken(c: string): string {
+  return c.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
+
+/** Matches `del` on a page with gaps: before each character an optional gap,
+ *  and a gap letter may be the gap itself or be swallowed by the gap before it. */
+function luckMonster(del: string): RegExp {
+  const delar = [...del].map((c) =>
+    LUCKBOKSTAVER.has(c)
+      ? `${LUCKA}?(?:${regexTecken(c)}|${LUCKA}|(?<=${LUCKA}))`
+      : `${LUCKA}?${regexTecken(c)}`,
+  );
+  return new RegExp(delar.join(""), "gu");
 }
 
 /** Pieces of an excerpt joined with an ellipsis ("SBAB 3,2 % … 25 000 000,00")
@@ -131,7 +159,7 @@ export function kanoniseraText(text: string): string {
 function delaUtdrag(utdrag: string): string[] {
   const delar = utdrag
     .split(/…|\.{3,}/)
-    .map(kanoniseraText)
+    .map((d) => kanoniseraText(d).replaceAll(LUCKA, ""))
     .filter((d) => d.length > 0);
   if (delar.length <= 1) return delar;
   // A stray fragment of a few characters ("kr") proves nothing and only makes the
@@ -142,11 +170,20 @@ function delaUtdrag(utdrag: string): string[] {
 
 /** True when every fragment occurs in `sida`, each after the previous one. */
 function finnsIOrdning(delar: readonly string[], sida: string): boolean {
+  const medLuckor = sida.includes(LUCKA);
   let fran = 0;
   for (const del of delar) {
-    const i = sida.indexOf(del, fran);
-    if (i === -1) return false;
-    fran = i + del.length;
+    if (!medLuckor) {
+      const i = sida.indexOf(del, fran);
+      if (i === -1) return false;
+      fran = i + del.length;
+      continue;
+    }
+    const m = luckMonster(del);
+    m.lastIndex = fran;
+    const traff = m.exec(sida);
+    if (traff === null) return false;
+    fran = traff.index + traff[0].length;
   }
   return true;
 }
@@ -338,8 +375,8 @@ function verifieraNod(nod: unknown, sokvag: string, k: Kontext): unknown {
 /** True when `varde` (a street address, a beteckning, a postnummer) is printed
  *  on `sida` — compared in canonical form. */
 function finnsPaSidan(sidor: Sidor, sida: number, varde: string): boolean {
-  const kanon = kanoniseraText(varde);
-  return kanon.length > 0 && (sidor.text(sida) ?? "").includes(kanon);
+  const kanon = kanoniseraText(varde).replaceAll(LUCKA, "");
+  return kanon.length > 0 && finnsIOrdning([kanon], sidor.text(sida) ?? "");
 }
 
 function kontrolleraAdresser(

@@ -69,6 +69,7 @@ export interface PrincipalExport {
   analyser: ExporteradAnalys[];
   sparadeVarderingar: ExporteradVardering[];
   sparadeKalkyler: ExporteradKalkyl[];
+  kopguide: { klara: string[]; uppdaterad: string } | null;
 }
 
 /** Row counts removed by `raderaPrincipal` — returned so the CLI can print
@@ -211,6 +212,13 @@ export interface KontoDatabas {
   // -------------------------------------------------------------------------
   // v3 (supabase/migrations/20261013120000_konto_v3.sql)
   // -------------------------------------------------------------------------
+
+  // Köpguidens framsteg (supabase/migrations/20261028120000_kopguide.sql):
+  // one row per principal.
+  /** Null when the principal has no row. */
+  lasKopguide(principalId: string): Promise<string[] | null>;
+  /** Upsert of the principal's row. The caller has normalised `klara`. */
+  skrivKopguide(principalId: string, klara: string[]): Promise<void>;
 
   /** Wraps `sakerstall_konto_principal`: the `typ = 'konto'` principal of a
    *  Supabase Auth user (created on first call, race-safe). With `enhetId`,

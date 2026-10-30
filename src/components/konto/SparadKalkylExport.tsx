@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/binfo";
+import { NedladdningIkon, RAD_TEXT } from "@/components/konto/radAtgard";
 import { hamtaSparadKalkylFn } from "@/server/analysFn";
 import type { HamtaSparadKalkylSvar } from "@/lib/kontoTyper";
 import type { KalkylUnderlag } from "@/lib/kalkyl/underlag";
@@ -52,17 +52,29 @@ export function SparadKalkylExportVy({
   const avstangd = upptagen || lage.typ === "ejStod";
   return (
     <>
-      <Button variant="secondary" disabled={avstangd} onClick={() => onKlick("pdf")}>
+      <button
+        type="button"
+        className={`${RAD_TEXT} disabled:cursor-not-allowed disabled:text-muted-foreground`}
+        disabled={avstangd}
+        onClick={() => onKlick("pdf")}
+      >
+        <NedladdningIkon />
         {lage.typ === "pdf" ? "Skapar PDF…" : "PDF"}
-      </Button>
-      <Button variant="secondary" disabled={avstangd} onClick={() => onKlick("excel")}>
+      </button>
+      <button
+        type="button"
+        className={`${RAD_TEXT} disabled:cursor-not-allowed disabled:text-muted-foreground`}
+        disabled={avstangd}
+        onClick={() => onKlick("excel")}
+      >
+        <NedladdningIkon />
         {lage.typ === "excel" ? "Skapar Excel…" : "Excel"}
-      </Button>
+      </button>
       {lage.typ === "ejStod" ? (
-        <p className="basis-full text-xs text-muted-foreground">{EJ_STOD_TEXT}</p>
+        <p className="basis-full text-sm text-muted-foreground">{EJ_STOD_TEXT}</p>
       ) : null}
       {lage.typ === "fel" ? (
-        <p className="basis-full text-xs text-danger" role="alert">
+        <p className="basis-full text-sm text-danger-text" role="alert">
           {lage.meddelande}
         </p>
       ) : null}

@@ -1,0 +1,49 @@
+{
+  "orgnr": "702000-9960",
+  "namn": "Brf Ingemar 8",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "494868__F_ORG_T1087_4812.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren; lånenoten på sida 19 (textlagret ersätter t/f/ti med privata tecken)"
+  },
+  "anmarkning": "Lånenoten (sida 19); kolumnerna är Villkorsändringsdag, Räntesats 2025-12-31, Skuld 2025-12-31, Skuld 2024-12-31. Hela skulden är kortfristig (alla tre lånen villkorsändras inom ett år). Två lån har samma dag och ränta (2026-02-28, 2,49 %).",
+  "balansdag": "2025-12-31",
+  "lanenotSida": 19,
+  "totalSkuld": {
+    "belopp": 8476000,
+    "sida": 19,
+    "tryckt": "Summa 8 476 000 8 185 000"
+  },
+  "rantekostnader": {
+    "belopp": 228994,
+    "sida": 10,
+    "tryckt": "Räntekostnader och liknande resultatposter 10 -228 994 -302 485"
+  },
+  "lan": [
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 1476000,
+      "ranta": 2.49,
+      "villkorsandringsdag": "2026-02-28",
+      "sida": 19,
+      "tryckt": "Swedbank 2026-02-28 2,49 % 1 476 000 1 185 000"
+    },
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 3500000,
+      "ranta": 2.49,
+      "villkorsandringsdag": "2026-02-28",
+      "sida": 19,
+      "tryckt": "Swedbank 2026-02-28 2,49 % 3 500 000 3 500 000"
+    },
+    {
+      "kreditgivare": "Swedbank",
+      "belopp": 3500000,
+      "ranta": 2.53,
+      "villkorsandringsdag": "2026-01-28",
+      "sida": 19,
+      "tryckt": "Swedbank 2026-01-28 2,53 % 3 500 000 3 500 000"
+    }
+  ]
+}

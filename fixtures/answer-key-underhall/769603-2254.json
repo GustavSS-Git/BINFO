@@ -1,0 +1,88 @@
+{
+  "orgnr": "769603-2254",
+  "namn": "Brf Göken 29",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "DOK5PZ7WPD3G3LDGCQ53Q.pdf",
+    "forvaltare": "Nabo",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren (sida 6; årtal och åtgärd står i två kolumner men varje rad har eget årtal i samma y-position; trycksidan är 'Sida 4 av 18'); omklassad byte/förlängning 2026-10-30"
+  },
+  "anmarkning": "Omfattning (2026-10-30): byte: stambyte 2000, fasad 2001 (omputsning), fönster 2001, fönster 2018 (trapphus), hiss 2023, ventilation 2008 (installation av frånluftssystem). Förlängning: el 2015 (ny elundercentral = elcentral), el 2017 (byte av all el i kemtvätten, en lokal = partiell ommontering), tak 2018 (div takarbeten, delarbete), fönster 2020 (renovering/målning). Intervall → sista året. Utanför: balkonger, gårdsbjälklag, fjärrvärmecentral, filmning av avloppsstam 2017 (inget byte), entréportar, snörasskydd, innergård/dränering, ny tak över gårdshusentrén 2024. Ingen investeringsbehov per m², rekommenderad avsättning eller plantotal i rapporten.",
+  "balansdag": "2025-12-31",
+  "genomfordaAtgarder": [
+    {
+      "byggdel": "stambyte",
+      "ar": 2000,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2000 Rörstambyte"
+    },
+    {
+      "byggdel": "fasad",
+      "ar": 2001,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2000-2001 Omputsning av fasad"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2001,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2000-2001 Nya fönster"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2018,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2018 Nya fönster i trapphus"
+    },
+    {
+      "byggdel": "hiss",
+      "ar": 2023,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2023 Ny hiss"
+    },
+    {
+      "byggdel": "ventilation",
+      "ar": 2008,
+      "omfattning": "byte",
+      "sida": 6,
+      "tryckt": "2007-2008 Tätning av ventlationskanaler samt installation av frånluftssystem"
+    },
+    {
+      "byggdel": "el",
+      "ar": 2015,
+      "omfattning": "forlangning",
+      "sida": 6,
+      "tryckt": "2015 Ny elundercentral"
+    },
+    {
+      "byggdel": "el",
+      "ar": 2017,
+      "omfattning": "forlangning",
+      "sida": 6,
+      "tryckt": "2017 Byte av all el i kemtvätten"
+    },
+    {
+      "byggdel": "tak",
+      "ar": 2018,
+      "omfattning": "forlangning",
+      "sida": 6,
+      "tryckt": "2018 Div takarbeten mot gården samt målning av plåt"
+    },
+    {
+      "byggdel": "fonster",
+      "ar": 2020,
+      "omfattning": "forlangning",
+      "sida": 6,
+      "tryckt": "2020 Renovering/målning av fönster"
+    }
+  ],
+  "tillatnaExtra": [],
+  "investeringsbehovPerM2": null,
+  "rekommenderadAvsattning": null,
+  "planTotal": null
+}

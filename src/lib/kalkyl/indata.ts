@@ -35,7 +35,7 @@ export interface Faltgrans {
 }
 
 export const FALTGRANSER = {
-  lanebelopp: { min: 0, max: 100_000_000, enhet: "kr" },
+  pris: { min: 0, max: 100_000_000, enhet: "kr" },
   kontantinsats: { min: 0, max: 100_000_000, enhet: "kr" },
   ranta: { min: 0, max: 30, enhet: "%" },
   manadsavgift: { min: 0, max: 100_000, enhet: "kr" },
@@ -70,6 +70,16 @@ export function tolkaFalt(text: string, nyckel: GransNyckel): FaltTolkning {
     };
   }
   return t;
+}
+
+/** Belopp i kronor till fälttext med tusentalsavskiljare ("5 260 000"); parsern
+ *  (`tolkaTal`) tar bort mellanrummen igen. Decimaler behålls med komma. */
+export function beloppTillFalttext(n: number): string {
+  const [hel, dec] = String(n).split(".");
+  const med = Number(hel)
+    .toLocaleString("sv-SE")
+    .replace(/[\u00A0\u202F]/g, " ");
+  return dec === undefined ? med : `${med},${dec}`;
 }
 
 /** Tal till fälttext med svenskt decimaltecken, utan tusentalsavskiljare. */

@@ -6,7 +6,7 @@ type Status = "vilar" | "pdf" | "excel" | "fel";
 
 /** Minsta uppgifter för att en export ska vara meningsfull. */
 function kanExportera(u: KalkylUnderlag): boolean {
-  return u.lanebelopp !== undefined && u.rantaProcent !== undefined;
+  return u.pris !== undefined && u.rantaProcent !== undefined;
 }
 
 export function KalkylExport({
@@ -38,18 +38,28 @@ export function KalkylExport({
   }
 
   return (
-    <div className="mt-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" disabled={!klar || upptagen} onClick={() => void kor("pdf")}>
+    <div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={!klar || upptagen}
+          onClick={() => void kor("pdf")}
+        >
           {status === "pdf" ? "Skapar PDF…" : "Ladda ner PDF"}
         </Button>
-        <Button variant="secondary" disabled={!klar || upptagen} onClick={() => void kor("excel")}>
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={!klar || upptagen}
+          onClick={() => void kor("excel")}
+        >
           {status === "excel" ? "Skapar Excel…" : "Ladda ner Excel"}
         </Button>
       </div>
       {!klar ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Fyll i lånebelopp och ränta för att kunna ladda ner kalkylen.
+          Fyll i pris och ränta för att kunna ladda ner kalkylen.
         </p>
       ) : (
         <p className="mt-2 text-sm text-muted-foreground">
@@ -57,7 +67,7 @@ export function KalkylExport({
         </p>
       )}
       {status === "fel" ? (
-        <p className="mt-2 text-sm text-danger" role="alert">
+        <p className="mt-2 text-sm text-danger-text" role="alert">
           Det gick inte att skapa filen just nu. Försök igen om en liten stund.
         </p>
       ) : null}

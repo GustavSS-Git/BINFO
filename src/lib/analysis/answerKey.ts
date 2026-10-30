@@ -111,6 +111,9 @@ export interface LanFacitFil {
   balansdag?: string;
   totalSkuld?: { belopp: number };
   rantekostnader?: { belopp: number };
+  /** The report says, cited, that the förening has no interest-bearing debt:
+   *  `lan` is empty and the extraction's total debt must be 0. */
+  skuldfri?: boolean;
   lan: LanFacit[];
 }
 
@@ -126,6 +129,7 @@ export interface LanFaktiskt {
       }>
     | undefined;
   rantekostnader?: { value: number | null } | undefined;
+  totalSkuld?: { value: number | null } | undefined;
 }
 
 export interface LanPoang {
@@ -167,10 +171,19 @@ export function poangsattLan(facit: LanFacitFil, faktiskt: LanFaktiskt): LanPoan
   const faktiskSumma = ut.reduce((s, l) => s + (l.belopp.value ?? 0), 0);
   poang.push({
     falt: "lan.summa",
-    godkand: ut.length > 0 && faktiskSumma === forvantadSumma,
+    godkand: (ut.length > 0 || facit.lan.length === 0) && faktiskSumma === forvantadSumma,
     forvantat: String(forvantadSumma),
-    faktiskt: ut.length > 0 ? String(faktiskSumma) : "saknas",
+    faktiskt: ut.length > 0 ? String(faktiskSumma) : facit.lan.length === 0 ? "0" : "saknas",
   });
+  if (facit.skuldfri) {
+    const v = faktiskt.totalSkuld?.value ?? null;
+    poang.push({
+      falt: "lanebok.totalSkuld",
+      godkand: v === 0,
+      forvantat: "0 (skuldfri)",
+      faktiskt: visa(v),
+    });
+  }
   if (facit.rantekostnader !== undefined) {
     const v = faktiskt.rantekostnader?.value ?? null;
     poang.push({
@@ -221,6 +234,8 @@ export function poangsattLan(facit: LanFacitFil, faktiskt: LanFaktiskt): LanPoan
 export interface UnderhallAtgardFacit {
   byggdel: string;
   ar: number;
+  /** Replacement or life extension (owner 2026-10-30); scored when set. */
+  omfattning?: "byte" | "forlangning";
   sida?: number;
   tryckt?: string;
 }
@@ -240,7 +255,8 @@ export interface UnderhallFacitFil {
 
 /** The extraction's maintenance data, structurally (a subset of `Forening`). */
 export interface UnderhallFaktiskt {
-  genomfordaAtgarder?: Array<{ byggdel: string; ar: number }> | undefined;
+  genomfordaAtgarder?:
+    Array<{ byggdel: string; ar: number; omfattning?: string | undefined }> | undefined;
   underhallsplan?:
     | {
         investeringsbehovPerM2?: { value: number | null } | undefined;
@@ -252,7 +268,8 @@ export interface UnderhallFaktiskt {
 
 /**
  * Scores the maintenance fields: every expected renovation found (byggdel +
- * year, exact), no extracted renovation outside expected + tillatnaExtra
+ * year, exact) and, when the key says, whether it is a replacement or a life
+ * extension, no extracted renovation outside expected + tillatnaExtra
  * (precision), and per stated figure its value, or null when the key says the
  * report states none (a hallucinated figure fails). Missing = fail.
  */
@@ -274,6 +291,18 @@ export function poangsattUnderhall(
       forvantat: nyckel(a),
       faktiskt: funna.has(nyckel(a)) ? nyckel(a) : "saknas",
     });
+    // Replacement vs life extension: an extracted item without omfattning is a
+    // replacement (older extractions); a missing item fails this field too.
+    if (a.omfattning) {
+      const hittad = ut.find((u) => nyckel(u) === nyckel(a));
+      const fick = hittad ? (hittad.omfattning ?? "byte") : "saknas";
+      poang.push({
+        falt: `atgard ${nyckel(a)} omfattning`,
+        godkand: fick === a.omfattning,
+        forvantat: a.omfattning,
+        faktiskt: fick,
+      });
+    }
   }
   const overskott = [...funna].filter((n) => !tillatna.has(n));
   poang.push({

@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Prisrimlighet } from "@/components/AnalysRapport";
-import { Pagar } from "@/components/AnalysStatus";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
 import { andelAvSkuldRad } from "@/lib/analysisView";
 import type { PrisanalysUtanForening } from "@/types/analysis";
@@ -98,62 +97,6 @@ describe("Prisrimlighet — delad av rapporten och priskollen på /analysera", (
     );
     expect(html).toContain('title="Verkar vara tusental."');
     expect(html).toContain("Osäker");
-  });
-});
-
-const utanTaggar = (html: string) => plattaUt(html.replace(/<[^>]*>/g, ""));
-
-const SLUT_TEXT =
-  "Vi går igenom hela årsredovisningen, granskar nyckeltalen och tar fram potentiella varningsflaggor. Du kan gärna låta fliken vara öppen, sidan uppdateras automatiskt så snart analysen är klar.";
-const NORMAL_TEXT = `Det här tar normalt 3–5 minuter. ${SLUT_TEXT}`;
-const SKANNAD_TEXT = `Det här tar normalt 3–5 minuter, för en skannad årsredovisning några minuter extra. ${SLUT_TEXT}`;
-
-describe("Pagar — väntskärmen", () => {
-  it("visar stegtexten från rapportSteg", () => {
-    const html = renderToStaticMarkup(
-      <Pagar status={{ stage: "uploaded", rapportSteg: "identifiering" }} />,
-    );
-    expect(html).toContain("Identifierar föreningen…");
-  });
-
-  it("visar skannad-notisen och 'några minuter extra' bara för en skannad rapport", () => {
-    const skannad = utanTaggar(
-      renderToStaticMarkup(
-        <Pagar
-          status={{ stage: "uploaded", textlager: "saknas", rapportSteg: "transkribering" }}
-        />,
-      ),
-    );
-    expect(skannad).toContain("Skannad årsredovisning upptäckt – analysen tar lite längre tid.");
-    expect(skannad).toContain("Läser av de skannade sidorna…");
-    expect(skannad).toContain(SKANNAD_TEXT);
-
-    const vanlig = utanTaggar(
-      renderToStaticMarkup(<Pagar status={{ stage: "extracting", textlager: "ok" }} />),
-    );
-    expect(vanlig).not.toContain("Skannad årsredovisning");
-    expect(vanlig).not.toContain("några minuter extra");
-    expect(vanlig).not.toContain("vi läser hela årsredovisningen");
-    expect(vanlig).not.toContain("räknar på alla sju nyckeltal");
-    expect(vanlig).toContain(NORMAL_TEXT);
-    expect(vanlig).toContain("Hämtar de sju nyckeltalen…");
-  });
-
-  it("ger en trasig textlager den vanliga tidstexten", () => {
-    const trasig = utanTaggar(
-      renderToStaticMarkup(<Pagar status={{ stage: "extracting", textlager: "trasigt" }} />),
-    );
-    expect(trasig).toContain(NORMAL_TEXT);
-    expect(trasig).not.toContain("några minuter extra");
-  });
-
-  it("säger att samma årsredovisning analyseras just nu", () => {
-    const html = renderToStaticMarkup(
-      <Pagar status={{ stage: "uploaded", vantarPaRapport: true }} />,
-    );
-    expect(html).toContain(
-      "Samma årsredovisning analyseras just nu – din analys blir klar samtidigt.",
-    );
   });
 });
 

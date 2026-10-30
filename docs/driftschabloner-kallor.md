@@ -45,3 +45,29 @@ Sources
 - Sveby Brukarindata bostäder 2.0 (2024-11-11): 21 kWh/m² Atemp hushållsel
 - FI "Svenska bolån 2025 – statistik, tidsserier": https://fi.se/contentassets/575c373535fd43fda657cd17552488be/svenska-bolan-2025--statistik-tidsserier.pdf
 - FI "Den svenska bolånemarknaden" 2025: https://www.fi.se/contentassets/324ca6f343e64a088c62e075b0edb8ef/den-svenska-bolanemarknaden_.pdf
+
+## Re-check 2026-10-28 (redesign v4, "which basis reflects reality")
+
+The v4 design canvas used the old formulas (el 250 + 8 kr/m², värme 180 + 14 kr/m², hemförsäkring
+120 + 3 kr/m², vatten 120 kr/person). Research question: per person, per m² or fixed, per item.
+
+| Item          | Basis                 | Public source and figure                                                                                                                                                                                                                                                                                                                                                        | Decision (plan, pending owner approval)                                                 |
+| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Hushållsel    | persons               | Konsumentverket 2026 (lägenhet, appliance use built per person): 400–1 280 kr/mån for 1–7 persons. kWh behind it (Försäkringskassan's compilation of KV 2025): lägenhet 1 690 / 2 200 / 2 880 / 3 530 kWh for 1–4 persons. Stockholm 2026 ≈ 2,67 kr/kWh all-in → 2 200 kWh ≈ 490 kr/mån. Energimyndigheten has no hushållsel per flat. PFS 2025:3: 4,98 kr/m²/mån (cap 598 kr). | keep KV by persons                                                                      |
+| Värme         | m² boarea             | Nils Holgersson 2026, Stockholm fjärrvärme 250,32 kr/m²·år incl. varmvatten → 20,9 kr/m²/mån. PFS 2025:3 zon III 198 kr/m²·år → 16,5 (varmvatten part 74 → 6,2).                                                                                                                                                                                                                | keep 21 kr/m²; say it includes varmvatten energy                                        |
+| Vatten        | persons (measured m³) | KV 2026 VA 220 / 440 / 650 / 880 kr/mån (1–4, national; 45,61 m³/person·år). Stockholm VA-taxa 2026 (Kfs 2026:08): 21,75 kr/m³ incl. moms variable; NH 2026 Stockholm all-in ≈ 35,54 kr/m³ (71,08 kr/m² over 2 000 m³ per 1 000 m²).                                                                                                                                            | **135 kr per person** = 45,61 × 35,54 ÷ 12 (Binfo's derivation from two public sources) |
+| Hemförsäkring | persons               | KV 2026: 150–350 kr/mån (1–7), lägenhet, no bostadsrättstillägg. No public source for the tillägg (Konsumenternas: no price data).                                                                                                                                                                                                                                              | keep KV; label "utan bostadsrättstillägg"                                               |
+
+IMD (Boverket): värme only in flerbostadshus above 200 kWh/m² primärenergital; tappvarmvatten in
+all new flerbostadshus since 2022-06-01; cold water/el not covered. Unit prices are set by the
+förening; no public typical IMD price exists.
+
+Additional sources:
+
+- Försäkringskassan, sammanställning av Konsumentverkets hushållsgemensamma kostnader 2025: https://forsakringskassan.se/download/18.21e4089719320208e5834b/1744368963243/sammanstallning-av-hushallsgemensamma-kostnader-2025.pdf
+- Pensionsmyndigheten PFS 2025:3 (from 2026-01-01): https://www.pensionsmyndigheten.se/content/dam/pensionsmyndigheten/blanketter---broschyrer---faktablad/om-pensionsmyndigheten/lagar-och-regler/f%C3%B6reskrifter/2025/Pensionsmyndighetens-f%C3%B6reskrifter-PFS-2025-3-om-uppskattning-av-kostnader-f%C3%B6r-en-bostads-uppv%C3%A4rmning-hush%C3%A5llsel-och-%C3%B6vrig-drift-vid-ber%C3%A4kning-av-bostadskostnad.pdf
+- Stockholms stad, Taxa för vatten och avlopp 2026 (Kfs 2026:08): https://start.stockholm/globalassets/start/om-stockholms-stad/politik-och-demokrati/styrdokument/kommunal-forfattningssamling/kfs-2026-08-taxa-for-vatten-och-avlopp-2026.pdf
+- Stockholm Exergi, normalprislista fjärrvärme 2026: https://www.stockholmexergi.se/wp-content/uploads/2026/04/Normalprislista_fjarrvarme_2026-1.pdf
+- Boverket, IMD: https://www.boverket.se/sv/byggande/bygg-och-renovera-energieffektivt/IMD/
+- Konsumenternas, jämför hemförsäkringar: https://www.konsumenternas.se/konsumentstod/jamforelser/boendeforsakringar/jamfor-hemforsakringar/
+- Unverified (search snippets only): Svenskt Vatten ~140 l/person/day; SCB typkund lägenhet 2 000 kWh.

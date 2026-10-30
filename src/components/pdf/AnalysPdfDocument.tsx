@@ -1,68 +1,73 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { FONT_SANS, FONT_SERIF } from "@/components/pdf/fonts";
-import { PDF_COLORS, PDF_DISCLAIMER, PDF_PAGE_PADDING } from "@/components/pdf/theme";
+import type { ReactNode } from "react";
+import { FONT_SANS, FONT_SERIF, WEIGHT_SEMIBOLD } from "@/components/pdf/fonts";
+import { layoutSpanBar, SPAN_LABEL_BREDD, type SpanMarkorTon } from "@/components/pdf/spanLayout";
+import {
+  PDF_COLORS,
+  PDF_DISCLAIMER,
+  PDF_GRADE_COLORS,
+  PDF_PAGE_PADDING,
+} from "@/components/pdf/theme";
 import {
   buildPdfViewModel,
-  type PdfKeyFigure,
-  type PdfOvrigInfo,
-  type PdfRedFlag,
+  FLAGGA_ETIKETT,
+  type PdfAvgiften,
+  type PdfForening,
+  type PdfFragor,
+  type PdfKort,
+  type PdfPriset,
+  type PdfRad,
   type PdfViewModel,
 } from "@/components/pdf/viewModel";
-import { PRIS_LABEL_BAS, type Ton } from "@/lib/analysisView";
-import type { AnalysisResult, Status } from "@/types/analysis";
+import type { Ton } from "@/lib/analysisView";
+import type { AnalysisResult, Grade } from "@/types/analysis";
 
 // Deliberately does NOT call registerPdfFonts() itself: react-pdf's Font
 // registry appends sources rather than replacing them, so registering twice
 // with different sources (e.g. production's site-relative paths vs a test's
 // data: URLs) would silently keep whichever was registered first. The
 // caller registers fonts once, with the sources appropriate to its
-// environment — see download.tsx for the real download path and
-// AnalysPdfDocument.test.tsx for the Node/test path.
-const STATUS_COLOR: Record<Status, string> = {
-  god: PDF_COLORS.success,
-  acceptabel: PDF_COLORS.success,
-  svag: PDF_COLORS.warning,
-  kritisk: PDF_COLORS.danger,
-  okant: PDF_COLORS.mutedForeground,
+// environment — see download.tsx for the real download path and the tests
+// (pdfTestFonts.ts) for the Node path.
+
+const SEMI = WEIGHT_SEMIBOLD;
+const BREDD = 595.28 - 2 * PDF_PAGE_PADDING;
+
+const TON_TEXT: Record<Ton, string> = {
+  success: PDF_COLORS.successText,
+  warning: PDF_COLORS.warningText,
+  danger: PDF_COLORS.dangerText,
+  neutral: PDF_COLORS.muted,
 };
 
-const TON_COLOR: Record<Ton, string> = {
-  success: PDF_COLORS.success,
-  warning: PDF_COLORS.warning,
-  danger: PDF_COLORS.danger,
-  neutral: PDF_COLORS.mutedForeground,
+const PILL: Record<"success" | "warning" | "danger" | "neutral" | "info", [string, string]> = {
+  success: [PDF_COLORS.successTint, PDF_COLORS.successText],
+  warning: [PDF_COLORS.warningTint, PDF_COLORS.warningText],
+  danger: [PDF_COLORS.dangerTint, PDF_COLORS.dangerText],
+  neutral: [PDF_COLORS.divider, PDF_COLORS.muted],
+  info: [PDF_COLORS.tint, PDF_COLORS.link],
 };
 
-const SEVERITY_COLOR: Record<PdfRedFlag["severity"], string> = {
-  hog: PDF_COLORS.danger,
-  medel: PDF_COLORS.warning,
-  lag: PDF_COLORS.warning,
+const SPAN_TON: Record<SpanMarkorTon, string> = {
+  utgangspris: PDF_COLORS.ink,
+  bud: PDF_COLORS.link,
+  vardering: PDF_COLORS.navy,
+  liknande: PDF_COLORS.muted,
 };
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: PDF_PAGE_PADDING + 20,
-    paddingBottom: PDF_PAGE_PADDING + 24,
+    paddingTop: PDF_PAGE_PADDING + 22,
+    paddingBottom: PDF_PAGE_PADDING + 26,
     paddingHorizontal: PDF_PAGE_PADDING,
     fontFamily: FONT_SANS,
-    fontSize: 10,
-    color: PDF_COLORS.foreground,
-    backgroundColor: PDF_COLORS.background,
-    // `fontFeatureSettings` is inherited by every descendant <Text> (see
-    // BASE_INHERITABLE_PROPERTIES in @react-pdf/layout), same as fontFamily
-    // below — so this one declaration disables ligatures everywhere. Without
-    // it, fontkit substitutes a single "fi"/"fl"/"ffi"/"ffl" ligature glyph
-    // for those letter pairs (confirmed via fontkit.layout() on our exact
-    // font files — IBM Plex Sans has an "fi" ligature, Libre Baskerville has
-    // "fi", "fl", "ffi" and "ffl"). @react-pdf/render's generated ToUnicode
-    // CMap entry for a ligature glyph is technically spec-compliant (a
-    // multi-codepoint hex string with an internal space, e.g. "<0066 006c>"
-    // for "fl") but several real-world PDF readers/extractors do not parse
-    // that form correctly and drop or truncate it — which is exactly the
-    // "fnansieras" / "Röda faggor" bug this fixes. Disabling ligature
-    // selection means every glyph maps 1:1 to one Unicode codepoint, which
-    // is unambiguous for any reader. Visually near-identical for these two
-    // typefaces at report sizes.
+    fontSize: 9.5,
+    lineHeight: 1.4,
+    color: PDF_COLORS.ink,
+    backgroundColor: PDF_COLORS.page,
+    // Inherited by every <Text>: without it fontkit substitutes a single "fi"/"fl"
+    // ligature glyph whose ToUnicode entry several PDF readers drop or truncate
+    // ("fnansieras", "Röda faggor"). One glyph per codepoint extracts cleanly.
     fontFeatureSettings: { liga: false },
   },
   headerFixed: {
@@ -75,980 +80,1119 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: PDF_COLORS.border,
-    paddingBottom: 8,
+    paddingBottom: 7,
   },
   headerBrand: {
     fontFamily: FONT_SERIF,
-    fontSize: 12,
-    color: PDF_COLORS.primary,
+    fontWeight: SEMI,
+    fontSize: 13,
+    lineHeight: 1.2,
+    color: PDF_COLORS.navy,
   },
-  headerMeta: {
-    fontSize: 8,
-    color: PDF_COLORS.mutedForeground,
-  },
-  footerFixed: {
+  headerMeta: { fontSize: 8, color: PDF_COLORS.muted },
+  // The footer is built from separate absolutely positioned fixed nodes: react-pdf drops plain
+  // text inside a fixed row that also holds a `render` text once the document has several pages.
+  footerLinje: {
     position: "absolute",
-    bottom: 16,
+    top: 841.89 - 16 - 26,
     left: PDF_PAGE_PADDING,
     right: PDF_PAGE_PADDING,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: PDF_COLORS.border,
-    paddingTop: 6,
+    height: 1,
+    backgroundColor: PDF_COLORS.border,
   },
-  footerDisclaimer: {
+  footerText: {
+    position: "absolute",
+    top: 841.89 - 16 - 20,
+    left: PDF_PAGE_PADDING,
+    width: BREDD - 170,
     fontSize: 7,
-    color: PDF_COLORS.mutedForeground,
-    flex: 1,
+    color: PDF_COLORS.muted,
   },
-  footerPage: {
+  footerSida: {
+    position: "absolute",
+    top: 841.89 - 16 - 20,
+    right: PDF_PAGE_PADDING,
+    width: 150,
+    textAlign: "right",
     fontSize: 7,
-    color: PDF_COLORS.mutedForeground,
+    color: PDF_COLORS.muted,
   },
+  footerKontakt: {
+    position: "absolute",
+    top: 841.89 - 16 - 10,
+    right: PDF_PAGE_PADDING,
+    width: 150,
+    textAlign: "right",
+    fontSize: 7,
+    color: PDF_COLORS.muted,
+  },
+
   eyebrow: {
     fontSize: 8,
-    color: PDF_COLORS.primary,
+    fontWeight: SEMI,
+    color: PDF_COLORS.link,
     textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: 0.8,
   },
-  title: {
+  h1: {
     fontFamily: FONT_SERIF,
-    fontSize: 22,
-    color: PDF_COLORS.foreground,
-    marginBottom: 4,
+    fontWeight: SEMI,
+    fontSize: 25,
+    lineHeight: 1.15,
+    color: PDF_COLORS.navy,
+    marginTop: 4,
   },
-  sectionTitle: {
+  meta: { fontSize: 10.5, color: PDF_COLORS.text2, marginTop: 5, lineHeight: 1.4 },
+  metaRad: { fontSize: 9, color: PDF_COLORS.text2, marginTop: 3 },
+
+  kortRad: { flexDirection: "row", gap: 10, marginTop: 16 },
+  kort: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: PDF_COLORS.border,
+    borderTopWidth: 2.5,
+    borderTopColor: PDF_COLORS.navy,
+    borderRadius: 6,
+    padding: 10,
+  },
+  kortStort: {
     fontFamily: FONT_SERIF,
-    fontSize: 14,
-    color: PDF_COLORS.foreground,
-    marginBottom: 8,
+    fontWeight: SEMI,
+    fontSize: 16,
+    lineHeight: 1.2,
+    color: PDF_COLORS.navy,
+    marginTop: 8,
   },
-  section: {
-    marginBottom: 18,
+  kortRad2: { fontSize: 9, fontWeight: SEMI, marginTop: 5 },
+  kortText: { fontSize: 8.5, color: PDF_COLORS.text2, marginTop: 4, lineHeight: 1.4 },
+
+  sektion: { marginTop: 26 },
+  h2: {
+    fontFamily: FONT_SERIF,
+    fontWeight: SEMI,
+    fontSize: 17,
+    lineHeight: 1.2,
+    color: PDF_COLORS.navy,
+    marginTop: 3,
   },
+  lead: { fontSize: 10, color: PDF_COLORS.text2, marginTop: 5, lineHeight: 1.45 },
+  h3: { fontWeight: SEMI, fontSize: 11.5, color: PDF_COLORS.ink, marginBottom: 4 },
+  h4: { fontWeight: SEMI, fontSize: 10, color: PDF_COLORS.ink, marginBottom: 3 },
+
   card: {
     borderWidth: 1,
     borderColor: PDF_COLORS.border,
-    borderRadius: 4,
-    backgroundColor: PDF_COLORS.card,
+    borderRadius: 6,
     padding: 12,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: PDF_COLORS.border,
-    paddingTop: 12,
-  },
-  summaryCell: {
-    width: "33%",
-    marginBottom: 8,
-  },
-  // The address row can hold the anonymisation fallback sentence
-  // ("Adressen raderad efter 12 månader · <ort>"), which is too long for a
-  // one-third column at report width — give it the full row instead of
-  // letting it wrap awkwardly under a narrow "Adress" label.
-  summaryCellFull: {
-    width: "100%",
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 7,
-    color: PDF_COLORS.mutedForeground,
-    marginBottom: 2,
-  },
-  summaryValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  betygRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  // A <Text> node does not centre its own content the way a flex
-  // container centres a child (alignItems/justifyContent on a <Text> style
-  // only affect ITS children, not its own text run) — hence the circle is a
-  // <View> that centres a plain <Text> child, rather than one Text node
-  // styled to look like a circle.
-  betygCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: PDF_COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  betygLetter: {
-    fontFamily: FONT_SERIF,
-    fontSize: 18,
-    lineHeight: 1,
-    color: PDF_COLORS.primary,
-    textAlign: "center",
-  },
-  betygText: {
-    flex: 1,
-    fontSize: 10,
-    lineHeight: 1.5,
-  },
-  flagCard: {
-    borderWidth: 1,
-    borderColor: PDF_COLORS.border,
-    borderRadius: 4,
-    backgroundColor: PDF_COLORS.card,
-    padding: 10,
-    marginBottom: 8,
-  },
-  badge: {
-    alignSelf: "flex-start",
-    borderRadius: 8,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    fontSize: 7,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  flagTitle: {
-    fontSize: 10,
-    fontWeight: "bold",
-    marginBottom: 3,
-  },
-  flagBody: {
-    fontSize: 9,
-    color: PDF_COLORS.mutedForeground,
-    lineHeight: 1.4,
-  },
-  pageRefTag: {
-    marginTop: 4,
-    fontSize: 7,
-    color: PDF_COLORS.mutedForeground,
-  },
-  keyFigureRow: {
-    borderWidth: 1,
-    borderColor: PDF_COLORS.border,
-    borderRadius: 4,
-    backgroundColor: PDF_COLORS.card,
-    padding: 10,
-    marginBottom: 6,
-  },
-  keyFigureTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  keyFigureLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-    flex: 1,
-    paddingRight: 8,
-  },
-  keyFigureValue: {
-    fontFamily: FONT_SERIF,
-    fontSize: 13,
-  },
-  statusText: {
-    fontSize: 7,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  forklaringText: {
-    fontSize: 8,
-    color: PDF_COLORS.mutedForeground,
-    marginTop: 4,
-    lineHeight: 1.4,
-  },
-  osakerText: {
-    marginTop: 4,
-    fontSize: 7,
-    color: PDF_COLORS.warningForeground,
-    lineHeight: 1.4,
-  },
-  schablonTag: {
-    fontSize: 6,
-    fontWeight: "bold",
-    color: PDF_COLORS.mutedForeground,
-    backgroundColor: PDF_COLORS.secondary,
-    borderRadius: 3,
-    paddingVertical: 1,
-    paddingHorizontal: 4,
-    marginTop: 4,
-    alignSelf: "flex-start",
-    textTransform: "uppercase",
-  },
-  priceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: PDF_COLORS.border,
-  },
-  priceLabel: {
-    fontSize: 9,
-  },
-  priceValue: {
-    fontFamily: FONT_SERIF,
-    fontSize: 11,
-  },
-  conclusionBox: {
     marginTop: 10,
-    backgroundColor: PDF_COLORS.secondary,
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 9,
-    lineHeight: 1.4,
   },
-  confidenceNote: {
-    marginTop: 6,
+  flagga: {
+    borderWidth: 1,
+    borderColor: PDF_COLORS.border,
+    borderRadius: 6,
+    padding: 9,
+    marginTop: 7,
+  },
+  flaggaTopp: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  flaggaTitel: { fontWeight: SEMI, fontSize: 10.5, marginTop: 5 },
+  body: { fontSize: 9, color: PDF_COLORS.text2, marginTop: 2, lineHeight: 1.4 },
+  small: { fontSize: 8, color: PDF_COLORS.muted, lineHeight: 1.4 },
+  sida: { fontSize: 8, color: PDF_COLORS.muted },
+  pill: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingVertical: 1.5,
+    paddingHorizontal: 6,
+    fontSize: 7.5,
+    fontWeight: SEMI,
+  },
+  tag: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: PDF_COLORS.border,
+    borderRadius: 3,
+    paddingVertical: 0.5,
+    paddingHorizontal: 4,
     fontSize: 7,
-    color: PDF_COLORS.mutedForeground,
-    lineHeight: 1.4,
+    fontWeight: SEMI,
+    color: PDF_COLORS.muted,
   },
-  varderingsunderlag: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: PDF_COLORS.border,
+  callout: { borderWidth: 1, borderRadius: 6, padding: 9, marginTop: 10 },
+  calloutTitel: { fontWeight: SEMI, fontSize: 9.5 },
+
+  tabell: { marginTop: 10 },
+  tabellHuvud: {
+    flexDirection: "row",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    backgroundColor: PDF_COLORS.divider,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
-  driverRow: {
+  tabellHuvudCell: { fontSize: 7.5, fontWeight: SEMI, color: PDF_COLORS.muted },
+  tabellRad: {
+    flexDirection: "row",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: PDF_COLORS.border,
+  },
+  cell: { fontSize: 9, paddingRight: 6 },
+
+  vardeRad: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 2,
-  },
-  table: {
-    marginTop: 6,
-  },
-  tableHeaderRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: PDF_COLORS.foreground,
-    paddingBottom: 4,
-    marginBottom: 2,
-  },
-  tableRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: PDF_COLORS.border,
-    paddingVertical: 5,
-  },
-  tableCellHeader: {
-    flex: 1,
-    fontSize: 8,
-    fontWeight: "bold",
-    color: PDF_COLORS.mutedForeground,
-    textTransform: "uppercase",
-  },
-  tableCell: {
-    flex: 1,
-    fontSize: 9,
-  },
-  rantestressComment: {
-    marginTop: 8,
-    fontSize: 9,
-    color: PDF_COLORS.mutedForeground,
-    lineHeight: 1.4,
-  },
-  fragaRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
     paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: PDF_COLORS.border,
+    borderTopWidth: 1,
+    borderTopColor: PDF_COLORS.divider,
+  },
+  vardeVanster: { flex: 1, paddingRight: 12 },
+  vardeHoger: { width: 140, alignItems: "flex-end" },
+
+  box: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: PDF_COLORS.border,
+    borderRadius: 6,
+    padding: 10,
+  },
+  boxTint: { flex: 1, backgroundColor: PDF_COLORS.tint, borderRadius: 6, padding: 10 },
+  boxStort: {
+    fontFamily: FONT_SERIF,
+    fontWeight: SEMI,
+    fontSize: 15,
+    lineHeight: 1.2,
+    marginTop: 2,
+  },
+
+  fraga: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: PDF_COLORS.divider,
   },
   checkbox: {
     width: 9,
     height: 9,
     borderWidth: 1,
-    borderColor: PDF_COLORS.mutedForeground,
-    marginTop: 1,
+    borderColor: PDF_COLORS.muted,
+    borderRadius: 2,
+    marginTop: 2,
   },
-  fragaBody: {
-    flex: 1,
-    gap: 2,
-  },
-  fragaText: {
-    fontSize: 9,
-    lineHeight: 1.4,
-  },
-  // Grey, not italic: only regular and bold faces are registered (fonts.ts).
-  fragaContext: {
-    fontSize: 8,
-    lineHeight: 1.4,
-    color: PDF_COLORS.mutedForeground,
-  },
-  emptyNote: {
-    fontSize: 9,
-    color: PDF_COLORS.mutedForeground,
-    fontStyle: "italic",
-  },
-  ovrigInfoGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  ovrigInfoCell: {
-    width: "50%",
-    marginBottom: 10,
-  },
-  ovrigInfoLabel: {
-    fontSize: 7,
-    color: PDF_COLORS.mutedForeground,
-    marginBottom: 2,
-  },
-  ovrigInfoValue: {
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-  ovrigInfoBadge: {
-    fontSize: 6,
-    fontWeight: "bold",
-    color: PDF_COLORS.primary,
-    backgroundColor: PDF_COLORS.secondary,
-    borderRadius: 3,
-    paddingVertical: 1,
-    paddingHorizontal: 4,
-  },
-  ovrigInfoHandelseRow: {
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: PDF_COLORS.border,
-  },
-  bulletItem: {
-    fontSize: 8,
-    color: PDF_COLORS.mutedForeground,
-    lineHeight: 1.4,
-    marginBottom: 2,
-  },
+  punkt: { fontSize: 8.5, color: PDF_COLORS.muted, lineHeight: 1.4, marginTop: 2 },
 });
 
-function Header({ foreningNamn, skapadLabel }: { foreningNamn: string; skapadLabel: string }) {
+// ------------------------------------------------------------------ small parts
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return <Text style={styles.eyebrow}>{children}</Text>;
+}
+
+function Pill({
+  ton,
+  label,
+}: {
+  ton: "success" | "warning" | "danger" | "neutral" | "info";
+  label: string;
+}) {
+  const [bg, fg] = PILL[ton];
+  return <Text style={[styles.pill, { backgroundColor: bg, color: fg }]}>{label}</Text>;
+}
+
+function Tag({ children }: { children: string }) {
+  return <Text style={styles.tag}>{children}</Text>;
+}
+
+function SektionsRubrik({
+  nummer,
+  eyebrow,
+  titel,
+  lead,
+}: {
+  nummer: string;
+  eyebrow: string;
+  titel: string;
+  lead?: string | undefined;
+}) {
   return (
-    <View style={styles.headerFixed} fixed>
-      <Text style={styles.headerBrand}>Binfo</Text>
-      <Text style={styles.headerMeta}>
-        {foreningNamn} · Analys skapad {skapadLabel}
-      </Text>
+    <View minPresenceAhead={90}>
+      <Eyebrow>
+        {nummer} · {eyebrow}
+      </Eyebrow>
+      <Text style={styles.h2}>{titel}</Text>
+      {lead ? <Text style={styles.lead}>{lead}</Text> : null}
     </View>
   );
 }
 
-function Footer() {
+function Callout({
+  variant,
+  titel,
+  children,
+}: {
+  variant: "notice" | "flag";
+  titel: string;
+  children: ReactNode;
+}) {
+  const [bg, border, fg] =
+    variant === "flag"
+      ? [PDF_COLORS.dangerTint, PDF_COLORS.danger, PDF_COLORS.dangerText]
+      : [PDF_COLORS.noticeTint, PDF_COLORS.noticeBorder, PDF_COLORS.noticeText];
   return (
-    <View style={styles.footerFixed} fixed>
-      <Text style={styles.footerDisclaimer}>{PDF_DISCLAIMER}</Text>
-      <Text
-        style={styles.footerPage}
-        render={({ pageNumber, totalPages }) => `Sida ${pageNumber} av ${totalPages}`}
-      />
+    <View style={[styles.callout, { backgroundColor: bg, borderColor: border }]} wrap={false}>
+      <Text style={[styles.calloutTitel, { color: fg }]}>{titel}</Text>
+      <Text style={{ fontSize: 9, color: fg, marginTop: 2 }}>{children}</Text>
     </View>
   );
 }
 
-function Summary({ vm }: { vm: PdfViewModel }) {
+interface Kolumn {
+  titel: string;
+  flex: number;
+  hoger?: boolean;
+}
+
+/** A bordered table; `rader` hold ready-made cells (strings or nodes). */
+function Tabell({
+  kolumner,
+  rader,
+  foot,
+}: {
+  kolumner: Kolumn[];
+  rader: Array<{ key: string; celler: ReactNode[] }>;
+  foot?: ReactNode;
+}) {
   return (
-    <View style={styles.section} wrap={false}>
-      <Text style={styles.eyebrow}>Binfo-analys</Text>
-      <Text style={styles.title}>{vm.foreningNamn}</Text>
-      <View style={styles.summaryGrid}>
-        {vm.summary.map((row) => (
-          <View
-            key={row.label}
-            style={row.label === "Adress" ? styles.summaryCellFull : styles.summaryCell}
+    <View style={styles.tabell}>
+      <View style={styles.tabellHuvud} wrap={false} minPresenceAhead={60}>
+        {kolumner.map((k) => (
+          <Text
+            key={k.titel}
+            style={[
+              styles.tabellHuvudCell,
+              { flex: k.flex, textAlign: k.hoger ? "right" : "left" },
+            ]}
           >
-            <Text style={styles.summaryLabel}>{row.label}</Text>
-            <Text style={styles.summaryValue}>{row.value}</Text>
-          </View>
+            {k.titel}
+          </Text>
         ))}
       </View>
-    </View>
-  );
-}
-
-function Betyg({ vm }: { vm: PdfViewModel }) {
-  return (
-    <View style={[styles.section, styles.card, styles.betygRow]} wrap={false}>
-      <View style={styles.betygCircle}>
-        <Text style={styles.betygLetter}>{vm.betyg}</Text>
-      </View>
-      <Text style={styles.betygText}>{vm.betygMotivering}</Text>
-    </View>
-  );
-}
-
-function RodaFlaggor({ flaggor }: { flaggor: PdfRedFlag[] }) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Röda flaggor</Text>
-      {flaggor.length === 0 ? (
-        <Text style={styles.emptyNote}>Inga röda flaggor identifierade.</Text>
-      ) : (
-        flaggor.map((flagga) => (
-          <View key={flagga.id} style={styles.flagCard} wrap={false}>
-            <Text
-              style={[
-                styles.badge,
-                { color: SEVERITY_COLOR[flagga.severity], backgroundColor: PDF_COLORS.secondary },
-              ]}
+      {rader.map((r) => (
+        <View key={r.key} style={styles.tabellRad} wrap={false}>
+          {r.celler.map((c, i) => (
+            <View
+              key={`${r.key}-${i}`}
+              style={{
+                flex: kolumner[i]?.flex ?? 1,
+                paddingRight: 6,
+                alignItems: kolumner[i]?.hoger ? "flex-end" : "flex-start",
+              }}
             >
-              {flagga.severityLabel}
-            </Text>
-            <Text style={styles.flagTitle}>{flagga.titel}</Text>
-            <Text style={styles.flagBody}>{flagga.beskrivning}</Text>
-            {flagga.pageRef ? <Text style={styles.pageRefTag}>{flagga.pageRef}</Text> : null}
-          </View>
-        ))
-      )}
+              {typeof c === "string" ? <Text style={styles.cell}>{c}</Text> : c}
+            </View>
+          ))}
+        </View>
+      ))}
+      {foot}
     </View>
   );
 }
 
-function Foreningsekonomi({ keyFigures }: { keyFigures: PdfKeyFigure[] }) {
+function Namn({ label, forklaring, sida }: { label: string; forklaring?: string; sida?: string }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Föreningens ekonomi</Text>
-      {keyFigures.map((kf) => (
-        <View key={kf.id} style={styles.keyFigureRow} wrap={false}>
-          {kf.status === "okant" ? null : (
-            <Text style={[styles.statusText, { color: STATUS_COLOR[kf.status] }]}>
-              {kf.statusLabel}
+    <View>
+      <Text style={{ fontWeight: SEMI, fontSize: 9.5 }}>{label}</Text>
+      {forklaring ? (
+        <Text style={styles.small}>
+          {forklaring}
+          {sida ? ` (${sida})` : ""}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** A label/note on the left and a value (with optional line under it) on the right. */
+function VardeLista({ rader }: { rader: PdfRad[] }) {
+  return (
+    <View>
+      {rader.map((r) => (
+        <View key={r.label} style={styles.vardeRad} wrap={false}>
+          <View style={styles.vardeVanster}>
+            <Text style={{ fontWeight: SEMI, fontSize: 9.5 }}>{r.label}</Text>
+            {r.note ? <Text style={styles.small}>{r.note}</Text> : null}
+          </View>
+          <View style={styles.vardeHoger}>
+            <Text
+              style={
+                r.total
+                  ? {
+                      fontFamily: FONT_SERIF,
+                      fontWeight: SEMI,
+                      fontSize: 13,
+                      lineHeight: 1.3,
+                      marginBottom: 2,
+                      color: PDF_COLORS.navy,
+                    }
+                  : { fontWeight: SEMI, fontSize: 10 }
+              }
+            >
+              {r.varde}
             </Text>
-          )}
-          <View style={styles.keyFigureTop}>
-            <Text style={styles.keyFigureLabel}>{kf.label}</Text>
-            <Text style={styles.keyFigureValue}>{kf.valueText}</Text>
+            {r.undertext ? <Text style={styles.small}>{r.undertext}</Text> : null}
           </View>
-          <Text style={styles.forklaringText}>
-            {kf.forklaring}
-            {kf.benchmarkText ? `  (${kf.benchmarkText})` : ""}
-          </Text>
-          <View style={{ flexDirection: "row", gap: 6 }}>
-            {kf.isSchablon ? <Text style={styles.schablonTag}>Schablon</Text> : null}
-            {kf.pageRef ? <Text style={styles.pageRefTag}>{kf.pageRef}</Text> : null}
-          </View>
-          {kf.osaker ? <Text style={styles.osakerText}>Osäker: {kf.osaker}</Text> : null}
         </View>
       ))}
     </View>
   );
 }
 
-/** Mirrors AnalysRapport.tsx's OvrigInfo section — see PdfOvrigInfo's doc
- *  comment in viewModel.ts. Called only when vm.ovrigInfo is defined; the
- *  whole section is skipped otherwise (see AnalysPdfDocument below). */
-function OvrigInfo({ ovrigInfo }: { ovrigInfo: PdfOvrigInfo }) {
+// ------------------------------------------------------------------ page chrome
+
+function Header({ foreningNamn, skapadLabel }: { foreningNamn: string; skapadLabel: string }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Övrig info från årsredovisningen</Text>
+    <View style={styles.headerFixed} fixed>
+      <Text style={styles.headerBrand}>Binfo</Text>
+      <Text style={styles.headerMeta}>
+        {foreningNamn} · Rapport {skapadLabel}
+      </Text>
+    </View>
+  );
+}
 
-      {ovrigInfo.antal.length > 0 ? (
-        <View style={[styles.card, { marginBottom: 8 }]} wrap={false}>
-          <View style={styles.ovrigInfoGrid}>
-            {ovrigInfo.antal.map((a) => (
-              <View key={a.label} style={styles.ovrigInfoCell}>
-                <Text style={styles.ovrigInfoLabel}>{a.label}</Text>
-                <Text style={styles.ovrigInfoValue}>{a.valueText}</Text>
-                {a.pageRef ? <Text style={styles.pageRefTag}>{a.pageRef}</Text> : null}
-                {a.osaker ? <Text style={styles.osakerText}>Osäker: {a.osaker}</Text> : null}
-              </View>
-            ))}
+function Footer({ kontakt }: { kontakt: string | null }) {
+  return (
+    <>
+      <View style={styles.footerLinje} fixed />
+      <Text style={styles.footerText} fixed>
+        {PDF_DISCLAIMER}
+      </Text>
+      <Text
+        style={styles.footerSida}
+        fixed
+        render={({ pageNumber, totalPages }) => `Sida ${pageNumber} av ${totalPages}`}
+      />
+      {kontakt !== null ? (
+        <Text style={styles.footerKontakt} fixed>
+          {kontakt}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ huvud + kort
+
+function Huvud({ vm }: { vm: PdfViewModel }) {
+  const h = vm.huvud;
+  return (
+    <View>
+      <Eyebrow>{h.eyebrow}</Eyebrow>
+      <Text style={styles.h1}>{h.titel}</Text>
+      <Text style={styles.meta}>{h.meta}</Text>
+      {h.byggarRad ? <Text style={styles.metaRad}>{h.byggarRad}</Text> : null}
+    </View>
+  );
+}
+
+function BetygBadge({ betyg }: { betyg: Grade }) {
+  return (
+    <View
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 7,
+        backgroundColor: PDF_GRADE_COLORS[betyg],
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: FONT_SERIF,
+          fontWeight: SEMI,
+          fontSize: 17,
+          lineHeight: 1,
+          color: "#FFFFFF",
+          textAlign: "center",
+        }}
+      >
+        {betyg}
+      </Text>
+    </View>
+  );
+}
+
+function BetygSkala({ betyg }: { betyg: Grade }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 3, alignItems: "flex-end" }}>
+      {(["A", "B", "C", "D", "E"] as const).map((b) => (
+        <View key={b} style={{ alignItems: "center", gap: 2 }}>
+          <View
+            style={{
+              width: 16,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: b === betyg ? PDF_GRADE_COLORS[b] : PDF_COLORS.scaleOff,
+            }}
+          />
+          <Text
+            style={{
+              fontSize: 7,
+              lineHeight: 1,
+              fontWeight: b === betyg ? SEMI : 400,
+              color: b === betyg ? PDF_GRADE_COLORS[b] : PDF_COLORS.scaleOffText,
+            }}
+          >
+            {b}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function Sammanfattningskort({ kort }: { kort: PdfKort }) {
+  return (
+    <View style={styles.kortRad} wrap={false}>
+      <View style={styles.kort}>
+        <Eyebrow>Föreningen</Eyebrow>
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, marginTop: 8 }}>
+          <BetygBadge betyg={kort.forening.betyg} />
+          <BetygSkala betyg={kort.forening.betyg} />
+        </View>
+        <Text style={styles.kortRad2}>{kort.forening.titel}</Text>
+        <Text style={styles.kortText}>{kort.forening.text}</Text>
+      </View>
+      <View style={styles.kort}>
+        <Eyebrow>Binfos värdering</Eyebrow>
+        <Text style={styles.kortStort}>{kort.varde.stort}</Text>
+        {kort.varde.rad ? <Text style={styles.kortRad2}>{kort.varde.rad}</Text> : null}
+        <Text style={styles.kortText}>{kort.varde.text}</Text>
+      </View>
+      <View style={styles.kort}>
+        <Eyebrow>Avgiften framåt</Eyebrow>
+        <Text style={styles.kortStort}>{kort.avgift.stort}</Text>
+        {kort.avgift.rad ? <Text style={styles.kortRad2}>{kort.avgift.rad}</Text> : null}
+        <Text style={styles.kortText}>{kort.avgift.text}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ------------------------------------------------------------------ 1 Föreningen
+
+function Foreningen({ f }: { f: PdfForening }) {
+  return (
+    <View style={styles.sektion}>
+      <SektionsRubrik nummer="1" eyebrow="Föreningen" titel={f.rubrik} lead={f.lead} />
+
+      {f.flaggor.length === 0 ? (
+        <Text style={[styles.body, { marginTop: 8, fontStyle: "normal" }]}>
+          Inga röda flaggor identifierade.
+        </Text>
+      ) : (
+        f.flaggor.map((flagga) => (
+          <View key={flagga.id} style={styles.flagga} wrap={false}>
+            <View style={styles.flaggaTopp}>
+              <Pill ton={flagga.ton} label={FLAGGA_ETIKETT} />
+              {flagga.pageRef ? <Text style={styles.sida}>{flagga.pageRef}</Text> : null}
+            </View>
+            <Text style={styles.flaggaTitel}>{flagga.titel}</Text>
+            <Text style={styles.body}>{flagga.beskrivning}</Text>
           </View>
-        </View>
+        ))
+      )}
+
+      {f.skannadNotis ? (
+        <Callout variant="notice" titel="Skannad årsredovisning">
+          {f.skannadNotis}
+        </Callout>
       ) : null}
 
-      {ovrigInfo.avgiftPoster.length > 0 ? (
-        <View style={[styles.card, { marginBottom: 8 }]} wrap={false}>
-          <Text style={[styles.priceLabel, { fontWeight: "bold", marginBottom: 4 }]}>
-            Vad ingår i avgiften
-          </Text>
-          {ovrigInfo.avgiftPoster.map((p) => (
-            <View key={p.post} style={styles.priceRow}>
-              <Text style={styles.priceLabel}>{p.label}</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={styles.summaryLabel}>{p.statusText}</Text>
-                {p.matningText ? <Text style={styles.ovrigInfoBadge}>{p.matningText}</Text> : null}
-                {p.pageRef ? <Text style={styles.pageRefTag}>{p.pageRef}</Text> : null}
-              </View>
+      <Tabell
+        kolumner={[
+          { titel: "Nyckeltal", flex: 2.9 },
+          { titel: "Värde", flex: 1.4 },
+          { titel: "Bedömning", flex: 1.6 },
+          { titel: "Jämförelse", flex: 1.9 },
+          { titel: "Källa", flex: 0.9 },
+        ]}
+        rader={f.nyckeltal.map((kf) => ({
+          key: kf.id,
+          celler: [
+            <Namn key="n" label={kf.label} forklaring={kf.forklaring} />,
+            <View key="v">
+              <Text style={{ fontWeight: SEMI, fontSize: 9.5 }}>{kf.varde}</Text>
+              {kf.osaker ? (
+                <Text style={{ fontSize: 7.5, color: PDF_COLORS.warningText }}>
+                  Osäker: {kf.osaker}
+                </Text>
+              ) : null}
+            </View>,
+            <Pill key="b" ton={kf.bedomningTon} label={kf.bedomning} />,
+            <Text key="j" style={[styles.cell, { color: PDF_COLORS.muted, fontSize: 8.5 }]}>
+              {kf.jamforelse}
+            </Text>,
+            <View key="k">
+              {kf.pageRef ? <Text style={styles.sida}>{kf.pageRef}</Text> : null}
+              {kf.isSchablon ? <Tag>Schablon</Tag> : null}
+            </View>,
+          ],
+        }))}
+      />
+
+      {f.merUr ? (
+        <View style={{ marginTop: 12 }}>
+          <Text style={styles.h3}>Mer ur årsredovisningen</Text>
+          {f.merUr.handelser.length > 0 ? (
+            <View wrap={false}>
+              <Text style={styles.h4}>Väsentliga händelser</Text>
+              {f.merUr.handelser.map((h, i) => (
+                <Text key={`h-${i}`} style={styles.body}>
+                  {"• "}
+                  {h.text}{" "}
+                  <Text style={styles.sida}>
+                    {h.pageRef ? `(${h.pageRef})` : "(ingen exakt sidhänvisning)"}
+                  </Text>
+                </Text>
+              ))}
             </View>
-          ))}
-        </View>
-      ) : null}
-
-      {ovrigInfo.handelser.length > 0 ? (
-        <View style={[styles.card, { marginBottom: 8 }]} wrap={false}>
-          <Text style={[styles.priceLabel, { fontWeight: "bold", marginBottom: 4 }]}>
-            Väsentliga händelser
-          </Text>
-          {ovrigInfo.handelser.map((h, i) => (
-            <View key={`handelse-${i}`} style={styles.ovrigInfoHandelseRow}>
-              <Text style={styles.flagBody}>{h.text}</Text>
-              <Text style={styles.pageRefTag}>{h.pageRef ?? "(ingen exakt sidhänvisning)"}</Text>
+          ) : null}
+          {f.merUr.ingar ? (
+            <View style={{ marginTop: 6 }} wrap={false}>
+              <Text style={styles.h4}>I avgiften</Text>
+              <Text style={styles.body}>{f.merUr.ingar}</Text>
             </View>
-          ))}
-        </View>
-      ) : null}
-
-      {ovrigInfo.skannadNotis ? (
-        <View style={[styles.conclusionBox, { marginTop: 0, marginBottom: 8 }]} wrap={false}>
-          <Text style={[styles.priceLabel, { fontWeight: "bold" }]}>Skannad årsredovisning</Text>
-          <Text style={{ marginTop: 2 }}>{ovrigInfo.skannadNotis}</Text>
-        </View>
-      ) : null}
-
-      {ovrigInfo.datakvalitetSkal.length > 0 ? (
-        <View style={styles.card} wrap={false}>
-          <Text style={[styles.priceLabel, { fontWeight: "bold", marginBottom: 4 }]}>
-            Om extraktionens tillförlitlighet
-          </Text>
-          {ovrigInfo.datakvalitetSkal.map((skal, i) => (
-            <Text key={`skal-${i}`} style={styles.bulletItem}>
-              • {skal}
-            </Text>
-          ))}
+          ) : null}
+          {f.merUr.fakta ? (
+            <View style={{ marginTop: 6 }} wrap={false}>
+              <Text style={styles.h4}>Föreningen</Text>
+              <Text style={styles.body}>{f.merUr.fakta}</Text>
+            </View>
+          ) : null}
+          {f.merUr.skal.length > 0 ? (
+            <View style={{ marginTop: 6 }} wrap={false}>
+              <Text style={styles.h4}>Om extraktionens tillförlitlighet</Text>
+              {f.merUr.skal.map((s, i) => (
+                <Text key={`s-${i}`} style={styles.punkt}>
+                  {"• "}
+                  {s}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
   );
 }
 
-function Prisrimlighet({ vm }: { vm: PdfViewModel }) {
-  const p = vm.prisanalys;
-  const u = p.varderingsunderlag;
-  const varderingslabel = p.externVardering?.isSchablon ? PRIS_LABEL_BAS : "Extern värdering";
+// ------------------------------------------------------------------ 2 Priset
+
+function SpannStapel({ spann }: { spann: NonNullable<PdfPriset["spann"]> }) {
+  const bredd = BREDD - 26;
+  const l = layoutSpanBar(spann.lag, spann.hog, spann.markorer, bredd);
+  const RAD_H = 27;
+  const over = l.radOver * RAD_H;
+  const barTop = over + 8;
+  const tickTop = over;
+  const hojd = over + 22 + l.radUnder * RAD_H;
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{p.titel}</Text>
-      {u?.disclaimerText ? (
-        <View style={[styles.conclusionBox, { marginTop: 0, marginBottom: 8 }]}>
-          <Text style={styles.priceLabel}>{u.tackningTitel}</Text>
-          <Text style={{ marginTop: 2 }}>{u.disclaimerText}</Text>
-        </View>
-      ) : null}
-      <View style={styles.card} wrap={false}>
-        {p.utgangspris !== undefined ? (
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Utgångspris</Text>
-            <View>
-              <Text style={styles.priceValue}>{p.utgangspris}</Text>
-              {p.prisPerM2 !== undefined ? (
-                <Text style={styles.summaryLabel}>{p.prisPerM2}</Text>
-              ) : null}
+    <View style={{ width: bredd, height: hojd, marginTop: 6 }} wrap={false}>
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          top: barTop,
+          width: bredd,
+          height: 6,
+          borderRadius: 2,
+          backgroundColor: PDF_COLORS.track,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          left: l.spannVanster,
+          top: barTop,
+          width: l.spannBredd,
+          height: 6,
+          borderRadius: 2,
+          backgroundColor: PDF_COLORS.span,
+        }}
+      />
+      {l.markorer.map((m) => {
+        const top = m.sida === "over" ? over - RAD_H * (m.rad + 1) : over + 22 + RAD_H * m.rad;
+        return (
+          <View key={`${m.label}-${m.varde}`}>
+            <View
+              style={{
+                position: "absolute",
+                left: m.x - 1.5,
+                top: tickTop,
+                width: 3,
+                height: 22,
+                borderRadius: 1,
+                backgroundColor: SPAN_TON[m.ton],
+              }}
+            />
+            <View
+              style={{
+                position: "absolute",
+                left: m.labelLeft,
+                top,
+                width: SPAN_LABEL_BREDD,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 7.5, color: PDF_COLORS.muted, textAlign: "center" }}>
+                {m.label}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: SEMI,
+                  color: SPAN_TON[m.ton],
+                  textAlign: "center",
+                }}
+              >
+                {m.text}
+              </Text>
             </View>
           </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PrisRakning({ r }: { r: NonNullable<PdfPriset["rakning"]> }) {
+  return (
+    <View style={{ marginTop: 14 }}>
+      <View wrap={false}>
+        <Text style={styles.h3}>Så har vi räknat</Text>
+        {r.modell ? (
+          <>
+            <Text style={styles.h4}>Värderingsmodellen</Text>
+            <Text style={styles.body}>{r.modell.intro}</Text>
+          </>
         ) : null}
-        {p.externVardering ? (
-          <View style={[styles.priceRow, u ? undefined : { borderBottomWidth: 0 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.priceLabel}>
-                {varderingslabel}
-                {p.externVardering.isSchablon ? " (estimat)" : ""}
-              </Text>
-              <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
-                {p.externVardering.leverantor}
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.priceValue}>{p.externVardering.value}</Text>
-              {p.externVardering.kvmPris ? (
-                <Text style={styles.summaryLabel}>{p.externVardering.kvmPris}</Text>
-              ) : null}
-              {p.externVardering.vardespann ? (
-                <Text style={styles.summaryLabel}>{p.externVardering.vardespann}</Text>
-              ) : null}
-              {p.avvikelseText ? <Text style={styles.summaryLabel}>{p.avvikelseText}</Text> : null}
-            </View>
+      </View>
+      {r.modell ? (
+        <View>
+          {r.modell.faktorer.map((f) => (
+            <Text key={f} style={styles.punkt}>
+              {"• "}
+              {f}
+            </Text>
+          ))}
+          <Text style={styles.body}>{r.modell.kalla}</Text>
+          {r.modell.spannText ? <Text style={styles.body}>{r.modell.spannText}</Text> : null}
+          <Text style={[styles.small, { marginTop: 4 }]}>{r.modell.omradeText}</Text>
+          <Text style={styles.small}>{r.modell.metadata}</Text>
+          {r.modell.metodText ? <Text style={styles.small}>{r.modell.metodText}</Text> : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function Priset({ p }: { p: PdfPriset }) {
+  return (
+    <View style={styles.sektion}>
+      <SektionsRubrik nummer="2" eyebrow="Priset" titel={p.rubrik} lead={p.lead} />
+
+      {p.tackning ? (
+        <Callout
+          variant={p.tackning.typ === "utanfor_lan" ? "flag" : "notice"}
+          titel={p.tackning.titel}
+        >
+          {p.tackning.text}
+        </Callout>
+      ) : null}
+
+      <View style={{ marginTop: 10 }}>
+        {p.spann ? (
+          <View wrap={false}>
+            <Text style={styles.h3}>Rimligt prisspann</Text>
+            <Text style={styles.small}>{p.spann.underrubrik}</Text>
+            <SpannStapel spann={p.spann} />
           </View>
         ) : (
-          <View style={[styles.priceRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.priceLabel}>Binfos värdering</Text>
-            <Text style={styles.summaryLabel}>
-              Inte tillgänglig — postnumret saknas eller är ogiltigt
-            </Text>
+          <View>
+            <Text style={styles.h3}>Binfos värdering</Text>
+            <Text style={styles.body}>Inte tillgänglig — postnumret saknas eller är ogiltigt</Text>
           </View>
         )}
-        {p.justeradVardering ? (
-          <View style={styles.priceRow}>
-            <Text style={[styles.priceLabel, { flex: 1, paddingRight: 12 }]}>
-              {p.justeradVardering.label} (estimat)
-            </Text>
-            <View>
-              <Text style={styles.priceValue}>{p.justeradVardering.value}</Text>
-              {p.justeradVardering.kvmPris ? (
-                <Text style={styles.summaryLabel}>{p.justeradVardering.kvmPris}</Text>
-              ) : null}
-              {p.justeradVardering.vardespann ? (
-                <Text style={styles.summaryLabel}>{p.justeradVardering.vardespann}</Text>
-              ) : null}
-              {p.justeradVardering.avvikelseText ? (
-                <Text style={styles.summaryLabel}>{p.justeradVardering.avvikelseText}</Text>
-              ) : null}
+
+        {p.annons ? (
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.h3}>Priset i annonsen</Text>
+            <VardeLista rader={p.annons} />
+          </View>
+        ) : null}
+
+        {p.harVardering ? (
+          <View style={{ marginTop: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <Text style={[styles.h3, { marginBottom: 0 }]}>Binfos värdering</Text>
+              {p.uppskattning ? <Tag>Uppskattning</Tag> : null}
             </View>
+            {p.leverantor ? <Text style={styles.small}>Värdering: {p.leverantor}</Text> : null}
+            <VardeLista rader={p.vardering} />
           </View>
         ) : null}
-        {p.justeradVardering && p.justeradVardering.vattenfall.length > 0 ? (
-          <View style={{ marginTop: 6 }} wrap={false}>
-            {/* The method layer: exact kronor only here (owner 2026-10-26). */}
-            <Text style={styles.confidenceNote}>Så har vi räknat (exakta belopp)</Text>
-            {p.justeradVardering.vattenfall.map((r) => (
-              <View key={r.label} style={styles.driverRow}>
-                <Text style={styles.summaryLabel}>{r.label}</Text>
-                <Text
-                  style={[
-                    styles.summaryLabel,
-                    { color: TON_COLOR[r.typ === "steg" ? r.ton : "neutral"] },
-                  ]}
-                >
-                  {r.beloppText}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
+
         {p.byggarNotis ? (
-          <Text style={[styles.summaryLabel, { marginTop: 6 }]}>{p.byggarNotis}</Text>
+          <Text style={[styles.small, { marginTop: 10 }]}>{p.byggarNotis}</Text>
         ) : null}
-        {p.andelAvSkuld ? (
+        {p.skuld ? (
           <View style={{ marginTop: 8 }}>
-            <Text style={styles.summaryLabel}>{p.andelAvSkuld.text}</Text>
-            {p.andelAvSkuld.pageRef ? (
-              <Text style={styles.pageRefTag}>{p.andelAvSkuld.pageRef}</Text>
-            ) : null}
-            {p.andelAvSkuld.osaker ? (
-              <Text style={styles.osakerText}>Osäker: {p.andelAvSkuld.osaker}</Text>
+            <Text style={styles.body}>
+              {p.skuld.text}
+              {p.skuld.pageRef ? ` (${p.skuld.pageRef})` : ""}
+            </Text>
+            {p.skuld.osaker ? (
+              <Text style={{ fontSize: 8, color: PDF_COLORS.warningText }}>
+                Osäker: {p.skuld.osaker}
+              </Text>
             ) : null}
           </View>
         ) : null}
-        {u ? (
-          <View style={styles.varderingsunderlag}>
-            <Text style={styles.priceLabel}>Område: {u.omradeText}</Text>
-            <Text style={[styles.confidenceNote, { marginTop: 4 }]}>{u.metadataText}</Text>
-            {u.metodText ? <Text style={styles.confidenceNote}>{u.metodText}</Text> : null}
-          </View>
-        ) : null}
-        {p.budpremieText ? (
-          <Text style={[styles.priceLabel, { marginTop: 8 }]}>{p.budpremieText}</Text>
-        ) : null}
-        <Text style={styles.conclusionBox}>{p.slutsats}</Text>
-        {p.konfidensSkal.length > 0 ? (
-          <Text style={styles.confidenceNote}>
-            Låg tillförlitlighet ({p.konfidensNiva}): {p.konfidensSkal.join(" ")}
-          </Text>
+        {p.lagTillforlitlighet ? (
+          <Text style={[styles.small, { marginTop: 8 }]}>{p.lagTillforlitlighet}</Text>
         ) : null}
       </View>
+
+      {p.rakning ? <PrisRakning r={p.rakning} /> : null}
     </View>
   );
 }
 
-function Rakning({ vm }: { vm: PdfViewModel }) {
-  const r = vm.rakning;
-  const u = vm.prisanalys.varderingsunderlag;
-  if (!r) return null;
+// ------------------------------------------------------------------ 3 Avgiften framåt
+
+function RantaBoxar({ a }: { a: PdfAvgiften }) {
+  const r = a.rantestress;
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Så har vi räknat</Text>
-      <View style={styles.card}>
-        {r.utgangslage && u ? (
-          <View>
-            <Text style={styles.priceLabel}>Utgångsläget: Binfos värderingsmodell</Text>
-            <Text style={[styles.summaryLabel, { marginTop: 4 }]}>{r.utgangslage.intro}</Text>
-            {r.utgangslage.faktorer.map((f) => (
-              <Text key={f} style={styles.summaryLabel}>
-                • {f}
-              </Text>
-            ))}
-            <Text style={styles.confidenceNote}>{u.kallaText}</Text>
+    <View style={{ marginTop: 10 }}>
+      <View minPresenceAhead={130}>
+        <Text style={styles.h3}>Om föreningens ränta stiger en procentenhet</Text>
+      </View>
+      {r.boxar.map((b) => (
+        <View
+          key={b.vanster.etikett}
+          style={{ flexDirection: "row", gap: 8, marginTop: 5 }}
+          wrap={false}
+        >
+          <View style={styles.box}>
+            <Text style={styles.small}>
+              {b.vanster.etikett}
+              {b.vanster.tryck ? ` · ${b.vanster.tryck}` : ""}
+            </Text>
+            <Text style={styles.boxStort}>{b.vanster.varde}</Text>
+            <Text style={styles.small}>{b.vanster.under}</Text>
           </View>
-        ) : null}
-        {r.prognos ? (
-          <View style={r.utgangslage ? styles.varderingsunderlag : {}}>
-            <View style={styles.driverRow}>
-              <Text style={styles.priceLabel}>
-                Väntad avgiftsutveckling enligt årsredovisningen
-              </Text>
-              <Text style={[styles.priceValue, { color: TON_COLOR[r.prognos.huvud.ton] }]}>
-                {r.prognos.huvud.varde}
-              </Text>
+          <View style={styles.boxTint}>
+            <Text style={{ fontSize: 8, fontWeight: SEMI, color: PDF_COLORS.link }}>
+              {b.hoger.etikett}
+            </Text>
+            {b.hoger.saknas !== undefined ? (
+              <Text style={{ fontSize: 9, marginTop: 2 }}>{b.hoger.saknas}</Text>
+            ) : (
+              <>
+                <Text style={styles.boxStort}>{b.hoger.varde}</Text>
+                <Text style={styles.small}>{b.hoger.under}</Text>
+              </>
+            )}
+          </View>
+        </View>
+      ))}
+
+      {r.prognosTabell ? (
+        <Tabell
+          kolumner={[
+            { titel: "Avgift per månad", flex: 3 },
+            { titel: "Månadsavgift (kr)", flex: 1.4, hoger: true },
+            { titel: "Förändring (kr/mån)", flex: 1.4, hoger: true },
+          ]}
+          rader={r.prognosTabell.rader.map((rad, i) => ({
+            key: `p-${i}`,
+            celler: [rad.label, rad.manadsavgift, rad.forandring],
+          }))}
+        />
+      ) : r.rader.length > 0 ? (
+        <Tabell
+          kolumner={[
+            { titel: "Scenario", flex: 2.2 },
+            { titel: "Ny månadsavgift", flex: 1.6, hoger: true },
+            { titel: "Avgiftsökning", flex: 1.6, hoger: true },
+          ]}
+          rader={r.rader.map((rad) => ({
+            key: `s-${rad.okningPe}`,
+            celler: [
+              rad.okningPe === 0
+                ? "Idag"
+                : `+${rad.okningPe} ${rad.okningPe === 1 ? "procentenhet" : "procentenheter"}`,
+              rad.nyManadsavgift,
+              rad.avgiftsokning,
+            ],
+          }))}
+        />
+      ) : null}
+      <Text style={[styles.body, { marginTop: 6 }]}>
+        {r.prognosTabell ? r.prognosTabell.kommentar : r.kommentar}
+      </Text>
+    </View>
+  );
+}
+
+function Avgiften({ a }: { a: PdfAvgiften }) {
+  const d = a.drivare;
+  return (
+    <View style={styles.sektion}>
+      <SektionsRubrik nummer="3" eyebrow="Avgiften framåt" titel={a.rubrik} lead={a.lead} />
+      {a.tryck ? (
+        <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+          <Pill ton={a.tryck.ton === "neutral" ? "neutral" : a.tryck.ton} label={a.tryck.etikett} />
+          <Tag>Uppskattning</Tag>
+        </View>
+      ) : null}
+      {a.osaker ? (
+        <Callout variant="notice" titel="Osäker uppskattning">
+          {a.osaker}
+        </Callout>
+      ) : null}
+
+      <RantaBoxar a={a} />
+
+      {d ? (
+        <View style={{ marginTop: 12 }}>
+          <Tabell
+            kolumner={[
+              { titel: "Det här driver den förväntade avgiften", flex: 3.2 },
+              { titel: "Effekt på din avgift", flex: 1.1, hoger: true },
+            ]}
+            rader={d.rader.map((r, i) => ({
+              key: `d-${i}`,
+              celler: [
+                <Namn
+                  key="n"
+                  label={r.label}
+                  forklaring={r.forklaring}
+                  {...(r.pageRef ? { sida: r.pageRef } : {})}
+                />,
+                <Text
+                  key="v"
+                  style={{
+                    fontWeight: SEMI,
+                    fontSize: 9.5,
+                    color: r.dimmad ? PDF_COLORS.muted : TON_TEXT[r.ton],
+                  }}
+                >
+                  {r.varde}
+                </Text>,
+              ],
+            }))}
+            foot={
+              d.forvantad ? (
+                <View style={[styles.tabellRad, { backgroundColor: PDF_COLORS.tint }]} wrap={false}>
+                  <Text style={{ fontWeight: SEMI, fontSize: 9.5, color: PDF_COLORS.navy }}>
+                    {d.forvantad}
+                  </Text>
+                </View>
+              ) : null
+            }
+          />
+          <Text style={[styles.small, { marginTop: 5 }]}>{d.energiText}</Text>
+        </View>
+      ) : null}
+
+      {a.spar ? (
+        <View style={{ marginTop: 14 }}>
+          <View wrap={false} minPresenceAhead={130}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[styles.h3, { marginBottom: 0 }]}>{a.spar.rubrik}</Text>
+              {a.spar.tryck ? <Pill ton={a.spar.tryck.ton} label={a.spar.tryck.etikett} /> : null}
             </View>
-            <Text style={styles.summaryLabel}>{r.prognos.huvud.under} (uppskattning)</Text>
-            {r.prognos.spar ? (
-              <View style={{ marginTop: 8 }} wrap={false}>
-                <Text style={styles.priceLabel}>
-                  Sparande till underhåll
-                  {r.prognos.spar.dampningTag ? ` · ${r.prognos.spar.dampningTag}` : ""}
-                </Text>
-                <View style={[styles.driverRow, { marginTop: 2 }]}>
-                  {r.prognos.spar.steg.map((st, i) => (
-                    <View key={st.rubrik} style={{ flex: 1 }}>
-                      <Text style={styles.summaryLabel}>
-                        {i > 0 ? "→ " : ""}
-                        {st.rubrik}
-                      </Text>
-                      <Text style={[styles.priceLabel, st.ton ? { color: TON_COLOR[st.ton] } : {}]}>
-                        {st.varde}
-                      </Text>
-                      {st.kalla ? <Text style={styles.pageRefTag}>{st.kalla}</Text> : null}
-                    </View>
-                  ))}
-                </View>
-                {r.prognos.spar.byggdelar.length > 0 ? (
-                  <View style={styles.table}>
-                    <View style={styles.tableHeaderRow}>
-                      <Text style={styles.tableCellHeader}>Byggdel</Text>
-                      <Text style={styles.tableCellHeader}>Senast</Text>
-                      <Text style={styles.tableCellHeader}>Normalt</Text>
-                      <Text style={styles.tableCellHeader}>Status</Text>
-                    </View>
-                    {r.prognos.spar.byggdelar.map((b) => (
-                      <View key={b.label} style={styles.tableRow}>
-                        <Text style={styles.tableCell}>{b.label}</Text>
-                        <Text style={styles.tableCell}>
-                          {b.senast}
-                          {b.pageRef ? ` (${b.pageRef})` : ""}
-                        </Text>
-                        <Text style={styles.tableCell}>{b.livslangd}</Text>
-                        <Text style={[styles.tableCell, { color: TON_COLOR[b.ton] }]}>
-                          {b.status}
-                        </Text>
-                      </View>
-                    ))}
-                    <Text style={styles.confidenceNote}>
-                      {r.prognos.spar.byggdelNot} {r.prognos.spar.byggdelKalla}
-                    </Text>
-                  </View>
-                ) : null}
-                {r.prognos.spar.forklaring ? (
-                  <Text style={[styles.summaryLabel, { marginTop: 2 }]}>
-                    {r.prognos.spar.forklaring}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-            {r.prognos.lan ? (
-              <View style={{ marginTop: 8 }} wrap={false}>
-                <View style={styles.driverRow}>
-                  <Text style={styles.priceLabel}>Lån som omsätts</Text>
-                  {r.prognos.lan.varde ? (
-                    <Text style={[styles.priceLabel, { color: TON_COLOR[r.prognos.lan.ton] }]}>
-                      {r.prognos.lan.varde}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.table}>
-                  <View style={styles.tableHeaderRow}>
-                    <Text style={styles.tableCellHeader}>Förfaller</Text>
-                    <Text style={styles.tableCellHeader}>Belopp</Text>
-                    <Text style={styles.tableCellHeader}>Ränta</Text>
-                    <Text style={styles.tableCellHeader}>Period</Text>
-                    <Text style={styles.tableCellHeader}>Effekt</Text>
-                  </View>
-                  {r.prognos.lan.rader.map((l) => (
-                    <View key={`${l.forfaller}-${l.belopp}-${l.fas}`} style={styles.tableRow}>
-                      <Text style={styles.tableCell}>{l.forfaller}</Text>
-                      <Text style={styles.tableCell}>{l.belopp}</Text>
-                      <Text style={styles.tableCell}>{l.ranta}</Text>
-                      <Text style={styles.tableCell}>{l.fas}</Text>
-                      <Text style={styles.tableCell}>
-                        {l.effekt}
-                        {l.effektForening ? ` (${l.effektForening}, föreningen)` : ""}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-                {r.prognos.lan.fastrad ? (
-                  <Text style={styles.confidenceNote}>{r.prognos.lan.fastrad}</Text>
-                ) : null}
-                <Text style={styles.confidenceNote}>{r.prognos.lan.referens}</Text>
-              </View>
-            ) : null}
-            {r.prognos.komponenter
-              .filter((k) => k.ovrig)
-              .map((k) => (
-                <View key={k.label} style={{ marginTop: 4 }} wrap={false}>
-                  <View style={styles.driverRow}>
-                    <Text style={styles.priceLabel}>{k.label}</Text>
-                    <Text style={[styles.summaryLabel, k.ton ? { color: TON_COLOR[k.ton] } : {}]}>
-                      {k.vardeText}
-                      {k.kalla ? ` · ${k.kalla}` : ""}
-                    </Text>
-                  </View>
-                  <Text style={styles.summaryLabel}>
-                    {k.forklaring}
-                    {k.pageRef ? ` (${k.pageRef})` : ""}
-                  </Text>
-                </View>
-              ))}
-            {r.prognos.osaker ? (
-              <Text style={styles.osakerText}>Osäker: {r.prognos.osaker}</Text>
-            ) : null}
-            <Text style={styles.confidenceNote}>{r.prognos.energiText}</Text>
-            {r.prognos.prisTexter.map((t) => (
-              <Text key={t} style={{ marginTop: 4 }}>
-                {t}
-              </Text>
-            ))}
-            {r.prognos.prisCaveat ? (
-              <Text style={styles.confidenceNote}>{r.prognos.prisCaveat}</Text>
-            ) : null}
-            <Text style={styles.confidenceNote}>{r.prognos.rantekanslighetRad}</Text>
-            {r.prognos.refinansiering && !r.prognos.lan ? (
-              <View style={{ marginTop: 8 }}>
-                <Text style={styles.priceLabel}>Lån som omsätts inom horisonten</Text>
-                {r.prognos.refinansiering.rader.map((rad) => (
-                  <Text key={rad.label} style={styles.summaryLabel}>
-                    {rad.label}: {rad.value}
-                  </Text>
-                ))}
-                {r.prognos.refinansiering.antagenAndel ? (
-                  <Text style={styles.confidenceNote}>{r.prognos.refinansiering.antagenAndel}</Text>
-                ) : null}
-              </View>
-            ) : null}
           </View>
-        ) : null}
-      </View>
+          {a.spar.byggdelar.length > 0 ? (
+            <>
+              <Tabell
+                kolumner={[
+                  { titel: "Byggdel", flex: 2 },
+                  { titel: "Senast åtgärdad", flex: 2.2 },
+                  { titel: "Brukar hålla", flex: 1.1 },
+                  { titel: "Läge", flex: 1.5 },
+                ]}
+                rader={a.spar.byggdelar.map((b, i) => ({
+                  key: `b-${i}`,
+                  celler: [
+                    <Text key="l" style={[styles.cell, { fontWeight: SEMI }]}>
+                      {b.label}
+                    </Text>,
+                    `${b.senast}${b.pageRef ? ` (${b.pageRef})` : ""}${b.forlangning ? `. ${b.forlangning}` : ""}`,
+                    b.livslangd,
+                    <Pill key="g" ton={b.lageTon} label={b.lage} />,
+                  ],
+                }))}
+              />
+              {a.spar.byggdelKalla ? (
+                <Text style={[styles.small, { marginTop: 4 }]}>{a.spar.byggdelKalla}</Text>
+              ) : null}
+            </>
+          ) : null}
+          <View style={{ marginTop: 6 }}>
+            <VardeLista
+              rader={a.spar.rader.map((r) => ({
+                label: r.label,
+                note: r.note,
+                varde: r.varde,
+                undertext: undefined,
+                total: r.total,
+              }))}
+            />
+          </View>
+          {a.spar.princip ? (
+            <Text style={[styles.small, { marginTop: 4 }]}>{a.spar.princip}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {a.lan ? (
+        <View style={{ marginTop: 14 }}>
+          <View minPresenceAhead={110}>
+            <Text style={styles.h3}>Föreningens lån</Text>
+          </View>
+          {a.lan.rader.length > 0 ? (
+            <Tabell
+              kolumner={[
+                { titel: "Förfaller", flex: 1.4 },
+                { titel: "Belopp", flex: 1.3 },
+                { titel: "Ränta i årsredovisningen", flex: 1.4 },
+                { titel: "Läge", flex: 2 },
+              ]}
+              rader={a.lan.rader.map((l, i) => ({
+                key: `l-${i}`,
+                celler: [
+                  l.forfaller,
+                  l.belopp,
+                  l.ranta,
+                  <Pill key="g" ton={l.lageTon} label={l.lage} />,
+                ],
+              }))}
+            />
+          ) : null}
+          {a.lan.kalla ? <Text style={[styles.small, { marginTop: 4 }]}>{a.lan.kalla}</Text> : null}
+          {a.lan.fastrad ? <Text style={styles.small}>{a.lan.fastrad}</Text> : null}
+          {a.lan.refinansiering.length > 0 ? (
+            <View style={{ marginTop: 4 }} wrap={false}>
+              {a.lan.refinansiering.map((rad) => (
+                <Text key={rad.label} style={{ fontSize: 8.5, color: PDF_COLORS.text2 }}>
+                  <Text style={{ color: PDF_COLORS.muted }}>{rad.label}:</Text> {rad.value}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          {a.lan.antagenAndel ? <Text style={styles.small}>{a.lan.antagenAndel}</Text> : null}
+          {a.lan.forandring.length > 0 || a.lan.pageRef ? (
+            <View style={{ marginTop: 6 }} wrap={false}>
+              <VardeLista rader={a.lan.forandring} />
+              {a.lan.pageRef ? (
+                <Text style={[styles.sida, { marginTop: 3 }]}>{a.lan.pageRef}</Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function Sammanfattning({ sammanfattning }: { sammanfattning: PdfViewModel["sammanfattning"] }) {
-  if (!sammanfattning) return null;
+// ------------------------------------------------------------------ 4 Inför visningen + slut
+
+function Fragor({ f }: { f: PdfFragor }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Sammanfattning</Text>
-      <View style={styles.card} wrap={false}>
-        {sammanfattning.stycken.map((t, i) => (
-          <Text key={t} style={{ marginBottom: 6 }}>
-            {i === 2 && sammanfattning.avgiftTryck ? (
-              <Text
-                style={{ color: TON_COLOR[sammanfattning.avgiftTryck.ton], fontWeight: "bold" }}
-              >
-                {sammanfattning.avgiftTryck.etikett}
-                {": "}
+    <View style={styles.sektion}>
+      <SektionsRubrik nummer="4" eyebrow="Inför visningen" titel={f.rubrik} lead={f.lead} />
+      <View style={{ marginTop: 8 }}>
+        {f.fragor.map((fr) => (
+          <View key={fr.id} style={styles.fraga} wrap={false}>
+            <View style={styles.checkbox} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: SEMI, fontSize: 10, lineHeight: 1.35 }}>{fr.fraga}</Text>
+              <Text style={styles.body}>
+                <Text style={{ fontWeight: SEMI }}>Varför: </Text>
+                {fr.varfor}
               </Text>
-            ) : null}
-            {t}
-          </Text>
+              {fr.svarssignal?.typ === "tva" ? (
+                <>
+                  <Text style={styles.body}>
+                    <Text style={{ fontWeight: SEMI }}>Bra svar: </Text>
+                    {fr.svarssignal.bra}
+                  </Text>
+                  <Text style={styles.body}>
+                    <Text style={{ fontWeight: SEMI }}>Varningssignal: </Text>
+                    {fr.svarssignal.varning}
+                  </Text>
+                </>
+              ) : fr.svarssignal ? (
+                <Text style={styles.body}>{fr.svarssignal.text}</Text>
+              ) : null}
+            </View>
+          </View>
         ))}
       </View>
     </View>
   );
 }
 
-function Rantestress({ vm }: { vm: PdfViewModel }) {
-  const r = vm.rantestress;
-  const showTotal = r.rader.some((rad) => rad.totalManadskostnad !== undefined);
+function Slut({ vm }: { vm: PdfViewModel }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Vad händer om räntan stiger?</Text>
-      <View style={styles.card} wrap={false}>
-        {r.prognosTabell ? null : (
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Dagens avgift</Text>
-            <Text style={styles.priceValue}>{r.nuvarandeManadsavgift}</Text>
-          </View>
-        )}
-        {r.prognosTabell ? (
-          <View style={styles.table}>
-            <View style={styles.tableHeaderRow}>
-              <Text style={styles.tableCellHeader}> </Text>
-              <Text style={styles.tableCellHeader}>Månadsavgift kr/mån</Text>
-              <Text style={styles.tableCellHeader}>Förändring mot i dag kr/mån</Text>
-            </View>
-            {r.prognosTabell.rader.map((rad) => (
-              <View key={rad.label} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{rad.label}</Text>
-                <Text style={styles.tableCell}>{rad.manadsavgift}</Text>
-                <Text style={styles.tableCell}>{rad.forandring}</Text>
-              </View>
-            ))}
-          </View>
-        ) : r.ejBeraknbar ? (
-          <Text style={styles.emptyNote}>
-            Inte möjligt att räkna då räntekänslighet saknas i rapporten.
+    <View>
+      <View style={[styles.card, { marginTop: 26 }]} wrap={false}>
+        <Text style={styles.h3}>Källor och metod</Text>
+        <Text style={styles.body}>{vm.kallor.intro}</Text>
+        {vm.kallor.rader.map((r) => (
+          <Text key={r} style={styles.punkt}>
+            {"• "}
+            {r}
           </Text>
-        ) : (
-          <View style={styles.table}>
-            <View style={styles.tableHeaderRow}>
-              <Text style={styles.tableCellHeader}>Räntehöjning</Text>
-              <Text style={styles.tableCellHeader}>Ny avgift/mån</Text>
-              <Text style={styles.tableCellHeader}>Ökning kr/mån</Text>
-              {showTotal ? <Text style={styles.tableCellHeader}>Total månadskostnad</Text> : null}
-            </View>
-            {r.rader.map((rad) => (
-              <View key={rad.okningPe} style={styles.tableRow}>
-                <Text style={styles.tableCell}>+{rad.okningPe} p.e.</Text>
-                <Text style={styles.tableCell}>{rad.nyManadsavgift}</Text>
-                <Text style={styles.tableCell}>{rad.avgiftsokning}</Text>
-                {showTotal ? (
-                  <Text style={styles.tableCell}>{rad.totalManadskostnad ?? "—"}</Text>
-                ) : null}
-              </View>
-            ))}
-          </View>
-        )}
-        <Text style={styles.rantestressComment}>{r.prognosTabell?.kommentar ?? r.kommentar}</Text>
+        ))}
       </View>
-    </View>
-  );
-}
-
-function Fragor({ fragor }: { fragor: PdfViewModel["fragor"] }) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Frågor att ställa</Text>
-      {fragor.length === 0 ? (
-        <Text style={styles.emptyNote}>Inga frågor genererade.</Text>
-      ) : (
-        <View style={styles.card}>
-          {fragor.map((f) => (
-            <View key={f.id} style={styles.fragaRow} wrap={false}>
-              <View style={styles.checkbox} />
-              <View style={styles.fragaBody}>
-                <Text style={styles.fragaText}>{f.fraga}</Text>
-                <Text style={styles.fragaContext}>Varför: {f.varfor}</Text>
-                {f.svarssignal ? <Text style={styles.fragaContext}>{f.svarssignal}</Text> : null}
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
+      <Text style={[styles.small, { marginTop: 10 }]}>
+        {vm.friskrivning}
+        {vm.kontakt !== null ? ` Hittar du ett fel? Skriv till ${vm.kontakt}.` : ""}
+      </Text>
     </View>
   );
 }
 
 /**
- * The full analysis, flattened to a printable A4 PDF — everything
- * AnalysRapport.tsx (the on-screen report) renders, laid out for paper
- * instead of a browser (see download.tsx for how this is turned into a
- * downloaded file, and CLAUDE.md's "Visual boundary" for why this layout —
- * unlike the rest of the app — is not bound to the site's existing
- * components).
+ * The full analysis as a printable A4 PDF, in the order and wording of the web report
+ * (header, three summary cards, four numbered sections, sources, disclaimer). See
+ * download.tsx for how it becomes a downloaded file.
  */
 export function AnalysPdfDocument({ analys }: { analys: AnalysisResult }) {
   const vm = buildPdfViewModel(analys);
   return (
     <Document
-      title={`Binfo-analys — ${vm.foreningNamn}`}
+      title={`Binfo-rapport — ${vm.foreningNamn}`}
       author="Binfo"
       subject="Bostadsrättsanalys"
+      language="sv"
     >
       <Page size="A4" style={styles.page}>
         <Header foreningNamn={vm.foreningNamn} skapadLabel={vm.skapadLabel} />
-        <Summary vm={vm} />
-        <Betyg vm={vm} />
-        <RodaFlaggor flaggor={vm.rodaFlaggor} />
-        <Foreningsekonomi keyFigures={vm.keyFigures} />
-        {vm.ovrigInfo ? <OvrigInfo ovrigInfo={vm.ovrigInfo} /> : null}
-        <Prisrimlighet vm={vm} />
-        <Rakning vm={vm} />
-        <Rantestress vm={vm} />
-        <Fragor fragor={vm.fragor} />
-        <Sammanfattning sammanfattning={vm.sammanfattning} />
-        <Footer />
+        <Huvud vm={vm} />
+        <Sammanfattningskort kort={vm.kort} />
+        <Foreningen f={vm.foreningen} />
+        <Priset p={vm.priset} />
+        <Avgiften a={vm.avgiften} />
+        {vm.fragor ? <Fragor f={vm.fragor} /> : null}
+        <Slut vm={vm} />
+        <Footer kontakt={vm.kontakt} />
       </Page>
     </Document>
   );

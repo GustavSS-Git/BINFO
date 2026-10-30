@@ -483,6 +483,40 @@ describe("verifieraSidreferenser: nya poster (PROMPT_VERSION 9)", () => {
       );
     });
 
+    it("trasigt textlager med privata tecken (Nabo, Brf Ingemar 8): citat i ren och trasig form godtas", () => {
+      // pdf.js text of Brf Ingemar 8 2025, p. 5–6: "t"/"ti"/"tt"/"fl" glyphs read as U+E0xx.
+      const luckor = sidor(
+        FYLL,
+        "Tak: Omlag\uE035\nEls\uE03Fgar u\uE035by\uE035a och \uE035ake\uE035 omlag\uE035\n" +
+          "Värdeåre\uE035 är 1929.\nKassa\uE001ödesanalys\nFörval\uE035ningsberä\uE035else",
+        "Renovering och s\uE035amby\uE035e i \uE035vä\uE035s\uE035ugan källaren. " +
+          "S\uE035amby\uE035e av alla s\uE035ammar i källare",
+      );
+      const e = medNytt({
+        genomfordaAtgarder: [
+          atgard("tak", 1986, 2, "Tak: Omlagt"),
+          atgard("tak", 1986, 2, "Elstigar utbytta och taket omlagt"),
+          atgard("stambyte", 2024, 3, "Stambyte av alla stammar i källare"),
+          atgard("stambyte", 2024, 3, "Renovering och sambye i vätsugan källaren."),
+          atgard("tak", 2014, 2, "Ommålning taket gathus"), // finns inte på sidan
+        ],
+      });
+      const r = verifieraSidreferenser(e, luckor);
+      expect(r.extraction.forening.genomfordaAtgarder!.map((a) => a.ref.excerpt)).toEqual([
+        "Tak: Omlagt",
+        "Elstigar utbytta och taket omlagt",
+        "Stambyte av alla stammar i källare",
+        "Renovering och sambye i vätsugan källaren.",
+      ]);
+      const v = verifieraSidreferenser(medAvgiftsRef(2, "Värdeåret är 1929."), luckor);
+      expect(v.fynd.find((f) => f.sokvag.includes("keyFigures[0]"))?.status).toBe("ok");
+      const k = verifieraSidreferenser(medAvgiftsRef(2, "Kassaflödesanalys"), luckor);
+      expect(k.fynd.find((f) => f.sokvag.includes("keyFigures[0]"))?.status).toBe("ok");
+      // A gap swallows only f/i/l/t: other letters must still match.
+      const fel = verifieraSidreferenser(medAvgiftsRef(2, "Värdeåren är 1929."), luckor);
+      expect(fel.fynd.find((f) => f.sokvag.includes("keyFigures[0]"))?.status).toBe("saknas");
+    });
+
     it("alla åtgärder släppta -> fältet försvinner", () => {
       const e = medNytt({ genomfordaAtgarder: [atgard("tak", 2005, 2, "finns inte alls här")] });
       expect(verifieraSidreferenser(e, t).extraction.forening.genomfordaAtgarder).toBeUndefined();

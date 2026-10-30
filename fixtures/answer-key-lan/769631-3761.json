@@ -1,0 +1,73 @@
+{
+  "orgnr": "769631-3761",
+  "namn": "Riksbyggen Brf Näcken 2 i Umeå",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "Riksbyggen 2 årsredovisning.pdf",
+    "forvaltare": "Riksbyggen",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren; lånenoten (Not 16) på sida 17"
+  },
+  "anmarkning": "Not 16 / lånetabell; belopp = Utg.skuld (sista kolumnen), räntesatserna är 'Senast kända'. Räkenskapsår 2024. Balansräkningen delar skulden i 15 225 600 långfristig + 16 742 400 kortfristig = 31 968 000 (stämmer med noten). Sex lån hos SEB; två rader är identiska (2026-12-28, 3,25 %, 4 736 000) och två lån har beloppet 4 736 000 med olika ränta/dag; tre lån har 5 920 000. Matchning på belopp kan därför inte skilja identiska lån åt.",
+  "balansdag": "2024-12-31",
+  "lanenotSida": 17,
+  "totalSkuld": {
+    "belopp": 31968000,
+    "sida": 17,
+    "tryckt": "Summa 32 313 600,00 0,00 345 600,00 31 968 000,00"
+  },
+  "rantekostnader": {
+    "belopp": 1298433,
+    "sida": 9,
+    "tryckt": "Räntekostnader och liknande resultatposter Not 9 −1 298 433 −1 237 136"
+  },
+  "lan": [
+    {
+      "kreditgivare": "SEB",
+      "belopp": 4736000,
+      "ranta": 3.03,
+      "villkorsandringsdag": "2025-06-28",
+      "sida": 17,
+      "tryckt": "SEB 3,03% 2025-06-28 4 787 200,00 0,00 51 200,00 4 736 000,00"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 5920000,
+      "ranta": 3.03,
+      "villkorsandringsdag": "2025-06-28",
+      "sida": 17,
+      "tryckt": "SEB 3,03% 2025-06-28 5 984 000,00 0,00 64 000,00 5 920 000,00"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 5920000,
+      "ranta": 4.42,
+      "villkorsandringsdag": "2025-09-28",
+      "sida": 17,
+      "tryckt": "SEB 4,42% 2025-09-28 5 984 000,00 0,00 64 000,00 5 920 000,00"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 4736000,
+      "ranta": 3.25,
+      "villkorsandringsdag": "2026-12-28",
+      "sida": 17,
+      "tryckt": "SEB 3,25% 2026-12-28 4 787 200,00 0,00 51 200,00 4 736 000,00"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 4736000,
+      "ranta": 3.25,
+      "villkorsandringsdag": "2026-12-28",
+      "sida": 17,
+      "tryckt": "SEB 3,25% 2026-12-28 4 787 200,00 0,00 51 200,00 4 736 000,00"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 5920000,
+      "ranta": 4.5,
+      "villkorsandringsdag": "2027-09-28",
+      "sida": 17,
+      "tryckt": "SEB 4,50% 2027-09-28 5 984 000,00 0,00 64 000,00 5 920 000,00"
+    }
+  ]
+}

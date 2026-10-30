@@ -337,7 +337,8 @@ function senasteMojligaAr(forening: Rad): number | undefined {
  * Renovations already done (PROMPT_VERSION 10). Dropped: uncited, unknown
  * byggdel, no integer year, a year after the balance-sheet year (that is
  * planned, not done), a year more than 10 before the construction year, and
- * repeats of the same byggdel + year.
+ * repeats of the same byggdel + year (a replacement beats a life extension).
+ * An unknown `omfattning` is removed (= byte).
  */
 function rensaGenomfordaAtgarder(forening: Rad): void {
   if (!Array.isArray(forening["genomfordaAtgarder"])) {
@@ -357,13 +358,54 @@ function rensaGenomfordaAtgarder(forening: Rad): void {
     if (sista !== undefined && (ar as number) > sista) continue;
     if (tidigast !== undefined && (ar as number) < tidigast) continue;
     if (typeof a["text"] !== "string" || a["text"].trim() === "") continue;
+    // omfattning (PROMPT_VERSION 16): an unknown value is dropped (= byte).
+    if (a["omfattning"] !== "byte" && a["omfattning"] !== "forlangning") delete a["omfattning"];
     const nyckel = `${String(a["byggdel"])}:${String(ar)}`;
-    if (sett.has(nyckel)) continue;
+    if (sett.has(nyckel)) {
+      // Same part and year twice: a replacement beats a life extension.
+      const i = kvar.findIndex((k) => `${String(k["byggdel"])}:${String(k["ar"])}` === nyckel);
+      if (i >= 0 && kvar[i]!["omfattning"] === "forlangning" && a["omfattning"] !== "forlangning") {
+        kvar[i] = a;
+      }
+      continue;
+    }
     sett.add(nyckel);
     kvar.push(a);
   }
   if (kvar.length > 0) forening["genomfordaAtgarder"] = kvar;
   else delete forening["genomfordaAtgarder"];
+}
+
+/**
+ * Sparande per m² totalyta for earlier fiscal years (PROMPT_VERSION 14). Kept:
+ * integer year strictly before the balance-sheet year and at most three years
+ * before it, a finite numeric value in a cited Figure, first entry per year.
+ * Latest first, at most three; the field is removed when nothing is left.
+ */
+function rensaSparandeHistorik(forening: Rad): void {
+  if (!Array.isArray(forening["sparandeHistorik"])) {
+    delete forening["sparandeHistorik"];
+    return;
+  }
+  const rar = forening["rakenskapsar"];
+  const sista = Number.isInteger(rar) ? (rar as number) : senasteMojligaAr(forening);
+  const sett = new Set<number>();
+  const kvar: Array<{ ar: number; figure: Rad }> = [];
+  if (sista !== undefined) {
+    for (const p of forening["sparandeHistorik"]) {
+      if (!arRad(p)) continue;
+      const ar = p["ar"];
+      if (typeof ar !== "number" || !Number.isInteger(ar)) continue;
+      if (ar >= sista || ar < sista - 3 || sett.has(ar)) continue;
+      const figur = behallFigur(p["figure"]);
+      if (!figur || figur["source"] !== "arsredovisning" || !arSida(figur["ref"])) continue;
+      sett.add(ar);
+      kvar.push({ ar, figure: figur });
+    }
+  }
+  kvar.sort((a, b) => b.ar - a.ar);
+  if (kvar.length > 0) forening["sparandeHistorik"] = kvar.slice(0, 3);
+  else delete forening["sparandeHistorik"];
 }
 
 /**
@@ -383,6 +425,7 @@ export function rensaNyaFalt(raw: unknown): void {
   if (arRad(forening["underhallsplan"])) rensaUnderhall(forening["underhallsplan"]);
 
   rensaGenomfordaAtgarder(forening);
+  rensaSparandeHistorik(forening);
 
   const uttag = forening["sparandeUttag"];
   if (arRad(uttag) && arCitat(uttag["ref"])) {

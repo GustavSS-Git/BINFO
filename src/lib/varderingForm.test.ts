@@ -13,6 +13,8 @@ import type { AnalyseraFormFields } from "./analyseraForm";
 function form(overrides: Partial<VarderingFormFields> = {}): VarderingFormFields {
   return {
     ...TOM_VARDERING_FORM,
+    adress: "Kapellgränd 12",
+    byggar: "1931",
     boarea: "58",
     antalRum: "3",
     manadsavgift: "3 240",
@@ -25,13 +27,15 @@ function form(overrides: Partial<VarderingFormFields> = {}): VarderingFormFields
 const uppgifter = { hiss: "okant", balkong: "ja" } as const;
 
 describe("validateraVarderingForm", () => {
-  it("godkänner ett komplett formulär utan utgångspris och utan byggår", () => {
+  it("godkänner ett komplett formulär utan utgångspris", () => {
     expect(harVarderingsfel(validateraVarderingForm(form()))).toBe(false);
   });
 
-  it("kräver boarea, antal rum, månadsavgift, postnummer och våning", () => {
+  it("kräver adress, byggår, boarea, antal rum, månadsavgift, postnummer och våning", () => {
     const fel = validateraVarderingForm(TOM_VARDERING_FORM);
     expect(fel).toEqual({
+      adress: "Ange adress.",
+      byggar: "Ange byggår, t.ex. 1965.",
       utgangspris: null,
       boarea: "Ange en giltig boarea.",
       antalRum: "Ange antal rum.",
@@ -73,8 +77,27 @@ describe("validateraVarderingForm", () => {
   });
 });
 
+describe("adress och byggår är obligatoriska i formuläret men inte i PrisInput", () => {
+  it("byggår utanför 1600 till innevarande år och icke-fyrsiffriga avvisas", () => {
+    for (const fel of ["", "65", "1599", "3000", "abc"]) {
+      expect(validateraVarderingForm(form({ byggar: fel })).byggar).toBe(
+        "Ange byggår, t.ex. 1965.",
+      );
+    }
+  });
+  it("tom adress avvisas, men inte för ett återställt utkast (utanAdress)", () => {
+    expect(validateraVarderingForm(form({ adress: " " })).adress).toBe("Ange adress.");
+    expect(validateraVarderingForm(form({ adress: "" }), { utanAdress: true }).adress).toBeNull();
+  });
+  it("buildPrisInput klarar fortfarande en gammal värdering utan byggår (omräkning)", () => {
+    const input = buildPrisInput(form({ byggar: "" }), uppgifter);
+    expect("byggar" in input).toBe(false);
+    expect("adress" in input).toBe(false);
+  });
+});
+
 describe("buildPrisInput", () => {
-  it("bygger ett PrisInput utan utgångspris och byggår när de är tomma", () => {
+  it("bygger ett PrisInput utan utgångspris när det är tomt", () => {
     const input = buildPrisInput(form(), uppgifter);
     expect(input).toEqual({
       boarea: 58,
@@ -82,11 +105,11 @@ describe("buildPrisInput", () => {
       manadsavgift: 3240,
       postnummer: "116 25",
       vaning: 4,
+      byggar: 1931,
       hiss: "okant",
       balkong: "ja",
     });
     expect("utgangspris" in input).toBe(false);
-    expect("byggar" in input).toBe(false);
   });
 
   it("tar med utgångspris (avrundat) och byggår när de är ifyllda", () => {
@@ -120,8 +143,9 @@ describe("tillVarderingForm (steg 1 ur det gemensamma analysformuläret)", () =>
     byggar: "1931",
   };
 
-  it("plockar ut exakt priskollens fält och släpper adress/ort", () => {
+  it("plockar ut exakt priskollens fält (adress ingår, ort finns inte)", () => {
     expect(tillVarderingForm(analysForm)).toEqual({
+      adress: "Kapellgränd 12",
       utgangspris: "4 950 000",
       boarea: "58",
       antalRum: "3",
@@ -138,9 +162,10 @@ describe("tillVarderingForm (steg 1 ur det gemensamma analysformuläret)", () =>
     );
   });
 
-  it("steg 1 kräver inte adress eller ort", () => {
-    const tomma = { ...analysForm, adress: "", ort: "" };
-    expect(harVarderingsfel(validateraVarderingForm(tillVarderingForm(tomma)))).toBe(false);
+  it("steg 1 kräver adress (men ingen ort)", () => {
+    const tomma = { ...analysForm, adress: "" };
+    expect(validateraVarderingForm(tillVarderingForm(tomma)).adress).toBe("Ange adress.");
+    expect(harVarderingsfel(validateraVarderingForm(tillVarderingForm(analysForm)))).toBe(false);
   });
 });
 

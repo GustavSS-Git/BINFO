@@ -8,7 +8,8 @@
  *
  * Two levels (owner decision 2026-10-23):
  *   - the PUBLIC summary (`RegisterForeningVy`, `/brf/$slug`): name, fiscal
- *     year, betyg and the statutory nyckeltal with their status. Nothing else
+ *     year, betyg, the stored grade motivation of the newest year (owner
+ *     2026-10-28) and the statutory nyckeltal with their status. Nothing else
  *     from the analysis leaves the server on that endpoint.
  *   - the stored FULL BRF-level analysis (`RegisterAnalysVy`,
  *     `/brf/$slug/analys/$ar`): motivation, röda flaggor, frågor, all
@@ -133,12 +134,18 @@ export interface RegisterArsSammanfattning {
   /** ISO timestamp the analysis finished. */
   analysdatum: string;
   betyg: Grade;
+  /** The stored judge's short motivation of the grade (owner Q6, 2026-10-28). Only the newest
+   *  year carries it; earlier years are null (they only appear in the year table). */
+  betygMotivering: string | null;
   nyckeltal: RegisterNyckeltal[];
   /** The report was a scan (figures read from Binfo's transcription). */
   skannad: boolean;
   /** Analysed with an older pipeline version (shown with a note, never re-run on read). */
   aldreVersion: boolean;
 }
+
+/** The area in running text: "på Kungsholmen", "i övriga Stockholm" (see `omradeMedPreposition`). */
+export { omradeMedPreposition } from "@/lib/register/omraden";
 
 /** The public association page (`/brf/$slug`): identity + summaries only. */
 export interface RegisterForeningVy {
@@ -261,6 +268,67 @@ export function nastaListaSearch(
     riktning: andring.riktning ?? nu.riktning,
     sida: andring.sida ?? nu.sida,
   });
+}
+
+/** Sort alternatives of the "Sortera efter" select: each maps to the existing server-side key and
+ *  direction (no new sorting). The label says which end comes first. */
+export const SORT_ALTERNATIV: ReadonlyArray<{
+  sortering: RegisterSortering;
+  riktning: RegisterRiktning;
+  etikett: string;
+}> = [
+  { sortering: "betyg", riktning: "asc", etikett: "Betyg (bäst först)" },
+  { sortering: "skuld_brf", riktning: "asc", etikett: "Skuld per m² (lägst först)" },
+  { sortering: "avgift", riktning: "asc", etikett: "Årsavgift per m² (lägst först)" },
+  { sortering: "sparande", riktning: "desc", etikett: "Sparande per m² (högst först)" },
+  { sortering: "analysdatum", riktning: "desc", etikett: "Senast analyserad (nyast först)" },
+];
+
+const SORT_NAMN: Record<RegisterSortering, string> = {
+  betyg: "Betyg",
+  skuld_brf: "Skuld per m²",
+  avgift: "Årsavgift per m²",
+  sparande: "Sparande per m²",
+  analysdatum: "Senast analyserad",
+};
+
+const SORT_ANDE: Record<RegisterSortering, { asc: string; desc: string }> = {
+  betyg: { asc: "bäst först", desc: "sämst först" },
+  skuld_brf: { asc: "lägst först", desc: "högst först" },
+  avgift: { asc: "lägst först", desc: "högst först" },
+  sparande: { asc: "lägst först", desc: "högst först" },
+  analysdatum: { asc: "äldst först", desc: "nyast först" },
+};
+
+/** Select value of a sort state, e.g. "betyg:asc". */
+export function sorteringsVarde(s: RegisterSortering, r: RegisterRiktning): string {
+  return `${s}:${r}`;
+}
+
+/** Select label of any sort state, including those only reachable through a column header. */
+export function sorteringsEtikett(s: RegisterSortering, r: RegisterRiktning): string {
+  const fast = SORT_ALTERNATIV.find((a) => a.sortering === s && a.riktning === r);
+  return fast ? fast.etikett : `${SORT_NAMN[s]} (${SORT_ANDE[s][r]})`;
+}
+
+/** Inverse of `sorteringsVarde`; null for anything that is not a known state. */
+export function tolkaSorteringsVarde(
+  v: string,
+): { sortering: RegisterSortering; riktning: RegisterRiktning } | null {
+  const [s, r] = v.split(":");
+  if (!REGISTER_SORTERINGAR.includes(s as RegisterSortering)) return null;
+  if (r !== "asc" && r !== "desc") return null;
+  return { sortering: s as RegisterSortering, riktning: r };
+}
+
+/** "1 förening" / "13 föreningar". */
+export function antalForeningar(n: number): string {
+  return `${n} ${n === 1 ? "förening" : "föreningar"}`;
+}
+
+/** "24 okt." (no year), for the area cards. */
+export function kortDatum(iso: string): string {
+  return new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short" }).format(new Date(iso));
 }
 
 export const ALDRE_VERSION_TEXT = "Analysen gjordes med en tidigare version av Binfo.";

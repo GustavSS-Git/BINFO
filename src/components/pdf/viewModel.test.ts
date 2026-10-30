@@ -1,41 +1,121 @@
 import { describe, expect, it } from "vitest";
-import { buildPdfViewModel } from "@/components/pdf/viewModel";
-import { formatFigureVarde } from "@/lib/analysisView";
+import { analysMedPrognos, analysUtanPrognos } from "@/components/prognosTestdata";
+import { buildPdfViewModel, FLAGGA_ETIKETT } from "@/components/pdf/viewModel";
 import { sampleAnalysis } from "@/data/sampleAnalysis";
-import type { AnalysisResult, Figure } from "@/types/analysis";
+import type { AnalysisResult } from "@/types/analysis";
 
-describe("buildPdfViewModel — sample analysis", () => {
+const flat = (s: string | undefined) => (s ?? "").replace(/\s/g, " ");
+
+describe("buildPdfViewModel: huvud och sammanfattningskort", () => {
   const vm = buildPdfViewModel(sampleAnalysis);
 
-  it("carries the förening name and formatted skapad date", () => {
+  it("har rapportens eyebrow, adressen som titel och en metarad som webben", () => {
     expect(vm.foreningNamn).toBe("Brf Pontonjären 3");
-    expect(vm.skapadLabel).toContain("2026");
+    expect(vm.huvud.eyebrow).toMatch(/^Rapport · analyserad .*2026/);
+    expect(vm.huvud.titel).toBe(sampleAnalysis.input.adress);
+    expect(vm.huvud.meta).toContain("Brf Pontonjären 3");
+    expect(flat(vm.huvud.meta)).toContain("avgift 3 503 kr/mån");
+    expect(vm.huvud.meta).toContain("byggår 1931");
   });
 
-  it("includes every red flag, not just the top two, most severe first", () => {
-    expect(vm.rodaFlaggor).toHaveLength(sampleAnalysis.rodaFlaggor.length);
-    const severities = vm.rodaFlaggor.map((f) => f.severity);
-    expect(severities).toEqual(["medel", "medel", "medel", "lag"]);
+  it("har tre kort: betyg med titel, värdering med spann och avgiften framåt", () => {
+    expect(vm.kort.forening).toMatchObject({ betyg: "B", titel: "Stabil ekonomi" });
+    expect(vm.kort.forening.text.length).toBeGreaterThan(10);
+    expect(vm.kort.varde.stort).toMatch(/^ca \d,\d mkr$/);
+    expect(vm.kort.varde.rad).toMatch(/^Spann \d,\d\d–\d,\d\d mkr$/);
+    expect(vm.kort.varde.text).toMatch(/^Utgångspriset .* ligger (under|inom|över) spannet\./);
+    expect(vm.kort.avgift.stort).toBe("+463 kr/mån");
+    expect(flat(vm.kort.avgift.rad)).toBe("3 503 → ca 3 966 kr");
   });
 
-  it("keeps each red flag's page reference", () => {
-    expect(vm.rodaFlaggor[0]?.pageRef).toBe("s. 7");
+  it("har ingen Sammanfattning-sektion (ägarbeslut Q10)", () => {
+    expect(vm).not.toHaveProperty("sammanfattning");
   });
 
-  it("shows the six graded key figures plus the informative seventh, unrated", () => {
-    expect(vm.keyFigures).toHaveLength(7);
-    const sjunde = vm.keyFigures.find((kf) => kf.id === "arsavgift_andel_av_rorelseintakter");
-    expect(sjunde).toBeDefined();
-    // No status label shown (the document skips it for "okant"), no benchmark, but value + page.
-    expect(sjunde?.status).toBe("okant");
-    expect(sjunde?.benchmarkText).toBeUndefined();
-    expect(sjunde?.valueText).toContain("99,7");
-    expect(sjunde?.pageRef).toBe("s. 8");
-    // Graded figures still carry a status.
-    expect(vm.keyFigures.filter((kf) => kf.status === "okant")).toHaveLength(1);
+  it("använder adressen raderad-texten och förenings namn som titel när adressen är rensad", () => {
+    const anonym = buildPdfViewModel({
+      ...sampleAnalysis,
+      input: { ...sampleAnalysis.input, adress: "", postnummer: "", orgnr: "" },
+    });
+    expect(anonym.huvud.titel).toBe("Brf Pontonjären 3");
+    expect(anonym.huvud.meta).toContain("Adressen raderad efter 12 månader");
+    expect(anonym.huvud.meta).not.toContain(sampleAnalysis.input.adress);
   });
 
-  it("hides a graded key figure whose status is okant, and the informative one without a value", () => {
+  it("visar byggårsavvikelsen som rad under metaraden", () => {
+    const vmP = buildPdfViewModel(analysMedPrognos());
+    expect(vmP.huvud.byggarRad).toContain("Årsredovisningen");
+    expect(vmP.huvud.byggarRad).toContain("1958");
+  });
+
+  it("kortet säger att utgångspris saknas när inget angetts", () => {
+    const { utgangspris: _u, ...input } = sampleAnalysis.input;
+    const { utgangspris: _pu, prisPerM2: _pp, ...prisanalys } = sampleAnalysis.prisanalys;
+    const utan = buildPdfViewModel({ ...sampleAnalysis, input, prisanalys });
+    expect(utan.kort.varde.text).toBe(
+      "Du angav inget utgångspris, så vi jämför inte priset mot spannet.",
+    );
+    expect(utan.huvud.meta).not.toContain("utgångspris");
+  });
+});
+
+describe("buildPdfViewModel: 1 Föreningen", () => {
+  const vm = buildPdfViewModel(sampleAnalysis);
+  const f = vm.foreningen;
+
+  it("bygger rubriken med webbens hjälpare och räknar alla flaggor", () => {
+    expect(f.flaggor).toHaveLength(sampleAnalysis.rodaFlaggor.length);
+    expect(f.rubrik).toBe("Stabil ekonomi, fyra saker att hålla koll på");
+    expect(f.lead).toBe(sampleAnalysis.betygMotivering);
+  });
+
+  it("listar varje flagga, allvarligast först, med sidhänvisning; etiketten är 'Att hålla koll på'", () => {
+    expect(FLAGGA_ETIKETT).toBe("Att hålla koll på");
+    expect(f.flaggor.every((x) => x.ton === "warning")).toBe(true);
+    expect(f.flaggor[0]?.pageRef).toBe("s. 7");
+    const hog = buildPdfViewModel({
+      ...sampleAnalysis,
+      rodaFlaggor: [
+        { ...sampleAnalysis.rodaFlaggor[0]!, id: "a", severity: "lag" },
+        { ...sampleAnalysis.rodaFlaggor[1]!, id: "b", severity: "hog" },
+      ],
+    });
+    expect(hog.foreningen.flaggor.map((x) => [x.id, x.ton])).toEqual([
+      ["b", "danger"],
+      ["a", "warning"],
+    ]);
+  });
+
+  it("har tom flagglista och rubrik utan flaggor när modellen inte hittat några", () => {
+    const inga = buildPdfViewModel({ ...sampleAnalysis, rodaFlaggor: [] });
+    expect(inga.foreningen.flaggor).toEqual([]);
+    expect(inga.foreningen.rubrik).toBe("Stabil ekonomi, inga större varningsflaggor");
+  });
+
+  it("har sju nyckeltalsrader i webbens ordning; det sjunde är 'Ingen bedömning'", () => {
+    expect(f.nyckeltal.map((k) => k.id)).toEqual([
+      "sparande_per_m2_totalyta",
+      "skuldsattning_per_m2_brf_yta",
+      "skuldsattning_per_m2_totalyta",
+      "rantekanslighet",
+      "arsavgift_per_m2_brf_yta",
+      "energikostnad_per_m2_totalyta",
+      "arsavgift_andel_av_rorelseintakter",
+    ]);
+    const sjunde = f.nyckeltal[6]!;
+    expect(sjunde.bedomning).toBe("Ingen bedömning");
+    expect(sjunde.jamforelse).toBe("Lagstadgat nyckeltal som Binfo inte bedömer");
+    expect(sjunde.varde).toContain("99,7");
+    expect(sjunde.pageRef).toBe("s. 8");
+    expect(f.nyckeltal[0]?.bedomning).toBe("Acceptabel");
+  });
+
+  it("jämför sparandet med husets behov när prognosen har ett sparbehov", () => {
+    expect(f.nyckeltal[0]?.jamforelse).toBe("Behov för huset: ca 321 kr/m²");
+    expect(f.nyckeltal[1]?.jamforelse).toMatch(/^Riksgenomsnitt: /);
+  });
+
+  it("döljer ett bedömt nyckeltal med status okänt och det ogradade utan värde", () => {
     const analys: AnalysisResult = {
       ...sampleAnalysis,
       forening: {
@@ -49,63 +129,344 @@ describe("buildPdfViewModel — sample analysis", () => {
         ),
       },
     };
-    const ids = buildPdfViewModel(analys).keyFigures.map((kf) => kf.id);
+    const ids = buildPdfViewModel(analys).foreningen.nyckeltal.map((k) => k.id);
     expect(ids).not.toContain("sparande_per_m2_totalyta");
     expect(ids).not.toContain("arsavgift_andel_av_rorelseintakter");
   });
 
-  it("labels a schablon-sourced key figure distinctly", () => {
-    // None of the sample's shown key figures are schablon-sourced; assert the flag is computed at all.
-    expect(vm.keyFigures.every((kf) => kf.isSchablon === false)).toBe(true);
+  it("bär osäker-skälet och schablonmärkningen", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
+          kf.id === "skuldsattning_per_m2_brf_yta"
+            ? { ...kf, figure: { ...kf.figure, osaker: "Verkar vara i tusental." } }
+            : kf,
+        ),
+      },
+    };
+    const rad = buildPdfViewModel(analys).foreningen.nyckeltal.find(
+      (k) => k.id === "skuldsattning_per_m2_brf_yta",
+    );
+    expect(rad?.osaker).toBe("Verkar vara i tusental.");
+    expect(f.nyckeltal.every((k) => k.isSchablon === false)).toBe(true);
   });
 
-  it("labels the schablon-sourced extern värdering as an estimate, never as a fact", () => {
-    expect(vm.prisanalys.externVardering?.isSchablon).toBe(true);
-    expect(vm.prisanalys.externVardering?.leverantor).toContain("Binfo värderingsmodell");
+  it("har 'Mer ur årsredovisningen': händelser, 'I avgiften' över alla fem posterna och antalen", () => {
+    const m = f.merUr!;
+    expect(m.handelser.length).toBe(sampleAnalysis.forening.vasentligaHandelser?.length);
+    expect(m.handelser[0]?.pageRef).toBe("s. 7");
+    expect(m.ingar).toBe(
+      "Värme, vatten och tv ingår (s. 14). El ingår inte (s. 8). Bredband framgår inte.",
+    );
+    expect(m.fakta).toBe("39 lägenheter, 2 lokaler, 49 medlemmar (s. 4, 7).");
   });
 
-  it("carries Binfos värderingsunderlag (task 4g) — område, intervall, databasis, attribution", () => {
-    expect(vm.prisanalys.varderingsunderlag).toBeDefined();
-    const u = vm.prisanalys.varderingsunderlag;
-    expect(u?.omradeText).toContain("Kungsholmen");
-    // The hidden 90 % range is gone (owner 2026-10-26): the ±10 % span replaces it.
-    expect(u).not.toHaveProperty("intervallText");
-    expect(u).not.toHaveProperty("drivare");
-    expect(u?.metadataText).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
-    expect(u?.kallaText).toContain("Svensk Mäklarstatistik");
-    expect(u?.kallaText).toContain("januari–augusti 2026");
-    expect(u?.kallaText).toContain("OpenStreetMap");
+  it("märker en väsentlig händelse utan sida och tar med datakvalitetens skäl", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        vasentligaHandelser: [{ text: "Något hände." }],
+      },
+      datakvalitet: {
+        ...sampleAnalysis.datakvalitet,
+        extraktionKonfidens: { niva: "lag", skal: ["Skälet."] },
+      },
+    };
+    const m = buildPdfViewModel(analys).foreningen.merUr!;
+    expect(m.handelser).toEqual([{ text: "Något hände.", pageRef: undefined }]);
+    expect(m.skal).toEqual(["Skälet."]);
   });
 
-  it("carries the budpremie text (task 5)", () => {
-    expect(vm.prisanalys.budpremieText).toMatch(/Bostäder i/);
+  it("utelämnar 'Mer ur årsredovisningen' när det inte finns något att visa", () => {
+    const tom: AnalysisResult = {
+      ...sampleAnalysis,
+      forening: {
+        ...sampleAnalysis.forening,
+        vasentligaHandelser: [],
+        avgiftInkluderarEnligtForening: undefined as never,
+        antalMedlemmar: undefined as never,
+        antalLagenheter: undefined as never,
+        antalHyresratter: undefined as never,
+        antalLokaler: undefined as never,
+        byggar: undefined as never,
+      },
+      datakvalitet: { ...sampleAnalysis.datakvalitet, extraktionKonfidens: { niva: "hog" } },
+    };
+    expect(buildPdfViewModel(tom).foreningen.merUr).toBeUndefined();
   });
 
-  it("includes all four räntestress scenarios (0–3 percentage points), in order", () => {
-    expect(vm.rantestress.rader.map((r) => r.okningPe)).toEqual([0, 1, 2, 3]);
-    expect(vm.rantestress.rader[3]?.nyManadsavgift).toBe("3 944 kr");
+  it("lägger skannad-notisen först när årsredovisningen var skannad, annars ingen", () => {
+    const skannad = buildPdfViewModel({
+      ...sampleAnalysis,
+      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "skannad" },
+    });
+    expect(skannad.foreningen.skannadNotis).toContain("Årsredovisningen var skannad");
+    expect(f.skannadNotis).toBeUndefined();
+  });
+});
+
+describe("buildPdfViewModel: 2 Priset", () => {
+  const p = buildPdfViewModel(sampleAnalysis).priset;
+
+  it("har verdikt-rubrik, lead och en spannstapel med markörer", () => {
+    expect(p.rubrik).toMatch(/^Utgångspriset ligger (under|inom|över) spannet$/);
+    expect(flat(p.lead)).toContain("Spannet är Binfos värdering ± 10 %");
+    expect(p.spann?.markorer.map((m) => m.label)).toEqual(
+      expect.arrayContaining(["Utgångspris", "Binfos värdering"]),
+    );
+    expect(p.spann?.lag).toBeLessThan(p.spann?.hog ?? 0);
   });
 
-  it("omits totalManadskostnad per row when the analysis has no loan data", () => {
-    expect(vm.rantestress.rader.every((r) => r.totalManadskostnad === undefined)).toBe(true);
+  it("har listorna 'Priset i annonsen' och 'Binfos värdering' med webbens etiketter", () => {
+    expect(p.annons?.map((r) => r.label)).toEqual(["Utgångspris", "Vanlig budnivå i området"]);
+    expect(flat(p.annons?.[0]?.varde)).toBe("4 995 000 kr");
+    const etiketter = p.vardering.map((r) => r.label);
+    expect(etiketter[0]).toMatch(/^Vad liknande lägenheter säljs för \(Kungsholmen, 112.42\)$/);
+    expect(etiketter).toContain("Binfos värdering");
+    expect(etiketter.at(-1)).toBe("Rimligt prisspann — Binfos värdering ± 10 %");
+    expect(p.vardering.find((r) => r.label === "Binfos värdering")?.total).toBe(true);
   });
 
-  it("includes only analysis-derived questions, matching what AnalysRapport shows on screen", () => {
-    const analysFragorCount = sampleAnalysis.fragor.filter((f) => f.ursprung === "analys").length;
-    expect(vm.fragor).toHaveLength(analysFragorCount);
-    expect(vm.fragor.some((f) => f.id === "saknad-hiss")).toBe(false);
+  it("lägger kr/m² under värdena och behåller leverantörsraden som PDF:en skriver ut", () => {
+    expect(p.vardering[0]?.undertext).toMatch(/^ca [\d\s\u00a0]+ kr\/m²$/);
+    expect(p.leverantor).toContain("Binfo värderingsmodell");
+    expect(p.uppskattning).toBe(true);
   });
 
-  it("carries varfor on every question and leaves svarssignal out when the question has none", () => {
-    expect(vm.fragor.length).toBeGreaterThan(0);
-    for (const f of vm.fragor) {
-      const kalla = sampleAnalysis.fragor.find((x) => x.id === f.id)!;
-      expect(f.varfor).toBe(kalla.varfor);
-      if (!kalla.svarssignal) expect("svarssignal" in f).toBe(false);
+  it("med justering i samplet: 'Föreningens ekonomi' och 'Med föreningens ekonomi inräknad'", () => {
+    expect(p.vardering.find((r) => r.label === "Föreningens ekonomi")?.varde).toMatch(/^−\d/);
+    expect(p.vardering.find((r) => r.label === "Binfos värdering")?.note).toBe(
+      "Med föreningens ekonomi inräknad",
+    );
+  });
+
+  it("utan justering (gammalt resultat): 'Utan justering för föreningens ekonomi', ingen ekonomirad", () => {
+    const gammal = buildPdfViewModel(analysUtanPrognos()).priset;
+    expect(gammal.vardering.some((r) => r.label === "Föreningens ekonomi")).toBe(false);
+    expect(gammal.vardering.find((r) => r.label === "Binfos värdering")?.note).toBe(
+      "Utan justering för föreningens ekonomi",
+    );
+  });
+
+  it("med prognos: komponenteffekter som egen rad och 'Med föreningens ekonomi inräknad'", () => {
+    const pp = buildPdfViewModel(analysMedPrognos()).priset;
+    const ekonomi = pp.vardering.find((r) => r.label === "Föreningens ekonomi");
+    expect(ekonomi?.varde).toMatch(/^−\d/);
+    expect(pp.vardering.find((r) => r.label === "Binfos värdering")?.note).toBe(
+      "Med föreningens ekonomi inräknad",
+    );
+    expect(pp.byggarNotis).toBe(
+      "Värderingen räknar med byggår 1958 enligt årsredovisningen, inte 1962 som du angav (s. 3).",
+    );
+    // The fee-to-price explanation lives in the price card and the fee section, not in "Så har vi räknat".
+    expect(pp.rakning).not.toHaveProperty("ekonomi");
+  });
+
+  it("utan utgångspris: rubriken 'Binfos värdering', ingen annonslista och ingen budnivå", () => {
+    const { utgangspris: _u, ...input } = sampleAnalysis.input;
+    const {
+      utgangspris: _pu,
+      prisPerM2: _pp,
+      avvikelseMotVardering: _a,
+      ...prisanalys
+    } = sampleAnalysis.prisanalys;
+    const utan = buildPdfViewModel({ ...sampleAnalysis, input, prisanalys }).priset;
+    expect(utan.rubrik).toBe("Binfos värdering");
+    expect(utan.annons).toBeUndefined();
+    expect(utan.spann?.markorer.map((m) => m.label)).not.toContain("Utgångspris");
+  });
+
+  it("utelämnar värderingsraderna och spannet utan värdering (ogiltigt postnummer)", () => {
+    const { externVardering: _e, justeradVardering: _j, ...prisanalys } = sampleAnalysis.prisanalys;
+    const utan = buildPdfViewModel({ ...sampleAnalysis, prisanalys }).priset;
+    expect(utan.harVardering).toBe(false);
+    expect(utan.spann).toBeNull();
+    expect(utan.vardering).toEqual([]);
+    expect(utan.lead).toBe("Utan ett giltigt postnummer kan Binfo inte värdera lägenheten.");
+  });
+
+  it("skriver ut andel av föreningens lån med sida och osäker-skäl", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      prisanalys: {
+        ...sampleAnalysis.prisanalys,
+        andelAvForeningensSkuld: {
+          value: 485_460,
+          unit: "kr",
+          source: "berakning",
+          ref: { page: 9 },
+          osaker: "Skuldsättningen verkar vara i tusental.",
+        },
+      },
+    };
+    const s = buildPdfViewModel(analys).priset.skuld;
+    expect(s?.text).toContain("Lägenhetens ungefärliga andel av föreningens lån");
+    expect(s?.text).toContain("Ingår inte i värderingen");
+    expect(s?.pageRef).toBe("s. 9");
+    expect(s?.osaker).toBe("Skuldsättningen verkar vara i tusental.");
+    expect(p.skuld?.pageRef).toBe("s. 8");
+  });
+
+  it("har en täckningsnotis för län och utanför län, annars ingen", () => {
+    const u = sampleAnalysis.prisanalys.varderingsunderlag!;
+    const med = (tackning: "lan" | "utanfor_lan") =>
+      buildPdfViewModel({
+        ...sampleAnalysis,
+        prisanalys: {
+          ...sampleAnalysis.prisanalys,
+          varderingsunderlag: {
+            ...u,
+            omrade: null,
+            tackning,
+            kommun: "Uppsala",
+            prisniva: {
+              region: "Uppsala",
+              krPerM2: 60000,
+              period: { fran: "2026-01-01", till: "2026-08-31" },
+              kalla: "Svensk Mäklarstatistik",
+            },
+          },
+        },
+      }).priset;
+    expect(med("utanfor_lan").tackning).toMatchObject({
+      typ: "utanfor_lan",
+      titel: "Utanför Binfos täckningsområde",
+    });
+    expect(med("lan").tackning?.titel).toBe("Värdering utanför Stockholms kommun");
+    expect(p.tackning).toBeUndefined();
+  });
+
+  it("tar med budpremien som vanlig budnivå, och som mening utan utgångspris", () => {
+    expect(p.annons?.[1]?.note).toMatch(/^Utgångspriset plus .* %, vad bostäder på Kungsholmen /);
+  });
+
+  it("tar med låg tillförlitlighet bara när nivån är låg", () => {
+    const lag = buildPdfViewModel({
+      ...sampleAnalysis,
+      prisanalys: {
+        ...sampleAnalysis.prisanalys,
+        konfidens: { niva: "lag", skal: ["Få försäljningar."] },
+      },
+    }).priset;
+    expect(lag.lagTillforlitlighet).toBe("Låg tillförlitlighet: Få försäljningar.");
+    expect(
+      buildPdfViewModel({
+        ...sampleAnalysis,
+        prisanalys: {
+          ...sampleAnalysis.prisanalys,
+          konfidens: { niva: "medel", skal: ["x"] },
+        },
+      }).priset.lagTillforlitlighet,
+    ).toBeUndefined();
+  });
+
+  it("har 'Så har vi räknat' med modellens faktorer och källa, utan typiskt fel", () => {
+    const m = p.rakning?.modell;
+    expect(m?.faktorer.length).toBeGreaterThan(3);
+    expect(m?.kalla).toContain("Svensk Mäklarstatistik");
+    expect(m?.kalla).toContain("januari–augusti 2026");
+    expect(m?.metadata).toMatch(/^\d[\d\s\u00a0]* försäljningar · typiskt fel ±/);
+    expect(m).not.toHaveProperty("felText");
+    expect(m).not.toHaveProperty("slutsats");
+  });
+});
+
+describe("buildPdfViewModel: 3 Avgiften framåt", () => {
+  it("utan prognos: webbens rubrik, scenariotabellen och inga drivare", () => {
+    const vm = buildPdfViewModel(analysUtanPrognos());
+    const a = vm.avgiften;
+    expect(a.rubrik).toBe("Vad händer om räntan stiger?");
+    expect(a.drivare).toBeUndefined();
+    expect(a.spar).toBeUndefined();
+    expect(a.lan).toBeUndefined();
+    expect(a.tryck).toBeUndefined();
+    expect(a.rantestress.rader.map((r) => r.okningPe)).toEqual([0, 1, 2, 3]);
+    expect(flat(a.rantestress.rader[3]?.nyManadsavgift)).toBe("3 944 kr");
+    expect(a.rantestress.rader.every((r) => r.totalManadskostnad === undefined)).toBe(true);
+    expect(a.rantestress.prognosTabell).toBeUndefined();
+    expect(a.rantestress.boxar).toHaveLength(1);
+  });
+
+  it("märker avgiften med tryck när prognosen har det", () => {
+    expect(buildPdfViewModel(sampleAnalysis).avgiften.tryck).toMatchObject({
+      etikett: "Tydlig avgiftshöjning väntas",
+      ton: "danger",
+    });
+  });
+
+  it("har rutorna 'Dagens avgift' och 'Med högre ränta' för båda baserna med prognos", () => {
+    const b = buildPdfViewModel(sampleAnalysis).avgiften.rantestress.boxar;
+    expect(b.map((x) => x.vanster.etikett)).toEqual(["Dagens avgift", "Förväntad avgift"]);
+    expect(b.every((x) => x.hoger.etikett === "Med högre ränta")).toBe(true);
+  });
+
+  it("har ingen stressad avgift när räntekänsligheten saknas", () => {
+    const analys: AnalysisResult = {
+      ...sampleAnalysis,
+      rantestress: {
+        ...sampleAnalysis.rantestress,
+        rantekanslighetProcent: null,
+        scenarier: [],
+        kommentar: "Saknas.",
+      },
+    };
+    const r = buildPdfViewModel(analys).avgiften.rantestress;
+    expect(r.ejBeraknbar).toBe(true);
+    expect(r.rader).toEqual([]);
+    expect(r.boxar[0]?.hoger).toEqual({
+      etikett: "Med högre ränta",
+      saknas: "Inte möjligt att räkna då räntekänslighet saknas i rapporten.",
+    });
+  });
+
+  it("med prognos: rubrik, tryck, avgiftstabellen och drivartabellen med 'Okänt' och '0 kr/mån'", () => {
+    const a = buildPdfViewModel(analysMedPrognos()).avgiften;
+    expect(a.rubrik).toContain("500 kr mer i månaden");
+    expect(a.rantestress.prognosTabell?.rader).toHaveLength(4);
+    expect(a.rantestress.prognosTabell?.rader[1]?.forandring).toBe("+500");
+    const varden = a.drivare?.rader.map((r) => r.varde) ?? [];
+    expect(varden).toContain("Okänt");
+    expect(varden.some((v) => /^0 kr\/mån$|^\+\d/.test(flat(v)))).toBe(true);
+    expect(a.drivare?.forvantad).toMatch(/^Förväntad avgift om två år: ca /);
+  });
+
+  it("sparsteg, byggdelar och lån med webbens Läge-texter", async () => {
+    const { analysMedSparbehov } = await import("@/components/prognosTestdata");
+    const a = buildPdfViewModel(analysMedSparbehov()).avgiften;
+    expect(a.spar?.rubrik).toBe("Husets byggdelar");
+    expect(a.spar?.byggdelar.map((b) => b.lage)).toEqual([
+      "Troligen eftersatt",
+      "Nyligen",
+      "Ok",
+      "Okänt",
+    ]);
+    expect(a.spar?.byggdelKalla).toContain("FAR 2025 och SIB M84:10");
+    expect(a.spar?.rader.at(-1)?.total).toBe(true);
+    expect(a.lan?.rader).toHaveLength(3);
+    expect(a.lan?.rader[2]?.lage).toBe("År 3–5 · väger 50 %");
+    expect(a.lan?.fastrad).toContain("medvetet försiktigt val");
+    expect(a.lan?.forandring.at(-1)?.label).toBe("Din andel");
+  });
+});
+
+describe("buildPdfViewModel: 4 Inför visningen, källor och slut", () => {
+  const vm = buildPdfViewModel(sampleAnalysis);
+
+  it("bara analysfrågor, rubrik med antalet i ord, 'Varför' på varje", () => {
+    const n = sampleAnalysis.fragor.filter((f) => f.ursprung === "analys").length;
+    expect(vm.fragor?.fragor).toHaveLength(n);
+    expect(vm.fragor?.rubrik).toBe("Fem frågor till mäklaren och styrelsen");
+    expect(vm.fragor?.fragor.some((f) => f.id === "saknad-hiss")).toBe(false);
+    for (const f of vm.fragor!.fragor) {
+      expect(f.varfor).toBe(sampleAnalysis.fragor.find((x) => x.id === f.id)!.varfor);
     }
   });
 
-  it("carries svarssignal when present; a signal with its own Bra svar/Varningssignal labels is not double-labelled", () => {
+  it("delar svarssignalen i 'Bra svar' och 'Varningssignal' som webben, annars en rad", () => {
+    const { svarssignal: _signal, ...fragaUtanSignal } = sampleAnalysis.fragor[0]!;
     const med: AnalysisResult = {
       ...sampleAnalysis,
       fragor: [
@@ -121,525 +482,32 @@ describe("buildPdfViewModel — sample analysis", () => {
           ursprung: "analys",
           svarssignal: "  Ett datum.  ",
         },
-        {
-          ...sampleAnalysis.fragor[0]!,
-          id: "c",
-          ursprung: "saknad_uppgift",
-          svarssignal: "Syns inte.",
-        },
+        { ...fragaUtanSignal, id: "c", ursprung: "analys" as const },
+        { ...sampleAnalysis.fragor[0]!, id: "d", ursprung: "saknad_uppgift", svarssignal: "Nej." },
       ],
     };
-    const fragor = buildPdfViewModel(med).fragor;
-    expect(fragor.map((f) => f.id)).toEqual(["a", "b"]);
-    expect(fragor[0]?.svarssignal).toBe("Bra svar: x. Varningssignal: y.");
-    expect(fragor[1]?.svarssignal).toBe("Bra svar / varningssignal: Ett datum.");
-  });
-
-  it("carries betyg and motivering verbatim", () => {
-    expect(vm.betyg).toBe("B");
-    expect(vm.betygMotivering).toBe(sampleAnalysis.betygMotivering);
-  });
-
-  it("builds ovrigInfo from the sample's real antalMedlemmar/antalLokaler/avgiftInkluderarKallor/individuellMatning", () => {
-    expect(vm.ovrigInfo).toBeDefined();
-    const antalMedlemmar = vm.ovrigInfo?.antal.find((a) => a.label === "Antal medlemmar");
-    expect(antalMedlemmar?.valueText).toBe("49 st");
-    expect(antalMedlemmar?.pageRef).toBe("s. 7");
-
-    const antalLokaler = vm.ovrigInfo?.antal.find((a) => a.label === "Antal lokaler");
-    expect(antalLokaler?.valueText).toBe("2 st");
-
-    const el = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
-    expect(el?.statusText).toBe("Ingår ej");
-    expect(el?.pageRef).toBe("s. 8");
-    // The Pontonjären report does not address individual metering, so no matningText.
-    expect(el?.matningText).toBeUndefined();
-
-    // Individual metering is shown when the report states it (synthetic variant of the sample).
-    const medMatning = buildPdfViewModel({
-      ...sampleAnalysis,
-      forening: {
-        ...sampleAnalysis.forening,
-        individuellMatning: {
-          el: { matning: "ja", ref: { page: 15, excerpt: "El mäts individuellt" } },
-        },
-      },
+    const f = buildPdfViewModel(med).fragor!;
+    expect(f.fragor.map((x) => x.id)).toEqual(["a", "b", "c"]);
+    expect(f.fragor[0]?.svarssignal).toEqual({ typ: "tva", bra: "x.", varning: "y." });
+    expect(f.fragor[1]?.svarssignal).toEqual({
+      typ: "en",
+      text: "Bra svar / varningssignal: Ett datum.",
     });
-    const elMatt = medMatning.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
-    expect(elMatt?.matningText).toBe("Individuell mätning");
+    expect(f.fragor[2]?.svarssignal).toBeUndefined();
+    expect(f.rubrik).toBe("Tre frågor till mäklaren och styrelsen");
+  });
 
-    const bredband = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "bredband");
-    expect(bredband?.matningText).toBeUndefined();
+  it("utelämnar avsnittet utan analysfrågor", () => {
+    expect(buildPdfViewModel({ ...sampleAnalysis, fragor: [] }).fragor).toBeUndefined();
+  });
 
-    expect(vm.ovrigInfo?.handelser.length).toBe(
-      sampleAnalysis.forening.vasentligaHandelser?.length,
+  it("har källor och metod med webbens rader, och friskrivningen med räkenskapsåret", () => {
+    expect(vm.kallor.intro).toContain("årsredovisningen för 2025");
+    expect(vm.kallor.rader[0]).toMatch(/^Värdering: Binfos värderingsmodell \(version 3\.1\)/);
+    expect(vm.kallor.rader.at(-1)).toMatch(/^Områdesindelning: /);
+    expect(vm.friskrivning).toBe(
+      "Rapporten är beslutsstöd, inte råd. Siffrorna kommer från föreningens årsredovisning för 2025 och kan innehålla tolkningsfel.",
     );
-    expect(vm.ovrigInfo?.datakvalitetSkal).toEqual([]);
-  });
-});
-
-describe("buildPdfViewModel — ovrigInfo edge cases", () => {
-  it("is undefined when the analysis has nothing new to show — the PDF must skip the whole section", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        namn: sampleAnalysis.forening.namn,
-        orgnr: sampleAnalysis.forening.orgnr,
-        akta: sampleAnalysis.forening.akta,
-        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
-        keyFigures: sampleAnalysis.forening.keyFigures,
-      },
-      datakvalitet: { ...sampleAnalysis.datakvalitet, extraktionKonfidens: { niva: "hog" } },
-    };
-    expect(buildPdfViewModel(analys).ovrigInfo).toBeUndefined();
-  });
-
-  it("shows 'Framgår inte av årsredovisningen' for an 'okant' or unaddressed fee item, never 'nej'", () => {
-    // Omit (not set to undefined — exactOptionalPropertyTypes forbids that)
-    // avgiftInkluderarKallor/individuellMatning from the base sample, so this
-    // case only exercises avgiftInkluderarEnligtForening's own statuses.
-    const {
-      avgiftInkluderarKallor: _kallor,
-      individuellMatning: _matning,
-      ...foreningUtanKallor
-    } = sampleAnalysis.forening;
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        ...foreningUtanKallor,
-        avgiftInkluderarEnligtForening: {
-          varme: "ja",
-          vatten: "nej",
-          el: "okant",
-          bredband: "okant",
-          tv: "okant",
-        },
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    const el = vm.ovrigInfo?.avgiftPoster.find((p) => p.post === "el");
-    expect(el?.statusText).toBe("Framgår inte av årsredovisningen");
-    // Värme och vatten visas aldrig i analysen (ägarbeslut 2026-10-26).
-    expect(vm.ovrigInfo?.avgiftPoster.map((p) => p.post)).toEqual(["el", "bredband", "tv"]);
-  });
-
-  it("marks a väsentlig händelse without a ref distinctly (undefined pageRef), never invents a page", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        namn: sampleAnalysis.forening.namn,
-        orgnr: sampleAnalysis.forening.orgnr,
-        akta: sampleAnalysis.forening.akta,
-        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
-        keyFigures: sampleAnalysis.forening.keyFigures,
-        vasentligaHandelser: [{ text: "Något hänt, ospecifik sida." }],
-      },
-      datakvalitet: { ...sampleAnalysis.datakvalitet, extraktionKonfidens: { niva: "hog" } },
-    };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.ovrigInfo?.handelser).toEqual([
-      { text: "Något hänt, ospecifik sida.", pageRef: undefined },
-    ]);
-  });
-
-  it("surfaces datakvalitet.extraktionKonfidens.skal even with nothing else to show", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        namn: sampleAnalysis.forening.namn,
-        orgnr: sampleAnalysis.forening.orgnr,
-        akta: sampleAnalysis.forening.akta,
-        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
-        keyFigures: sampleAnalysis.forening.keyFigures,
-      },
-      datakvalitet: {
-        ...sampleAnalysis.datakvalitet,
-        extraktionKonfidens: { niva: "medel", skal: ["Ett fynd var tvetydigt."] },
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.ovrigInfo?.datakvalitetSkal).toEqual(["Ett fynd var tvetydigt."]);
-  });
-});
-
-describe("buildPdfViewModel — edge cases", () => {
-  it("shows the anonymisation notice, not a dangling ', <ort>', once adress/postnummer/orgnr are cleared", () => {
-    // Mirrors src/components/PropertySummary.tsx's exact rendering: after 12
-    // months the server clears adress/postnummer/orgnr, and the on-screen report
-    // falls back to a notice. Only the address is shown, never the ort (2026-10-26).
-    const anonymAnalys: AnalysisResult = {
-      ...sampleAnalysis,
-      input: { ...sampleAnalysis.input, adress: "", postnummer: "", orgnr: "" },
-    };
-    const vm = buildPdfViewModel(anonymAnalys);
-    const adressRad = vm.summary.find((row) => row.label === "Adress");
-    expect(adressRad?.value).toBe("Adressen raderad efter 12 månader");
-    expect(adressRad?.value).not.toContain("Kungsholmen");
-  });
-
-  it("prints only the address (no ort) when the address has not been anonymised", () => {
-    const adressRad = buildPdfViewModel(sampleAnalysis).summary.find(
-      (row) => row.label === "Adress",
-    );
-    expect(adressRad?.value).toBe("Baltzar von Platens gata 6");
-    const utanOrt = buildPdfViewModel({
-      ...sampleAnalysis,
-      input: (({ ort: _o, ...rest }) => rest)(sampleAnalysis.input),
-    }).summary.find((row) => row.label === "Adress");
-    expect(utanOrt?.value).toBe("Baltzar von Platens gata 6");
-  });
-
-  it("renders a figure with value null + tecken negativ via formatFigureVarde, not as 'Uppgift saknas'", () => {
-    const negativFigure: Figure = {
-      value: null,
-      unit: "kr/m2",
-      source: "arsredovisning",
-      tecken: "negativ",
-      tryckt: "neg",
-    };
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        ...sampleAnalysis.forening,
-        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
-          kf.id === "sparande_per_m2_totalyta" ? { ...kf, figure: negativFigure } : kf,
-        ),
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    const sparande = vm.keyFigures.find((kf) => kf.id === "sparande_per_m2_totalyta");
-    expect(sparande?.valueText).toBe('Negativt ("neg" i årsredovisningen)');
-  });
-
-  it("omits externVardering entirely when the analysis has none", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      prisanalys: {
-        ...(sampleAnalysis.prisanalys.utgangspris
-          ? { utgangspris: sampleAnalysis.prisanalys.utgangspris }
-          : {}),
-        ...(sampleAnalysis.prisanalys.prisPerM2
-          ? { prisPerM2: sampleAnalysis.prisanalys.prisPerM2 }
-          : {}),
-        slutsats: "Ingen extern värdering tillgänglig.",
-        konfidens: { niva: "medel" },
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.prisanalys.externVardering).toBeUndefined();
-    expect(vm.prisanalys.avvikelseText).toBeUndefined();
-    expect(vm.prisanalys.varderingsunderlag).toBeUndefined();
-    expect(vm.prisanalys.budpremieText).toBeUndefined();
-  });
-
-  it("returns an empty red flags list, rather than throwing, when there are none", () => {
-    const analys: AnalysisResult = { ...sampleAnalysis, rodaFlaggor: [] };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.rodaFlaggor).toEqual([]);
-  });
-
-  it("only surfaces low-confidence reasons when konfidens.niva is 'lag', matching AnalysRapport", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      prisanalys: {
-        ...sampleAnalysis.prisanalys,
-        konfidens: { niva: "hog", skal: ["Skulle inte visas"] },
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.prisanalys.konfidensSkal).toEqual([]);
-  });
-
-  it("omits a key figure's page reference when the figure has none", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        ...sampleAnalysis.forening,
-        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) => {
-          if (kf.id !== "sparande_per_m2_totalyta") return kf;
-          const { ref: _ref, ...figureUtanRef } = kf.figure;
-          return { ...kf, figure: figureUtanRef };
-        }),
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    const sparande = vm.keyFigures.find((kf) => kf.id === "sparande_per_m2_totalyta");
-    expect(sparande?.pageRef).toBeUndefined();
-  });
-});
-
-describe("buildPdfViewModel — rantestress with rantekanslighetProcent null", () => {
-  it("renders no scenario rows and flags ejBeraknbar when the report doesn't state räntekänslighet", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      rantestress: {
-        rantekanslighetProcent: null,
-        nuvarandeManadsavgift: sampleAnalysis.rantestress.nuvarandeManadsavgift,
-        scenarier: [],
-        kommentar: "Räntekänslighet saknas i årsredovisningen — räntestressen kan inte beräknas.",
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.rantestress.ejBeraknbar).toBe(true);
-    expect(vm.rantestress.rader).toEqual([]);
-    expect(vm.rantestress.kommentar).toBe(analys.rantestress.kommentar);
-    expect(vm.rantestress.nuvarandeManadsavgift).toBe(
-      formatFigureVarde(sampleAnalysis.rantestress.nuvarandeManadsavgift),
-    );
-  });
-});
-
-describe("buildPdfViewModel — valuation coverage tier", () => {
-  const u0 = sampleAnalysis.prisanalys.varderingsunderlag;
-  if (!u0) throw new Error("sample has no varderingsunderlag");
-  const prisniva = {
-    region: "Riket",
-    krPerM2: 60000,
-    period: { fran: "2026-01-01", till: "2026-08-31" },
-    kalla: "Svensk Mäklarstatistik",
-  };
-  const med = (extra: Record<string, unknown>): AnalysisResult => ({
-    ...sampleAnalysis,
-    prisanalys: {
-      ...sampleAnalysis.prisanalys,
-      varderingsunderlag: { ...u0, ...extra },
-    },
-  });
-
-  it("has no coverage text for Stockholm / old analyses", () => {
-    const u = buildPdfViewModel(sampleAnalysis).prisanalys.varderingsunderlag;
-    expect(u?.disclaimerText).toBeUndefined();
-    expect(u?.metodText).toBeUndefined();
-  });
-
-  it("carries the disclaimer for utanfor_lan", () => {
-    const u = buildPdfViewModel(
-      med({ tackning: "utanfor_lan", omrade: null, kommun: null, prisniva }),
-    ).prisanalys.varderingsunderlag;
-    expect(u?.tackningTitel).toBe("Utanför Binfos täckningsområde");
-    expect(u?.disclaimerText).toContain("utanför Stockholms län");
-    expect(u?.metodText).toBeUndefined();
-    expect(u?.omradeText).toBe("Riket");
-  });
-
-  it("carries the method note for lan", () => {
-    const u = buildPdfViewModel(
-      med({
-        tackning: "lan",
-        kommun: "Nacka",
-        omrade: null,
-        prisniva: { ...prisniva, region: "Nacka" },
-      }),
-    ).prisanalys.varderingsunderlag;
-    expect(u?.metodText).toContain("Nacka");
-    expect(u?.disclaimerText).toBeUndefined();
-    expect(u?.omradeText).toBe("Nacka");
-  });
-});
-
-describe("buildPdfViewModel — andel av föreningens lån (v2)", () => {
-  const medAndel = (andel: Figure | undefined): AnalysisResult => {
-    const { andelAvForeningensSkuld: _borta, ...utanAndel } = sampleAnalysis.prisanalys;
-    return {
-      ...sampleAnalysis,
-      prisanalys: { ...utanAndel, ...(andel ? { andelAvForeningensSkuld: andel } : {}) },
-    };
-  };
-
-  it("has no debt row when the analysis has no andelAvForeningensSkuld", () => {
-    expect(buildPdfViewModel(medAndel(undefined)).prisanalys.andelAvSkuld).toBeUndefined();
-    // The sample carries the debt share: 3 617 kr/m² × 48 m² = 173 616 kr.
-    expect(buildPdfViewModel(sampleAnalysis).prisanalys.andelAvSkuld).toBeDefined();
-  });
-
-  it("writes skuld/m² × boarea (from the nyckeltal), says it is not part of the valuation, and cites the page", () => {
-    // sample: 3 617 kr/m² (nyckeltalet) × 48 m² = 173 616 kr
-    const vm = buildPdfViewModel(
-      medAndel({
-        value: 173_616,
-        unit: "kr",
-        source: "berakning",
-        ref: { page: 8, excerpt: "Skuldsättning / kvm upplåten bostadsrätt, kr 3 617" },
-      }),
-    );
-    // sv-SE separates thousands with a non-breaking space; compare with plain spaces.
-    expect(vm.prisanalys.andelAvSkuld?.text.replace(/\s/g, " ")).toBe(
-      "Lägenhetens ungefärliga andel av föreningens lån: ca 173 616 kr " +
-        "(3 617 kr/m² × 48,0 m²). Ingår inte i värderingen.",
-    );
-    expect(vm.prisanalys.andelAvSkuld?.pageRef).toBe("s. 8");
-    expect(vm.prisanalys.andelAvSkuld?.osaker).toBeUndefined();
-  });
-
-  it("reads 0 kr as a debt-free association, not as '0 kr'", () => {
-    const vm = buildPdfViewModel(
-      medAndel({ value: 0, unit: "kr", source: "berakning", ref: { page: 12 } }),
-    );
-    expect(vm.prisanalys.andelAvSkuld?.text).toBe(
-      "Föreningen har inga räntebärande lån enligt årsredovisningen.",
-    );
-    expect(vm.prisanalys.andelAvSkuld?.pageRef).toBe("s. 12");
-  });
-
-  it("omits the row when the figure has no value", () => {
-    const vm = buildPdfViewModel(medAndel({ value: null, unit: "kr", source: "berakning" }));
-    expect(vm.prisanalys.andelAvSkuld).toBeUndefined();
-  });
-
-  it("never changes the valuation text", () => {
-    const utan = buildPdfViewModel(medAndel(undefined)).prisanalys;
-    const med = buildPdfViewModel(
-      medAndel({ value: 485_460, unit: "kr", source: "berakning", ref: { page: 9 } }),
-    ).prisanalys;
-    expect(med.externVardering).toEqual(utan.externVardering);
-    expect(med.avvikelseText).toBe(utan.avvikelseText);
-    expect(med.slutsats).toBe(utan.slutsats);
-  });
-});
-
-describe("buildPdfViewModel — osäker-markering (v2)", () => {
-  it("carries a key figure's osaker reason, and undefined when there is none", () => {
-    const forst = sampleAnalysis.forening.keyFigures.find((kf) => kf.status !== "okant");
-    if (!forst) throw new Error("sample has no shown key figure");
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        ...sampleAnalysis.forening,
-        keyFigures: sampleAnalysis.forening.keyFigures.map((kf) =>
-          kf.id === forst.id
-            ? { ...kf, figure: { ...kf.figure, osaker: "Stämmer inte med årsavgifterna." } }
-            : kf,
-        ),
-      },
-    };
-    const vm = buildPdfViewModel(analys);
-    expect(vm.keyFigures.find((kf) => kf.id === forst.id)?.osaker).toBe(
-      "Stämmer inte med årsavgifterna.",
-    );
-    expect(
-      vm.keyFigures.filter((kf) => kf.id !== forst.id).every((kf) => kf.osaker === undefined),
-    ).toBe(true);
-  });
-
-  it("carries osaker on an antal figure", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        ...sampleAnalysis.forening,
-        antalMedlemmar: {
-          value: 72,
-          unit: "antal",
-          source: "arsredovisning",
-          ref: { page: 8 },
-          osaker: "Skiljer sig från antalet lägenheter.",
-        },
-      },
-    };
-    const antal = buildPdfViewModel(analys).ovrigInfo?.antal.find(
-      (a) => a.label === "Antal medlemmar",
-    );
-    expect(antal?.osaker).toBe("Skiljer sig från antalet lägenheter.");
-  });
-
-  it("flags the debt row as osäker when the figure is", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      prisanalys: {
-        ...sampleAnalysis.prisanalys,
-        andelAvForeningensSkuld: {
-          value: 100_000,
-          unit: "kr",
-          source: "berakning",
-          osaker: "Skuldsättningen verkar vara i tusental kronor.",
-        },
-      },
-    };
-    expect(buildPdfViewModel(analys).prisanalys.andelAvSkuld?.osaker).toBe(
-      "Skuldsättningen verkar vara i tusental kronor.",
-    );
-  });
-});
-
-describe("buildPdfViewModel — skannad årsredovisning (v2)", () => {
-  const SKANNAD =
-    "Årsredovisningen var skannad; siffrorna är avlästa från sidbilderna och kan innehålla fel – " +
-    "kontrollera de viktigaste mot rapporten.";
-
-  it("adds the notice when datakvalitet.kalla is 'skannad'", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "skannad" },
-    };
-    expect(buildPdfViewModel(analys).ovrigInfo?.skannadNotis).toBe(SKANNAD);
-  });
-
-  it("shows the section for a scanned report even when nothing else would be shown", () => {
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      forening: {
-        namn: sampleAnalysis.forening.namn,
-        orgnr: sampleAnalysis.forening.orgnr,
-        akta: sampleAnalysis.forening.akta,
-        rakenskapsar: sampleAnalysis.forening.rakenskapsar,
-        keyFigures: sampleAnalysis.forening.keyFigures,
-      },
-      datakvalitet: {
-        ...sampleAnalysis.datakvalitet,
-        extraktionKonfidens: { niva: "hog" },
-        kalla: "skannad",
-      },
-    };
-    const ovrig = buildPdfViewModel(analys).ovrigInfo;
-    expect(ovrig).toBeDefined();
-    expect(ovrig?.skannadNotis).toBe(SKANNAD);
-  });
-
-  it("has no notice for a text-layer report or when kalla is absent (old analyses)", () => {
-    expect(buildPdfViewModel(sampleAnalysis).ovrigInfo?.skannadNotis).toBeUndefined();
-    const analys: AnalysisResult = {
-      ...sampleAnalysis,
-      datakvalitet: { ...sampleAnalysis.datakvalitet, kalla: "textlager" },
-    };
-    expect(buildPdfViewModel(analys).ovrigInfo?.skannadNotis).toBeUndefined();
-  });
-});
-
-describe("buildPdfViewModel — utan utgångspris", () => {
-  const { utgangspris: _u, ...inputUtanPris } = sampleAnalysis.input;
-  const {
-    utgangspris: _pu,
-    prisPerM2: _pp,
-    avvikelseMotVardering: _a,
-    ...prisanalysUtanPris
-  } = sampleAnalysis.prisanalys;
-  const analys: AnalysisResult = {
-    ...sampleAnalysis,
-    input: inputUtanPris,
-    prisanalys: prisanalysUtanPris,
-  };
-
-  it("utelämnar Utgångspris i sammanfattningen och prisraderna, med rubriken 'Binfos värdering'", () => {
-    const vm = buildPdfViewModel(analys);
-    expect(vm.summary.some((r) => r.label === "Utgångspris")).toBe(false);
-    expect(vm.prisanalys.titel).toBe("Binfos värdering");
-    expect(vm.prisanalys.utgangspris).toBeUndefined();
-    expect(vm.prisanalys.prisPerM2).toBeUndefined();
-    expect(vm.prisanalys.avvikelseText).toBeUndefined();
-    expect(vm.prisanalys.externVardering).toBeDefined();
-  });
-
-  it("behåller Utgångspris och rubriken 'Är priset rimligt?' med pris", () => {
-    const vm = buildPdfViewModel(sampleAnalysis);
-    expect(vm.summary.some((r) => r.label === "Utgångspris")).toBe(true);
-    expect(vm.prisanalys.titel).toBe("Är priset rimligt?");
-  });
-});
-
-describe("buildPdfViewModel — kr/m² under the estimates (owner 2026-10-26)", () => {
-  it("adds 'ca … kr/m²' from the shown value and the boarea under both estimates", () => {
-    const vm = buildPdfViewModel(sampleAnalysis);
-    const mellanslag = (t: string | undefined) => t?.replace(/\u00a0/g, " ");
-    expect(mellanslag(vm.prisanalys.externVardering?.kvmPris)).toBe("ca 118 300 kr/m²");
-    expect(mellanslag(vm.prisanalys.justeradVardering?.kvmPris)).toBe("ca 115 600 kr/m²");
+    expect(vm.kontakt).toBe("contactbinfohere@gmail.com");
   });
 });

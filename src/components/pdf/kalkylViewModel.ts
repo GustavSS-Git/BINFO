@@ -82,7 +82,7 @@ export interface KalkylPdfViewModel {
   }>;
 }
 
-const FEE_TEXT = { ja: "Ja", nej: "Nej", okant: "Vet ej" } as const;
+const FEE_TEXT = { ja: "Ja", nej: "Nej" } as const;
 const BARN_TEXT: Record<BarnAlder, string> = {
   "0-3": "0–3 år",
   "4-6": "4–6 år",
@@ -98,8 +98,7 @@ function valOrStreck(v: number | undefined, fmt: (n: number) => string): string 
 function driftNot(p: DriftRad): string {
   if (p.ingarIAvgift) return "Ingår i avgiften (räknas inte med)";
   if (p.saknarBoarea && !p.egen) return "Boarea saknas, kan inte uppskattas";
-  const bas = p.egen ? "Ditt värde" : "Schablon (uppskattning)";
-  return p.osaker ? `${bas}. Vet ej om den ingår i avgiften` : bas;
+  return p.egen ? "Ditt värde" : "Schablon (uppskattning)";
 }
 
 function regelVarde(r: Regel): string {
@@ -142,15 +141,22 @@ export function buildKalkylViewModel(
           .map(([a, n]) => `${n} st ${BARN_TEXT[a]}`)
           .join(", ");
   const indata: KalkylPdfRad[] = [
-    { etikett: "Lånebelopp", varde: valOrStreck(u.lanebelopp, kr) },
+    { etikett: "Pris du räknar med", varde: valOrStreck(u.pris, kr) },
     { etikett: "Kontantinsats", varde: valOrStreck(u.kontantinsats, kr) },
+    {
+      etikett: "Lån (pris minus kontantinsats)",
+      varde: r.fyllt.belaning ? kr(r.lan.lanebelopp) : STRECK,
+    },
     { etikett: "Din ränta", varde: valOrStreck(u.rantaProcent, (n) => procentText(n, 2)) },
     { etikett: "Månadsavgift", varde: valOrStreck(u.manadsavgift, kr) },
     { etikett: "Boarea", varde: valOrStreck(u.boarea, (n) => `${decimalText(n)}${NBSP}m²`) },
-    ...(u.kalla?.pris !== undefined
+    ...(u.kalla?.pris !== undefined && u.kalla.pris !== u.pris
       ? [
           {
-            etikett: u.kalla.prisArUppskattning === true ? "Pris (Binfos uppskattning)" : "Pris",
+            etikett:
+              u.kalla.prisArUppskattning === true
+                ? "Pris i analysen (Binfos uppskattning)"
+                : "Pris i analysen",
             varde: kr(u.kalla.pris),
           },
         ]
@@ -221,15 +227,11 @@ export function buildKalkylViewModel(
     const s = nu.summor;
     total = {
       etikett: "Total månadskostnad efter ränteavdrag",
-      varde: s.harSpann ? `${heltalText(s.nettoLag)}–${kr(s.nettoHog)}` : kr(s.nettoLag),
+      varde: kr(s.netto),
       stark: true,
     };
-    totalNot = s.harSpann
-      ? "Spannet beror på poster där det är okänt om de ingår i avgiften: lägsta värdet antar att de ingår, högsta att de inte gör det."
-      : null;
   } else {
-    totalNot =
-      "Totalen visas när lånebelopp, kontantinsats, ränta, månadsavgift och boarea är ifyllda.";
+    totalNot = "Totalen visas när pris, kontantinsats, ränta, månadsavgift och boarea är ifyllda.";
   }
 
   // Ränteavdrag
@@ -294,9 +296,7 @@ export function buildKalkylViewModel(
             procentText(s.rantaProcent, 2),
             kr(s.rantekostnad),
             kr(s.manadsavgift),
-            s.summor.harSpann
-              ? `${heltalText(s.summor.nettoLag)}–${kr(s.summor.nettoHog)}`
-              : kr(s.summor.nettoLag),
+            kr(s.summor.netto),
             r.skatt.nettoinkomstPerManad > 0 && r.fyllt.boarea ? kr(s.kvarEfterBoende) : STRECK,
           ]),
         };

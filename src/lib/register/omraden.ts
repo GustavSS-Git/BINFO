@@ -28,33 +28,66 @@ export interface Registeromrade {
   grupp: RegisterGrupp;
   /** 1-based display order (the Innerstaden areas first, then Söderort, Västerort). */
   ordning: number;
+  /** Preposition in running Swedish text: "på Kungsholmen", "i Älvsjö" (owner-approved 2026-10-28). */
+  preposition: "på" | "i";
 }
 
 export const REGISTEROMRADEN = [
-  { slug: "gamla-stan", namn: "Gamla stan", grupp: "Innerstaden", ordning: 1 },
-  { slug: "norrmalm", namn: "Norrmalm", grupp: "Innerstaden", ordning: 2 },
-  { slug: "vasastan", namn: "Vasastan", grupp: "Innerstaden", ordning: 3 },
-  { slug: "ostermalm", namn: "Östermalm", grupp: "Innerstaden", ordning: 4 },
-  { slug: "djurgarden-gardet", namn: "Djurgården & Gärdet", grupp: "Innerstaden", ordning: 5 },
-  { slug: "kungsholmen", namn: "Kungsholmen", grupp: "Innerstaden", ordning: 6 },
-  { slug: "essingeoarna", namn: "Essingeöarna", grupp: "Innerstaden", ordning: 7 },
-  { slug: "sodermalm", namn: "Södermalm", grupp: "Innerstaden", ordning: 8 },
-  { slug: "hammarby-sjostad", namn: "Hammarby sjöstad", grupp: "Innerstaden", ordning: 9 },
+  { slug: "gamla-stan", namn: "Gamla stan", grupp: "Innerstaden", ordning: 1, preposition: "i" },
+  { slug: "norrmalm", namn: "Norrmalm", grupp: "Innerstaden", ordning: 2, preposition: "på" },
+  { slug: "vasastan", namn: "Vasastan", grupp: "Innerstaden", ordning: 3, preposition: "i" },
+  { slug: "ostermalm", namn: "Östermalm", grupp: "Innerstaden", ordning: 4, preposition: "på" },
+  {
+    slug: "djurgarden-gardet",
+    namn: "Djurgården & Gärdet",
+    grupp: "Innerstaden",
+    ordning: 5,
+    preposition: "på",
+  },
+  { slug: "kungsholmen", namn: "Kungsholmen", grupp: "Innerstaden", ordning: 6, preposition: "på" },
+  {
+    slug: "essingeoarna",
+    namn: "Essingeöarna",
+    grupp: "Innerstaden",
+    ordning: 7,
+    preposition: "på",
+  },
+  { slug: "sodermalm", namn: "Södermalm", grupp: "Innerstaden", ordning: 8, preposition: "på" },
+  {
+    slug: "hammarby-sjostad",
+    namn: "Hammarby sjöstad",
+    grupp: "Innerstaden",
+    ordning: 9,
+    preposition: "i",
+  },
   {
     slug: "liljeholmen-hagersten",
     namn: "Liljeholmen & Hägersten",
     grupp: "Söderort",
     ordning: 10,
+    preposition: "i",
   },
-  { slug: "alvsjo", namn: "Älvsjö", grupp: "Söderort", ordning: 11 },
-  { slug: "arsta-johanneshov", namn: "Årsta & Johanneshov", grupp: "Söderort", ordning: 12 },
-  { slug: "enskede", namn: "Enskede", grupp: "Söderort", ordning: 13 },
-  { slug: "skarpnack", namn: "Skarpnäck", grupp: "Söderort", ordning: 14 },
-  { slug: "farsta", namn: "Farsta", grupp: "Söderort", ordning: 15 },
-  { slug: "skarholmen", namn: "Skärholmen", grupp: "Söderort", ordning: 16 },
-  { slug: "bromma", namn: "Bromma", grupp: "Västerort", ordning: 17 },
-  { slug: "hasselby-vallingby", namn: "Hässelby-Vällingby", grupp: "Västerort", ordning: 18 },
-  { slug: "kista-jarva", namn: "Kista & Järva", grupp: "Västerort", ordning: 19 },
+  { slug: "alvsjo", namn: "Älvsjö", grupp: "Söderort", ordning: 11, preposition: "i" },
+  {
+    slug: "arsta-johanneshov",
+    namn: "Årsta & Johanneshov",
+    grupp: "Söderort",
+    ordning: 12,
+    preposition: "i",
+  },
+  { slug: "enskede", namn: "Enskede", grupp: "Söderort", ordning: 13, preposition: "i" },
+  { slug: "skarpnack", namn: "Skarpnäck", grupp: "Söderort", ordning: 14, preposition: "i" },
+  { slug: "farsta", namn: "Farsta", grupp: "Söderort", ordning: 15, preposition: "i" },
+  { slug: "skarholmen", namn: "Skärholmen", grupp: "Söderort", ordning: 16, preposition: "i" },
+  { slug: "bromma", namn: "Bromma", grupp: "Västerort", ordning: 17, preposition: "i" },
+  {
+    slug: "hasselby-vallingby",
+    namn: "Hässelby-Vällingby",
+    grupp: "Västerort",
+    ordning: 18,
+    preposition: "i",
+  },
+  { slug: "kista-jarva", namn: "Kista & Järva", grupp: "Västerort", ordning: 19, preposition: "i" },
 ] as const satisfies readonly Registeromrade[];
 
 export type RegisteromradeSlug = (typeof REGISTEROMRADEN)[number]["slug"];
@@ -137,6 +170,16 @@ export function arRegisteromradeSlug(slug: string): slug is RegisteromradeSlug {
 export function omradeNamn(slug: string): string | undefined {
   if (slug === OVRIGA_STOCKHOLM.slug) return OVRIGA_STOCKHOLM.namn;
   return registeromradeForSlug(slug)?.namn;
+}
+
+/**
+ * Preposition + area for running text: "på Kungsholmen", "i Älvsjö", "i övriga Stockholm"
+ * (the pseudo area is lower-cased mid-sentence). Unknown slugs get "i".
+ */
+export function omradeMedPreposition(slug: string, namn: string): string {
+  if (slug === OVRIGA_STOCKHOLM.slug)
+    return `i ${namn.charAt(0).toLocaleLowerCase("sv-SE")}${namn.slice(1)}`;
+  return `${registeromradeForSlug(slug)?.preposition ?? "i"} ${namn}`;
 }
 
 /** Normalises "112 42", "11242", "SE-112 42" to "11242"; null when it is not a 5-digit postnummer. */

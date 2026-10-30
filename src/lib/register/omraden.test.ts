@@ -6,6 +6,7 @@ import {
   losRegisteromrade,
   normaliseraPostnummer,
   omradeForPostnummer,
+  omradeMedPreposition,
   omradeNamn,
   postnummerArOsaker,
   registeromradeForStadsdel,
@@ -185,5 +186,41 @@ describe("losRegisteromrade", () => {
     expect(
       losRegisteromrade([{ postnummer: ["25277"], kalla: "rapport_adress" }]).omrade,
     ).toBeNull();
+  });
+});
+
+describe("omradeMedPreposition", () => {
+  it("'på' för Kungsholmen, Östermalm, Södermalm, Norrmalm, Essingeöarna, Djurgården & Gärdet", () => {
+    for (const [slug, text] of [
+      ["kungsholmen", "på Kungsholmen"],
+      ["ostermalm", "på Östermalm"],
+      ["sodermalm", "på Södermalm"],
+      ["norrmalm", "på Norrmalm"],
+      ["essingeoarna", "på Essingeöarna"],
+      ["djurgarden-gardet", "på Djurgården & Gärdet"],
+    ] as const) {
+      expect(omradeMedPreposition(slug, omradeNamn(slug)!)).toBe(text);
+    }
+  });
+
+  it("'i' för alla andra områden", () => {
+    const pa = new Set([
+      "kungsholmen",
+      "ostermalm",
+      "sodermalm",
+      "norrmalm",
+      "essingeoarna",
+      "djurgarden-gardet",
+    ]);
+    for (const a of REGISTEROMRADEN) {
+      expect(a.preposition).toBe(pa.has(a.slug) ? "på" : "i");
+      if (!pa.has(a.slug)) expect(omradeMedPreposition(a.slug, a.namn)).toBe(`i ${a.namn}`);
+    }
+  });
+
+  it("'i övriga Stockholm' med gemen mitt i meningen", () => {
+    expect(omradeMedPreposition(OVRIGA_STOCKHOLM.slug, OVRIGA_STOCKHOLM.namn)).toBe(
+      "i övriga Stockholm",
+    );
   });
 });

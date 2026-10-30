@@ -58,20 +58,19 @@ export interface FelkodInnehall {
 
 export const FELKOD_INNEHALL: Record<AnalysErrorCode, FelkodInnehall> = {
   scanned_pdf: {
-    rubrik: "Årsredovisningen går inte att läsa maskinellt",
+    // Skannade rapporter stöds (upp till 60 sidor). Den här koden nås för skanningar som inte
+    // går att läsa tillförlitligt och för skanningar över sidgränsen.
+    rubrik: "Vi kunde inte läsa årsredovisningen",
     forklaring:
-      "Filen verkar vara en skannad bild eller ett foto snarare än ett digitalt PDF-dokument " +
-      "med text. Det händer ofta — omkring var åttonde årsredovisning vi hittills sett saknar " +
-      "textlager.",
+      "Det händer med vissa skannade eller fotograferade sidor, och med skanningar på fler än 60 sidor.",
     atgard:
-      "Be mäklaren eller styrelsen om den digitala originalfilen, till exempel från föreningens " +
-      "ekonomiska förvaltare, och ladda upp den i stället för en skanning eller ett foto.",
+      "Försök med en digital version (med textlager) om du kan få en från mäklaren eller styrelsen.",
   },
   cost_cap: {
     rubrik: "Tillfälligt tekniskt stopp",
     forklaring:
       "Det beror inte på din årsredovisning eller dina uppgifter — stoppet är på vår sida.",
-    atgard: "Försök igen om en stund. Kvarstår det, hör av dig till oss.",
+    atgard: "Försök igen om en stund. Kvarstår det, kontakta oss.",
   },
   daily_cap: {
     rubrik: "Dagens gräns är nådd",
@@ -115,7 +114,7 @@ export const FELKOD_INNEHALL: Record<AnalysErrorCode, FelkodInnehall> = {
   behorighet: {
     rubrik: "Ingen tillgång just nu",
     forklaring: "Den här delen av Binfo är inte öppen för dig just nu.",
-    atgard: "Hör av dig till oss om du tror att det är fel.",
+    atgard: "Det finns inget du behöver göra. Tror du att det är fel, hör av dig till oss.",
   },
   unknown: {
     rubrik: "Något gick fel",
@@ -134,4 +133,29 @@ export const FELKOD_INNEHALL: Record<AnalysErrorCode, FelkodInnehall> = {
  */
 export function arAnalysHittadesInteFel(fel: unknown): boolean {
   return fel instanceof Error && fel.name === "AnalysHittadesInteError";
+}
+
+/** En bit av en text där kontaktfrasen kan vara en mailto-länk. */
+export type KontaktDel = string | { href: string; text: string };
+
+const KONTAKT_FRAS = /(h(?:ö|Ö)r av dig till oss|kontakta oss)/i;
+
+/**
+ * Delar en text vid "hör av dig till oss"/"kontakta oss". Med en kontaktadress blir frasen
+ * en mailto-länk; utan adress tas hela meningen som nämner den bort, så att texten aldrig
+ * lovar en kontaktväg som inte finns.
+ */
+export function kontaktDelar(text: string, epost: string | null): KontaktDel[] {
+  if (epost === null) {
+    const meningar = text.match(/[^.!?]+[.!?]*\s*/g) ?? [text];
+    const kvar = meningar
+      .filter((m) => !KONTAKT_FRAS.test(m))
+      .join("")
+      .trim();
+    return [kvar];
+  }
+  return text
+    .split(KONTAKT_FRAS)
+    .filter((d) => d !== "")
+    .map((d) => (KONTAKT_FRAS.test(d) ? { href: `mailto:${epost}`, text: d } : d));
 }

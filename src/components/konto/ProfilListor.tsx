@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { Badge, Button, Card, LinkButton, SectionTitle } from "@/components/ui/binfo";
+import { Badge, Button, GradeBadge, LinkButton, StatusPill } from "@/components/ui/binfo";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +13,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SparadKalkylExport } from "@/components/konto/SparadKalkylExport";
+import { ARBETAR_RADERA, ARBETAR_TA_BORT, bekraftaKnappText } from "@/components/konto/kontoText";
+import { PapperskorgIkon, RAD_FARA, RAD_KNAPP } from "@/components/konto/radAtgard";
 import { formatSkapadDatum, formatVardeAvrundat } from "@/lib/analysisView";
 import type { AnalysPost, SparadKalkylPost, SparadVarderingPost } from "@/lib/kontoTyper";
 
@@ -25,12 +27,18 @@ export function BekraftaDialog({
   rubrik,
   text,
   bekraftaText,
+  arbetarText = ARBETAR_RADERA,
+  utlosare = "lank",
   onBekrafta,
 }: {
   knapp: string;
   rubrik: string;
   text: ReactNode;
   bekraftaText: string;
+  /** Knapptexten medan åtgärden pågår; ska passa åtgärden ("Tar bort…", "Raderar…"). */
+  arbetarText?: string;
+  /** `lank`: röd textknapp med papperskorg (rader i listor). `knapp`: ram runt (Radera konto). */
+  utlosare?: "lank" | "knapp";
   /** Returnera false för att hålla dialogen öppen (t.ex. fel lösenord). */
   onBekrafta: () => Promise<boolean | void>;
 }) {
@@ -39,7 +47,14 @@ export function BekraftaDialog({
   return (
     <AlertDialog open={oppen} onOpenChange={setOppen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost">{knapp}</Button>
+        {utlosare === "knapp" ? (
+          <Button variant="danger">{knapp}</Button>
+        ) : (
+          <button type="button" className={RAD_FARA}>
+            <PapperskorgIkon />
+            {knapp}
+          </button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -64,11 +79,22 @@ export function BekraftaDialog({
               }
             }}
           >
-            {arbetar ? "Tar bort…" : bekraftaText}
+            {bekraftaKnappText(arbetar, bekraftaText, arbetarText)}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+/** Ett kort per lista: rubrik 19 px, förklaring, rader. */
+function Lista({ rubrik, hint, children }: { rubrik: string; hint: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col rounded-lg border border-border bg-card p-5 sm:p-7">
+      <h2 className="mb-2 text-[19px] font-semibold leading-snug text-foreground">{rubrik}</h2>
+      <p className="mb-2 text-sm text-muted-foreground">{hint}</p>
+      {children}
+    </section>
   );
 }
 
@@ -86,26 +112,26 @@ function Rad({
   atgarder: ReactNode;
 }) {
   return (
-    <li className="flex flex-wrap items-start justify-between gap-4 border-t border-border py-4 first:border-t-0 first:pt-0">
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{datum}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 font-medium text-foreground">
-          <span>{rubrik}</span>
+    <li className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-t border-divider py-4">
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-[13px] text-muted-foreground">{datum}</p>
+        <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-base text-foreground">
+          <strong className="font-semibold">{rubrik}</strong>
           {badges}
         </p>
         {detaljer.length > 0 ? (
-          <p className="mt-1 text-sm text-muted-foreground">{detaljer.join(" · ")}</p>
+          <p className="text-sm tabular-nums text-text-2">{detaljer.join(" · ")}</p>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-2">{atgarder}</div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">{atgarder}</div>
     </li>
   );
 }
 
 function Tom({ text, children }: { text: string; children: ReactNode }) {
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{text}</p>
+    <div className="flex flex-col items-start gap-4 border-t border-divider pt-4">
+      <p className="text-[15px] text-text-2">{text}</p>
       {children}
     </div>
   );
@@ -115,10 +141,10 @@ const KAN_INTE_OPPNAS = <Badge tone="warning">Kan inte öppnas</Badge>;
 
 const STATUS_TEXT: Record<
   AnalysPost["status"],
-  { text: string; tone: "neutral" | "teal" | "danger" }
+  { text: string; tone: "neutral" | "success" | "danger" }
 > = {
   pagar: { text: "Pågår", tone: "neutral" },
-  klar: { text: "Klar", tone: "teal" },
+  klar: { text: "Klar", tone: "success" },
   misslyckad: { text: "Misslyckades", tone: "danger" },
 };
 
@@ -130,8 +156,7 @@ export function AnalysLista({
   onTaBort: (analysisId: string) => Promise<void>;
 }) {
   return (
-    <Card>
-      <SectionTitle>Analyser</SectionTitle>
+    <Lista rubrik="Analyser" hint="Bostäder där du har laddat upp årsredovisningen.">
       {analyser.length === 0 ? (
         <Tom text="Du har inga analyser än. Ladda upp en årsredovisning så hamnar analysen här.">
           <LinkButton to="/analysera" variant="secondary">
@@ -149,8 +174,13 @@ export function AnalysLista({
                 rubrik={a.foreningNamn ?? "Förening ej identifierad"}
                 badges={
                   <>
-                    <Badge tone={status.tone}>{status.text}</Badge>
-                    {a.betyg !== null ? <Badge tone="teal">Betyg {a.betyg}</Badge> : null}
+                    <StatusPill tone={status.tone} label={status.text} />
+                    {a.betyg !== null ? (
+                      <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-text-2">
+                        <span aria-hidden="true">Betyg</span>
+                        <GradeBadge grade={a.betyg} size="sm" />
+                      </span>
+                    ) : null}
                   </>
                 }
                 detaljer={[
@@ -165,7 +195,7 @@ export function AnalysLista({
                         a.status === "klar" ? "/analys/$analysisId" : "/forhandsvisning/$analysisId"
                       }
                       params={{ analysisId: a.analysisId }}
-                      className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                      className={RAD_KNAPP}
                     >
                       Öppna
                     </Link>
@@ -173,6 +203,7 @@ export function AnalysLista({
                       knapp="Ta bort från listan"
                       rubrik="Ta bort analysen från din lista?"
                       bekraftaText="Ta bort från listan"
+                      arbetarText={ARBETAR_TA_BORT}
                       text={
                         <>
                           <p>
@@ -195,7 +226,7 @@ export function AnalysLista({
           })}
         </ul>
       )}
-    </Card>
+    </Lista>
   );
 }
 
@@ -207,8 +238,10 @@ export function VarderingLista({
   onRadera: (id: string) => Promise<void>;
 }) {
   return (
-    <Card>
-      <SectionTitle>Värderingar</SectionTitle>
+    <Lista
+      rubrik="Värderingar"
+      hint="Sparade värderingar utan hänsyn till föreningen. Du kan räkna om dem med dagens modell."
+    >
       {varderingar.length === 0 ? (
         <Tom text="Du har inga sparade värderingar. Gör en priskoll och tryck på Spara.">
           <LinkButton to="/analysera" variant="secondary">
@@ -229,7 +262,7 @@ export function VarderingLista({
                 badges={kanOppnas ? null : KAN_INTE_OPPNAS}
                 detaljer={[
                   ...(v.vardering !== null
-                    ? [`Värdering ${formatVardeAvrundat(v.vardering)}`]
+                    ? [`Liknande lägenheter ca ${formatVardeAvrundat(v.vardering)}`]
                     : []),
                   ...(v.input !== null
                     ? [
@@ -243,11 +276,7 @@ export function VarderingLista({
                 atgarder={
                   <>
                     {kanOppnas ? (
-                      <Link
-                        to="/analysera"
-                        search={{ sparad: v.id }}
-                        className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-                      >
+                      <Link to="/analysera" search={{ sparad: v.id }} className={RAD_KNAPP}>
                         Öppna
                       </Link>
                     ) : null}
@@ -267,7 +296,7 @@ export function VarderingLista({
           })}
         </ul>
       )}
-    </Card>
+    </Lista>
   );
 }
 
@@ -279,8 +308,7 @@ export function KalkylLista({
   onRadera: (id: string) => Promise<void>;
 }) {
   return (
-    <Card>
-      <SectionTitle>Bolånekalkyler</SectionTitle>
+    <Lista rubrik="Bolånekalkyler" hint="Kalkyler du har sparat från bolånekalkylen.">
       {kalkyler.length === 0 ? (
         <Tom text="Du har inga sparade bolånekalkyler. Räkna på ditt bolån och tryck på Spara.">
           <LinkButton to="/bolanekalkyl" variant="secondary">
@@ -324,7 +352,7 @@ export function KalkylLista({
                         att läsa och säger till om det inte gör det. */}
                     <a
                       href={`/bolanekalkyl?sparad=${encodeURIComponent(k.id)}`}
-                      className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                      className={RAD_KNAPP}
                     >
                       Öppna
                     </a>
@@ -343,6 +371,6 @@ export function KalkylLista({
           })}
         </ul>
       )}
-    </Card>
+    </Lista>
   );
 }

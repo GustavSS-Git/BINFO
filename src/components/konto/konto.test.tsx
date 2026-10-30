@@ -21,6 +21,8 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 import { AnalysLista, KalkylLista, VarderingLista } from "@/components/konto/ProfilListor";
+import { ARBETAR_RADERA, ARBETAR_TA_BORT, bekraftaKnappText } from "@/components/konto/kontoText";
+import { KopguideKortVy } from "@/components/konto/KopguideKort";
 import { SparaKnappVy } from "@/components/konto/SparaKnappVy";
 import type { AnalysPost, SparadKalkylPost, SparadVarderingPost } from "@/lib/kontoTyper";
 
@@ -125,7 +127,7 @@ describe("profilens listor", () => {
     expect(html).toContain("Utgångspris 4 950 000 kr");
     expect(html).toContain("Ta bort från listan");
     // Saved valuations are shown rounded to 10 000 kr like every other valuation.
-    expect(html).toContain("Värdering 5 680 000 kr");
+    expect(html).toContain("Liknande lägenheter ca 5 680 000 kr");
     expect(html).toContain("Kungsholmen");
     // Old summaries (no upper bound) show one figure, labelled as after ränteavdrag.
     expect(html).toContain("14 500 kr i månaden efter ränteavdrag");
@@ -170,6 +172,34 @@ describe("profilens listor", () => {
     expect(html).toContain("Förening ej identifierad");
     expect(html).toContain("Pågår");
     expect(html).not.toContain("Betyg");
+  });
+});
+
+describe("BekraftaDialog: knapptext medan åtgärden pågår", () => {
+  it("passar åtgärden: 'Tar bort…' för borttagning från listan, 'Raderar…' för radering", () => {
+    expect(ARBETAR_TA_BORT).toBe("Tar bort…");
+    expect(ARBETAR_RADERA).toBe("Raderar…");
+    expect(bekraftaKnappText(true, "Radera kontot", ARBETAR_RADERA)).toBe("Raderar…");
+    expect(bekraftaKnappText(true, "Ta bort från listan", ARBETAR_TA_BORT)).toBe("Tar bort…");
+    expect(bekraftaKnappText(false, "Radera kontot", ARBETAR_RADERA)).toBe("Radera kontot");
+  });
+});
+
+describe("Köpguiden på Mitt konto", () => {
+  it("visar framstegstexten från framstegText och en länk vidare", () => {
+    const html = renderToStaticMarkup(
+      <KopguideKortVy klara={["lanelofte", "sok", "visning", "ekonomi"]} laddar={false} />,
+    );
+    expect(html).toContain("4 av 12 steg klara. Nästa: budgivning.");
+    expect(html).toContain("Fortsätt i köpguiden");
+    expect(html).toContain('href="/kopguide"');
+    expect(html).toContain('aria-valuenow="33"');
+  });
+
+  it("utan avbockade steg: ingen siffra, men länken finns kvar", () => {
+    const html = renderToStaticMarkup(<KopguideKortVy klara={[]} laddar={false} />);
+    expect(html).toContain("Du har inte bockat av något steg ännu.");
+    expect(html).toContain("Fortsätt i köpguiden");
   });
 });
 

@@ -1,0 +1,49 @@
+{
+  "orgnr": "746000-1865",
+  "namn": "Brf Albohem",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "SBC årsredovisning.pdf",
+    "forvaltare": "SBC",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren; lånenoten på sida 17"
+  },
+  "anmarkning": "Not 16 (Skulder till kreditinstitut); kolumnerna är Villkorsändringsdag, Räntesats 2024-12-31, Skuld 2024-12-31, Skuld 2023-12-31. Räkenskapsår 2024. Hela skulden är kortfristig (alla lånen villkorsändras inom ett år). Två lån har samma dag och ränta (2025-06-28, 3,63 %). Räntekostnader 201 868 är resultaträkningens summa (not 11: fastighetslån 201 857 + övriga 11).",
+  "balansdag": "2024-12-31",
+  "lanenotSida": 17,
+  "totalSkuld": {
+    "belopp": 3841754,
+    "sida": 17,
+    "tryckt": "Summa 3 841 754 3 941 754"
+  },
+  "rantekostnader": {
+    "belopp": 201868,
+    "sida": 9,
+    "tryckt": "Räntekostnader och liknande resultatposter 11 -201 868 -167 746"
+  },
+  "lan": [
+    {
+      "kreditgivare": "SEB",
+      "belopp": 2121754,
+      "ranta": 3.63,
+      "villkorsandringsdag": "2025-06-28",
+      "sida": 17,
+      "tryckt": "SEB 2025-06-28 3,63 % 2 121 754 2 121 754"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 250000,
+      "ranta": 3.6,
+      "villkorsandringsdag": "2025-07-28",
+      "sida": 17,
+      "tryckt": "SEB 2025-07-28 3,60 % 250 000 350 000"
+    },
+    {
+      "kreditgivare": "SEB",
+      "belopp": 1470000,
+      "ranta": 3.63,
+      "villkorsandringsdag": "2025-06-28",
+      "sida": 17,
+      "tryckt": "SEB 2025-06-28 3,63 % 1 470 000 1 470 000"
+    }
+  ]
+}

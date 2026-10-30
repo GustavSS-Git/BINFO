@@ -36,50 +36,48 @@ export function SparaAnalysVy({
   if (variant === "kort") {
     if (sparad || aterstall.typ === "sparar" || sparstatus !== "kan_sparas") return null;
     return (
-      <Card className="mt-10">
-        <h2 className="font-display text-xl text-foreground">Spara analysen i din profil</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <Card className="flex flex-col gap-3">
+        <h2 className="font-display text-2xl font-semibold text-primary">
+          Spara analysen i din profil
+        </h2>
+        <p className="max-w-xl text-[15px] text-text-2">
           Logga in eller skapa ett konto, så hittar du tillbaka till analysen under Mitt konto. Du
           kommer tillbaka hit och analysen görs inte om.
         </p>
-        <div className="mt-4">{knapp()}</div>
+        <div>{knapp()}</div>
       </Card>
     );
   }
 
   if (aterstall.typ === "sparar") {
     return (
-      <div className="mb-6">
-        <InfoRuta>
-          <p>Sparar analysen…</p>
-        </InfoRuta>
-      </div>
+      <InfoRuta>
+        <p>Sparar analysen…</p>
+      </InfoRuta>
     );
   }
   if (aterstall.typ === "sparad") {
     return (
-      <div className="mb-6">
-        <InfoRuta>
-          <p className="font-medium">{SPARAD_I_PROFIL_TEXT}</p>
-          <p>
-            <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
-              Se den i Mitt konto
-            </Link>
-          </p>
-        </InfoRuta>
-      </div>
+      <InfoRuta>
+        <p className="font-medium">{SPARAD_I_PROFIL_TEXT}</p>
+        <p>
+          <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
+            Se den i Mitt konto
+          </Link>
+        </p>
+      </InfoRuta>
     );
   }
   const fel =
     aterstall.typ === "fel" ? (
-      <div className="mb-4">
+      <div className="mb-3">
         <FelRuta>{aterstall.meddelande}</FelRuta>
       </div>
     ) : null;
 
   if (sparstatus === "sparad") {
     return (
-      <p className="mb-6 text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Sparad i din profil.{" "}
         <Link to="/konto" className="font-medium text-primary underline underline-offset-2">
           Mitt konto
@@ -89,7 +87,7 @@ export function SparaAnalysVy({
   }
   if (sparstatus === "kan_sparas") {
     return (
-      <div className="mb-6">
+      <div>
         {fel}
         {knapp()}
       </div>

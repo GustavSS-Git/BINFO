@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { tolkaFalt, tolkaTal } from "./indata";
 import {
+  andraAvgift,
+  andraFalt,
   arGiltigtUnderlag,
+  avgiftFranSokning,
   kalpArAndrad,
   sidaFranSokning,
   sidaFranUnderlag,
@@ -46,7 +49,7 @@ describe("sida <-> underlag", () => {
     expect(fel).toEqual({});
     expect(arGiltigtUnderlag(underlag)).toBe(true);
     expect(underlag.kalkylrantaProcent).toBe(7);
-    expect(underlag.lanebelopp).toBeUndefined();
+    expect(underlag.pris).toBeUndefined();
     expect(underlag.antalVuxna).toBe(2); // = antal låntagare
     expect(underlag.antalPersoner).toBe(2);
   });
@@ -64,7 +67,7 @@ describe("sida <-> underlag", () => {
   it("rundresa: underlag -> sida -> underlag ger samma underlag", () => {
     const { underlag } = underlagFranSida({
       ...tomSida(),
-      lanebelopp: "3 960 000",
+      pris: "4 950 000",
       kontantinsats: "990000",
       ranta: "3,65",
       manadsavgift: "3 240",
@@ -100,33 +103,106 @@ describe("sida <-> underlag", () => {
   });
 });
 
+const UTAN_SOK = {
+  manadsavgift: undefined,
+  rantekanslighet: undefined,
+  pris: undefined,
+  boarea: undefined,
+  prisUppskattning: undefined,
+  ingar: undefined,
+  ingarEj: undefined,
+} as const;
+
 describe("sidaFranSokning (förifyllning)", () => {
-  it("delar priset i minsta kontantinsats och lån som summerar till priset", () => {
+  it("priset fyller prisfältet och kontantinsatsen är minsta tillåtna (10 %, uppåt)", () => {
     const s = sidaFranSokning({
+      ...UTAN_SOK,
       manadsavgift: 3240,
       rantekanslighet: 8.4,
       pris: 4_950_001,
       boarea: 58.5,
       prisUppskattning: true,
     });
-    expect(Number(s.kontantinsats) + Number(s.lanebelopp)).toBe(4_950_001);
-    expect(s.kontantinsats).toBe("495001"); // ceil(10 %)
-    expect(s.manadsavgift).toBe("3240");
+    // Belopp visas med tusentalsavskiljare (parsern tar bort mellanrummen).
+    expect(s.pris).toBe("4 950 001");
+    expect(s.kontantinsats).toBe("495 001"); // ceil(10 %)
+    expect(s.manadsavgift).toBe("3 240");
     expect(s.boarea).toBe("58,5");
     expect(s.rantekanslighetProcent).toBe(8.4);
     expect(s.kalla).toEqual({ pris: 4_950_001, prisArUppskattning: true });
+    // Lånet blir pris − insats.
+    expect(underlagFranSida(s).underlag.pris).toBe(4_950_001);
+  });
+
+  it("märker det som kommer från rapporten, men inte kontantinsatsen (Binfos förval)", () => {
+    const s = sidaFranSokning({
+      ...UTAN_SOK,
+      pris: 5_000_000,
+      manadsavgift: 3000,
+      boarea: 50,
+      ingar: "vatten",
+      ingarEj: "el,tv",
+    });
+    expect(s.franRapport).toEqual({
+      pris: true,
+      manadsavgift: true,
+      boarea: true,
+      avgift: { vatten: true, el: true, tv: true },
+    });
+    expect(s.avgiftInkluderar).toEqual({
+      varme: "ja", // förval, rapporten säger inget
+      vatten: "ja",
+      el: "nej",
+      bredband: "nej",
+      tv: "nej",
+    });
+  });
+
+  it("rapporten kan sätta förval åt båda hållen; okända nycklar behåller förvalet", () => {
+    const s = sidaFranSokning({ ...UTAN_SOK, ingar: "el,bredband", ingarEj: "varme" });
+    expect(s.avgiftInkluderar).toEqual({
+      varme: "nej",
+      vatten: "ja",
+      el: "ja",
+      bredband: "ja",
+      tv: "nej",
+    });
+    expect(avgiftFranSokning({ ingar: undefined, ingarEj: undefined })).toEqual({});
   });
 
   it("utan sökparametrar är allt tomt, inklusive boarea (ingen 58 m²-gissning)", () => {
-    const s = sidaFranSokning({
-      manadsavgift: undefined,
-      rantekanslighet: undefined,
-      pris: undefined,
-      boarea: undefined,
-      prisUppskattning: undefined,
-    });
+    const s = sidaFranSokning({ ...UTAN_SOK });
     expect(s).toEqual(tomSida());
     expect(s.boarea).toBe("");
+    expect(s.franRapport).toEqual({});
+  });
+
+  it("ändrar användaren ett fält försvinner dess märke; en chip tappar sitt märke när den slås om", () => {
+    const s = sidaFranSokning({ ...UTAN_SOK, pris: 5_000_000, manadsavgift: 3000, ingarEj: "el" });
+    const a = andraFalt(s, "pris", "5100000");
+    expect(a.pris).toBe("5100000");
+    expect(a.franRapport).toEqual({ manadsavgift: true, avgift: { el: true } });
+    const b = andraAvgift(a, "el", "ja");
+    expect(b.avgiftInkluderar.el).toBe("ja");
+    expect(b.franRapport).toEqual({ manadsavgift: true });
+    // Ett fält utan märke påverkar inte de andra.
+    expect(andraFalt(b, "ranta", "3").franRapport).toEqual({ manadsavgift: true });
+  });
+});
+
+describe("två lägen för avgiften i sidans underlag", () => {
+  it("den delade butikens 'okant' räknas som 'nej' i kalkylen", () => {
+    const { underlag } = underlagFranSida({
+      ...tomSida(),
+      avgiftInkluderar: { varme: "okant", vatten: "ja", el: "okant", bredband: "nej", tv: "ja" },
+    });
+    expect(underlag.avgiftInkluderar).toEqual({
+      varme: "nej",
+      vatten: "ja",
+      el: "nej",
+      bredband: "nej",
+      tv: "ja",
+    });
   });
 });
 

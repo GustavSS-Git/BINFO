@@ -87,6 +87,23 @@ describe("extraheraTranskriptionsfynd", () => {
     expect(fynd).toEqual([{ text: "Påstående", citat: "Summa tillgångar | 300 622 392", sida: 8 }]);
   });
 
+  it("tar med sista raden i ett föregående block utan citat (årtalet före citatet)", () => {
+    const { fynd } = extraheraTranskriptionsfynd(
+      [
+        { type: "text", text: "Utfört underhåll:\n2009: " },
+        {
+          type: "text",
+          text: "Fasadrenovering",
+          citations: [
+            { type: "content_block_location", cited_text: "x", start_block_index: 6 },
+          ] as never,
+        },
+      ],
+      block,
+    );
+    expect(fynd).toEqual([{ text: "2009: Fasadrenovering", citat: "x", sida: 8 }]);
+  });
+
   it("ett citat över flera sidor ger ett fynd per sida; samma sida två gånger ger ett", () => {
     const { fynd } = extraheraTranskriptionsfynd(
       svar([

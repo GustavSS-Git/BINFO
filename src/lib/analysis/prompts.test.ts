@@ -15,6 +15,7 @@ import {
   buildTranskriberingSystemPrompt,
   buildTranskriberingUserPrompt,
   extractGroundingFindings,
+  foregaendeRad,
   formatGroundingForExtraction,
 } from "./prompts";
 import {
@@ -213,6 +214,72 @@ describe("extractGroundingFindings", () => {
     ];
     expect(extractGroundingFindings(blocks)).toHaveLength(3);
   });
+
+  // PROMPT_VERSION 15: a year the model writes before a quote lands in its own
+  // uncited block (citations API); the quote of a year-column table has no year.
+  it("tar med sista raden i ett föregående block utan citat (årtalet före citatet)", () => {
+    const blocks = [
+      { type: "text", text: "Utfört underhåll:\n- 1986: " },
+      {
+        type: "text",
+        text: "Elstigar utbytta och taket omlagt",
+        citations: [
+          { type: "page_location", cited_text: "Elstigar utbytta", start_page_number: 5 },
+        ],
+      },
+    ];
+    expect(extractGroundingFindings(blocks)).toEqual([
+      { text: "- 1986: Elstigar utbytta och taket omlagt", citat: "Elstigar utbytta", sida: 5 },
+    ]);
+  });
+
+  it("lägger inte till något när föregående rad saknar bokstäver och siffror", () => {
+    const blocks = [
+      { type: "text", text: "Rubrik\n- " },
+      {
+        type: "text",
+        text: "A",
+        citations: [{ type: "page_location", cited_text: "a", start_page_number: 1 }],
+      },
+    ];
+    expect(extractGroundingFindings(blocks)[0]!.text).toBe("A");
+  });
+
+  it("tar inte med text från ett föregående block som själv har citat", () => {
+    const blocks = [
+      {
+        type: "text",
+        text: "1986",
+        citations: [{ type: "page_location", cited_text: "x", start_page_number: 1 }],
+      },
+      {
+        type: "text",
+        text: "B",
+        citations: [{ type: "page_location", cited_text: "y", start_page_number: 1 }],
+      },
+    ];
+    expect(extractGroundingFindings(blocks)[1]!.text).toBe("B");
+  });
+
+  it("kortar en lång föregående rad till de sista 160 tecknen", () => {
+    const blocks = [
+      { type: "text", text: `${"x".repeat(300)} 2009: ` },
+      {
+        type: "text",
+        text: "Fasad",
+        citations: [{ type: "page_location", cited_text: "f", start_page_number: 5 }],
+      },
+    ];
+    const text = extractGroundingFindings(blocks)[0]!.text;
+    expect(text.endsWith("2009: Fasad")).toBe(true);
+    expect(text.length).toBeLessThanOrEqual(160 + 1 + "Fasad".length);
+  });
+});
+
+describe("foregaendeRad", () => {
+  it("returnerar undefined för det första blocket", () => {
+    expect(foregaendeRad([{ type: "text", text: "A" }], 0)).toBeUndefined();
+  });
 });
 
 describe("formatGroundingForExtraction", () => {
@@ -228,6 +295,49 @@ describe("formatGroundingForExtraction", () => {
   it("hanterar en tom lista utan att krascha", () => {
     expect(() => formatGroundingForExtraction([])).not.toThrow();
     expect(formatGroundingForExtraction([]).length).toBeGreaterThan(0);
+  });
+});
+
+describe("byte eller förlängning (PROMPT_VERSION 16, ägaren 2026-10-30)", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+  it("grundningen letar också efter renoveringar som förlänger livslängden", () => {
+    expect(grund).toMatch(/relining av stammar/);
+    expect(grund).toMatch(/fönsterrenovering\/målning av fönster/);
+    expect(grund).toMatch(/förlänger delens livslängd/);
+  });
+  it("extraktionen anger omfattning byte eller forlangning, osäkert → forlangning", () => {
+    expect(extr).toMatch(/"omfattning"/);
+    expect(extr).toMatch(/"byte" när delen byttes/);
+    expect(extr).toMatch(/"forlangning" när den bara renoverades/);
+    expect(extr).toMatch(/är du osäker, välj "forlangning"/);
+    expect(extr).toMatch(/Relining av stuprör/);
+  });
+});
+
+describe("genomförda åtgärder med årtal i egen kolumn (PROMPT_VERSION 15)", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+
+  it("grundningen skriver radens årtal före citatet och citerar statusrader", () => {
+    expect(grund).toMatch(/skriv radens årtal själv direkt före varje citat/);
+    expect(grund).toMatch(/fram till nästa årtal/);
+    expect(grund).toMatch(/aldrig hela tabellen i ett enda citat/);
+    expect(grund).toMatch(/"Tak: Omlagt 1986"/);
+  });
+
+  it("extraktionen tar en post per år, läser årtalet ur Sammanhang och gissar aldrig från en grannrad", () => {
+    expect(extr).toMatch(/Samma byggdel kan förekomma flera gånger: en post per år/);
+    expect(extr).toMatch(/fyndets Sammanhang/);
+    expect(extr).toMatch(/aldrig ett årtal från en grannrad/);
+    expect(extr).toMatch(/parar inte ihop åtgärd och år/);
+    expect(extr).toMatch(/utbytta elstigar är "el"/);
+  });
+
+  it("nyckeltalen står fortfarande först i grundningen", () => {
+    expect(grund.indexOf("FÖRST, och alltid")).toBeLessThan(
+      grund.indexOf("Underhåll och investeringsbehov"),
+    );
   });
 });
 
@@ -871,14 +981,47 @@ describe("PROMPT_VERSION 12: lokalkontrakt med förlängning (fornyelse)", () =>
   });
 });
 
+describe("PROMPT_VERSION 14: sparande för tidigare år (sparandeHistorik)", () => {
+  const grund = buildGroundingSystemPrompt();
+  const extr = buildExtractionSystemPrompt();
+  const exempel = () =>
+    JSON.parse(extr.slice(extr.indexOf('{\n  "schemaVersion"'), extr.indexOf("\n\nSkarpa regler")));
+
+  it("grundningen ber om sparande-raden för upp till tre tidigare år, efter de sju nyckeltalen", () => {
+    expect(grund).toMatch(/upp till tre år före räkenskapsåret/);
+    expect(grund).toMatch(/"-3" är minus tre/);
+    expect(grund.indexOf("FÖRST, och alltid")).toBeLessThan(grund.indexOf("tidigare år:"));
+  });
+
+  it("extraktionen förklarar sparandeHistorik: tecken, år före räkenskapsåret, aldrig beräknat, utelämna", () => {
+    expect(extr).toMatch(/- sparandeHistorik: sparande per m² totalyta för TIDIGARE räkenskapsår/);
+    expect(extr).toMatch(/"-138" är −138 och "-3" är −3/);
+    expect(extr).toMatch(/räkna aldrig ut eller uppskatta ett värde/);
+    expect(extr).toMatch(/Utelämna fältet helt när inga tidigare år finns/);
+    expect(extr).toMatch(/sparandeUttag, sparandeHistorik, lokaler/);
+  });
+
+  it("exemplet: år före räkenskapsåret, negativt värde med tecken, citerad tabellrad", () => {
+    const e = exempel();
+    const h = e.forening.sparandeHistorik;
+    expect(h.length).toBeLessThanOrEqual(3);
+    for (const p of h) {
+      expect(p.ar).toBeLessThan(e.forening.rakenskapsar);
+      expect(p.figure.ref.excerpt).toBeTruthy();
+      expect(p.figure.ref.page).toBeGreaterThan(0);
+    }
+    expect(h[0].figure.value).toBe(-138);
+  });
+});
+
 describe("PROMPT_VERSION", () => {
   it("exporteras som en icke-tom sträng", () => {
     expect(typeof PROMPT_VERSION).toBe("string");
     expect(PROMPT_VERSION.length).toBeGreaterThan(0);
   });
 
-  it("är 13 sedan lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
-    expect(PROMPT_VERSION).toBe("13");
+  it("är 16 sedan åtgärder är byte eller förlängning (15: årtalet före ett citat följer med till extraktionen; 14: sparande för tidigare år; 13: lånens omsättning flyttades till Binfos egen beräkning (12: lokalkontrakten fick fornyelse; 11: lokaler.forlustsignaler och avgiftsandringar; 10: investeringsbehov per m², rekommenderad avsättning, plantotal och genomförda åtgärder (9: lån per rad, balansdag, räntekostnader, underhållsbelopp, lokaler, energiprojekt; 8: frågor med varför, betygsband, fasta värden)", () => {
+    expect(PROMPT_VERSION).toBe("16");
   });
 
   // Denna hash låser exakt texten i samtliga promptbyggare. Har du ändrat en
@@ -908,7 +1051,7 @@ describe("PROMPT_VERSION", () => {
 
     const hash = createHash("sha256").update(allaPrompter).digest("hex");
 
-    expect(hash).toBe("cd8e5d0f45e3150280e9735d1d989fe02d93653990f86523f2765ee90aacacc3");
+    expect(hash).toBe("928f63de8a9cd111d2f05ebe4ba25136b415b388beadcf71fbb784355b64a9fc");
   });
 });
 
