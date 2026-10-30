@@ -1,0 +1,19 @@
+{
+  "orgnr": "769603-2254",
+  "namn": "Brf Göken 29",
+  "status": "UTKAST",
+  "kalla": {
+    "fil": "DOK5PZ7WPD3G3LDGCQ53Q.pdf",
+    "forvaltare": "SBC",
+    "verifieradMot": "UTKAST: läst lokalt ur textlagret (pdf.js) 2026-10-30, ej verifierad av ägaren; föreningen har inga lån (sida 7), ingen lånenot och inga skulder till kreditinstitut i balansräkningen (sida 12)"
+  },
+  "anmarkning": "Skuldfri förening: inga lån. Sida 7 'Föreningen är skuldfri och ekonomin är fortsatt god.'; flerårsöversikten (sida 8) har '-' för skuldsättning per kvm och räntekänslighet; balansräkningen (sida 12) har bara leverantörsskulder, skatteskulder och övriga kortfristiga skulder. Inga räntekostnader i resultaträkningen. Extraktionen ska ge lanebok.totalSkuld = 0 och inga lan.",
+  "balansdag": "2025-12-31",
+  "skuldfri": true,
+  "totalSkuld": {
+    "belopp": 0,
+    "sida": 7,
+    "tryckt": "Föreningen är skuldfri och ekonomin är fortsatt god."
+  },
+  "lan": []
+}

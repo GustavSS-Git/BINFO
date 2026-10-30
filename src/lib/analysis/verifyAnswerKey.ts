@@ -641,6 +641,7 @@ async function main() {
         balansdag: extraction.forening.balansdag,
         lan: lanebok?.lan,
         rantekostnader: lanebok?.rantekostnader,
+        totalSkuld: lanebok?.totalSkuld,
       });
       console.log(
         `  Lån (facit ${fixture.lanFacit.status ?? "verifierad"}): ${lanebok?.lan?.length ?? 0} extraherade, ${fixture.lanFacit.lan.length} i facit`,

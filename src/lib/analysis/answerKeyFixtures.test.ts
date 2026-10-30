@@ -88,7 +88,7 @@ describe("fixtures/answer-key-lan", () => {
     data: JSON.parse(readFileSync(path.join(lanDir, f), "utf-8")) as LanFacitFilTest,
   }));
 
-  it("finns för de tio rapporterna med lånenot", () => {
+  it("finns för de tio rapporterna med lånenot och den skuldfria Göken 29", () => {
     expect(nycklar.map((n) => n.data.orgnr).sort()).toEqual([
       "702000-9960",
       "702002-5446",
@@ -97,6 +97,7 @@ describe("fixtures/answer-key-lan", () => {
       "716421-9722",
       "743000-3215",
       "746000-1865",
+      "769603-2254",
       "769616-0253",
       "769616-3273",
       "769631-3761",

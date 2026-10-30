@@ -111,6 +111,9 @@ export interface LanFacitFil {
   balansdag?: string;
   totalSkuld?: { belopp: number };
   rantekostnader?: { belopp: number };
+  /** The report says, cited, that the förening has no interest-bearing debt:
+   *  `lan` is empty and the extraction's total debt must be 0. */
+  skuldfri?: boolean;
   lan: LanFacit[];
 }
 
@@ -126,6 +129,7 @@ export interface LanFaktiskt {
       }>
     | undefined;
   rantekostnader?: { value: number | null } | undefined;
+  totalSkuld?: { value: number | null } | undefined;
 }
 
 export interface LanPoang {
@@ -167,10 +171,19 @@ export function poangsattLan(facit: LanFacitFil, faktiskt: LanFaktiskt): LanPoan
   const faktiskSumma = ut.reduce((s, l) => s + (l.belopp.value ?? 0), 0);
   poang.push({
     falt: "lan.summa",
-    godkand: ut.length > 0 && faktiskSumma === forvantadSumma,
+    godkand: (ut.length > 0 || facit.lan.length === 0) && faktiskSumma === forvantadSumma,
     forvantat: String(forvantadSumma),
-    faktiskt: ut.length > 0 ? String(faktiskSumma) : "saknas",
+    faktiskt: ut.length > 0 ? String(faktiskSumma) : facit.lan.length === 0 ? "0" : "saknas",
   });
+  if (facit.skuldfri) {
+    const v = faktiskt.totalSkuld?.value ?? null;
+    poang.push({
+      falt: "lanebok.totalSkuld",
+      godkand: v === 0,
+      forvantat: "0 (skuldfri)",
+      faktiskt: visa(v),
+    });
+  }
   if (facit.rantekostnader !== undefined) {
     const v = faktiskt.rantekostnader?.value ?? null;
     poang.push({

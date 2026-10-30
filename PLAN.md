@@ -4,9 +4,10 @@
 
 # Stable building parts + loans (2026-10-30)
 
-Status: **code DONE, measurement INCOMPLETE** (the second after-run is missing for 3 of 4
-reports, budget). PROMPT_VERSION 15 (`p15.i1.s1`), no migration, NOT deployed (web app +
-`deploy:edge` together, like every bump). Spend 54.67 kr of 60 (api-test-log rows 141–145).
+Status: **code DONE, measured** (2 before + 2 after runs per report; the owner approved ≈ 11 kr
+over the 60 kr budget for the second after-run). PROMPT_VERSION 15 (`p15.i1.s1`), no migration,
+NOT deployed (web app + `deploy:edge` together, like every bump). Spend 66.34 kr (api-test-log
+rows 141–146).
 
 ## Answer keys (all UTKAST, read from pdf.js, years paired by y-position)
 
@@ -47,16 +48,20 @@ reports, budget). PROMPT_VERSION 15 (`p15.i1.s1`), no migration, NOT deployed (w
 
 ## Before / after (required building parts hit; wrong = outside key + allowed extras)
 
-| Report (required)                                                                             | before 1           | before 2           | after 1 (first wording) | after 2 (final) |
-| --------------------------------------------------------------------------------------------- | ------------------ | ------------------ | ----------------------- | --------------- |
-| Ingemar 8 (4)                                                                                 | 0                  | 0                  | 3 (fasad 2009 missed)   | not run         |
-| Albohem (3)                                                                                   | 2 + wrong tak 2003 | 0 + wrong tak 2003 | 0 + wrong el 2023       | 3, none wrong   |
-| Helsingborgshus 17 (3)                                                                        | 2                  | 1                  | 3                       | not run         |
-| Granen 10-11 (0)                                                                              | ok                 | ok                 | ok                      | not run         |
-| Loans (79 fields)                                                                             | 79                 | 79                 | 79                      | 13/13 (Albohem) |
-| Cost/time per report: before 3.65 kr / 67.9 s (n=8), after 3.62 kr / 66.7 s (n=4): no change. |
-| Open: the final wording has one run per report on Albohem only; Ingemar fasad 2009 (stage b). |
-| Next step (needs budget ≈ 11–15 kr): after-run 2 for Ingemar, Granen, Helsingborgshus.        |
+| Report (required)      | before 1           | before 2           | after 1 (first wording) | after 2 (final)       |
+| ---------------------- | ------------------ | ------------------ | ----------------------- | --------------------- |
+| Ingemar 8 (4)          | 0                  | 0                  | 3 (fasad 2009 missed)   | 3 (fasad 2009 missed) |
+| Albohem (3)            | 2 + wrong tak 2003 | 0 + wrong tak 2003 | 0 + wrong el 2023       | 3, none wrong         |
+| Helsingborgshus 17 (3) | 2                  | 1                  | 3                       | 3                     |
+| Granen 10-11 (0)       | ok                 | ok                 | ok                      | ok                    |
+| Loans (79 fields)      | 79                 | 79                 | 79                      | 79                    |
+
+Cost/time per report: before 3.65 kr / 67.9 s (n=8), after 3.69 kr / 67.9 s (n=8): no change.
+Open: Ingemar's fasad 2009 is skipped by the extraction in both after-runs although
+"2009: Renovering av gårdshusets fasad…" reaches it (stage b). Owner 2026-10-30: renovations
+that extend a part's life (relining, roof repaint, fönsterrenovering, elcentral) are NOT
+replacements; model change proposed (needs a `src/types/analysis.ts` field). Göken 29 got a
+debt-free loan key (`skuldfri: true`, empty `lan`; the scorer checks totalSkuld = 0).
 
 ---
 
