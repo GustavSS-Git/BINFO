@@ -90,7 +90,7 @@ per-apartment cost in kronor, and what to do before bidding.
   open items: `docs/PLAN-v4-redesign.md`. Design system: "Design system
   (redesign v4)" below; what changed in behaviour: "Redesign v4: behaviour
   changes" below (it wins over older notes in this file where they conflict).
-  Needs `20261028120000_kopguide.sql` in production before publishing.
+  `20261028120000_kopguide.sql` applied in production 2026-10-30.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -466,12 +466,12 @@ citations and effort) is not used anywhere yet.
     `forening_slug` (renamed-slug history), `pg_trgm` index on `namn`,
     `register_sammanfattning` (one row per BRF, maintained by
     `uppdatera_register_sammanfattning`), `satt_forening_omrade`.
-- **Reference-rate migration (2026-10-24b, NOT applied in production yet):**
+- **Reference-rate migration (2026-10-24b, in production; seen 2026-10-30):**
   `20261025120000_referensranta.sql`: `referensranta` (serie pk, datum,
   procent, hamtad; RLS on, zero policies), on `KontoDatabas`
   (`lasReferensranta`/`skrivReferensranta`). Rollback in `supabase/rollback/`.
   Without the table the read falls back to the configured rate.
-- **Booli migration (2026-10-24, NOT applied in production yet):**
+- **Booli migration (2026-10-24, in production; seen 2026-10-30):**
   `20261024120000_annons.sql`: `annons_cache` (url pk, svar jsonb, hamtad; RLS
   on, zero policies) and the redefined `binfo-retention` (see Retention).
   Rollback in `supabase/rollback/`. Applied and checked on the local stack.
