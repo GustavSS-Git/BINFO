@@ -84,8 +84,13 @@ per-apartment cost in kronor, and what to do before bidding.
   migrations and Edge Function (`PIPELINE_VERSION`) are in production was not
   verified. The Booli fetch is challenged in production (`docs/booli.md`), so
   live it ends in "fyll i manuellt".
-- **Redesign v4** (branch `redesign-v4`, implemented 2026-10-28/29, NOT merged:
-  the owner merges after checking in Lovable): the whole web app and both PDFs
+- **2026-10-30 deploy:** `redesign-v4` merged into `main` and pushed; all 11
+  migrations confirmed applied in production (`migration list --linked`);
+  `deploy:edge` done with `PIPELINE_VERSION` `p16.i1.s1`. The web app goes live
+  on the owner's Lovable publish (must follow the Edge deploy closely: jobs
+  created by an older web app fail with `versionskonflikt` until then).
+- **Redesign v4** (branch `redesign-v4`, implemented 2026-10-28/29, merged
+  2026-10-30): the whole web app and both PDFs
   follow the "BINFO REDESIGN" canvas. Plan, decisions, owner answers (§6.1) and
   open items: `docs/PLAN-v4-redesign.md`. Design system: "Design system
   (redesign v4)" below; what changed in behaviour: "Redesign v4: behaviour
@@ -1055,7 +1060,7 @@ Artboards hold example data (Brf Pontonjären 3) and placeholders
   tolerate private-use ligature gaps (Nabo PDFs). "Så har vi räknat" (price)
   holds only the valuation model + span. Needs web app + `deploy:edge` together.
 - **Building parts from year-column tables (2026-10-30, PROMPT_VERSION 15 →
-  `p15.i1.s1`, NOT deployed):** in Nabo/SBC "utfört underhåll" tables the
+  `p15.i1.s1`, superseded by p16):** in Nabo/SBC "utfört underhåll" tables the
   years sit in their own column, so a citation (pdf.js text order: all actions,
   then all years) never holds a row's year. With citations on, text the model
   writes before a quote arrives as its own UNCITED block, which
@@ -1073,7 +1078,7 @@ Artboards hold example data (Brf Pontonjären 3) and placeholders
   slutfor.ts). Draft keys: 10 in `fixtures/answer-key-lan/`, 9 in
   `fixtures/answer-key-underhall/` (all UTKAST).
 - **Replacement vs life extension (owner 2026-10-30, PROMPT_VERSION 16 →
-  `p16.i1.s1`, NOT deployed; Ingemar 8 building parts vary run to run,
+  `p16.i1.s1`, Edge deployed 2026-10-30; Ingemar 8 building parts vary run to run,
   3/7–6/7, PLAN.md):**
   `genomfordaAtgarder[].omfattning` "byte" | "forlangning" (absent = byte);
   an extension (relining 30 years, roof/window/facade/el 10,

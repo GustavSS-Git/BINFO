@@ -4,7 +4,7 @@
 
 # Replacement vs life extension (2026-10-30, PROMPT_VERSION 16)
 
-Status: **DONE on the branch** (not deployed: needs web app + `deploy:edge` together). Ingemar 8
+Status: **DONE, merged into `main` 2026-10-30; Edge Function deployed (p16.i1.s1); web app live on the Lovable publish**. Ingemar 8
 varies run to run (3/7 and 6/7 in the variance check below); no systematic regression.
 Contract (owner OK 2026-10-30): `genomfordaAtgarder[].omfattning?: "byte" | "forlangning"`
 (absent = byte) and `ByggdelBedomning.forlangning?: { ar, tillAr, ref }`.
