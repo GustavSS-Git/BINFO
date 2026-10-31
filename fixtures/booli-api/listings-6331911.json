@@ -1,0 +1,45 @@
+{
+  "status": 200,
+  "body": {
+    "listings": [
+      {
+        "source": {
+          "id": 414829393,
+          "url": "https://lagerlofs.com/",
+          "type": "Broker",
+          "name": "Lagerlöfs Fastighetsmäkleri"
+        },
+        "rooms": 1,
+        "hasPatio": 0,
+        "location": {
+          "region": {
+            "countyName": "Stockholms län",
+            "municipalityName": "Stockholm"
+          },
+          "position": {
+            "longitude": 18.0046808,
+            "latitude": 59.3299527,
+            "isApproximate": true
+          },
+          "address": {
+            "streetAddress": "Rålambsvägen 48"
+          },
+          "namedAreas": ["Kungsholmen"]
+        },
+        "hasFireplace": 0,
+        "livingArea": 27,
+        "booliId": 6331911,
+        "buildingHasElevator": 0,
+        "objectType": "Lägenhet",
+        "hasBalcony": 0,
+        "enableStreetView": 1,
+        "biddingOpen": 0,
+        "hasSolarPanels": 0,
+        "enableEnergyDataInfo": 1,
+        "published": "2026-10-31 12:43:47",
+        "url": "https://www.booli.se/annons/6331911",
+        "pageviews": "36"
+      }
+    ]
+  }
+}

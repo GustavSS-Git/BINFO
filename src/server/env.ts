@@ -71,6 +71,20 @@ export interface Env {
    * money, Haiku 4.5, a few öre per page).
    */
   annonsLlmFallback?: boolean;
+  /**
+   * Booli REST API keys (docs/plans/booli-api.md; web app only, ~3 months per
+   * key). Both must be set for the API path; absent → it is skipped.
+   */
+  booliCallerId?: string;
+  booliPrivateKey?: string;
+  /** `true` only when `BOOLI_API=off`. Unset/anything else = the API is on
+   *  (when both keys are set). */
+  booliApiAvstangd?: boolean;
+  /**
+   * Listing-page fetch (scraping, Cloudflare-challenged in production) as the
+   * fallback source: `true` only when `ANNONS_SIDHAMTNING=on`. Default off.
+   */
+  annonsSidhamtning?: boolean;
 }
 
 /** Shipped default for all three `ANTHROPIC_EFFORT_*` env vars — see
@@ -155,6 +169,11 @@ const RawEnvSchema = z.object({
   // Listing fetch flags: `off` / `on`, any other value (or unset) = default.
   ANNONS_HAMTNING: z.string().optional(),
   ANNONS_LLM_FALLBACK: z.string().optional(),
+  ANNONS_SIDHAMTNING: z.string().optional(),
+  BOOLI_API: z.string().optional(),
+  // Booli API keys: optional; an empty value counts as absent.
+  BOOLI_CALLER_ID: z.string().optional(),
+  BOOLI_PRIVATE_KEY: z.string().optional(),
 });
 
 /**
@@ -193,7 +212,13 @@ export function lasEnv(record: Record<string, string | undefined>): Env {
     effortJudging: data.ANTHROPIC_EFFORT_JUDGING ?? STANDARD_EFFORT,
     annonsHamtningAvstangd: data.ANNONS_HAMTNING?.trim().toLowerCase() === "off",
     annonsLlmFallback: data.ANNONS_LLM_FALLBACK?.trim().toLowerCase() === "on",
+    booliApiAvstangd: data.BOOLI_API?.trim().toLowerCase() === "off",
+    annonsSidhamtning: data.ANNONS_SIDHAMTNING?.trim().toLowerCase() === "on",
   };
+  const booliCallerId = data.BOOLI_CALLER_ID?.trim();
+  const booliPrivateKey = data.BOOLI_PRIVATE_KEY?.trim();
+  if (booliCallerId) env.booliCallerId = booliCallerId;
+  if (booliPrivateKey) env.booliPrivateKey = booliPrivateKey;
   // exactOptionalPropertyTypes: tilldela fältet bara när det faktiskt finns,
   // aldrig `undefined` explicit — annars är "fältet är frånvarande" och
   // "fältet är satt till undefined" inte samma sak för typsystemet.

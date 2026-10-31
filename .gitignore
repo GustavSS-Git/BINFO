@@ -61,3 +61,6 @@ ml/mapping/sources/raw/
 
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
+
+# Booli sold-data pulls (scripts/hamtaBooliSalda.ts): terms for keeping the data not confirmed
+data/raw/booli/

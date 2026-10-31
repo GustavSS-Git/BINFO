@@ -76,6 +76,9 @@ function env(over: Partial<Env> = {}): Env {
     effortGrounding: "medium",
     effortExtraction: "medium",
     effortJudging: "medium",
+    // These tests cover the listing-page source: no API keys (API path off)
+    // and ANNONS_SIDHAMTNING=on. The API path: hamta.api.test.ts.
+    annonsSidhamtning: true,
     ...over,
   };
 }
@@ -474,7 +477,9 @@ describe("hämtningen", () => {
     const r = await kor({ url: URL_A }, f);
     expect(r).toEqual({ ok: false, errorCode: "natverk", errorMessage: ANNONS_MEDDELANDE.allmant });
     expect(anrop).toHaveLength(1);
-    expect(loggade("nätverk")).toEqual([["[annons] nätverk", { url: URL_A, orsak: "http 500" }]]);
+    expect(loggade("nätverk")).toEqual([
+      ["[annons] nätverk", { url: URL_A, kalla: "booli_sida", orsak: "http 500" }],
+    ]);
   });
 
   it("nätverksfel: natverk, ett anrop", async () => {
@@ -693,6 +698,7 @@ describe("tolkning och delresultat", () => {
       },
       postnummerKalla: "annons",
       tolkning: "struktur",
+      metod: "sida",
       hamtad: NU.toISOString(),
     });
     expect(loggade("kärnfält saknas, sidans layout kan ha ändrats")).toHaveLength(0);
@@ -720,7 +726,12 @@ describe("tolkning och delresultat", () => {
     expect(loggade("kärnfält saknas, sidans layout kan ha ändrats")).toEqual([
       [
         "[annons] kärnfält saknas, sidans layout kan ha ändrats",
-        { url: URL_A, saknas: ["vaning", "byggar"], tolkning: "struktur" },
+        {
+          url: URL_A,
+          kalla: "booli_sida",
+          saknas: ["vaning", "byggar"],
+          tolkning: "struktur",
+        },
       ],
     ]);
   });
@@ -738,7 +749,10 @@ describe("tolkning och delresultat", () => {
       errorMessage: ANNONS_MEDDELANDE.allmant,
     });
     expect(loggade("tolkning misslyckades")).toEqual([
-      ["[annons] tolkning misslyckades", { url: URL_A, orsak: "Listing-objektet saknas" }],
+      [
+        "[annons] tolkning misslyckades",
+        { url: URL_A, kalla: "booli_sida", orsak: "Listing-objektet saknas" },
+      ],
     ]);
     expect(konto.annonsCache.size).toBe(0);
   });
@@ -842,7 +856,10 @@ describe("postnummer via geokodning", () => {
     expect(r.ok && "postnummerKalla" in r).toBe(false);
     expect(r.ok && "postnummer" in r.uppgifter).toBe(false);
     expect(loggade("geokodning gav inget postnummer")).toEqual([
-      ["[annons] geokodning gav inget postnummer", { url: URL_A, orsak: "reverse: timeout" }],
+      [
+        "[annons] geokodning gav inget postnummer",
+        { url: URL_A, kalla: "booli_sida", orsak: "reverse: timeout" },
+      ],
     ]);
   });
 

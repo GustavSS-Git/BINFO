@@ -510,4 +510,23 @@ describe("buildPdfViewModel: 4 Inför visningen, källor och slut", () => {
     );
     expect(vm.kontakt).toBe("contactbinfohere@gmail.com");
   });
+
+  it("nämner Booli i källorna bara när uppgifterna hämtats från en Booli-annons", () => {
+    expect(vm.kallor.rader.some((r) => r.includes("Booli"))).toBe(false);
+    const medBooli: AnalysisResult = {
+      ...sampleAnalysis,
+      input: {
+        ...sampleAnalysis.input,
+        kalla: {
+          typ: "booli",
+          url: "https://www.booli.se/annons/6279984",
+          hamtad: "2026-10-24T10:00:00.000Z",
+          oandradeFalt: ["boarea"],
+        },
+      },
+    };
+    expect(buildPdfViewModel(medBooli).kallor.rader[0]).toBe(
+      "Uppgifter om bostaden hämtades från Booli (booli.se) den 24 okt. 2026.",
+    );
+  });
 });

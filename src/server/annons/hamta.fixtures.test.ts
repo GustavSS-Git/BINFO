@@ -43,6 +43,8 @@ const env: Env = {
   effortGrounding: "medium",
   effortExtraction: "medium",
   effortJudging: "medium",
+  // The recorded pages go through the page source: no API keys, ANNONS_SIDHAMTNING=on.
+  annonsSidhamtning: true,
 };
 
 let konto: FakeKontoDatabas;
@@ -83,6 +85,7 @@ describe("hamtaAnnons mot de sex inspelade Booli-sidorna", () => {
       expect(r.url).toBe(url);
       expect(r.kalla).toBe("booli");
       expect(r.tolkning).toBe("struktur");
+      expect(r.metod).toBe("sida");
       expect(r.postnummerKalla).toBe("annons");
       expect(r.hamtad).toBe(NU.toISOString());
       for (const falt of ANNONS_KARNFALT) {

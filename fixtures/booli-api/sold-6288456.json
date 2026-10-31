@@ -1,0 +1,50 @@
+{
+  "status": 200,
+  "body": {
+    "sold": [
+      {
+        "source": {
+          "id": 1566,
+          "url": "https://www.notar.se/",
+          "type": "Broker",
+          "name": "Notar"
+        },
+        "rooms": 2,
+        "constructionYear": 1904,
+        "soldDate": "2026-10-30",
+        "hasPatio": 0,
+        "location": {
+          "position": {
+            "latitude": 59.3418091,
+            "longitude": 18.0361078,
+            "isApproximate": true
+          },
+          "region": {
+            "municipalityName": "Stockholm",
+            "countyName": "Stockholms län"
+          },
+          "address": {
+            "streetAddress": "Birkagatan 32",
+            "postCode": 11339
+          },
+          "namedAreas": ["Vasastan"]
+        },
+        "hasFireplace": 0,
+        "rent": 1313,
+        "livingArea": 64,
+        "soldPriceSource": "bobot",
+        "listPrice": 9950000,
+        "soldPrice": 9600000,
+        "booliId": 6288456,
+        "floor": 3,
+        "buildingHasElevator": 1,
+        "objectType": "Lägenhet",
+        "hasBalcony": 1,
+        "published": "2026-09-29 10:14:47",
+        "firstPrice": 9950000,
+        "apartmentNumber": "1304",
+        "url": "https://www.booli.se/annons/6288456"
+      }
+    ]
+  }
+}

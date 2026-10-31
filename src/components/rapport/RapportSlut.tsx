@@ -5,6 +5,7 @@ import {
   formatSkapadDatum,
   modellKallaRad,
 } from "@/lib/analysisView";
+import { booliKallaRad } from "@/lib/annons/formular";
 import { KONTAKT_EPOST } from "@/lib/kontakt";
 import type { AnalysisResult } from "@/types/analysis";
 
@@ -14,6 +15,8 @@ export function KallorOchMetod({ analys }: { analys: AnalysisResult }) {
   const prognos = analys.avgiftsprognos;
   const refi = prognos?.refinansiering;
   const rader: string[] = [];
+  const booliRad = booliKallaRad(analys.input.kalla);
+  if (booliRad) rader.push(booliRad);
   if (u) rader.push(`Värdering: ${modellKallaRad(u)}`);
   if (u?.prisniva) {
     rader.push(

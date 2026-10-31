@@ -11,6 +11,7 @@
  * collapsed web sections ("Så har vi räknat", "Det här driver …", "Mer ur
  * årsredovisningen") fully open, and replaces the interactive slider by tables.
  */
+import { booliKallaRad } from "@/lib/annons/formular";
 import { iEllerPaOmrade } from "@/lib/omradeText";
 import {
   ENERGI_TEXT,
@@ -882,6 +883,8 @@ function buildKallor(analys: AnalysisResult): { intro: string; rader: string[] }
   const prognos = analys.avgiftsprognos;
   const refi = prognos?.refinansiering;
   const rader: string[] = [];
+  const booliRad = booliKallaRad(analys.input.kalla);
+  if (booliRad) rader.push(booliRad);
   if (u) rader.push(`Värdering: ${modellKallaRad(u)}`);
   if (u?.prisniva) {
     rader.push(

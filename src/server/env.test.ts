@@ -220,4 +220,34 @@ describe("lasEnv", () => {
     expect(lasEnv({ ...giltigRecord(), ANNONS_LLM_FALLBACK: "off" }).annonsLlmFallback).toBe(false);
     expect(lasEnv({ ...giltigRecord(), ANNONS_LLM_FALLBACK: "ja" }).annonsLlmFallback).toBe(false);
   });
+
+  it("Booli-API: utan nycklar saknas fälten, BOOLI_API och ANNONS_SIDHAMTNING har sina standardvärden", () => {
+    const env = lasEnv(giltigRecord());
+    expect(env.booliCallerId).toBeUndefined();
+    expect(env.booliPrivateKey).toBeUndefined();
+    expect("booliCallerId" in env).toBe(false);
+    expect(env.booliApiAvstangd).toBe(false);
+    expect(env.annonsSidhamtning).toBe(false);
+  });
+
+  it("Booli-API: nycklarna läses (trimmade), en tom nyckel räknas som saknad", () => {
+    const env = lasEnv({
+      ...giltigRecord(),
+      BOOLI_CALLER_ID: " binfo ",
+      BOOLI_PRIVATE_KEY: "hemlig",
+    });
+    expect(env.booliCallerId).toBe("binfo");
+    expect(env.booliPrivateKey).toBe("hemlig");
+    const tom = lasEnv({ ...giltigRecord(), BOOLI_CALLER_ID: "", BOOLI_PRIVATE_KEY: " " });
+    expect("booliCallerId" in tom).toBe(false);
+    expect("booliPrivateKey" in tom).toBe(false);
+  });
+
+  it("BOOLI_API=off stänger av API:t; ANNONS_SIDHAMTNING=on slår på sidhämtningen; andra värden gör ingetdera", () => {
+    expect(lasEnv({ ...giltigRecord(), BOOLI_API: "off" }).booliApiAvstangd).toBe(true);
+    expect(lasEnv({ ...giltigRecord(), BOOLI_API: " OFF " }).booliApiAvstangd).toBe(true);
+    expect(lasEnv({ ...giltigRecord(), BOOLI_API: "on" }).booliApiAvstangd).toBe(false);
+    expect(lasEnv({ ...giltigRecord(), ANNONS_SIDHAMTNING: "on" }).annonsSidhamtning).toBe(true);
+    expect(lasEnv({ ...giltigRecord(), ANNONS_SIDHAMTNING: "ja" }).annonsSidhamtning).toBe(false);
+  });
 });

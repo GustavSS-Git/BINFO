@@ -96,6 +96,12 @@ per-apartment cost in kronor, and what to do before bidding.
   (redesign v4)" below; what changed in behaviour: "Redesign v4: behaviour
   changes" below (it wins over older notes in this file where they conflict).
   `20261028120000_kopguide.sql` applied in production 2026-10-30.
+- **Booli API** (merged into `main` 2026-10-31; live after the owner adds the
+  `BOOLI_*` secrets in Lovable and publishes): the listing prefill
+  reads Booli's signed REST API instead of the blocked page; the page fetch stays
+  behind `ANNONS_SIDHAMTNING=on`. No migration, no Edge change, no
+  `PROMPT_VERSION` bump; deploy = `BOOLI_*` in Lovable Secrets + publish. See
+  "Listing data" below.
 - Plan/status: `PLAN.md` (current task plan) and `docs/PLAN-v3.md`; decisions:
   `docs/DECISIONS.md`.
 
@@ -142,7 +148,7 @@ per-apartment cost in kronor, and what to do before bidding.
 | `ml/`                                           | Training (`train_valuation_v31.py` + `valuation_v31_lib.py` on top of `train_valuation_v3.py` / `valuation_v3_lib.py`, `cleaning.py`), postcode/kommun mapping (`mapping/`), artifacts (`artifacts/valuation-v3.1/` = shipped, delta card to `artifacts/valuation-v3/MODEL_CARD.md`; `valuation-v3.2/` exists only on the local branch `valuation-v3.2`, rejected), pytest suite                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `data/raw/`                                     | Svensk Mäklarstatistik transaction xlsx (committed, not confidential); `data/derived/` holds the mapping CSVs and price levels                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `src/lib/annons/`                               | Listing prefill, client-safe: `typer.ts` (`AnnonsSvar`, `AnnonsUppgifter`, `ANNONS_FALT`, `ANNONS_MEDDELANDE`), `url.ts` (`kontrolleraAnnonsUrl`: https + `booli.se`/`www.booli.se` + `/bostad                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | annons/<id>`only, canonicalised; shared by client and server),`formular.ts`(click flow, applying an answer, per-field provenance booli/manuellt/saknas,`tillAnnonsKalla`) |
-| `src/server/annons/`                            | `booli.ts` (pure parser: RSC `Listing` object + JSON-LD, never visible HTML), `hamta.ts` (`hamtaAnnons`: kill switch → URL check → 24 h cache → entitlement `hamta_annons` → quota → one fetch → parse → optional LLM fallback → Nominatim postcode fallback → cache), `geokod.ts` (Nominatim, only when the postcode is missing), `llmFallback.ts` (Haiku, off unless `ANNONS_LLM_FALLBACK=on`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `src/server/annons/`                            | `hamta.ts` (`hamtaAnnons`: kill switch → URL check → 24 h cache → entitlement `hamta_annons` → quota → source → cache), `kallor.ts` (`AnnonsLeverantor` seam), `booliApi.ts` + `booliApiTolkning.ts` (Booli REST API, default), `booliSida.ts` (page source, behind `ANNONS_SIDHAMTNING=on`), `booli.ts` (pure page parser: RSC `Listing` object + JSON-LD, never visible HTML), `geokod.ts` (Nominatim, only when the postcode is missing), `llmFallback.ts` (Haiku, off unless `ANNONS_LLM_FALLBACK=on`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Fee prognosis (2026-10-24b)                     | `src/lib/analysis/calc/prognosantaganden.ts` (EVERY assumption: horizon, refinancing share, margin 0.58 pp, maintenance years, lokal risk, 3 % widening, 30 % guard, OLS β synced to `metadata.json` by a test, reference-rate fallback), `calc/avgiftsprognos.ts` (`beraknaAvgiftsprognos`: five components → flat kr/month via andel = fee×12 ÷ årsavgifter; two-phase refinancing; `tryckFor` colours), `calc/sparbehov.ts` (savings target: plan figures or the building-part-moved schablon; derived totalyta; partial-plan floor), `prisjustering.ts` (`byggPrisjustering`: adjusted price = baseline + β × rise × kr/m²; missing data widens only the low end), `uppgiftsjamforelse.ts` (report vs input statuses; report byggår wins at high confidence and feeds the valuation), `sammanfattning.ts` (deterministic closing summary), `calc/rantestress.ts` `byggPrognosTabell`, `referensrantaHamtning.ts` (Riksbank SWEA fetch) + `src/server/referensranta.ts` (daily cache on `KontoDatabas`, never throws), `scripts/monteraOm.ts` (free re-assembly of a saved run), `fixtures/answer-key-lan/` (loan keys, UTKAST)                                                                                                                                                     |
 | `fixtures/booli/`                               | Raw Booli listing HTML (6 pages + a Cloudflare challenge page, fetched with curl 2026-10-24; prettier-ignored), recorded Nominatim responses, `booli_links.txt`. Parser tests assert every field of every page.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `fixtures/answer-key/`                          | Nyckeltal per test report (`<orgnr>.json`, 13 keys, all owner-verified as of 2026-10-10; "UTKAST" in `kalla.verifieradMot` would mark a draft). Pontonjären 3 has no key. `fixtures/property-input-example.json` is a sample `PropertyInput`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -279,6 +285,54 @@ per-apartment cost in kronor, and what to do before bidding.
   (`metadataText`: n, typical error, model version; `kallaText` = the same
   source paragraph; no driver rows since 2026-10-24). Change web copy → check the PDF too.
 - Priskoll (step 1) copy lives in `src/routes/analysera.tsx`.
+
+## Listing data: how a Booli link becomes form values (2026-10-31)
+
+- **Path:** `/analysera` "Hämta uppgifter" → `hamtaAnnonsFn` (`analysFn.ts`) →
+  `hamtaAnnons` (`src/server/annons/hamta.ts`): kill switch `ANNONS_HAMTNING` →
+  `kontrolleraAnnonsUrl` (`src/lib/annons/url.ts`, `/annons/<id>` and
+  `/bostad/<id>`, canonical URL = cache key) → `annons_cache` (24 h, purged after
+  2 days) → no source for the link? (`avstangd` / `bostadslank`, no quota taken)
+  → entitlement `hamta_annons` → quota → the source(s) → cache.
+- **Sources** (`AnnonsLeverantor` in `kallor.ts`; answer `metod: "api" | "sida"`):
+  1. **Booli REST API** (default; `booliApi.ts` + pure mapping
+     `booliApiTolkning.ts`): `listings/{id}` → on 404 `sold/{id}` → `areas?lat&lng`
+     for the postcode (listings carry none). Signed per call, Web Crypto only.
+     Only `/annons/<id>` numbers are sent: a `/bostad/<id>` is a residence id from
+     another number space (could hit another flat). Needs `BOOLI_CALLER_ID` +
+     `BOOLI_PRIVATE_KEY`; `BOOLI_API=off` disables it. Student key, ~3 months from
+     2026-10-31 (use OK'd by Booli's representative, owner). An expired key logs
+     `[annons] booli-api nyckel avvisad` and the buyer fills in by hand.
+  2. **Listing page** (`booliSida.ts`: page fetch + `tolkaBooli` + optional Haiku
+     fallback + Nominatim): only with `ANNONS_SIDHAMTNING=on` (default off; the
+     production Worker is Cloudflare-challenged there, `blockerad`). Used for
+     `/bostad/` links and after an API key/network/parse failure.
+     Details, live findings and caveats: `docs/booli.md`; plan + field map:
+     `docs/plans/booli-api.md`.
+- **The answer only fills the form** (`src/lib/annons/formular.ts`): it never
+  starts the Priskoll or an analysis. Fields (`ANNONS_FALT`): boarea, antalRum,
+  manadsavgift, postnummer, vaning, byggar, utgangspris, hiss, balkong, adress,
+  ort; context: stadsdel, forening, maklarUrl, koordinater. Hiss/balkong: the
+  API's explicit `0` → "nej" (owner 2026-10-31), except on a sparse listing (≥ 2
+  of rent/floor/byggår/listPrice missing: it sends `0` for every amenity), where it
+  stays unknown; the page only ever gives "ja". A sold listing fills
+  utgångspris with its `listPrice`, never the sold price. Provenance goes into
+  `PropertyInput.kalla` (`AnnonsKalla`, `typ: "booli"`, contract unchanged) and is
+  blanked by the 12-month retention. Attribution "Uppgifter från Booli" (link) on
+  `/analysera`, plus a line in "Källor och metod" (web `RapportSlut.tsx`, PDF
+  `buildKallor`) when `kalla.typ === "booli"` (helper `booliKallaRad`).
+- **What downstream needs:** the valuation (`src/lib/vardering/features.ts`)
+  uses boarea, antalRum, manadsavgift (fee/m²), postnummer (area + postcode
+  effect; the most important locator), vaning, byggar, hiss, balkong; missing
+  vaning/byggar/avgift are model-handled ("missing" flags). The BRF analysis
+  uses none of the listing values except via the buyer's `PropertyInput`
+  (fee share, fee-deviation question, debt share = boarea × skuld/m²).
+- **Earlier sales** (research only, not in the app): `docs/research/booli-sold.md`.
+  A pull of all 2026 sold flats in Stockholms län (35 756 rows, 2026-10-31) is in
+  `data/raw/booli/` (gitignored: Booli's terms for keeping the data are not in writing).
+  The API's `sold` has full history from 2012 and ≈ 3.2× the sales of our
+  Mäklarstatistik extract for Jan–Aug 2026 (5 000 rows was Svensk Mäklarstatistik's
+  export cap, not their full data; owner 2026-10-31).
 
 ## Valuation factor rows ("drivers")
 
@@ -533,7 +587,7 @@ citations and effort) is not used anywhere yet.
 npm install
 npm run dev                 # localhost:8080
 npm run build               # vite build (Cloudflare Worker output in .output/)
-npm run lint                # eslint . (baseline: 0 errors, 8 react-refresh warnings)
+npm run lint                # eslint . (baseline: 0 errors, 9 react-refresh warnings, 2026-10-31)
 npm run typecheck           # tsc --noEmit (covers src/ + configs only; not scripts/ or supabase/functions/)
 npm test                    # vitest run (2026-10-26: 149 files, ~3180 tests, all passing)
 npm run format              # prettier --write . (printWidth 100)
@@ -548,6 +602,7 @@ npm run build:edge / deploy:edge           # bundle / deploy analys-steg (deploy
 npm run build:vardering-data               # regenerate src/lib/vardering/data from ml artifacts
 npm run build:register-data                # regenerate src/lib/register/data from data/derived/postnummer_stadsdel.csv
 node --import tsx scripts/hamtaBooliFixtures.ts [--spara]   # re-fetch the Booli fixtures with curl (6 live requests), print per-field status; --spara overwrites them
+node --env-file=.env.local --import tsx scripts/hamtaBooliSalda.ts [fran] [till] [areaId]   # Booli sold flats → data/raw/booli/*.csv + .jsonl (gitignored); default 2026-01-01→today, areaId 2 = Stockholms län; ≈ 1 call per 1 000 sales
 node --import tsx scripts/seedLokaltRegister.ts   # LOCAL stack only: seed /brf with test BRFs (refuses non-local PROJECT_URL)
 ./scripts/v2-lokalt.sh [--nollstall]      # whole app on a LOCAL Supabase stack (Docker): db, cron, Edge Function, dev server; real Claude cost
 cd ml && .venv/bin/pytest                  # ML tests
@@ -591,6 +646,10 @@ cd ml && .venv/bin/pytest                  # ML tests
   - Optional `ANNONS_HAMTNING` (`off` = Booli prefill kill switch; default on)
     and `ANNONS_LLM_FALLBACK` (`on` = Haiku fallback when parsing fails; default
     off). Web app only.
+  - Booli API (2026-10-31): `BOOLI_CALLER_ID`, `BOOLI_PRIVATE_KEY` (both needed;
+    absent = API skipped), `BOOLI_API` (`off` = API off; default on),
+    `ANNONS_SIDHAMTNING` (`on` = page fetch as fallback; default off). Web app
+    only (Lovable Secrets); never `VITE_`.
 - **Edge Function:** the same, minus `ANTHROPIC_MODEL` (the model comes from the
   job row), plus `AUTOMATIONS_KEY`. These live in **Supabase** secrets, separate
   from Lovable's: rotating `ANTHROPIC_API_KEY` means updating `.env.local`,

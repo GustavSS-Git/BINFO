@@ -48,6 +48,8 @@ import {
 } from "@/server/analysFn";
 import { kontrolleraAnnonsUrl } from "@/lib/annons/url";
 import {
+  ATTRIBUTION_BOOLI_TEXT,
+  ATTRIBUTION_BOOLI_URL,
   annonsFaltMarkering,
   annonsResultatText,
   annonsTristateMarke,
@@ -637,6 +639,18 @@ function Analysera() {
                     : "Klistra in länken till annonsen så fyller vi i uppgifterna åt dig."}
                 </p>
               )}
+              {annonsLage && !annonsFel ? (
+                <p className="text-sm text-muted-foreground">
+                  <a
+                    href={ATTRIBUTION_BOOLI_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-link underline underline-offset-2"
+                  >
+                    {ATTRIBUTION_BOOLI_TEXT}
+                  </a>
+                </p>
+              ) : null}
             </form>
           </Card>
 
