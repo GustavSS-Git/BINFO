@@ -96,7 +96,8 @@ per-apartment cost in kronor, and what to do before bidding.
   (redesign v4)" below; what changed in behaviour: "Redesign v4: behaviour
   changes" below (it wins over older notes in this file where they conflict).
   `20261028120000_kopguide.sql` applied in production 2026-10-30.
-- **Booli API** (branch `booli-api`, 2026-10-31, NOT merged): the listing prefill
+- **Booli API** (merged into `main` 2026-10-31; live after the owner adds the
+  `BOOLI_*` secrets in Lovable and publishes): the listing prefill
   reads Booli's signed REST API instead of the blocked page; the page fetch stays
   behind `ANNONS_SIDHAMTNING=on`. No migration, no Edge change, no
   `PROMPT_VERSION` bump; deploy = `BOOLI_*` in Lovable Secrets + publish. See
@@ -285,7 +286,7 @@ per-apartment cost in kronor, and what to do before bidding.
   source paragraph; no driver rows since 2026-10-24). Change web copy → check the PDF too.
 - Priskoll (step 1) copy lives in `src/routes/analysera.tsx`.
 
-## Listing data: how a Booli link becomes form values (2026-10-31, branch `booli-api`)
+## Listing data: how a Booli link becomes form values (2026-10-31)
 
 - **Path:** `/analysera` "Hämta uppgifter" → `hamtaAnnonsFn` (`analysFn.ts`) →
   `hamtaAnnons` (`src/server/annons/hamta.ts`): kill switch `ANNONS_HAMTNING` →
