@@ -312,8 +312,9 @@ per-apartment cost in kronor, and what to do before bidding.
   starts the Priskoll or an analysis. Fields (`ANNONS_FALT`): boarea, antalRum,
   manadsavgift, postnummer, vaning, byggar, utgangspris, hiss, balkong, adress,
   ort; context: stadsdel, forening, maklarUrl, koordinater. Hiss/balkong: the
-  API's explicit `0` → "nej" (owner 2026-10-31; caveat: sparse listings send `0`
-  for every amenity), the page only ever gives "ja". A sold listing fills
+  API's explicit `0` → "nej" (owner 2026-10-31), except on a sparse listing (≥ 2
+  of rent/floor/byggår/listPrice missing: it sends `0` for every amenity), where it
+  stays unknown; the page only ever gives "ja". A sold listing fills
   utgångspris with its `listPrice`, never the sold price. Provenance goes into
   `PropertyInput.kalla` (`AnnonsKalla`, `typ: "booli"`, contract unchanged) and is
   blanked by the 12-month retention. Attribution "Uppgifter från Booli" (link) on
@@ -326,8 +327,11 @@ per-apartment cost in kronor, and what to do before bidding.
   uses none of the listing values except via the buyer's `PropertyInput`
   (fee share, fee-deviation question, debt share = boarea × skuld/m²).
 - **Earlier sales** (research only, not in the app): `docs/research/booli-sold.md`.
+  A pull of all 2026 sold flats in Stockholms län (35 756 rows, 2026-10-31) is in
+  `data/raw/booli/` (gitignored: Booli's terms for keeping the data are not in writing).
   The API's `sold` has full history from 2012 and ≈ 3.2× the sales of our
-  Mäklarstatistik extract (a 5 000-row workbook, `ml/cleaning.py`) for Jan–Aug 2026.
+  Mäklarstatistik extract for Jan–Aug 2026 (5 000 rows was Svensk Mäklarstatistik's
+  export cap, not their full data; owner 2026-10-31).
 
 ## Valuation factor rows ("drivers")
 
@@ -597,6 +601,7 @@ npm run build:edge / deploy:edge           # bundle / deploy analys-steg (deploy
 npm run build:vardering-data               # regenerate src/lib/vardering/data from ml artifacts
 npm run build:register-data                # regenerate src/lib/register/data from data/derived/postnummer_stadsdel.csv
 node --import tsx scripts/hamtaBooliFixtures.ts [--spara]   # re-fetch the Booli fixtures with curl (6 live requests), print per-field status; --spara overwrites them
+node --env-file=.env.local --import tsx scripts/hamtaBooliSalda.ts [fran] [till] [areaId]   # Booli sold flats → data/raw/booli/*.csv + .jsonl (gitignored); default 2026-01-01→today, areaId 2 = Stockholms län; ≈ 1 call per 1 000 sales
 node --import tsx scripts/seedLokaltRegister.ts   # LOCAL stack only: seed /brf with test BRFs (refuses non-local PROJECT_URL)
 ./scripts/v2-lokalt.sh [--nollstall]      # whole app on a LOCAL Supabase stack (Docker): db, cron, Edge Function, dev server; real Claude cost
 cd ml && .venv/bin/pytest                  # ML tests

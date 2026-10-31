@@ -24,8 +24,9 @@ Plan, field map and owner decisions: `docs/plans/booli-api.md`. Earlier sales: `
   another flat's listing). Buyers paste `/annons/` links (owner); a `/bostad/` link gets
   `bostadslank` unless the page source is on.
 - Hiss/balkong: `buildingHasElevator`/`hasBalcony` 1 → "ja", 0 → "nej" (owner 2026-10-31; a balcony
-  0 with `hasPatio: 1` stays unknown). Caveat seen live: a sparse new listing had every amenity at
-  `0` with no rent, price, floor or year, so `0` may sometimes mean "not stated".
+  0 with `hasPatio: 1` stays unknown). Exception: on a sparse listing (at least two of rent, floor,
+  construction year and asking price missing) a `0` stays unknown, because a fresh listing had every
+  amenity at `0` with no rent, price, floor or year (`glestObjekt` in `booliApiTolkning.ts`).
 - Positions carry `isApproximate: true`. `floor` can be 1.5 (truncated like typed input) or absent.
   No förening name, no broker listing URL, no description. Booli's `estimate` is never read.
 - Flags (web app): `BOOLI_CALLER_ID` + `BOOLI_PRIVATE_KEY` (absent → API skipped), `BOOLI_API=off`,

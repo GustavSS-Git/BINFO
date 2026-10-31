@@ -346,10 +346,10 @@ describe("cache-rader från före API:t", () => {
     expect(h.anrop).toHaveLength(0);
   });
 
-  it("ett API-svar med hiss/balkong 'nej' går att cacha och läsa tillbaka", async () => {
-    const h = fakeFetch(apiFixtur("listings-6331911.json"), apiFixtur("areas-6331911.json"));
-    const r = await kor("https://www.booli.se/annons/6331911", h.f);
-    expect(r).toMatchObject({ ok: true, uppgifter: { hiss: "nej", balkong: "nej" } });
-    expect(await kor("https://www.booli.se/annons/6331911", fakeFetch().f)).toEqual(r);
+  it("ett API-svar med hiss 'nej' går att cacha och läsa tillbaka", async () => {
+    const h = fakeFetch(apiFixtur("listings-6246378.json"), apiFixtur("sold-6246378.json"));
+    const r = await kor("https://www.booli.se/annons/6246378", h.f);
+    expect(r).toMatchObject({ ok: true, uppgifter: { hiss: "nej", balkong: "ja" } });
+    expect(await kor("https://www.booli.se/annons/6246378", fakeFetch().f)).toEqual(r);
   });
 });

@@ -94,8 +94,8 @@ const AKTIVA: Array<{ id: string; uppgifter: AnnonsUppgifter; postnummer: string
     },
   },
   {
-    // Freshly published, sparse: no rent, price, floor or year; the 0 flags
-    // still become "nej" (owner D1).
+    // Freshly published, sparse: no rent, price, floor or year; its 0 flags
+    // mean "not filled in", so hiss/balkong stay unknown.
     id: "6331911",
     postnummer: "112 56",
     uppgifter: {
@@ -104,8 +104,6 @@ const AKTIVA: Array<{ id: string; uppgifter: AnnonsUppgifter; postnummer: string
       stadsdel: "Kungsholmen",
       boarea: 27,
       antalRum: 1,
-      hiss: "nej",
-      balkong: "nej",
     },
   },
 ];
@@ -281,6 +279,20 @@ describe("kantfall", () => {
     expect("balkong" in t({ hasBalcony: 0, hasPatio: 1 })).toBe(false);
     expect(t({ hasBalcony: 1, hasPatio: 1 }).balkong).toBe("ja");
     expect("hiss" in t({ buildingHasElevator: 2 })).toBe(false);
+  });
+
+  it("glest objekt (minst två av avgift, våning, byggår, pris saknas): 0 → okänt, 1 → ja", () => {
+    const t = (o: object) => tolkaBooliApiObjekt({ ...bas, ...o }, IAR).uppgifter;
+    const nollor = { buildingHasElevator: 0, hasBalcony: 0, hasPatio: 0 };
+    const glest = { rent: 0, listPrice: undefined };
+    expect("hiss" in t({ ...glest, ...nollor })).toBe(false);
+    expect("balkong" in t({ ...glest, ...nollor })).toBe(false);
+    expect(t({ ...glest, buildingHasElevator: 1, hasBalcony: 1 })).toMatchObject({
+      hiss: "ja",
+      balkong: "ja",
+    });
+    // One missing field is not sparse: 0 still means "nej".
+    expect(t({ floor: undefined, ...nollor })).toMatchObject({ hiss: "nej", balkong: "nej" });
   });
 
   it("sålda objektets postCode formateras (tal eller text)", () => {

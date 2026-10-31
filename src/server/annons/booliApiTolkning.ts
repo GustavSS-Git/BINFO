@@ -17,6 +17,9 @@
  *   byggar       constructionYear (plausible range, `rimligtByggar`)
  *   hiss         buildingHasElevator 1 → "ja", 0 → "nej" (owner D1)
  *   balkong      hasBalcony 1 → "ja", 0 → "nej" unless hasPatio is 1 (D1)
+ *                A 0 on a sparse listing (`glestObjekt`) stays unknown: fresh
+ *                listings send 0 for every amenity before the broker fills
+ *                them in (supervisor, owner delegated, 2026-10-31).
  *   stadsdel     location.namedAreas[0]
  *   koordinater  location.position
  *
@@ -94,6 +97,21 @@ function sant(v: number | boolean | null | undefined): boolean {
 }
 function falskt(v: number | boolean | null | undefined): boolean {
   return v === 0 || v === false;
+}
+
+/** A listing missing at least two of rent, floor, construction year and
+ *  asking price. Booli sends 0 for every amenity on such listings (Rålambsvägen
+ *  48, 2026-10-31), so a 0 there means "not filled in", not "nej". */
+function glestObjekt(
+  o: Pick<z.infer<typeof ApiObjektSchema>, "rent" | "floor" | "constructionYear" | "listPrice">,
+): boolean {
+  const saknade = [
+    positivt(o.rent) === undefined,
+    typeof o.floor !== "number" || o.floor < 0,
+    typeof o.constructionYear !== "number",
+    positivt(o.listPrice) === undefined,
+  ].filter(Boolean).length;
+  return saknade >= 2;
 }
 
 /** "11339", 11339 or "113 39" → "113 39"; anything else → undefined. */
@@ -176,11 +194,12 @@ export function tolkaBooliApiObjekt(ratt: unknown, iAr?: number): BooliApiTolkni
 
   if (rimligtByggar(o.constructionYear, iAr)) u.byggar = o.constructionYear;
 
+  const nollArNej = !glestObjekt(o);
   if (sant(o.buildingHasElevator)) u.hiss = "ja";
-  else if (falskt(o.buildingHasElevator)) u.hiss = "nej";
+  else if (nollArNej && falskt(o.buildingHasElevator)) u.hiss = "nej";
 
   if (sant(o.hasBalcony)) u.balkong = "ja";
-  else if (falskt(o.hasBalcony) && !sant(o.hasPatio)) u.balkong = "nej";
+  else if (nollArNej && falskt(o.hasBalcony) && !sant(o.hasPatio)) u.balkong = "nej";
 
   const lat = plats?.position?.latitude;
   const lon = plats?.position?.longitude;

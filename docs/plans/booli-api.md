@@ -112,6 +112,8 @@ no Edge Function change, no `PROMPT_VERSION` bump.
 
 - **D1** `buildingHasElevator: 0` → hiss "nej" (owner). Same rule for balkong: `hasBalcony: 0` → "nej",
   except when `hasPatio: 1` (then unknown). `1` → "ja"; a missing key → unknown. The listing-page parser keeps "ja" only.
+  Amended 2026-10-31 (owner left it to the supervisor): a `0` on a sparse listing (≥ 2 of rent, floor, construction
+  year, asking price missing) stays unknown.
   Seam: `AnnonsUppgifter.hiss/balkong: "ja" | "nej"`; the form applies "nej" with the "Hämtat från Booli" mark.
 - **D2** Buyers paste `/annons/` links (owner). A `/bostad/` link gets `bostadslank` (message in `ANNONS_MEDDELANDE`), or the
   page fallback when `ANNONS_SIDHAMTNING=on`. No search for a residence-id lookup.
