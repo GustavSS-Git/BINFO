@@ -1,0 +1,54 @@
+{
+  "status": 200,
+  "body": {
+    "sold": [
+      {
+        "source": {
+          "id": 1564,
+          "url": "https://www.erikolsson.se/",
+          "type": "Broker",
+          "name": "Erik Olsson Fastighetsförmedling"
+        },
+        "rooms": 1.5,
+        "constructionYear": 1929,
+        "soldDate": "2026-10-30",
+        "hasPatio": 0,
+        "location": {
+          "position": {
+            "latitude": 59.3381672,
+            "longitude": 18.0352603,
+            "isApproximate": true
+          },
+          "region": {
+            "municipalityName": "Stockholm",
+            "countyName": "Stockholms län"
+          },
+          "address": {
+            "streetAddress": "Sankt Eriksgatan 65",
+            "postCode": 11332
+          },
+          "distance": {
+            "ocean": 2235
+          },
+          "namedAreas": ["Vasastan"]
+        },
+        "hasFireplace": 0,
+        "rent": 3121,
+        "livingArea": 45,
+        "soldPriceSource": "maklare",
+        "listPrice": 4995000,
+        "soldPrice": 5650000,
+        "booliId": 6309077,
+        "heating": "district",
+        "floor": 6,
+        "buildingHasElevator": 1,
+        "objectType": "Lägenhet",
+        "hasBalcony": 0,
+        "published": "2026-10-16 12:08:06",
+        "firstPrice": 4995000,
+        "apartmentNumber": "1602",
+        "url": "https://www.booli.se/annons/6309077"
+      }
+    ]
+  }
+}

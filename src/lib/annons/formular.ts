@@ -7,6 +7,7 @@
  */
 
 import type { AnalyseraFormFields } from "@/lib/analyseraForm";
+import { formatSkapadDatum } from "@/lib/analysisView";
 import { AnnonsKallaSchema } from "@/lib/analysis/schema";
 import {
   ANNONS_FALT,
@@ -33,7 +34,14 @@ export interface AnnonsBeroenden {
 export const TOM_LANK_MEDDELANDE = "Klistra in en länk från Booli först.";
 
 /** Server error codes whose own (buyer-safe) message is shown verbatim. */
-const VISA_SERVERNS_TEXT = new Set(["kvot", "avstangd", "behorighet", "ogiltig_url", "fel_doman"]);
+const VISA_SERVERNS_TEXT = new Set([
+  "kvot",
+  "avstangd",
+  "behorighet",
+  "ogiltig_url",
+  "fel_doman",
+  "bostadslank",
+]);
 
 /**
  * Checks the pasted text, fetches once, and returns either the listing answer
@@ -144,8 +152,9 @@ const TEXTFALT: Record<Exclude<AnnonsFalt, "hiss" | "balkong" | "ort">, Formater
  *   for this listing's;
  * - the buyer typed or changed it ("manuellt", "saknas"), or there was no
  *   previous fetch: it is kept.
- * hiss/balkong become "ja" when the listing says so and are otherwise never
- * "nej": a missing amenity is unknown. A second fetch replaces the whole
+ * hiss/balkong become "ja" or "nej" when the listing says so (the API sends an
+ * explicit 0 for "nej", owner 2026-10-31); a listing that doesn't state them
+ * leaves them unknown, never "nej". A second fetch replaces the whole
  * provenance state.
  */
 export function tillampaAnnons(
@@ -162,8 +171,9 @@ export function tillampaAnnons(
   for (const falt of ANNONS_FALT) {
     const varFranForraAnnonsen = fore?.ursprung[falt] === "booli";
     if (falt === "hiss" || falt === "balkong") {
-      if (u[falt] === "ja") {
-        nyaTristates[falt] = "ja";
+      const fran = u[falt];
+      if (fran === "ja" || fran === "nej") {
+        nyaTristates[falt] = fran;
         ursprung[falt] = "booli";
       } else {
         if (varFranForraAnnonsen) nyaTristates[falt] = "okant";
@@ -368,6 +378,22 @@ export function annonsFaltMarkering(
     case "saknas":
       return varde.trim() === "" ? { hint: HINT_SAKNAS, framhav: true } : {};
   }
+}
+
+// ---------------------------------------------------------------------------
+// Attribution (owner 2026-10-31): Booli is named wherever its data was used
+// ---------------------------------------------------------------------------
+
+export const ATTRIBUTION_BOOLI_TEXT = "Uppgifter från Booli";
+export const ATTRIBUTION_BOOLI_URL = "https://www.booli.se";
+
+/**
+ * Raden i rapportens "Källor och metod" (webb och PDF) när bostadens uppgifter hämtades från en
+ * Booli-annons. Null när köparen fyllde i själv. Inget om Boolis egen värdering: den läses aldrig.
+ */
+export function booliKallaRad(kalla: AnnonsKalla | undefined): string | null {
+  if (kalla?.typ !== "booli") return null;
+  return `Uppgifter om bostaden hämtades från Booli (booli.se) den ${formatSkapadDatum(kalla.hamtad)}.`;
 }
 
 /** Märket bredvid Hiss/Balkong (båda kan lämnas som "Vet ej", så ingen markering). */

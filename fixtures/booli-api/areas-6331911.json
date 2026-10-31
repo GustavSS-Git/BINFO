@@ -1,0 +1,156 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 13,
+    "count": 13,
+    "areas": [
+      {
+        "booliId": 1,
+        "name": "Stockholm",
+        "types": ["Kommun"],
+        "parentBooliId": 2,
+        "parentName": "Stockholms län",
+        "parentTypes": ["Län"],
+        "fullName": "Stockholm, Stockholms län",
+        "urlFriendlyName": "stockholm",
+        "size": 215073905
+      },
+      {
+        "booliId": 2,
+        "name": "Stockholms län",
+        "types": ["Län"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "Stockholms län",
+        "urlFriendlyName": "stockholms+lan",
+        "size": 16575083798
+      },
+      {
+        "booliId": 143,
+        "name": "Stockholms innerstad",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Stockholms innerstad, Stockholm",
+        "urlFriendlyName": "stockholms+innerstad",
+        "size": 46257216
+      },
+      {
+        "booliId": 3598,
+        "name": "Fredhäll",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Fredhäll, Stockholm",
+        "urlFriendlyName": "fredhall",
+        "size": 436623
+      },
+      {
+        "booliId": 77104,
+        "name": "Sverige",
+        "types": ["Land"],
+        "parentBooliId": 77103,
+        "parentName": "top",
+        "parentTypes": ["Top"],
+        "fullName": "Sverige, top",
+        "urlFriendlyName": "sverige",
+        "size": 579539445956
+      },
+      {
+        "booliId": 115353,
+        "name": "Kungsholmen",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Kungsholmen, Stockholm",
+        "urlFriendlyName": "kungsholmen",
+        "size": 4686183
+      },
+      {
+        "booliId": 115360,
+        "name": "Kungsholmen/Essingeöarna",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Kungsholmen/Essingeöarna, Stockholm",
+        "urlFriendlyName": "kungsholmen/essingeoarna",
+        "size": 6613219
+      },
+      {
+        "booliId": 862236,
+        "name": "11256",
+        "types": ["Postnummer"],
+        "parentBooliId": 851502,
+        "parentName": "Stockholm",
+        "parentTypes": ["Postort"],
+        "fullName": "11256, Stockholm",
+        "urlFriendlyName": "11256",
+        "size": 29184
+      },
+      {
+        "booliId": 874667,
+        "name": "Fredhäll",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Fredhäll, Stockholm",
+        "urlFriendlyName": "fredhall",
+        "size": 1099295
+      },
+      {
+        "booliId": 883816,
+        "name": "Innanför tullarna",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Innanför tullarna, Stockholm",
+        "urlFriendlyName": "innanfor+tullarna",
+        "size": 24525300
+      },
+      {
+        "booliId": 973576,
+        "name": "Storstockholm",
+        "types": ["Indexområde"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "Storstockholm, Sverige",
+        "urlFriendlyName": "storstockholm",
+        "size": 16575083798
+      },
+      {
+        "booliId": 1002244,
+        "name": "SE3",
+        "types": ["Elområde"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "SE3, Sverige",
+        "urlFriendlyName": "se3",
+        "size": 163877782281
+      },
+      {
+        "booliId": 1016411,
+        "name": "0180C4090",
+        "types": ["deso"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "0180C4090, Sverige",
+        "urlFriendlyName": "0180c4090",
+        "size": 123015
+      }
+    ],
+    "searchParams": {
+      "lat": "59.3299527",
+      "lng": "18.0046808"
+    }
+  }
+}

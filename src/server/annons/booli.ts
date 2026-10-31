@@ -29,6 +29,7 @@ import { z } from "zod";
 
 import { ANNONS_FALT } from "@/lib/annons/typer";
 import type { AnnonsFalt, AnnonsUppgifter } from "@/lib/annons/typer";
+import { rimligtByggar } from "./kallor";
 
 export type BooliTolkning =
   | { typ: "ok"; uppgifter: AnnonsUppgifter; saknas: AnnonsFalt[] }
@@ -339,14 +340,7 @@ function listningTillUppgifter(l: Listing, ld: JsonLd, harListPrice: boolean): A
   if (typeof vaning === "number" && Number.isInteger(vaning) && vaning >= 0) u.vaning = vaning;
 
   const ar = l.constructionYear;
-  if (
-    typeof ar === "number" &&
-    Number.isInteger(ar) &&
-    ar >= 1600 &&
-    ar <= new Date().getFullYear() + 5
-  ) {
-    u.byggar = ar;
-  }
+  if (rimligtByggar(ar)) u.byggar = ar;
 
   const nycklar = amenityNycklar(l);
   if (nycklar.has("elevator")) u.hiss = "ja";

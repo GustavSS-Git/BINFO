@@ -1,0 +1,50 @@
+{
+  "status": 200,
+  "body": {
+    "sold": [
+      {
+        "source": {
+          "id": 130,
+          "url": "https://tradition.se/",
+          "type": "Broker",
+          "name": "Tradition Fastighetsmäkleri AB"
+        },
+        "rooms": 1,
+        "constructionYear": 1885,
+        "soldDate": "2026-10-07",
+        "hasPatio": 0,
+        "location": {
+          "position": {
+            "latitude": 59.34159171,
+            "longitude": 18.04756485
+          },
+          "region": {
+            "municipalityName": "Stockholm",
+            "countyName": "Stockholms län"
+          },
+          "address": {
+            "streetAddress": "Västmannagatan 55",
+            "postCode": 11325
+          },
+          "namedAreas": ["Vasastan"]
+        },
+        "hasFireplace": 0,
+        "rent": 1765,
+        "livingArea": 34,
+        "soldPriceSource": "bobot",
+        "listPrice": 4395000,
+        "soldPrice": 4890000,
+        "booliId": 6246378,
+        "heating": "district",
+        "floor": 2,
+        "buildingHasElevator": 0,
+        "objectType": "Lägenhet",
+        "hasBalcony": 1,
+        "published": "2026-09-29 14:43:48",
+        "firstPrice": 4395000,
+        "apartmentNumber": "1203",
+        "url": "https://www.booli.se/annons/6246378"
+      }
+    ]
+  }
+}

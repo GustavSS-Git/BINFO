@@ -166,10 +166,11 @@ function Integritet() {
 
         <Avsnitt rubrik="Hämta uppgifter från en Booli-annons">
           <p>
-            Klistrar du in en länk till en annons på Booli hämtar Binfos server annonssidan och
-            fyller i formuläret med uppgifterna där. Det är Binfos server som hämtar sidan, inte din
-            webbläsare, så din IP-adress skickas inte till Booli. Hämtningen startar aldrig en
-            analys.
+            Klistrar du in en länk till en annons på Booli hämtar Binfos server annonsens uppgifter
+            från Booli och fyller i formuläret med dem. Booli får annonsens nummer, och för att
+            hitta postnumret annonsens koordinater, men inget om dig. Det är Binfos server som
+            frågar, inte din webbläsare, så din IP-adress skickas inte till Booli. Hämtningen
+            startar aldrig en analys.
           </p>
           <ul className="list-disc space-y-2.5 pl-5">
             <li>
@@ -183,9 +184,10 @@ function Integritet() {
               postnummer.
             </li>
             <li>
-              <strong>Saknar annonsen postnummer</strong> slår vi upp det hos OpenStreetMap
-              (Nominatim) med annonsens koordinater eller gatuadress. Postnumret markeras då som
-              hämtat från OpenStreetMap.
+              <strong>Saknar annonsen postnummer</strong> slår vi i första hand upp det hos Booli
+              med annonsens koordinater. Läser vi i stället annonssidan slår vi upp det hos
+              OpenStreetMap (Nominatim) med annonsens koordinater eller gatuadress, och postnumret
+              markeras då som hämtat från OpenStreetMap.
             </li>
           </ul>
         </Avsnitt>

@@ -1,0 +1,156 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 13,
+    "count": 13,
+    "areas": [
+      {
+        "booliId": 1,
+        "name": "Stockholm",
+        "types": ["Kommun"],
+        "parentBooliId": 2,
+        "parentName": "Stockholms län",
+        "parentTypes": ["Län"],
+        "fullName": "Stockholm, Stockholms län",
+        "urlFriendlyName": "stockholm",
+        "size": 215073905
+      },
+      {
+        "booliId": 2,
+        "name": "Stockholms län",
+        "types": ["Län"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "Stockholms län",
+        "urlFriendlyName": "stockholms+lan",
+        "size": 16575083798
+      },
+      {
+        "booliId": 143,
+        "name": "Stockholms innerstad",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Stockholms innerstad, Stockholm",
+        "urlFriendlyName": "stockholms+innerstad",
+        "size": 46257216
+      },
+      {
+        "booliId": 77104,
+        "name": "Sverige",
+        "types": ["Land"],
+        "parentBooliId": 77103,
+        "parentName": "top",
+        "parentTypes": ["Top"],
+        "fullName": "Sverige, top",
+        "urlFriendlyName": "sverige",
+        "size": 579539445956
+      },
+      {
+        "booliId": 115341,
+        "name": "Södermalm",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Södermalm, Stockholm",
+        "urlFriendlyName": "sodermalm",
+        "size": 7320241
+      },
+      {
+        "booliId": 115358,
+        "name": "Katarina/Sofia",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Katarina/Sofia, Stockholm",
+        "urlFriendlyName": "katarina/sofia",
+        "size": 4031769
+      },
+      {
+        "booliId": 255555,
+        "name": "SoFo",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "SoFo, Stockholm",
+        "urlFriendlyName": "sofo",
+        "size": 600063
+      },
+      {
+        "booliId": 851550,
+        "name": "11631",
+        "types": ["Postnummer"],
+        "parentBooliId": 851502,
+        "parentName": "Stockholm",
+        "parentTypes": ["Postort"],
+        "fullName": "11631, Stockholm",
+        "urlFriendlyName": "11631",
+        "size": 14215
+      },
+      {
+        "booliId": 874680,
+        "name": "Tullgården",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Tullgården, Stockholm",
+        "urlFriendlyName": "tullgarden",
+        "size": 940097
+      },
+      {
+        "booliId": 883816,
+        "name": "Innanför tullarna",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Innanför tullarna, Stockholm",
+        "urlFriendlyName": "innanfor+tullarna",
+        "size": 24525300
+      },
+      {
+        "booliId": 973576,
+        "name": "Storstockholm",
+        "types": ["Indexområde"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "Storstockholm, Sverige",
+        "urlFriendlyName": "storstockholm",
+        "size": 16575083798
+      },
+      {
+        "booliId": 1002244,
+        "name": "SE3",
+        "types": ["Elområde"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "SE3, Sverige",
+        "urlFriendlyName": "se3",
+        "size": 163877782281
+      },
+      {
+        "booliId": 1016319,
+        "name": "0180C3170",
+        "types": ["deso"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "0180C3170, Sverige",
+        "urlFriendlyName": "0180c3170",
+        "size": 33815
+      }
+    ],
+    "searchParams": {
+      "lat": "59.30984993",
+      "lng": "18.08405186"
+    }
+  }
+}

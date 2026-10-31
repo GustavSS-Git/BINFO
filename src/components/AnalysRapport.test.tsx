@@ -507,3 +507,24 @@ describe("AnalysRapport — avsnitt 4 och byggår", () => {
     expect(html).toContain("värdeår 1931 enligt årsredovisningen");
   });
 });
+
+describe("AnalysRapport — Booli i källor och metod", () => {
+  it("syns bara när uppgifterna hämtats från en Booli-annons", () => {
+    expect(rita()).not.toContain("hämtades från Booli");
+    const medBooli: AnalysisResult = {
+      ...sampleAnalysis,
+      input: {
+        ...sampleAnalysis.input,
+        kalla: {
+          typ: "booli",
+          url: "https://www.booli.se/annons/6279984",
+          hamtad: "2026-10-24T10:00:00.000Z",
+          oandradeFalt: [],
+        },
+      },
+    };
+    expect(rita(medBooli)).toContain(
+      "Uppgifter om bostaden hämtades från Booli (booli.se) den 24 okt. 2026.",
+    );
+  });
+});

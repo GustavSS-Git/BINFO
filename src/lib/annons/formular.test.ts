@@ -6,6 +6,9 @@ import {
   antalHamtade,
   annonsFaltVisning,
   annonsTristateText,
+  ATTRIBUTION_BOOLI_TEXT,
+  ATTRIBUTION_BOOLI_URL,
+  booliKallaRad,
   boareaTillTal,
   foreningsHint,
   hamtaAnnonsUppgifter,
@@ -152,7 +155,7 @@ describe("hamtaAnnonsUppgifter", () => {
     if (utfall.typ === "ok") expect(utfall.svar.uppgifter).toEqual(FULLA);
   });
 
-  it.each(["kvot", "avstangd", "ogiltig_url", "fel_doman"] as const)(
+  it.each(["kvot", "avstangd", "ogiltig_url", "fel_doman", "bostadslank"] as const)(
     "visar serverns text för %s",
     async (errorCode) => {
       const b = beroenden({
@@ -307,7 +310,7 @@ describe("tillampaAnnons", () => {
     expect(r.lage.kalla).not.toHaveProperty("stadsdel");
   });
 
-  it("hiss och balkong sätts bara till ja: saknas behåller nuvarande val, aldrig nej", () => {
+  it("hiss och balkong: saknas behåller nuvarande val (okänt är inte nej)", () => {
     const saknas = svar(utan(FULLA, "hiss", "balkong"));
     for (const nu of ["ja", "nej", "okant"] as const) {
       const r = tillampaAnnons(TOM_FORM, { hiss: nu, balkong: nu }, saknas);
@@ -322,6 +325,53 @@ describe("tillampaAnnons", () => {
       svar(utan(FULLA, "balkong")),
     );
     expect(bara.hiss).toBe("ja");
+    expect(bara.balkong).toBe("nej");
+  });
+
+  it("hiss och balkong 'nej' från annonsen (API:ts explicita 0) tillämpas med märket Booli", () => {
+    const r = tillampaAnnons(
+      TOM_FORM,
+      { hiss: "okant", balkong: "ja" },
+      svar({ ...FULLA, hiss: "nej", balkong: "nej" }),
+    );
+    expect(r.hiss).toBe("nej");
+    expect(r.balkong).toBe("nej");
+    expect(r.lage.ursprung.hiss).toBe("booli");
+    expect(r.lage.ursprung.balkong).toBe("booli");
+    expect(annonsTristateText(r.lage, "hiss", r.hiss)).toBe(HINT_BOOLI);
+    expect(annonsTristateMarke(r.lage, "balkong", r.balkong)).toEqual({
+      text: "Från annonsen",
+      ton: "success",
+    });
+    expect(antalHamtade(r.lage)).toBe(
+      antalHamtade(tillampaAnnons(TOM_FORM, TRI, svar(FULLA)).lage),
+    );
+    // "nej" från annonsen följer med till den sparade källan som oförändrat fält
+    expect(tillAnnonsKalla(r.lage).oandradeFalt).toEqual(
+      expect.arrayContaining(["hiss", "balkong"]),
+    );
+  });
+
+  it("'nej' från en tidigare annons nollställs till okänt när nästa annons saknar uppgiften", () => {
+    const forsta = tillampaAnnons(TOM_FORM, TRI, svar({ ...FULLA, hiss: "nej", balkong: "nej" }));
+    expect(forsta.hiss).toBe("nej");
+    const andra = tillampaAnnons(
+      forsta.form,
+      { hiss: forsta.hiss, balkong: forsta.balkong },
+      svar(utan(FULLA, "hiss", "balkong")),
+      forsta.lage,
+    );
+    expect(andra.hiss).toBe("okant");
+    expect(andra.balkong).toBe("okant");
+    // Ändrade köparen värdet (manuellt) behålls det.
+    const andrad = tillampaAnnons(
+      forsta.form,
+      { hiss: "ja", balkong: forsta.balkong },
+      svar(utan(FULLA, "hiss", "balkong")),
+      markeraAndrad(forsta.lage, "hiss"),
+    );
+    expect(andrad.hiss).toBe("ja");
+    expect(andrad.balkong).toBe("okant");
   });
 
   describe("en andra hämtning (med föregående läge)", () => {
@@ -774,5 +824,35 @@ describe("redesign v4: märken och antal ifyllda uppgifter", () => {
     });
     expect(annonsTristateMarke(lage, "balkong", "ja")).toBeUndefined();
     expect(annonsTristateMarke(null, "hiss", "ja")).toBeUndefined();
+  });
+});
+
+describe("attribution: Uppgifter från Booli", () => {
+  it("texten och länken", () => {
+    expect(ATTRIBUTION_BOOLI_TEXT).toBe("Uppgifter från Booli");
+    expect(ATTRIBUTION_BOOLI_URL).toBe("https://www.booli.se");
+  });
+
+  it("källraden för rapporten finns bara när källan är Booli", () => {
+    const kalla = {
+      typ: "booli" as const,
+      url: "https://www.booli.se/annons/6279984",
+      hamtad: "2026-10-24T10:00:00.000Z",
+      oandradeFalt: [],
+    };
+    expect(booliKallaRad(kalla)).toBe(
+      "Uppgifter om bostaden hämtades från Booli (booli.se) den 24 okt. 2026.",
+    );
+    expect(booliKallaRad(undefined)).toBeNull();
+  });
+
+  it("raden nämner aldrig Boolis egen värdering", () => {
+    const rad = booliKallaRad({
+      typ: "booli",
+      url: "https://www.booli.se/annons/1",
+      hamtad: "2026-10-24T10:00:00.000Z",
+      oandradeFalt: [],
+    });
+    expect(rad).not.toMatch(/uppskatt|värdering|estimate/i);
   });
 });

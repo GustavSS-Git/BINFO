@@ -2,8 +2,10 @@
  * Listing fetch ("Hämta uppgifter" on /analysera): the types shared by the
  * client and the server function. Client-safe: no server imports.
  *
- * Source today: Booli only (docs/booli.md). The parser lives in
- * src/server/annons/booli.ts, the fetch in src/server/annons/hamta.ts.
+ * Source today: Booli only (docs/booli.md, docs/plans/booli-api.md): the
+ * Booli REST API (src/server/annons/booliApi.ts) and, behind a flag, the
+ * listing page (src/server/annons/booli.ts); orchestration in
+ * src/server/annons/hamta.ts.
  */
 
 import type { AnnonsFalt } from "@/types/analysis";
@@ -44,10 +46,10 @@ export interface AnnonsUppgifter {
   antalRum?: number;
   vaning?: number;
   byggar?: number;
-  /** Only ever "ja": a listing that doesn't mention a lift says nothing about it
-   *  (unknown ≠ false). */
-  hiss?: "ja";
-  balkong?: "ja";
+  /** "nej" only from the API's explicit 0 (owner 2026-10-31); the listing page
+   *  only ever gives "ja" (a missing amenity there is unknown, not "nej"). */
+  hiss?: "ja" | "nej";
+  balkong?: "ja" | "nej";
   /** Not a form field: shown/stored as context. */
   stadsdel?: string;
   forening?: string;
@@ -64,7 +66,10 @@ export type AnnonsFelkod =
   | "natverk"
   | "kvot"
   | "avstangd"
-  | "behorighet";
+  | "behorighet"
+  /** A `/bostad/<id>` link (residence id) while only the API can fetch: the API
+   *  takes `/annons/<id>` numbers only. */
+  | "bostadslank";
 
 export type AnnonsSvar =
   | {
@@ -78,6 +83,9 @@ export type AnnonsSvar =
       postnummerKalla?: "annons" | "geokodning";
       /** "llm" only when the optional model fallback produced the values. */
       tolkning: "struktur" | "llm";
+      /** How the listing was read: Booli's API or its listing page. Absent on
+       *  answers cached before 2026-10-31 (= "sida"). */
+      metod?: "api" | "sida";
       /** ISO timestamp of the fetch (a cached answer keeps its original time). */
       hamtad: string;
     }
@@ -90,6 +98,8 @@ export const ANNONS_MEDDELANDE = {
   ogiltig_url:
     "Länken går inte till en bostadsannons på Booli. Kopiera adressen från annonsens sida, t.ex. https://www.booli.se/annons/1234567.",
   avstangd: "Hämtning från Booli är tillfälligt avstängd, fyll i manuellt.",
+  bostadslank:
+    "Länken går till bostadens sida på Booli. Öppna annonsen och kopiera dess länk (booli.se/annons/…), eller fyll i uppgifterna själv.",
   kvot: "Du har hämtat många annonser på kort tid. Vänta en stund eller fyll i manuellt.",
 } as const;
 

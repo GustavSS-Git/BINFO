@@ -1,0 +1,211 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 18,
+    "count": 18,
+    "areas": [
+      {
+        "booliId": 1,
+        "name": "Stockholm",
+        "types": ["Kommun"],
+        "parentBooliId": 2,
+        "parentName": "Stockholms län",
+        "parentTypes": ["Län"],
+        "fullName": "Stockholm, Stockholms län",
+        "urlFriendlyName": "stockholm",
+        "size": 215073905
+      },
+      {
+        "booliId": 2,
+        "name": "Stockholms län",
+        "types": ["Län"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "Stockholms län",
+        "urlFriendlyName": "stockholms+lan",
+        "size": 16575083798
+      },
+      {
+        "booliId": 143,
+        "name": "Stockholms innerstad",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Stockholms innerstad, Stockholm",
+        "urlFriendlyName": "stockholms+innerstad",
+        "size": 46257216
+      },
+      {
+        "booliId": 3383,
+        "name": "Kungsholms Strand",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Kungsholms Strand, Stockholm",
+        "urlFriendlyName": "kungsholms+strand",
+        "size": 334331
+      },
+      {
+        "booliId": 77104,
+        "name": "Sverige",
+        "types": ["Land"],
+        "parentBooliId": 77103,
+        "parentName": "top",
+        "parentTypes": ["Top"],
+        "fullName": "Sverige, top",
+        "urlFriendlyName": "sverige",
+        "size": 579539445956
+      },
+      {
+        "booliId": 115353,
+        "name": "Kungsholmen",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Kungsholmen, Stockholm",
+        "urlFriendlyName": "kungsholmen",
+        "size": 4686183
+      },
+      {
+        "booliId": 115360,
+        "name": "Kungsholmen/Essingeöarna",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Kungsholmen/Essingeöarna, Stockholm",
+        "urlFriendlyName": "kungsholmen/essingeoarna",
+        "size": 6613219
+      },
+      {
+        "booliId": 826197,
+        "name": "Främre Kungsholmen",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Främre Kungsholmen, Stockholm",
+        "urlFriendlyName": "framre+kungsholmen",
+        "size": 1703157
+      },
+      {
+        "booliId": 854839,
+        "name": "11246",
+        "types": ["Postnummer"],
+        "parentBooliId": 851502,
+        "parentName": "Stockholm",
+        "parentTypes": ["Postort"],
+        "fullName": "11246, Stockholm",
+        "urlFriendlyName": "11246",
+        "size": 29870
+      },
+      {
+        "booliId": 874682,
+        "name": "St Göran",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "St Göran, Stockholm",
+        "urlFriendlyName": "st+goran",
+        "size": 877989
+      },
+      {
+        "booliId": 880476,
+        "name": "Stadshagen",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Stadshagen, Stockholm",
+        "urlFriendlyName": "stadshagen",
+        "size": 1361442
+      },
+      {
+        "booliId": 880477,
+        "name": "Lindhagen",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Lindhagen, Stockholm",
+        "urlFriendlyName": "lindhagen",
+        "size": 1726236
+      },
+      {
+        "booliId": 880478,
+        "name": "Övre Kungsholmen",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Övre Kungsholmen, Stockholm",
+        "urlFriendlyName": "ovre+kungsholmen",
+        "size": 959333
+      },
+      {
+        "booliId": 883816,
+        "name": "Innanför tullarna",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Innanför tullarna, Stockholm",
+        "urlFriendlyName": "innanfor+tullarna",
+        "size": 24525300
+      },
+      {
+        "booliId": 911532,
+        "name": "Sankt Eriksområdet",
+        "types": ["undefined"],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": ["Kommun"],
+        "fullName": "Sankt Eriksområdet, Stockholm",
+        "urlFriendlyName": "sankt+eriksomradet",
+        "size": 341410
+      },
+      {
+        "booliId": 973576,
+        "name": "Storstockholm",
+        "types": ["Indexområde"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "Storstockholm, Sverige",
+        "urlFriendlyName": "storstockholm",
+        "size": 16575083798
+      },
+      {
+        "booliId": 1002244,
+        "name": "SE3",
+        "types": ["Elområde"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "SE3, Sverige",
+        "urlFriendlyName": "se3",
+        "size": 163877782281
+      },
+      {
+        "booliId": 1016451,
+        "name": "0180C4490",
+        "types": ["deso"],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": ["Land"],
+        "fullName": "0180C4490, Sverige",
+        "urlFriendlyName": "0180c4490",
+        "size": 67259
+      }
+    ],
+    "searchParams": {
+      "lat": "59.3375667",
+      "lng": "18.0287312"
+    }
+  }
+}
