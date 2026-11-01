@@ -38,6 +38,17 @@ Plan, field map and owner decisions: `docs/plans/booli-api.md`. Earlier sales: `
 - Flags (web app): `BOOLI_CALLER_ID` + `BOOLI_PRIVATE_KEY` (absent → API skipped), `BOOLI_API=off`,
   `ANNONS_SIDHAMTNING=on` (page source as fallback; default off), `ANNONS_HAMTNING=off` (everything).
   An expired key logs `[annons] booli-api nyckel avvisad`; the buyer gets "fyll i manuellt".
+- **Earlier sales of the flat** ("Tidigare försäljningar", 2026-11-01, `docs/plans/salt-i-huset.md`):
+  for a `/bostad/<id>` link only, `hamtaForsaljningarFn` → `hamtaForsaljningar`
+  (`src/server/annons/forsaljningar.ts`) makes ONE call
+  `sold?residenceId=<id>&sort=soldDate&direction=desc&limit=50` through `sokBostad` (same echo and
+  ≤ 50-hit guard). Mapping `tolkaTidigareForsaljningar` (`booliApiTolkning.ts`): soldDate
+  (YYYY-MM-DD, else the row is dropped), soldPrice (positive integer, else dropped), livingArea,
+  rooms, rent (0 → null); never `apartmentNumber`, `estimate` or `soldPriceSource`. Newest first,
+  identical date + price once, at most 5; every sale is shown. Cached 24 h in `annons_cache` under
+  `booli-salda:<id>` (a hit takes no quota; purged after 2 days like listing rows); a miss takes the
+  listing quota once. Any failure = `{ ok: false }` (nothing shown, nothing cached). Live
+  2026-11-01: 720821 → 2 sales (2026-10-30, 2020-01-29), 719044 → 1, 798609 → 0.
 - Live check: `node --env-file=.env.local --import tsx scripts/testaBooliApi.ts [--spara]`
   (fixtures in `fixtures/booli-api/`, keys masked).
 

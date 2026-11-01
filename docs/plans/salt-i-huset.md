@@ -1,6 +1,6 @@
 # Plan (draft): earlier sales of the flat ("Tidigare försäljningar")
 
-Written 2026-11-01. Status: **draft, not approved**. Background: `docs/research/booli-sold.md` §7
+Written 2026-11-01. Status: **approved and implemented 2026-11-01** (H1 fetch on open, H2 Booli OK'd display, H3 both pages). Background: `docs/research/booli-sold.md` §7
 (use case A), `docs/booli.md` (`residenceId`).
 
 ## 1. Why it is cheap now
@@ -26,15 +26,16 @@ A simple table. The heading carries the address, since every row is the same fla
 ```
 Tidigare försäljningar av Sankt Eriksgatan 31A
 Såld       Pris          kr/m²     Storlek        Avgift
-okt 2026   5 950 000 kr  110 200   54 m², 2 rum   —
-jan 2020   4 200 000 kr   77 800   54 m², 2 rum   2 950 kr
+okt 2026   6 025 000 kr  111 574   54 m², 2 rum   —
+jan 2020   5 220 000 kr   96 667   54 m², 2 rum   —
 Äldre priser är inte justerade för prisutvecklingen. Uppgifter från Booli.
 ```
 
 - **Columns:** Såld (month + year), Pris, kr/m² (soldPrice ÷ livingArea), Storlek (boarea + rum),
   Avgift ("—" when `rent` is 0 or missing). No "mot utgångspris" column in v1 (missing on ≈ 1 in 5
   sales).
-- **Rows:** at most 5, newest first. The sale/listing being looked at (same `booliId`) is excluded.
+- **Rows:** at most 5, newest first. Every sale is shown, including the one being looked at
+  (supervisor 2026-11-01: no exclusion by `booliId`).
   Empty → the block is not shown (no "inga försäljningar": Booli's coverage can't support it).
 - **Phone (390 px):** each sale becomes two lines: date + price, then kr/m², size and avgift.
   The PDF gets the same table, the attribution and the unadjusted-price line.
@@ -79,7 +80,7 @@ jan 2020   4 200 000 kr   77 800   54 m², 2 rum   2 950 kr
 
 ## 6. Tests and work
 
-- Unit: the mapping (sort order, at most 5, the excluded current sale, `rent 0`, kr/m²), the extra
+- Unit: the mapping (sort order, at most 5, identical rows once, `rent 0`, kr/m²), the extra
   call never failing the prefill, the cache, and that the server function returns nothing without a
   `/bostad/` source.
 - UI: render tests for the block (web + PDF view model). The text matches the numbers.

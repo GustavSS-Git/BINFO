@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Callout, DataTable, Details, Eyebrow, SpanBar } from "@/components/ui/binfo";
 import { RAKNA_FAKTORER, varderingsKallaText, varderingsTackningText } from "@/lib/analysisView";
+import { TidigareForsaljningar } from "@/components/rapport/TidigareForsaljningar";
+import { useTidigareForsaljningar } from "@/components/rapport/useTidigareForsaljningar";
 import { byggPriskollVy } from "@/lib/priskollVy";
 import type { PrisuppskattningResultat } from "@/types/analysis";
 
@@ -34,7 +36,10 @@ export function PriskollResultat({
   eyebrow = "Värdering utan hänsyn till föreningen",
   harSteg2 = true,
   barn,
+  forsaljningarUrl,
 }: {
+  /** Den inklistrade Booli-länken, när formuläret fyllts från Booli (för "Tidigare försäljningar"). */
+  forsaljningarUrl?: string;
   resultat: PrisuppskattningResultat;
   id?: string;
   eyebrow?: string;
@@ -42,6 +47,7 @@ export function PriskollResultat({
   harSteg2?: boolean;
   barn?: ReactNode;
 }) {
+  const forsaljningar = useTidigareForsaljningar(forsaljningarUrl);
   const p = resultat.prisanalys;
   const vy = byggPriskollVy(p, resultat.input.boarea);
   const u = p.varderingsunderlag;
@@ -134,6 +140,7 @@ export function PriskollResultat({
           ) : null}
         </div>
       </Details>
+      <TidigareForsaljningar svar={forsaljningar} />
       {barn}
     </section>
   );

@@ -331,7 +331,14 @@ per-apartment cost in kronor, and what to do before bidding.
   vaning/byggar/avgift are model-handled ("missing" flags). The BRF analysis
   uses none of the listing values except via the buyer's `PropertyInput`
   (fee share, fee-deviation question, debt share = boarea × skuld/m²).
-- **Earlier sales** (research only, not in the app): `docs/research/booli-sold.md`.
+- **Tidigare försäljningar** (2026-11-01, `docs/plans/salt-i-huset.md`): for a `/bostad/<id>`
+  link, the flat's own sales (`sold?residenceId`, at most 5, newest first) as a table after
+  "Så har vi räknat" in the report (web + PDF) and after "Vad värderingen bygger på" on
+  `/analysera`. Fetched when the page opens (`hamtaForsaljningarFn` → `src/server/annons/forsaljningar.ts`;
+  cached 24 h in `annons_cache` under `booli-salda:<id>`, same entitlement + quota as the prefill);
+  view helper `src/lib/annons/forsaljningarVy.ts`, component `rapport/TidigareForsaljningar.tsx`.
+  Shown only: never a valuation input (owner). No migration.
+- **Earlier sales research:** `docs/research/booli-sold.md`.
   A pull of all 2026 sold flats in Stockholms län (35 756 rows, 2026-10-31) is in
   `data/raw/booli/` (gitignored: Booli's terms for keeping the data are not in writing).
   The API's `sold` has full history from 2012 and ≈ 3.2× the sales of our

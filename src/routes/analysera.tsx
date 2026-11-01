@@ -868,7 +868,10 @@ function Analysera() {
 
           {prisUtfall?.typ === "ok" ? (
             <div className="flex flex-col gap-6">
-              <PriskollResultat resultat={prisUtfall.resultat} />
+              <PriskollResultat
+                resultat={prisUtfall.resultat}
+                {...(annonsLage ? { forsaljningarUrl: annonsLage.kalla.url } : {})}
+              />
 
               {sparaStatus.typ === "sparad" ? null : (
                 <Card className="flex flex-col gap-4">

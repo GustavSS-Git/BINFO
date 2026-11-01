@@ -1,3 +1,5 @@
+import { TidigareForsaljningar } from "@/components/rapport/TidigareForsaljningar";
+import type { ForsaljningarSvar } from "@/lib/annons/forsaljningar";
 import {
   Badge,
   Callout,
@@ -86,7 +88,9 @@ export function PrisSektion({
   avgiftsprognos,
   skuldrad,
   byggarJamforelse,
+  forsaljningar = null,
 }: {
+  forsaljningar?: ForsaljningarSvar | null;
   prisanalys: AnalysisResult["prisanalys"];
   input: Pick<PropertyInput, "boarea" | "postnummer">;
   avgiftsprognos: Avgiftsprognos | undefined;
@@ -379,6 +383,8 @@ export function PrisSektion({
           </div>
         </Details>
       ) : null}
+
+      <TidigareForsaljningar svar={forsaljningar} />
     </section>
   );
 }
