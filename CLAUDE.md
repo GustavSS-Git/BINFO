@@ -331,8 +331,10 @@ per-apartment cost in kronor, and what to do before bidding.
   vaning/byggar/avgift are model-handled ("missing" flags). The BRF analysis
   uses none of the listing values except via the buyer's `PropertyInput`
   (fee share, fee-deviation question, debt share = boarea × skuld/m²).
-- **Tidigare försäljningar** (2026-11-01, `docs/plans/salt-i-huset.md`): for a `/bostad/<id>`
-  link, the flat's own sales (`sold?residenceId`, at most 5, newest first) as a table after
+- **Sålda lägenheter på <adress>** (2026-11-01, `docs/plans/salt-i-huset.md`): for a `/bostad/<id>`
+  link, every flat sold at the same address in the last 10 years (`sold?residenceId` for the
+  flat's own, tagged "Den här lägenheten", + a 200 m `sold?center&dim` box filtered on the exact
+  address; 5 rows, then "Visa alla (n)"; PDF the 5 newest) as a table after
   "Så har vi räknat" in the report (web + PDF) and after "Vad värderingen bygger på" on
   `/analysera`. Fetched when the page opens (`hamtaForsaljningarFn` → `src/server/annons/forsaljningar.ts`;
   cached 24 h in `annons_cache` under `booli-salda:<id>`, same entitlement + quota as the prefill);

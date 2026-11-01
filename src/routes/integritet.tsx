@@ -190,10 +190,11 @@ function Integritet() {
               markeras då som hämtat från OpenStreetMap.
             </li>
             <li>
-              <strong>Tidigare försäljningar.</strong> Är länken en bostadslänk (/bostad/) visar vi
-              också lägenhetens tidigare försäljningar från Booli: datum, pris, storlek och avgift.
-              Binfos server hämtar dem när sidan öppnas, mellanlagrar dem i högst två dygn och
-              sparar dem inte med analysen.
+              <strong>Sålda lägenheter på samma adress.</strong> Är länken en bostadslänk (/bostad/)
+              visar vi också de lägenheter på samma adress som sålts de senaste tio åren, enligt
+              Booli: datum, pris, storlek, våning och avgift. Booli får bostadens nummer och husets
+              koordinater, inget om dig. Binfos server hämtar dem när sidan öppnas, mellanlagrar dem
+              i högst två dygn och sparar dem inte med analysen.
             </li>
           </ul>
         </Avsnitt>

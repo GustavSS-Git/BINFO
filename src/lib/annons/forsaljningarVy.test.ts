@@ -9,6 +9,7 @@ const f = (o: Partial<TidigareForsaljning> = {}): TidigareForsaljning => ({
   antalRum: 2,
   vaning: 3,
   avgift: null,
+  dennaLagenhet: false,
   ...o,
 });
 // sv-SE groups thousands with U+00A0; compare with plain spaces.
@@ -28,7 +29,7 @@ describe("byggForsaljningarVy", () => {
       adress: "Sankt Eriksgatan 31A",
       forsaljningar: [f(), f({ saldDatum: "2020-01-03", pris: 4_200_000, avgift: 2950 })],
     });
-    expect(vy?.rubrik).toBe("Tidigare försäljningar av Sankt Eriksgatan 31A");
+    expect(vy?.rubrik).toBe("Sålda lägenheter på Sankt Eriksgatan 31A");
     expect(plain(vy?.rader[0])).toEqual({
       sald: "okt 2026",
       pris: nbsp("5 950 000 kr"),
@@ -36,11 +37,15 @@ describe("byggForsaljningarVy", () => {
       storlek: "54 m², 2 rum",
       vaning: "3",
       avgift: "—",
+      dennaLagenhet: false,
     });
     expect(vy?.rader[1]?.sald).toBe("jan 2020");
     expect(plain(vy?.rader[1]?.avgift)).toBe(nbsp("2 950 kr"));
     expect(vy?.attributionText).toBe("Uppgifter från Booli");
     expect(vy?.fotnot).toContain("inte justerade");
+    expect(vy?.fotnot).toContain("senaste 10 åren");
+    expect(vy?.visaAllaText).toBeNull();
+    expect(vy?.urvalText).toBeNull();
   });
 
   it("handles missing fields and a null address", () => {
@@ -49,12 +54,12 @@ describe("byggForsaljningarVy", () => {
       adress: null,
       forsaljningar: [f({ boarea: null, antalRum: null }), f({ boarea: 40.5, antalRum: null })],
     });
-    expect(vy?.rubrik).toBe("Tidigare försäljningar");
+    expect(vy?.rubrik).toBe("Sålda lägenheter på samma adress");
     expect(vy?.rader[0]).toMatchObject({ krPerM2: "—", storlek: "—" });
     expect(plain(vy?.rader[1]?.storlek)).toBe(nbsp("40,5 m²"));
   });
 
-  it("covers every month name and caps rows, newest first", () => {
+  it("keeps every row newest first; 'Visa alla (n)' and the PDF line from six rows", () => {
     const manader = Array.from(
       { length: 12 },
       (_, i) => `2025-${String(i + 1).padStart(2, "0")}-05`,
@@ -70,7 +75,17 @@ describe("byggForsaljningarVy", () => {
       "okt 2025",
       "sep 2025",
       "aug 2025",
+      "jul 2025",
+      "jun 2025",
+      "maj 2025",
+      "apr 2025",
+      "mar 2025",
+      "feb 2025",
+      "jan 2025",
     ]);
+    expect(vy?.visas).toBe(5);
+    expect(vy?.visaAllaText).toBe("Visa alla (12)");
+    expect(vy?.urvalText).toBe("Visar de 5 senaste av 12 försäljningar.");
     const jan = byggForsaljningarVy({
       ok: true,
       adress: null,

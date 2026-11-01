@@ -93,14 +93,9 @@ function loggade(handelse: string): unknown[][] {
   return varna.mock.calls.filter((c) => c[0] === `[annons] ${handelse}`);
 }
 
-const SANKT_ERIKSGATAN = {
-  ok: true,
-  adress: "Sankt Eriksgatan 31A",
-  forsaljningar: [
-    { saldDatum: "2026-10-30", pris: 6_025_000, boarea: 54, antalRum: 2, vaning: 3, avgift: null },
-    { saldDatum: "2020-01-29", pris: 5_220_000, boarea: 54, antalRum: 2, vaning: 3, avgift: null },
-  ],
-};
+/** The flat's own sales + the 200 m box around it (233 sales, 11 at 31A). */
+const hus = () =>
+  fakeFetch(apiFixtur("bostad-720821-sold.json"), apiFixtur("hus-720821-sold-box.json"));
 
 beforeEach(() => {
   klocka = NU;
@@ -116,57 +111,114 @@ afterEach(() => {
 });
 
 describe("hamtaForsaljningar", () => {
-  it("/bostad/: ett anrop sold?residenceId, mappat, cachat, en kvot", async () => {
-    const h = fakeFetch(apiFixtur("bostad-720821-sold.json"));
+  it("/bostad/: egna försäljningar + rutan runt huset, filtrerat på adressen, cachat, en kvot", async () => {
+    const h = hus();
     const r = await kor(BOSTAD, h.f);
-    expect(r).toEqual(SANKT_ERIKSGATAN);
-    expect(h.anrop).toHaveLength(1);
-    const u = h.anrop[0]!;
-    expect(u.host).toBe("api.booli.se");
-    expect(u.pathname).toBe("/sold");
+    if (!r.ok) throw new Error("ok väntat");
+    expect(r.adress).toBe("Sankt Eriksgatan 31A");
+    expect(r.forsaljningar).toHaveLength(11);
+    expect(r.forsaljningar.filter((f) => f.dennaLagenhet).map((f) => f.saldDatum)).toEqual([
+      "2026-10-30",
+      "2020-01-29",
+    ]);
+    expect(r.forsaljningar[0]).toEqual({
+      saldDatum: "2026-10-30",
+      pris: 6_025_000,
+      boarea: 54,
+      antalRum: 2,
+      vaning: 3,
+      avgift: null,
+      dennaLagenhet: true,
+    });
+    const datum = r.forsaljningar.map((f) => f.saldDatum);
+    expect(datum).toEqual([...datum].sort().reverse());
+    expect(datum.every((d) => d >= "2016-11-01")).toBe(true);
+
+    expect(h.anrop.map((u) => u.pathname)).toEqual(["/sold", "/sold"]);
+    const [egen, box] = h.anrop as [URL, URL];
     expect(
       Object.fromEntries(
-        ["residenceId", "sort", "direction", "limit"].map((k) => [k, u.searchParams.get(k)]),
+        ["residenceId", "sort", "direction", "limit"].map((k) => [k, egen.searchParams.get(k)]),
       ),
-    ).toEqual({
-      residenceId: "720821",
-      sort: "soldDate",
-      direction: "desc",
-      limit: "50",
-    });
+    ).toEqual({ residenceId: "720821", sort: "soldDate", direction: "desc", limit: "50" });
+    expect(
+      Object.fromEntries(
+        ["dim", "objectType", "minSoldDate", "limit"].map((k) => [k, box.searchParams.get(k)]),
+      ),
+    ).toEqual({ dim: "200,200", objectType: "Lägenhet", minSoldDate: "20161101", limit: "1000" });
+    expect(box.searchParams.get("center")).toMatch(/^59\.\d+,18\.\d+$/);
     expect(kvotTotalt()).toBe(2); // device + IP, one fetch
-    expect(konto.annonsCache.get(forsaljningarCacheNyckel("720821"))?.svar).toEqual(
-      SANKT_ERIKSGATAN,
+    expect(konto.annonsCache.get(forsaljningarCacheNyckel("720821"))?.svar).toEqual(r);
+  });
+
+  it("inga egna försäljningar: adress och läge från annonsen, bara exakt adress, bara 10 år", async () => {
+    const rad = (adress: string, soldDate: string, booliId: number) => ({
+      booliId,
+      soldDate,
+      soldPrice: 5_000_000,
+      livingArea: 60,
+      rooms: 2,
+      floor: 2,
+      location: { address: { streetAddress: adress } },
+    });
+    const h = fakeFetch(
+      json({ totalCount: 0, sold: [], searchParams: { residenceId: "798609" } }),
+      apiFixtur("bostad-798609-listings.json"),
+      json({
+        totalCount: 4,
+        sold: [
+          rad("Östermalmsgatan 30", "2025-10-24", 1),
+          rad("östermalmsgatan  30", "2019-05-22", 2),
+          rad("Östermalmsgatan 32", "2025-01-01", 3),
+          rad("Östermalmsgatan 30A", "2024-01-01", 4),
+          rad("Östermalmsgatan 30", "2016-10-31", 5),
+        ],
+      }),
     );
+    const r = await kor("https://www.booli.se/bostad/798609", h.f);
+    expect(r).toMatchObject({ ok: true, adress: "Östermalmsgatan 30" });
+    expect(r.ok && r.forsaljningar.map((f) => [f.saldDatum, f.dennaLagenhet])).toEqual([
+      ["2025-10-24", false],
+      ["2019-05-22", false],
+    ]);
+    expect(h.anrop.map((u) => u.pathname)).toEqual(["/sold", "/listings", "/sold"]);
+    expect(h.anrop[1]!.searchParams.get("residenceId")).toBe("798609");
+  });
+
+  it("rutan misslyckas: lägenhetens egna försäljningar visas ändå, felet loggas", async () => {
+    const h = fakeFetch(apiFixtur("bostad-720821-sold.json"), new Error("timeout"));
+    const r = await kor(BOSTAD, h.f);
+    expect(r.ok && r.forsaljningar.map((f) => f.dennaLagenhet)).toEqual([true, true]);
+    expect(loggade("försäljningar: nätverk")).toHaveLength(1);
   });
 
   it("cacheträff: inget anrop, ingen kvot", async () => {
-    await kor(BOSTAD, fakeFetch(apiFixtur("bostad-720821-sold.json")).f);
+    const forsta = await kor(BOSTAD, hus().f);
     const kvotFore = kvotTotalt();
     const h = fakeFetch();
     klocka = new Date(NU.getTime() + ANNONS_CACHE_GILTIGHET_MS - 1000);
-    expect(await kor("https://booli.se/bostad/720821?x=1", h.f)).toEqual(SANKT_ERIKSGATAN);
+    expect(await kor("https://booli.se/bostad/720821?x=1", h.f)).toEqual(forsta);
     expect(h.anrop).toHaveLength(0);
     expect(kvotTotalt()).toBe(kvotFore);
   });
 
   it("gammal cache (24 h) hämtas om; trasig cache-rad ignoreras", async () => {
-    await kor(BOSTAD, fakeFetch(apiFixtur("bostad-720821-sold.json")).f);
+    const forsta = await kor(BOSTAD, hus().f);
     klocka = new Date(NU.getTime() + ANNONS_CACHE_GILTIGHET_MS);
-    const h = fakeFetch(apiFixtur("bostad-720821-sold.json"));
-    expect(await kor(BOSTAD, h.f)).toEqual(SANKT_ERIKSGATAN);
-    expect(h.anrop).toHaveLength(1);
+    const h = hus();
+    expect(await kor(BOSTAD, h.f)).toEqual(forsta);
+    expect(h.anrop).toHaveLength(2);
 
     await konto.skrivAnnonsCache(forsaljningarCacheNyckel("720821"), { ok: true, skrap: 1 });
-    const h2 = fakeFetch(apiFixtur("bostad-720821-sold.json"));
-    expect(await kor(BOSTAD, h2.f)).toEqual(SANKT_ERIKSGATAN);
-    expect(h2.anrop).toHaveLength(1);
+    const h2 = hus();
+    expect(await kor(BOSTAD, h2.f)).toEqual(forsta);
+    expect(h2.anrop).toHaveLength(2);
   });
 
-  it("tom lista cachas och visas inte (ok med tom lista)", async () => {
-    const h = fakeFetch(
-      json({ totalCount: 0, count: 0, sold: [], searchParams: { residenceId: "720821" } }),
-    );
+  it("varken försäljningar eller annons: tom lista cachas och visas inte", async () => {
+    const tom = (samling: string) =>
+      json({ totalCount: 0, [samling]: [], searchParams: { residenceId: "720821" } });
+    const h = fakeFetch(tom("sold"), tom("listings"), tom("listings"));
     expect(await kor(BOSTAD, h.f)).toEqual({ ok: true, adress: null, forsaljningar: [] });
     expect(konto.annonsCache.has(forsaljningarCacheNyckel("720821"))).toBe(true);
   });
@@ -240,8 +292,8 @@ describe("hamtaForsaljningar", () => {
   it("cache-läsfel loggas och ignoreras", async () => {
     const a = anropare();
     a.konto.lasAnnonsCache = () => Promise.reject(new Error("db nere"));
-    const h = fakeFetch(apiFixtur("bostad-720821-sold.json"));
-    expect(await kor(BOSTAD, h.f, env(), a)).toEqual(SANKT_ERIKSGATAN);
+    const r = await kor(BOSTAD, hus().f, env(), a);
+    expect(r.ok && r.forsaljningar).toHaveLength(11);
     expect(loggade("försäljningar: cache-läsning misslyckades")).toHaveLength(1);
   });
 });

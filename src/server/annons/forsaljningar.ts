@@ -1,6 +1,6 @@
 /**
- * "Tidigare försäljningar": a flat's earlier sales from Booli
- * (docs/plans/salt-i-huset.md). `hamtaForsaljningarFn` in analysFn.ts is a
+ * "Sålda lägenheter på <adress>": the sales at a flat's address from Booli
+ * (docs/plans/salt-i-huset.md), the flat's own marked, last 10 years. `hamtaForsaljningarFn` in analysFn.ts is a
  * thin binding to `hamtaForsaljningar`. Shown only, never a valuation input.
  *
  * Order (cheapest first; a refusal stops the rest, every refusal is `{ ok: false }`):
@@ -10,8 +10,12 @@
  *   2. 24 h cache in `annons_cache` under `forsaljningarCacheNyckel(id)`: a hit
  *      is free (no quota, no call); a cache failure is logged and ignored;
  *   3. entitlement `hamta_annons` and the listing quota (`kontrolleraAnnonskvot`);
- *   4. ONE call `sold?residenceId=<id>&sort=soldDate&direction=desc&limit=50`
- *      through `sokBostad` (refuses an answer that does not echo the filter);
+ *   4. `sold?residenceId` (the flat's own sales, via `sokBostad`, which refuses
+ *      an answer that does not echo the filter); the flat's address and position
+ *      from its newest sale, else from its listing (`listings?residenceId`,
+ *      then `upcomingSale=1`); then `sold?center&dim` (BOX_METER around the
+ *      position, approximate on most rows) filtered on the exact address.
+ *      2–4 calls; a failed box search still shows the flat's own sales;
  *   5. the ok answer is cached (an empty list too). A Booli failure is logged
  *      (`kalla: "booli_api"`; a refused key as `booli-api nyckel avvisad`) and
  *      nothing is cached.
@@ -27,8 +31,15 @@ import {
 import { kontrolleraAnnonsUrl } from "@/lib/annons/url";
 import { SaknarBehorighetError } from "../behorighet";
 import { kontrolleraAnnonskvot } from "../kvot";
-import { booliApiNycklar, sokBostad, type BooliApiBeroenden } from "./booliApi";
-import { tolkaTidigareForsaljningar } from "./booliApiTolkning";
+import { FORSALJNINGAR_AR } from "@/lib/annons/forsaljningar";
+import {
+  anropaBooliApi,
+  booliApiNycklar,
+  sokBostad,
+  type BooliApiBeroenden,
+  type BooliApiNycklar,
+} from "./booliApi";
+import { sammanstallForsaljningar, tolkaBooliApiObjekt, tolkaSaldRad } from "./booliApiTolkning";
 import { ANNONS_CACHE_GILTIGHET_MS } from "./hamta";
 import { felText, logga, type HamtaAnnonsBeroenden } from "./kallor";
 
@@ -36,6 +47,9 @@ type OkSvar = Extract<ForsaljningarSvar, { ok: true }>;
 
 const INTE: ForsaljningarSvar = { ok: false };
 const KALLA = "booli_api";
+/** Side of the search box (m). Booli's positions are approximate (Östermalmsgatan
+ *  30: 32 sales in a 120 m box, 2026-11-01); the address filter decides. */
+const BOX_METER = 200;
 
 const IndataSchema = z.object({ url: z.string().max(500) }).strict();
 
@@ -46,6 +60,7 @@ const ForsaljningSchema = z
     boarea: z.number().positive().nullable(),
     antalRum: z.number().positive().nullable(),
     vaning: z.number().nonnegative().nullable(),
+    dennaLagenhet: z.boolean(),
     avgift: z.number().int().positive().nullable(),
   })
   .strict();
@@ -118,7 +133,7 @@ async function kor(data: unknown, b: HamtaAnnonsBeroenden): Promise<Forsaljninga
   const kvot = await kontrolleraAnnonskvot(b.anropare.konto, b.anropare.kontext);
   if (!kvot.ok) return INTE;
 
-  // 4. One call.
+  // 4. The flat's own sales, its address, the building's sales.
   const api: BooliApiBeroenden = {
     ...(b.fetch ? { fetch: b.fetch } : {}),
     ...(b.nu ? { nu: b.nu } : {}),
@@ -127,17 +142,45 @@ async function kor(data: unknown, b: HamtaAnnonsBeroenden): Promise<Forsaljninga
   };
   const sok = await sokBostad("sold", id, { sort: "soldDate", direction: "desc" }, nycklar, api);
   if (sok.typ === "fel") {
-    const handelse =
-      sok.kod === "nyckel"
-        ? "booli-api nyckel avvisad"
-        : `försäljningar: ${sok.kod === "tolkning" ? "tolkning misslyckades" : sok.kod === "hittades_inte" ? "hittades inte" : "nätverk"}`;
-    logga(handelse, { url: kontroll.url, kalla: KALLA, orsak: sok.orsak });
+    loggaFel(sok.kod, sok.orsak, kontroll.url);
     return INTE;
+  }
+  const egna = sok.objekt;
+  const plats = (await platsForBostad(egna, id, nycklar, api)) ?? null;
+  const fran = franDatum(nu());
+  let omrade: unknown[] = [];
+  if (plats?.position) {
+    const box = await anropaBooliApi(
+      "sold",
+      {
+        center: `${plats.position.lat},${plats.position.lon}`,
+        dim: `${BOX_METER},${BOX_METER}`,
+        objectType: "Lägenhet",
+        minSoldDate: fran.replaceAll("-", ""),
+        sort: "soldDate",
+        direction: "desc",
+        limit: "1000",
+      },
+      nycklar,
+      api,
+    );
+    const lista = box.typ === "ok" ? (box.data as { sold?: unknown } | null)?.sold : undefined;
+    if (Array.isArray(lista)) omrade = lista;
+    else
+      loggaFel(
+        box.typ === "fel" ? box.kod : "tolkning",
+        box.typ === "fel" ? box.orsak : "sold?center: oväntad form",
+        kontroll.url,
+      );
   }
 
   // 5. Answer + cache.
-  const tolkat = tolkaTidigareForsaljningar(sok.objekt);
-  const svar: OkSvar = { ok: true, adress: tolkat.adress, forsaljningar: tolkat.forsaljningar };
+  const adress = plats?.adress ?? null;
+  const svar: OkSvar = {
+    ok: true,
+    adress,
+    forsaljningar: sammanstallForsaljningar(egna, omrade, adress, fran),
+  };
   if (OkForsaljningarSvarSchema.safeParse(svar).success) {
     try {
       await b.anropare.konto.skrivAnnonsCache(nyckel, svar);
@@ -148,4 +191,53 @@ async function kor(data: unknown, b: HamtaAnnonsBeroenden): Promise<Forsaljninga
     logga("försäljningar: svaret följer inte cacheschemat, cachas inte", { nyckel, kalla: KALLA });
   }
   return svar;
+}
+
+function loggaFel(kod: string, orsak: string, url: string): void {
+  const handelse =
+    kod === "nyckel"
+      ? "booli-api nyckel avvisad"
+      : `försäljningar: ${kod === "tolkning" ? "tolkning misslyckades" : kod === "hittades_inte" ? "hittades inte" : "nätverk"}`;
+  logga(handelse, { url, kalla: KALLA, orsak });
+}
+
+/** Today minus FORSALJNINGAR_AR years, "YYYY-MM-DD" (UTC). */
+export function franDatum(nu: Date): string {
+  const d = new Date(nu.getTime());
+  d.setUTCFullYear(d.getUTCFullYear() - FORSALJNINGAR_AR);
+  return d.toISOString().slice(0, 10);
+}
+
+interface Plats {
+  adress: string | null;
+  position: { lat: number; lon: number } | null;
+}
+
+/** The flat's address and position: its newest sale, else its listing
+ *  (active, then kommande). Null when Booli has neither. */
+async function platsForBostad(
+  egna: readonly unknown[],
+  id: string,
+  nycklar: BooliApiNycklar,
+  api: BooliApiBeroenden,
+): Promise<Plats | null> {
+  for (const r of egna) {
+    const t = tolkaSaldRad(r);
+    if (t && t.adress !== null && t.position !== null)
+      return { adress: t.adress, position: t.position };
+  }
+  for (const extra of [{}, { upcomingSale: "1" }]) {
+    const sok = await sokBostad("listings", id, extra, nycklar, api);
+    if (sok.typ === "fel") return null;
+    for (const o of sok.objekt) {
+      const u = tolkaBooliApiObjekt(o).uppgifter;
+      if (u.adress !== undefined) {
+        return {
+          adress: u.adress,
+          position: u.koordinater ? { lat: u.koordinater.lat, lon: u.koordinater.lon } : null,
+        };
+      }
+    }
+  }
+  return null;
 }
