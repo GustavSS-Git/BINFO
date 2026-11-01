@@ -58,6 +58,7 @@ import { hashaIp, losIp, tanstackKontextKallor, type Kontext } from "./kontext";
 import type { Anropare } from "./portar";
 import { hamtaPrisuppskattning } from "./prisuppskattning";
 import { hamtaAnnons } from "./annons/hamta";
+import { hamtaForsaljningar } from "./annons/forsaljningar";
 import { postnummerInfo } from "./postnummer";
 import {
   hamtaForening as hamtaRegisterForening,
@@ -260,6 +261,23 @@ export const hamtaAnnonsFn = createServerFn({ method: "POST" })
       return await hamtaAnnons(data, { anropare, env });
     } catch (fel) {
       throw sakertFel("hamtaAnnonsFn", fel);
+    }
+  });
+
+/**
+ * "Tidigare försäljningar" (docs/plans/salt-i-huset.md): one flat's earlier
+ * sales from Booli for a `/bostad/<id>` link `{ url }`, on /analysera and in the
+ * report. Shown only, never a valuation input. `{ ok: false }` = show nothing.
+ */
+export const hamtaForsaljningarFn = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => data)
+  .handler(async ({ data }) => {
+    try {
+      const env = envFromProcess();
+      const anropare = await anropareFor(env);
+      return await hamtaForsaljningar(data, { anropare, env });
+    } catch (fel) {
+      throw sakertFel("hamtaForsaljningarFn", fel);
     }
   });
 
