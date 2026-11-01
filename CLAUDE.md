@@ -337,7 +337,7 @@ per-apartment cost in kronor, and what to do before bidding.
   address; 5 rows, then "Visa alla (n)"; PDF the 5 newest) as a table after
   "Så har vi räknat" in the report (web + PDF) and after "Vad värderingen bygger på" on
   `/analysera`. Fetched when the page opens (`hamtaForsaljningarFn` → `src/server/annons/forsaljningar.ts`;
-  cached 24 h in `annons_cache` under `booli-salda:<id>`, same entitlement + quota as the prefill);
+  cached 24 h in `annons_cache` under `booli-salda:v2:<id>`, same entitlement + quota as the prefill);
   view helper `src/lib/annons/forsaljningarVy.ts`, component `rapport/TidigareForsaljningar.tsx`.
   Shown only: never a valuation input (owner). No migration.
 - **Earlier sales research:** `docs/research/booli-sold.md`.

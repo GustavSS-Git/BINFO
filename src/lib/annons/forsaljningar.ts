@@ -47,7 +47,9 @@ export const VISADE_FORSALJNINGAR = 5;
 /** Only sales from the last ten years (owner 2026-11-01). */
 export const FORSALJNINGAR_AR = 10;
 
-/** The `annons_cache` key for one residence's sales (never a listing URL). */
+/** The `annons_cache` key for one residence's sales (never a listing URL).
+ *  "v2" = the same-address table (2026-11-01): an empty v1 answer (the flat's
+ *  own sales only) would otherwise pass the schema and hide the building's sales. */
 export function forsaljningarCacheNyckel(residensId: string): string {
-  return `booli-salda:${residensId}`;
+  return `booli-salda:v2:${residensId}`;
 }

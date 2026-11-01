@@ -54,7 +54,7 @@ Plan, field map and owner decisions: `docs/plans/booli-api.md`. Earlier sales: `
   (YYYY-MM-DD, else dropped), soldPrice (positive integer, else dropped), livingArea, rooms, floor,
   rent (0 → null); never `apartmentNumber`, `estimate` or `soldPriceSource`. One row per sale
   (booliId, else date + price), newest first, at most 100. 2–4 calls; cached 24 h in
-  `annons_cache` under `booli-salda:<id>` (a hit takes no quota; purged after 2 days); a miss takes
+  `annons_cache` under `booli-salda:v2:<id>` (a hit takes no quota; purged after 2 days); a miss takes
   the listing quota once. Live 2026-11-01: 798609 (Östermalmsgatan 30, never sold itself) → 28
   sales in 10 years; 720821 (Sankt Eriksgatan 31A) → 11, 2 own; 719044 (Sandelsgatan 35) → 38, 1 own.
 

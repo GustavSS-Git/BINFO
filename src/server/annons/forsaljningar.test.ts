@@ -192,6 +192,18 @@ describe("hamtaForsaljningar", () => {
     expect(loggade("försäljningar: nätverk")).toHaveLength(1);
   });
 
+  it("en tom rad från första versionen (nyckeln booli-salda:<id>) döljer inte husets försäljningar", async () => {
+    await konto.skrivAnnonsCache("booli-salda:720821", {
+      ok: true,
+      adress: null,
+      forsaljningar: [],
+    });
+    const h = hus();
+    const r = await kor(BOSTAD, h.f);
+    expect(r.ok && r.forsaljningar).toHaveLength(11);
+    expect(h.anrop).toHaveLength(2);
+  });
+
   it("cacheträff: inget anrop, ingen kvot", async () => {
     const forsta = await kor(BOSTAD, hus().f);
     const kvotFore = kvotTotalt();
