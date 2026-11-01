@@ -2,8 +2,7 @@
  * Saved items and the profile (v3, docs/PLAN-v3.md §1.3–1.4): saved
  * valuations, saved bolånekalkyler, the account's analysis list, "ta bort från
  * min lista", the GDPR export. Implementations behind `sparaVarderingFn`,
- * `listaSparatFn`, … in `analysFn.ts` (wired by the supervisor, see
- * docs/v3-wiring/W1.md).
+ * `listaSparatFn`, … in `analysFn.ts`.
  *
  * OWNERSHIP IS DECIDED IN ONE PLACE: `kravAgare`.
  * - `kravAgare(kontext)` returns the logged-in principal's id, or throws

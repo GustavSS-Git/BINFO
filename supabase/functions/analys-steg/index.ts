@@ -40,7 +40,7 @@
 // before writing this) and a minimal inline `Lager` adapter, talking to
 // Supabase directly via `@supabase/supabase-js`'s `npm:` specifier. The
 // adapter below implements the `Databas`/`Filarkiv` methods reachable from
-// `korNastaSteg` (not `skapaAnalys`, `hamtaAnalys`, `raderaAnalys`,
+// `korNastaSteg` (not `skapaAnalys`, `hamtaAnalys`,
 // `laggUpp`, or `ta_bort` — none of those are called by the tick) plus,
 // since the register (20261009120000_register.sql), EVERY register method of
 // the port, and mirrors src/server/supabase.ts's exact table/column/RPC
@@ -533,7 +533,7 @@ function byggLager(sb: any) {
         if (error) throw new Error(`avstamSpend misslyckades: ${error.message}`);
       },
 
-      // skapaAnalys, hamtaAnalys och raderaAnalys är MEDVETET utelämnade —
+      // skapaAnalys och hamtaAnalys är MEDVETET utelämnade —
       // ingenting i korNastaSteg's anropskedja rör dem (de hör till
       // upload-/deletion-rutterna, inte till tick-loopen).
 
@@ -633,14 +633,6 @@ function byggLager(sb: any) {
         const row = data as RapportKolumner | null;
         if (!row || !row.id) return null;
         return rapportFranKolumner(row);
-      },
-
-      async slappRapportSteg(id: string, ateranvandForsok: boolean): Promise<void> {
-        const { error } = await sb.rpc("slapp_rapport_steg", {
-          p_id: id,
-          p_ateranvand_forsok: ateranvandForsok,
-        });
-        if (error) throw new Error(`slappRapportSteg misslyckades: ${error.message}`);
       },
 
       async hamtaRapportFil(pdfHash: string) {

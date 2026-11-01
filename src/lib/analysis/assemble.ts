@@ -106,8 +106,7 @@ const AVGIFTSPOSTER: ReadonlyArray<{ id: keyof FeeInclusion; label: string }> = 
 
 /**
  * Auto-genererar en 'saknad_uppgift'-fråga per Tristate-fält på PropertyInput
- * som fortfarande är 'okant'. Speglar mönstret i src/lib/uppgifter.ts
- * (tristateFalt/sakerhet) men läser det riktiga kontraktet, inte mock-läget.
+ * som fortfarande är 'okant'.
  *
  * OBS: PropertyInput.avgiftInkluderar är kontraktets EFFEKTIVA värde —
  * förifyllnaden från föreningens egna avgiftInkluderarEnligtForening är

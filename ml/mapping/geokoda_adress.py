@@ -22,7 +22,7 @@ to 4 requests per minute. A one-off importer run over a few hundred BRFs at <= 1
 is in line with that; thousands of addresses, or a recurring job, need a different
 geocoder (self-hosted Nominatim or a commercial service) - decide before scaling up. This module therefore
 
-  * sends the User-Agent "Binfo/1.0 (gustav.slanesens@outlook.com)" (the owner's contact),
+  * sends the User-Agent "Binfo/1.0 (contactbinfohere@gmail.com)" (Binfo's contact address),
   * waits at least MIN_INTERVAL_S (1.1 s) between two network requests,
   * caches every response (hits and misses) on disk in
     ml/mapping/sources/raw/nominatim_cache.json (gitignored), keyed by the normalised
@@ -67,7 +67,7 @@ POSTNUMMER_STADSDEL = ROOT / "data" / "derived" / "postnummer_stadsdel.csv"
 CACHE_PATH = HERE / "sources" / "raw" / "nominatim_cache.json"
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-USER_AGENT = "Binfo/1.0 (gustav.slanesens@outlook.com)"
+USER_AGENT = "Binfo/1.0 (contactbinfohere@gmail.com)"
 MIN_INTERVAL_S = 1.1
 
 # Nominatim classes/types that are address-level; others (e.g. highway=residential) are an

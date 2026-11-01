@@ -277,7 +277,7 @@ class TestGeokoda:
         assert gk.cache_key("Tomtebogatan  31", "113 42", " Stockholm ") == gk.cache_key("tomtebogatan 31", "11342", "stockholm")
 
     def test_user_agent_and_rate_limit_follow_the_usage_policy(self):
-        assert gk.USER_AGENT == "Binfo/1.0 (gustav.slanesens@outlook.com)"
+        assert gk.USER_AGENT == "Binfo/1.0 (contactbinfohere@gmail.com)"
         assert gk.MIN_INTERVAL_S >= 1.0
 
     def test_unusable_coordinates_are_skipped(self):

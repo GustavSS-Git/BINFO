@@ -336,17 +336,6 @@ function skapaFakeDatabas(): FakeDatabas {
       return spendDagar.get(dag)?.costSek ?? 0;
     },
 
-    async raderaAnalys(id: string): Promise<{ pdfBlevForlorad: boolean }> {
-      const rad = analysRader.get(id);
-      if (!rad) return { pdfBlevForlorad: false };
-      analysRader.delete(id);
-      const finnsSyskon = [...analysRader.values()].some((r) => r.pdfHash === rad.pdfHash);
-      // Since the register migration a PDF a rapport_fil row points at is
-      // kept indefinitely, whoever uploaded it.
-      const iRegistret = rapportFiler.has(rad.pdfHash);
-      return { pdfBlevForlorad: !finnsSyskon && !iRegistret };
-    },
-
     // -----------------------------------------------------------------------
     // Register
     // -----------------------------------------------------------------------
@@ -489,19 +478,6 @@ function skapaFakeDatabas(): FakeDatabas {
         return uppdaterad;
       }
       return null;
-    },
-
-    async slappRapportSteg(id: string, ateranvandForsok: boolean): Promise<void> {
-      const befintlig = rapporter.get(id);
-      // Like slapp_rapport_steg: only a row still in the queue is released —
-      // never resurrects a done/failed/ersatt one.
-      if (!befintlig || (befintlig.status !== "queued" && befintlig.status !== "running")) return;
-      rapporter.set(id, {
-        ...befintlig,
-        status: "queued",
-        leaseUntil: null,
-        attempts: ateranvandForsok ? Math.max(befintlig.attempts - 1, 0) : befintlig.attempts,
-      });
     },
 
     async hamtaRapportFil(pdfHash: string): Promise<RapportFilRad | null> {

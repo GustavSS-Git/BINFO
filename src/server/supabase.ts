@@ -419,12 +419,6 @@ function skapaDatabas(sb: SupabaseClient): Databas {
       return data ? Number((data as { cost_sek: number | string }).cost_sek) : 0;
     },
 
-    async raderaAnalys(id: string): Promise<{ pdfBlevForlorad: boolean }> {
-      const { data, error } = await sb.rpc("radera_analys", { p_id: id });
-      if (error) throw new Error(`raderaAnalys misslyckades: ${error.message}`);
-      return { pdfBlevForlorad: data === true };
-    },
-
     // -----------------------------------------------------------------------
     // Register
     // -----------------------------------------------------------------------
@@ -512,14 +506,6 @@ function skapaDatabas(sb: SupabaseClient): Databas {
       const row = data as RapportRow | null;
       if (!row || !row.id) return null;
       return rapportFranRad(row);
-    },
-
-    async slappRapportSteg(id: string, ateranvandForsok: boolean): Promise<void> {
-      const { error } = await sb.rpc("slapp_rapport_steg", {
-        p_id: id,
-        p_ateranvand_forsok: ateranvandForsok,
-      });
-      if (error) throw new Error(`slappRapportSteg misslyckades: ${error.message}`);
     },
 
     async hamtaRapportFil(pdfHash: string): Promise<RapportFilRad | null> {

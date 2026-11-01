@@ -264,18 +264,6 @@ export function tolkaRapportFel(
 }
 
 /**
- * True ENDAST för de tillfälliga, tidsbundna tillstånden: `"daily_cap"`
- * (dagens spend-tak) och `"kvot"` (köparens egen gräns per dag/timme) — båda
- * försvinner av sig själva när fönstret rullar över, så "försök igen senare"
- * är rätt råd. En skannad PDF, en kostnadsspärr per jobb, ett valideringsfel,
- * en saknad räntekänslighet eller en nekad behörighet (`"behorighet"`, en
- * policyfråga — inte tid) försvinner inte av att man försöker igen.
- */
-export function arRetrybar(code: AnalysErrorCode): boolean {
-  return code === "daily_cap" || code === "kvot";
-}
-
-/**
  * Errors the client recognises BY NAME (`.name` survives the server-function
  * serialisation, see arAnalysHittadesInteFel in src/lib/analysStatusCopy.ts and
  * the loaders): they carry a Swedish, buyer-safe message and pass through.

@@ -8,7 +8,7 @@ import { AnalysValidationError } from "@/lib/analysis/analyze";
 import { AssemblyValidationError } from "@/lib/analysis/assemble";
 import { SaknarRantekanslighetError } from "@/lib/analysis/calc/rantestress";
 import { SidtextOfullstandigError } from "./register";
-import { arRetrybar, tolkaFel, tolkaKvot, tolkaSpendSkal } from "./fel";
+import { tolkaFel, tolkaKvot, tolkaSpendSkal } from "./fel";
 import { SaknarBehorighetError } from "./behorighet";
 import { KVOT_MEDDELANDE } from "./kvot";
 import type { AnalysErrorCode } from "./portar";
@@ -195,23 +195,6 @@ describe("tolkaSpendSkal", () => {
 
     expect(resultat.errorCode).toBe("unknown");
     expect(resultat.message.length).toBeGreaterThan(0);
-  });
-});
-
-describe("arRetrybar", () => {
-  it("är true endast för de tidsbundna lägena daily_cap och kvot", () => {
-    expect(arRetrybar("daily_cap")).toBe(true);
-    expect(arRetrybar("kvot")).toBe(true);
-  });
-
-  it("är false för alla andra felkoder", () => {
-    expect(arRetrybar("scanned_pdf")).toBe(false);
-    expect(arRetrybar("cost_cap")).toBe(false);
-    expect(arRetrybar("validation")).toBe(false);
-    expect(arRetrybar("saknar_rantekanslighet")).toBe(false);
-    expect(arRetrybar("versionskonflikt")).toBe(false);
-    expect(arRetrybar("behorighet")).toBe(false);
-    expect(arRetrybar("unknown")).toBe(false);
   });
 });
 

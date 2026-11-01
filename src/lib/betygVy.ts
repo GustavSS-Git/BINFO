@@ -12,7 +12,3 @@ export const BETYG_TITEL: Record<Grade, string> = {
   D: "Svag ekonomi",
   E: "Mycket svag ekonomi",
 };
-
-export function betygTitel(betyg: Grade | null | undefined): string | null {
-  return betyg ? BETYG_TITEL[betyg] : null;
-}

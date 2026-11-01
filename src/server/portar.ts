@@ -357,11 +357,6 @@ export interface Databas {
    *  reservation, which stays atomic in `reserveraSpend`. */
   hamtaSpendForDag(dag: string): Promise<number>;
 
-  /** Wraps `radera_analys`. `pdfBlevForlorad` is true when this was the
-   *  last analysis referencing that PDF's content hash, meaning the caller
-   *  should also delete the storage object. */
-  raderaAnalys(id: string): Promise<{ pdfBlevForlorad: boolean }>;
-
   // -------------------------------------------------------------------------
   // Register (v2). See register.ts for the semantics built on these.
   // -------------------------------------------------------------------------
@@ -394,8 +389,6 @@ export interface Databas {
   listaRapporter(filter: RapportFilter): Promise<RapportRad[]>;
   /** Wraps `claim_next_rapport_steg` — same semantics as `klaimaNastaSteg`. */
   klaimaNastaRapportSteg(leaseSekunder?: number): Promise<RapportRad | null>;
-  /** Wraps `slapp_rapport_steg` — same semantics as `slappSteg`. */
-  slappRapportSteg(id: string, ateranvandForsok: boolean): Promise<void>;
 
   hamtaRapportFil(pdfHash: string): Promise<RapportFilRad | null>;
   /** Insert on conflict (pdf_hash) do nothing, then returns the row that is

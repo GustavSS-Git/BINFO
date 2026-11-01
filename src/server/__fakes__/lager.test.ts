@@ -200,24 +200,6 @@ describe("skapaFakeLager — spend guard", () => {
   });
 });
 
-describe("skapaFakeLager — raderaAnalys", () => {
-  it("rapporterar pdfBlevForlorad: true när det var sista raden för hashen", async () => {
-    const lager = skapaFakeLager();
-    const { id } = await lager.db.skapaAnalys(nyAnalysRad({ pdfHash: "unik-hash" }));
-    const resultat = await lager.db.raderaAnalys(id);
-    expect(resultat.pdfBlevForlorad).toBe(true);
-  });
-
-  it("rapporterar pdfBlevForlorad: false när en syskonrad delar samma hash", async () => {
-    const lager = skapaFakeLager();
-    const { id: forsta } = await lager.db.skapaAnalys(nyAnalysRad({ pdfHash: "delad-hash" }));
-    await lager.db.skapaAnalys(nyAnalysRad({ pdfHash: "delad-hash" }));
-
-    const resultat = await lager.db.raderaAnalys(forsta);
-    expect(resultat.pdfBlevForlorad).toBe(false);
-  });
-});
-
 describe("skapaFakeLager — filarkiv", () => {
   it("tolererar en andra uppladdning av samma sökväg utan att kasta", async () => {
     const lager = skapaFakeLager();
@@ -320,19 +302,6 @@ describe("skapaFakeLager — register: kön", () => {
     expect(klaimad?.id).toBe(c.id); // a är klar, b har en aktiv setup-lease
     expect(klaimad?.attempts).toBe(1);
     expect(await db.klaimaNastaRapportSteg()).toBeNull();
-
-    await db.slappRapportSteg(c.id, true);
-    expect((await db.hamtaRapport(c.id))?.attempts).toBe(0);
-    expect((await db.klaimaNastaRapportSteg())?.id).toBe(c.id);
-  });
-
-  it("slappRapportSteg återupplivar aldrig en klar/ersatt rad", async () => {
-    const { db } = skapaFakeLager();
-    const r = await db.skapaRapport(nyRapport({ orgnr: null, rakenskapsar: null }));
-    if (!r.ok) throw new Error("unreachable");
-    await db.uppdateraRapport(r.id, { status: "done", stage: "klar" });
-    await db.slappRapportSteg(r.id, false);
-    expect((await db.hamtaRapport(r.id))?.status).toBe("done");
   });
 
   it("den gamla kön klaimar aldrig en registerlänkad analys-rad", async () => {
@@ -382,21 +351,6 @@ describe("skapaFakeLager — register: rapport_fil, forening, adresser", () => {
     await db.registreraForeningAdress(rad);
     expect(db._allaAdresser()).toHaveLength(1);
     await expect(db.registreraForeningAdress({ ...rad, adress: "Storgatan 1" })).rejects.toThrow();
-  });
-
-  it("raderaAnalys: en PDF som registret refererar blir aldrig 'förlorad'", async () => {
-    const { db } = skapaFakeLager();
-    const r = await db.skapaRapport(nyRapport({ orgnr: null, rakenskapsar: null }));
-    if (!r.ok) throw new Error("unreachable");
-    await db.skapaRapportFil({
-      pdfHash: "abc",
-      rapportId: r.id,
-      pdfPath: "abc.pdf",
-      sidor: 1,
-      bytes: 1,
-    });
-    const { id } = await db.skapaAnalys(nyAnalysRad({ pdfHash: "abc" }));
-    expect(await db.raderaAnalys(id)).toEqual({ pdfBlevForlorad: false });
   });
 });
 

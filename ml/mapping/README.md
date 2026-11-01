@@ -447,7 +447,7 @@ evidence about the postnummer itself. 11145/11146 still disagree with the workbo
 `street (+ postnummer, + ort)` -> Nominatim structured search -> lat/lon -> point-in-polygon against the 117
 polygons -> stadsdel -> register area. Never call it from the Worker or a request path. Behaviour:
 
-- User-Agent `Binfo/1.0 (gustav.slanesens@outlook.com)` (the owner's contact), `countrycodes=se`, at most one
+- User-Agent `Binfo/1.0 (contactbinfohere@gmail.com)` (Binfo's contact address), `countrycodes=se`, at most one
   request per 1.1 s, single-threaded, every response (hit or miss) cached on disk in
   `sources/raw/nominatim_cache.json` (gitignored) and never re-requested.
 - Order: street+postnummer(+ort), then street+ort (flag `fallback_utan_postnummer`). A hit outside every

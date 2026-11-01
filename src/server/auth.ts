@@ -1,8 +1,7 @@
 /**
  * Accounts (v3, docs/PLAN-v3.md §1): sign-up, login, logout, password reset,
  * email-link verification and the session read — the implementations behind
- * `registreraKontoFn`, `loggaInFn`, … in `analysFn.ts` (wired by the
- * supervisor, see docs/v3-wiring/W1.md).
+ * `registreraKontoFn`, `loggaInFn`, … in `analysFn.ts`.
  *
  * Framework-free and port-injected: every function takes `KontoBeroenden`
  * (the request's cookie access, its resolved `Kontext`, the `AuthPort`, the

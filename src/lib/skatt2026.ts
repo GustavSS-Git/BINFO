@@ -35,9 +35,6 @@ export const PENSIONSAVGIFT_SATS = andel("skatt_pension_sats");
 /** 8,07 × IBB. */
 export const PENSIONSAVGIFT_TAK_INKOMST = tal("skatt_pension_tak_inkomst");
 export const PENSIONSAVGIFT_GRANS = tal("skatt_pension_nedre_grans");
-export const RANTEAVDRAG_BRYTPUNKT = tal("ranteavdrag_tak");
-export const RANTEAVDRAG_LAG_SATS = andel("ranteavdrag_sats_lag");
-export const RANTEAVDRAG_HOG_SATS = andel("ranteavdrag_sats_hog");
 
 // ---------------------------------------------------------------------------
 // Hjälpfunktioner

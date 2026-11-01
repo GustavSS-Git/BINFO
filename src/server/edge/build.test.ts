@@ -176,14 +176,9 @@ describe("Edge-limmet speglar porten", () => {
     return [...kropp.matchAll(/^ {2}(\w+)\(/gm)].map((m) => m[1] as string);
   }
 
-  // Used by the upload/read/delete paths (skapaAnalys' up-front cap check among them),
+  // Used by the upload/read paths (skapaAnalys' up-front cap check among them),
   // never by the tick (see the comment in index.ts).
-  const MEDVETET_UTELAMNADE = new Set([
-    "skapaAnalys",
-    "hamtaAnalys",
-    "raderaAnalys",
-    "hamtaSpendForDag",
-  ]);
+  const MEDVETET_UTELAMNADE = new Set(["skapaAnalys", "hamtaAnalys", "hamtaSpendForDag"]);
 
   it("implementerar varje Databas-metod utom de som bara uppladdnings-/läs-/raderingsvägarna använder", () => {
     const metoder = databasMetoder();

@@ -1,34 +1,13 @@
 /**
- * Shared defaults and demo/seed data for Binfo's client-side UI: calculator
- * defaults, current Swedish rules for amortering, and the seed values behind
- * the shared "osäkra uppgifter" state (@/lib/uppgifter.ts). The real analysis
- * result comes from the pipeline (src/lib/analysis, src/types/analysis.ts) —
- * this file is not that pipeline's mock.
+ * Shared defaults for Binfo's client-side UI: calculator placeholder values,
+ * the fee items, the seed values behind the shared "osäkra uppgifter" state
+ * (@/lib/uppgifter.ts) and the `kr` formatter. The real analysis result comes
+ * from the pipeline (src/lib/analysis, src/types/analysis.ts) — this file is
+ * not that pipeline's mock.
  */
-
-import { MIN_KONTANTINSATS_ANDEL, tal } from "@/lib/kalkyl/regler";
 
 export type Status = "green" | "amber" | "red";
 export type PropertyType = "brf" | "hus";
-
-export const property = {
-  namn: "Brf Lindgården",
-  adress: "Kapellgränd 12, Södermalm",
-  ort: "Stockholm",
-  utgangspris: 4_950_000,
-  boarea: 58,
-  rum: "3:a",
-  vaning: 4,
-  vaningarTotalt: 6,
-  manadsavgift: 3_240,
-  andelstal: 2.1,
-  byggar: 1931,
-  skuldPerKvm: 8_500,
-  foreningensLan: 43_200_000,
-  foreningensYta: 5_082, // m² → 43,2 Mkr / 5 082 m² ≈ 8 500 kr/m²
-  snittranta: 1.94,
-  rantebindning: "Två lån (58 %) omsätts inom 12 månader",
-};
 
 /** Bolånekalkylens exempelvärden — visas gråa i de tomma fälten, räknas inte
  *  med förrän köparen själv skriver in ett belopp. */
@@ -38,18 +17,6 @@ export const kalkylDefaults = {
   ranta: 3.6,
   bruttoinkomst: 900_000,
   antalLantagare: 2,
-};
-
-/**
- * Gällande svenska regler från 1 april 2026. Värdena kommer från regelregistret
- * (src/lib/kalkyl/regler.ts), som har källa och datum för varje post.
- * Amorteringskravet baseras ENBART på belåningsgrad; det skärpta kravet
- * (skuldkvot > 4,5×) är slopat.
- */
-export const amorteringsregler = {
-  bolanetak: tal("bolanetak") / 100, // minsta kontantinsats 10 %
-  minKontantinsatsAndel: MIN_KONTANTINSATS_ANDEL,
-  bankernasInternaTak: tal("skuldkvot_bankstak"), // antagande, se registret
 };
 
 /**
@@ -71,9 +38,8 @@ export const avgiftPoster: { id: AvgiftPostId; label: string }[] = [
 /**
  * Varje osäkert attribut modelleras som värde + säkerhet, aldrig som ett
  * platt värde.
- * TODO(backend): säkerheten ska styra analysens konfidensintervall.
  */
-export type Osaker<T> = { varde: T; sakerhet: "kand" | "okand" };
+type Osaker<T> = { varde: T; sakerhet: "kand" | "okand" };
 
 const okand = <T>(varde: T): Osaker<T> => ({ varde, sakerhet: "okand" });
 

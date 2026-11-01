@@ -499,11 +499,6 @@ function heltal(v: number): string {
   return Math.round(Math.abs(v)).toLocaleString("sv-SE");
 }
 
-/** "1 234 kr/mån" (absolutbelopp, riktningen står i texten runt omkring). */
-export function formatKrPerManad(v: number): string {
-  return `${heltal(v)} kr/mån`;
-}
-
 /** Procent med decimalkomma, upp till två decimaler: "2,53 %". */
 export function formatProcentTal(v: number): string {
   return `${v.toLocaleString("sv-SE", { maximumFractionDigits: 2 })} %`;
@@ -511,19 +506,6 @@ export function formatProcentTal(v: number): string {
 
 /** Under det här (kr/mån, absolut) säger vi att prognosen inte pekar åt något håll. */
 const TYDLIG_FORANDRING_KR = 10;
-
-/** Raden överst i "Så har vi räknat", del 2. */
-export function avgiftsprognosRubrik(p: Avgiftsprognos): string {
-  const tid = `inom de närmaste ${p.horisontManader} månaderna`;
-  if (p.totalKrPerManad === null) {
-    return `Baserat på årsredovisningen kan vi inte uppskatta hur avgiften utvecklas ${tid}, eftersom lägenhetens andel av föreningens avgifter inte gick att fastställa.`;
-  }
-  if (Math.abs(p.totalKrPerManad) < TYDLIG_FORANDRING_KR) {
-    return `Baserat på årsredovisningen pekar inget på någon tydlig förändring av avgiften ${tid}.`;
-  }
-  const verb = p.totalKrPerManad > 0 ? "höjs" : "sänks";
-  return `Baserat på årsredovisningen väntar vi oss att avgiften ${verb} med ca ${heltal(p.totalKrPerManad)} kr/mån ${tid}.`;
-}
 
 export interface KomponentRad {
   id: AvgiftsKomponent["id"];
@@ -628,7 +610,6 @@ export const RAKNA_FAKTORER: string[] = [
   "Byggår: påverkar priset, och hur mycket beror på området.",
 ];
 export const RAKNA_PROGNOS_RUBRIK = "Väntad avgiftsutveckling enligt årsredovisningen";
-export const RAKNA_REFINANSIERING_RUBRIK = "Lån som omsätts inom horisonten";
 
 /** Byggår-raden i objektsammanfattningen: värdet vi använder och en liten
  *  markör som säger hur det förhåller sig till årsredovisningen. */
@@ -1641,8 +1622,6 @@ export function prisRubrik(lage: "under" | "inom" | "over" | null): string {
   if (lage === null) return "Binfos värdering";
   return `Utgångspriset ligger ${lage === "over" ? "över" : lage === "under" ? "under" : "inom"} spannet`;
 }
-
-export const SPANN_FORKLARING_KORT = `Spannet är Binfos värdering ± ${VARDESPANN_PROCENT} %`;
 
 /** Version ur modellens id: "valuation-v3.1" blir "3.1". */
 export function modellVersionText(modellVersion: string): string {
