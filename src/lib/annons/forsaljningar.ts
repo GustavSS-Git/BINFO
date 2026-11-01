@@ -17,6 +17,8 @@ export interface TidigareForsaljning {
   boarea: number | null;
   /** `rooms` (2.5 happens); null when missing. */
   antalRum: number | null;
+  /** `floor` (≥ 0; half floors happen, kept to one decimal); null when missing. */
+  vaning: number | null;
   /** SEK per month (`rent`); null when missing or 0 (= not stated). */
   avgift: number | null;
 }

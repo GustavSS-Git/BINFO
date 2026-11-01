@@ -45,6 +45,7 @@ const ForsaljningSchema = z
     pris: z.number().int().positive(),
     boarea: z.number().positive().nullable(),
     antalRum: z.number().positive().nullable(),
+    vaning: z.number().nonnegative().nullable(),
     avgift: z.number().int().positive().nullable(),
   })
   .strict();

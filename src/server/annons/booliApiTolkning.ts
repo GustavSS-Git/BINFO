@@ -232,6 +232,7 @@ const SaldRadSchema = z.object({
   soldPrice: tal,
   livingArea: tal,
   rooms: tal,
+  floor: tal,
   rent: tal,
   location: z
     .object({
@@ -274,6 +275,7 @@ export function tolkaTidigareForsaljningar(lista: readonly unknown[]): TolkadeFo
         pris,
         boarea: boarea !== undefined && hogstEnDecimal(boarea) > 0 ? hogstEnDecimal(boarea) : null,
         antalRum: rum !== undefined && hogstEnDecimal(rum) > 0 ? hogstEnDecimal(rum) : null,
+        vaning: typeof o.floor === "number" && o.floor >= 0 ? hogstEnDecimal(o.floor) : null,
         avgift: avgift !== undefined && Math.round(avgift) > 0 ? Math.round(avgift) : null,
       },
       adress: text(o.location?.address?.streetAddress) ?? null,

@@ -20,6 +20,7 @@ export function TidigareForsaljningar({ svar }: { svar: ForsaljningarSvar | null
               <th className="py-2 pr-3 text-left font-semibold">Pris</th>
               <th className="py-2 pr-3 text-left font-semibold">kr/m²</th>
               <th className="py-2 pr-3 text-left font-semibold">Storlek</th>
+              <th className="py-2 pr-3 text-left font-semibold">Våning</th>
               <th className="py-2 text-left font-semibold">Avgift</th>
             </tr>
           </thead>
@@ -27,20 +28,24 @@ export function TidigareForsaljningar({ svar }: { svar: ForsaljningarSvar | null
             {vy.rader.map((r, i) => (
               <tr
                 key={i}
-                className="grid grid-cols-6 gap-x-3 border-t border-divider py-3 sm:table-row"
+                className="grid grid-cols-12 gap-x-3 border-t border-divider py-3 sm:table-row"
               >
-                <td className="col-span-3 font-medium sm:table-cell sm:py-3 sm:pr-3">{r.sald}</td>
-                <td className="col-span-3 text-right sm:table-cell sm:py-3 sm:pr-3 sm:text-left">
+                <td className="col-span-6 font-medium sm:table-cell sm:py-3 sm:pr-3">{r.sald}</td>
+                <td className="col-span-6 text-right sm:table-cell sm:py-3 sm:pr-3 sm:text-left">
                   {r.pris}
                 </td>
-                <td className="col-span-2 text-sm text-text-2 sm:table-cell sm:py-3 sm:pr-3 sm:text-base">
+                <td className="col-span-3 text-sm text-text-2 sm:table-cell sm:py-3 sm:pr-3 sm:text-base">
                   {r.krPerM2}
                   <span className="sm:hidden"> kr/m²</span>
                 </td>
-                <td className="col-span-2 text-sm text-text-2 sm:table-cell sm:py-3 sm:pr-3 sm:text-base">
+                <td className="col-span-4 text-sm text-text-2 sm:table-cell sm:py-3 sm:pr-3 sm:text-base">
                   {r.storlek}
                 </td>
-                <td className="col-span-2 text-right text-sm text-text-2 sm:table-cell sm:py-3 sm:text-left sm:text-base">
+                <td className="col-span-2 text-sm text-text-2 sm:table-cell sm:py-3 sm:pr-3 sm:text-base">
+                  <span className="sm:hidden">vån </span>
+                  {r.vaning}
+                </td>
+                <td className="col-span-3 text-right text-sm text-text-2 sm:table-cell sm:py-3 sm:text-left sm:text-base">
                   {r.avgift}
                 </td>
               </tr>

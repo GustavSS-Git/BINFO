@@ -25,6 +25,7 @@ function rad(over: Record<string, unknown> = {}): Record<string, unknown> {
     soldPrice: 3_000_000,
     livingArea: 40,
     rooms: 2,
+    floor: 3,
     rent: 2500,
     apartmentNumber: "1201",
     estimate: { price: 9_999_999 },
@@ -39,8 +40,22 @@ describe("tolkaTidigareForsaljningar", () => {
     expect(tolkaTidigareForsaljningar(saldLista("bostad-720821-sold.json"))).toEqual({
       adress: "Sankt Eriksgatan 31A",
       forsaljningar: [
-        { saldDatum: "2026-10-30", pris: 6_025_000, boarea: 54, antalRum: 2, avgift: null },
-        { saldDatum: "2020-01-29", pris: 5_220_000, boarea: 54, antalRum: 2, avgift: null },
+        {
+          saldDatum: "2026-10-30",
+          pris: 6_025_000,
+          boarea: 54,
+          antalRum: 2,
+          vaning: 3,
+          avgift: null,
+        },
+        {
+          saldDatum: "2020-01-29",
+          pris: 5_220_000,
+          boarea: 54,
+          antalRum: 2,
+          vaning: 3,
+          avgift: null,
+        },
       ],
     });
   });
@@ -49,7 +64,14 @@ describe("tolkaTidigareForsaljningar", () => {
     expect(tolkaTidigareForsaljningar(saldLista("bostad-719044-sold.json"))).toEqual({
       adress: "Sandelsgatan 35",
       forsaljningar: [
-        { saldDatum: "2026-10-27", pris: 4_900_000, boarea: 36, antalRum: 2, avgift: 2618 },
+        {
+          saldDatum: "2026-10-27",
+          pris: 4_900_000,
+          boarea: 36,
+          antalRum: 2,
+          vaning: 6,
+          avgift: 2618,
+        },
       ],
     });
   });
@@ -65,6 +87,7 @@ describe("tolkaTidigareForsaljningar", () => {
       "boarea",
       "pris",
       "saldDatum",
+      "vaning",
     ]);
   });
 
@@ -90,17 +113,24 @@ describe("tolkaTidigareForsaljningar", () => {
       rad({ soldDate: "2023-01-02", soldPrice: 2_000_000 }),
     ]);
     expect(ut.forsaljningar).toEqual([
-      { saldDatum: "2023-01-02", pris: 2_000_000, boarea: 40, antalRum: 2, avgift: 2500 },
+      {
+        saldDatum: "2023-01-02",
+        pris: 2_000_000,
+        boarea: 40,
+        antalRum: 2,
+        vaning: 3,
+        avgift: 2500,
+      },
     ]);
   });
 
   it("boarea/rum en decimal, saknade eller 0 → null; avgift avrundas", () => {
     const [a, b] = tolkaTidigareForsaljningar([
-      rad({ soldDate: "2025-01-01", livingArea: 54.27, rooms: 2.5, rent: 2618.6 }),
-      rad({ soldDate: "2024-01-01", livingArea: 0, rooms: undefined, rent: null }),
+      rad({ soldDate: "2025-01-01", livingArea: 54.27, rooms: 2.5, floor: 1.5, rent: 2618.6 }),
+      rad({ soldDate: "2024-01-01", livingArea: 0, rooms: undefined, floor: -1, rent: null }),
     ]).forsaljningar;
-    expect(a).toMatchObject({ boarea: 54.3, antalRum: 2.5, avgift: 2619 });
-    expect(b).toMatchObject({ boarea: null, antalRum: null, avgift: null });
+    expect(a).toMatchObject({ boarea: 54.3, antalRum: 2.5, vaning: 1.5, avgift: 2619 });
+    expect(b).toMatchObject({ boarea: null, antalRum: null, vaning: null, avgift: null });
   });
 
   it("sorterar nyast först, tar bort dubbletter (datum + pris), högst MAX_FORSALJNINGAR", () => {

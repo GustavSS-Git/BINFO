@@ -97,8 +97,8 @@ const SANKT_ERIKSGATAN = {
   ok: true,
   adress: "Sankt Eriksgatan 31A",
   forsaljningar: [
-    { saldDatum: "2026-10-30", pris: 6_025_000, boarea: 54, antalRum: 2, avgift: null },
-    { saldDatum: "2020-01-29", pris: 5_220_000, boarea: 54, antalRum: 2, avgift: null },
+    { saldDatum: "2026-10-30", pris: 6_025_000, boarea: 54, antalRum: 2, vaning: 3, avgift: null },
+    { saldDatum: "2020-01-29", pris: 5_220_000, boarea: 54, antalRum: 2, vaning: 3, avgift: null },
   ],
 };
 

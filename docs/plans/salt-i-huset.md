@@ -25,13 +25,13 @@ A simple table. The heading carries the address, since every row is the same fla
 
 ```
 Tidigare försäljningar av Sankt Eriksgatan 31A
-Såld       Pris          kr/m²     Storlek        Avgift
-okt 2026   6 025 000 kr  111 574   54 m², 2 rum   —
-jan 2020   5 220 000 kr   96 667   54 m², 2 rum   —
+Såld       Pris          kr/m²     Storlek        Våning  Avgift
+okt 2026   6 025 000 kr  111 574   54 m², 2 rum   3       —
+jan 2020   5 220 000 kr   96 667   54 m², 2 rum   3       —
 Äldre priser är inte justerade för prisutvecklingen. Uppgifter från Booli.
 ```
 
-- **Columns:** Såld (month + year), Pris, kr/m² (soldPrice ÷ livingArea), Storlek (boarea + rum),
+- **Columns:** Såld (month + year), Pris, kr/m² (soldPrice ÷ livingArea), Storlek (boarea + rum), Våning (`floor`, owner 2026-11-01; "—" when missing),
   Avgift ("—" when `rent` is 0 or missing). No "mot utgångspris" column in v1 (missing on ≈ 1 in 5
   sales).
 - **Rows:** at most 5, newest first. Every sale is shown, including the one being looked at

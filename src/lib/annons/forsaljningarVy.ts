@@ -15,6 +15,7 @@ export interface ForsaljningRad {
   pris: string;
   krPerM2: string;
   storlek: string;
+  vaning: string;
   avgift: string;
 }
 
@@ -68,6 +69,7 @@ function rad(f: TidigareForsaljning): ForsaljningRad {
     pris: `${tal(f.pris)} kr`,
     krPerM2: f.boarea !== null && f.boarea > 0 ? tal(f.pris / f.boarea) : STRECK,
     storlek: storlekText(f.boarea, f.antalRum),
+    vaning: f.vaning !== null ? f.vaning.toLocaleString("sv-SE") : STRECK,
     avgift: f.avgift !== null ? `${tal(f.avgift)} kr` : STRECK,
   };
 }

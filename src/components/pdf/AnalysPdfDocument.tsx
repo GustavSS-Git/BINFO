@@ -874,11 +874,12 @@ function Priset({ p }: { p: PdfPriset }) {
 }
 
 const FORS_KOLUMNER = [
-  { rubrik: "Såld", bredd: "16%" },
-  { rubrik: "Pris", bredd: "24%" },
-  { rubrik: "kr/m²", bredd: "16%" },
-  { rubrik: "Storlek", bredd: "26%" },
-  { rubrik: "Avgift", bredd: "18%" },
+  { rubrik: "Såld", bredd: "14%" },
+  { rubrik: "Pris", bredd: "21%" },
+  { rubrik: "kr/m²", bredd: "14%" },
+  { rubrik: "Storlek", bredd: "22%" },
+  { rubrik: "Våning", bredd: "12%" },
+  { rubrik: "Avgift", bredd: "17%" },
 ] as const;
 
 function Forsaljningar({ f }: { f: ForsaljningarVy }) {
@@ -902,7 +903,7 @@ function Forsaljningar({ f }: { f: ForsaljningarVy }) {
             paddingVertical: 3,
           }}
         >
-          {[r.sald, r.pris, r.krPerM2, r.storlek, r.avgift].map((v, j) => (
+          {[r.sald, r.pris, r.krPerM2, r.storlek, r.vaning, r.avgift].map((v, j) => (
             <Text key={j} style={[styles.body, { width: FORS_KOLUMNER[j]?.bredd ?? "20%" }]}>
               {v}
             </Text>

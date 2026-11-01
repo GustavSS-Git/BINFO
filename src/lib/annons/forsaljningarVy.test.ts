@@ -7,6 +7,7 @@ const f = (o: Partial<TidigareForsaljning> = {}): TidigareForsaljning => ({
   pris: 5_950_000,
   boarea: 54,
   antalRum: 2,
+  vaning: 3,
   avgift: null,
   ...o,
 });
@@ -33,6 +34,7 @@ describe("byggForsaljningarVy", () => {
       pris: nbsp("5 950 000 kr"),
       krPerM2: nbsp("110 185"),
       storlek: "54 m², 2 rum",
+      vaning: "3",
       avgift: "—",
     });
     expect(vy?.rader[1]?.sald).toBe("jan 2020");

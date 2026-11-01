@@ -9,8 +9,8 @@ const svar: ForsaljningarSvar = {
   ok: true,
   adress: "Sankt Eriksgatan 31A",
   forsaljningar: [
-    { saldDatum: "2026-10-15", pris: 5_950_000, boarea: 54, antalRum: 2, avgift: null },
-    { saldDatum: "2020-01-03", pris: 4_200_000, boarea: 54, antalRum: 2, avgift: 2950 },
+    { saldDatum: "2026-10-15", pris: 5_950_000, boarea: 54, antalRum: 2, vaning: 3, avgift: null },
+    { saldDatum: "2020-01-03", pris: 4_200_000, boarea: 54, antalRum: 2, vaning: 3, avgift: 2950 },
   ],
 };
 
