@@ -893,7 +893,7 @@ function Forsaljningar({ f }: { f: ForsaljningarVy }) {
           </Text>
         ))}
       </View>
-      {f.rader.map((r, i) => (
+      {f.rader.slice(0, f.visas).map((r, i) => (
         <View
           key={i}
           style={{
@@ -903,7 +903,14 @@ function Forsaljningar({ f }: { f: ForsaljningarVy }) {
             paddingVertical: 3,
           }}
         >
-          {[r.sald, r.pris, r.krPerM2, r.storlek, r.vaning, r.avgift].map((v, j) => (
+          {[
+            r.dennaLagenhet ? `${r.sald} *` : r.sald,
+            r.pris,
+            r.krPerM2,
+            r.storlek,
+            r.vaning,
+            r.avgift,
+          ].map((v, j) => (
             <Text key={j} style={[styles.body, { width: FORS_KOLUMNER[j]?.bredd ?? "20%" }]}>
               {v}
             </Text>
@@ -911,6 +918,8 @@ function Forsaljningar({ f }: { f: ForsaljningarVy }) {
         </View>
       ))}
       <Text style={[styles.small, { marginTop: 4 }]}>
+        {f.rader.slice(0, f.visas).some((r) => r.dennaLagenhet) ? "* Den här lägenheten. " : ""}
+        {f.urvalText ? `${f.urvalText} ` : ""}
         {f.fotnot} {f.attributionText}.
       </Text>
     </View>

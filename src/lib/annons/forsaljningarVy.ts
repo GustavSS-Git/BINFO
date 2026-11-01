@@ -1,12 +1,14 @@
 import { ATTRIBUTION_BOOLI_TEXT, ATTRIBUTION_BOOLI_URL } from "@/lib/annons/formular";
 import {
+  FORSALJNINGAR_AR,
   MAX_FORSALJNINGAR,
+  VISADE_FORSALJNINGAR,
   type ForsaljningarSvar,
   type TidigareForsaljning,
 } from "@/lib/annons/forsaljningar";
 
 /**
- * Texts for the "Tidigare försäljningar" table (web and PDF). Pure: everything shown comes
+ * Texts for the "Sålda lägenheter på <adress>" table (web and PDF). Pure: everything shown comes
  * from the server answer. Shown only, never a valuation input (docs/plans/salt-i-huset.md §3).
  */
 
@@ -17,17 +19,26 @@ export interface ForsaljningRad {
   storlek: string;
   vaning: string;
   avgift: string;
+  /** A sale of the linked flat itself: tagged "Den här lägenheten". */
+  dennaLagenhet: boolean;
 }
 
 export interface ForsaljningarVy {
   rubrik: string;
+  /** Every sale, newest first; the page shows the first `visas`. */
   rader: ForsaljningRad[];
+  visas: number;
+  /** "Visa alla (n)" when there are more than `visas`, else null. */
+  visaAllaText: string | null;
+  /** PDF line under a cut table: "Visar de 5 senaste av n försäljningar.", else null. */
+  urvalText: string | null;
   fotnot: string;
   attributionText: string;
   attributionUrl: string;
 }
 
-export const FORSALJNINGAR_FOTNOT = "Äldre priser är inte justerade för prisutvecklingen.";
+export const FORSALJNINGAR_FOTNOT = `Försäljningar de senaste ${FORSALJNINGAR_AR} åren. Äldre priser är inte justerade för prisutvecklingen.`;
+export const DENNA_LAGENHET_TEXT = "Den här lägenheten";
 
 const MANADER = [
   "jan",
@@ -71,6 +82,7 @@ function rad(f: TidigareForsaljning): ForsaljningRad {
     storlek: storlekText(f.boarea, f.antalRum),
     vaning: f.vaning !== null ? f.vaning.toLocaleString("sv-SE") : STRECK,
     avgift: f.avgift !== null ? `${tal(f.avgift)} kr` : STRECK,
+    dennaLagenhet: f.dennaLagenhet,
   };
 }
 
@@ -81,9 +93,15 @@ export function byggForsaljningarVy(
   const sorterade = [...svar.forsaljningar]
     .sort((a, b) => (a.saldDatum < b.saldDatum ? 1 : a.saldDatum > b.saldDatum ? -1 : 0))
     .slice(0, MAX_FORSALJNINGAR);
+  const fler = sorterade.length > VISADE_FORSALJNINGAR;
   return {
-    rubrik: svar.adress ? `Tidigare försäljningar av ${svar.adress}` : "Tidigare försäljningar",
+    rubrik: svar.adress ? `Sålda lägenheter på ${svar.adress}` : "Sålda lägenheter på samma adress",
     rader: sorterade.map(rad),
+    visas: VISADE_FORSALJNINGAR,
+    visaAllaText: fler ? `Visa alla (${sorterade.length})` : null,
+    urvalText: fler
+      ? `Visar de ${VISADE_FORSALJNINGAR} senaste av ${sorterade.length} försäljningar.`
+      : null,
     fotnot: FORSALJNINGAR_FOTNOT,
     attributionText: ATTRIBUTION_BOOLI_TEXT,
     attributionUrl: ATTRIBUTION_BOOLI_URL,

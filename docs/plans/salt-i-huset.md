@@ -34,8 +34,14 @@ jan 2020   5 220 000 kr   96 667   54 m², 2 rum   3       —
 - **Columns:** Såld (month + year), Pris, kr/m² (soldPrice ÷ livingArea), Storlek (boarea + rum), Våning (`floor`, owner 2026-11-01; "—" when missing),
   Avgift ("—" when `rent` is 0 or missing). No "mot utgångspris" column in v1 (missing on ≈ 1 in 5
   sales).
-- **Rows:** at most 5, newest first. Every sale is shown, including the one being looked at
-  (supervisor 2026-11-01: no exclusion by `booliId`).
+- **Rows (revised 2026-11-01, owner, after the first real test showed nothing for a flat
+  never sold):** every flat sold at the SAME ADDRESS in the last 10 years, newest first; 5
+  shown, then "Visa alla (n)"; the flat's own sales tagged "Den här lägenheten". Heading
+  "Sålda lägenheter på <adress>". Address = exact street + number + letter (30 ≠ 30A).
+  Source: `sold?residenceId` (own) + `sold?center=<lat,lng>&dim=200,200&minSoldDate=<−10 år>`
+  around the flat (position from its newest sale, else its listing), filtered on the address;
+  2–4 calls per residence, cached 24 h. PDF: the 5 newest + "Visar de 5 senaste av n
+  försäljningar.", own sales starred.
   Empty → the block is not shown (no "inga försäljningar": Booli's coverage can't support it).
 - **Phone (390 px):** each sale becomes two lines: date + price, then kr/m², size and avgift.
   The PDF gets the same table, the attribution and the unadjusted-price line.

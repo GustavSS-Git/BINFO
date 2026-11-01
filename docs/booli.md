@@ -38,17 +38,26 @@ Plan, field map and owner decisions: `docs/plans/booli-api.md`. Earlier sales: `
 - Flags (web app): `BOOLI_CALLER_ID` + `BOOLI_PRIVATE_KEY` (absent → API skipped), `BOOLI_API=off`,
   `ANNONS_SIDHAMTNING=on` (page source as fallback; default off), `ANNONS_HAMTNING=off` (everything).
   An expired key logs `[annons] booli-api nyckel avvisad`; the buyer gets "fyll i manuellt".
-- **Earlier sales of the flat** ("Tidigare försäljningar", 2026-11-01, `docs/plans/salt-i-huset.md`):
-  for a `/bostad/<id>` link only, `hamtaForsaljningarFn` → `hamtaForsaljningar`
-  (`src/server/annons/forsaljningar.ts`) makes ONE call
-  `sold?residenceId=<id>&sort=soldDate&direction=desc&limit=50` through `sokBostad` (same echo and
-  ≤ 50-hit guard). Mapping `tolkaTidigareForsaljningar` (`booliApiTolkning.ts`): soldDate
-  (YYYY-MM-DD, else the row is dropped), soldPrice (positive integer, else dropped), livingArea,
-  rooms, rent (0 → null); never `apartmentNumber`, `estimate` or `soldPriceSource`. Newest first,
-  identical date + price once, at most 5; every sale is shown. Cached 24 h in `annons_cache` under
-  `booli-salda:<id>` (a hit takes no quota; purged after 2 days like listing rows); a miss takes the
-  listing quota once. Any failure = `{ ok: false }` (nothing shown, nothing cached). Live
-  2026-11-01: 720821 → 2 sales (2026-10-30, 2020-01-29), 719044 → 1, 798609 → 0.
+- **Sales at the flat's address** ("Sålda lägenheter på <adress>", 2026-11-01,
+  `docs/plans/salt-i-huset.md`): for a `/bostad/<id>` link only, `hamtaForsaljningarFn` →
+  `hamtaForsaljningar` (`src/server/annons/forsaljningar.ts`):
+  1. `sold?residenceId=<id>&sort=soldDate&direction=desc&limit=50` through `sokBostad` (echo and
+     ≤ 50-hit guard): the flat's own sales, tagged "Den här lägenheten";
+  2. the flat's address and position from its newest sale, else from its listing
+     (`listings?residenceId`, then `upcomingSale=1`);
+  3. `sold?center=<lat>,<lng>&dim=200,200&objectType=Lägenhet&minSoldDate=<today − 10 years>&limit=1000`,
+     kept only where `streetAddress` equals the flat's address (case, spacing and "30 A"/"30A"
+     ignored; number and letter must match). Positions are approximate on most rows; the address
+     filter decides. A failed box search still shows the flat's own sales.
+
+  Mapping `tolkaSaldRad` / `sammanstallForsaljningar` (`booliApiTolkning.ts`): soldDate
+  (YYYY-MM-DD, else dropped), soldPrice (positive integer, else dropped), livingArea, rooms, floor,
+  rent (0 → null); never `apartmentNumber`, `estimate` or `soldPriceSource`. One row per sale
+  (booliId, else date + price), newest first, at most 100. 2–4 calls; cached 24 h in
+  `annons_cache` under `booli-salda:<id>` (a hit takes no quota; purged after 2 days); a miss takes
+  the listing quota once. Live 2026-11-01: 798609 (Östermalmsgatan 30, never sold itself) → 28
+  sales in 10 years; 720821 (Sankt Eriksgatan 31A) → 11, 2 own; 719044 (Sandelsgatan 35) → 38, 1 own.
+
 - Live check: `node --env-file=.env.local --import tsx scripts/testaBooliApi.ts [--spara]`
   (fixtures in `fixtures/booli-api/`, keys masked).
 
