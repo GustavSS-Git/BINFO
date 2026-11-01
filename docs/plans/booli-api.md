@@ -115,8 +115,8 @@ no Edge Function change, no `PROMPT_VERSION` bump.
   Amended 2026-10-31 (owner left it to the supervisor): a `0` on a sparse listing (≥ 2 of rent, floor, construction
   year, asking price missing) stays unknown.
   Seam: `AnnonsUppgifter.hiss/balkong: "ja" | "nej"`; the form applies "nej" with the "Hämtat från Booli" mark.
-- **D2** Buyers paste `/annons/` links (owner). A `/bostad/` link gets `bostadslank` (message in `ANNONS_MEDDELANDE`), or the
-  page fallback when `ANNONS_SIDHAMTNING=on`. No search for a residence-id lookup.
+- **D2** ~~Buyers paste `/annons/` links~~. **Revised 2026-11-01 (owner):** buyers paste `/bostad/<id>` links. They are
+  resolved with `listings?residenceId` → `upcomingSale=1` → `sold?residenceId` (docs/booli.md); `bostadslank` is gone.
 - **D3** A sold listing fills utgångspris with its `listPrice`; the final price is not put in the form.
 - Terms (owner, from Booli's representative): use is allowed; the key lasts ~3 months. Attribution "Uppgifter från Booli"
   is shown anyway (owner: yes). Default on, flag `BOOLI_API=off`.

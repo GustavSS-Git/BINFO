@@ -15,8 +15,17 @@
  *   3. when the object has no postcode (active listings never do):
  *      `areas?lat&lng`, whose "Postnummer" area is Booli's own postcode.
  *
- * Only an `/annons/<id>` number is ever sent: a `/bostad/<id>` is a residence
- * id from another number space, and the two collide (the wrong flat).
+ * A `/bostad/<id>` (a residence id, another number space: never sent to
+ * `listings/{id}`, the numbers collide) is resolved with the `residenceId`
+ * filter (verified 2026-11-01 against the four saved residence pages):
+ *   1. `listings?residenceId` (an active listing; the latest published wins);
+ *   2. `listings?residenceId&upcomingSale=1` ("kommande": hidden by default);
+ *   3. `sold?residenceId` (the same flat's sales; the latest sale wins). A sale
+ *      older than `BOSTAD_SALD_MAX_DAGAR` fills only the flat's own facts:
+ *      its asking price and fee are not today's;
+ *   4. `areas?lat&lng` for the postcode, as above.
+ * Every answer must echo `searchParams.residenceId` and stay small: a filter
+ * Booli ignored would return other flats.
  *
  * Secrets: the request URL holds `callerId` and `hash`, so it is never logged
  * or put in an error text; failure reasons name the endpoint path only, and
@@ -43,6 +52,11 @@ export const BOOLI_API_BAS = "https://api.booli.se";
 export const BOOLI_API_ACCEPT = "application/vnd.booli-v2+json";
 /** Per call (listings, sold and areas each get their own). */
 export const BOOLI_API_TIDSGRANS_MS = 8_000;
+/** A sale of the residence older than this (days) gives no utgångspris or
+ *  avgift (supervisor 2026-11-01; owner may change it). */
+export const BOOLI_BOSTAD_SALD_MAX_DAGAR = 365;
+/** More hits than this for one residence = the filter was not applied. */
+const BOSTAD_MAX_TRAFFAR = 50;
 /** An answer is a few kB; anything far bigger is not what we asked for. */
 const MAX_SVAR_TECKEN = 2_000_000;
 
@@ -246,11 +260,21 @@ export async function hamtaFranBooliApi(
       anrop,
     };
   }
-  let uppgifter = t.uppgifter;
-  if (!harFormfalt(uppgifter)) {
+  if (!harFormfalt(t.uppgifter)) {
     return { typ: "fel", kod: "tolkning", orsak: `${samling}/${id}: inga formulärfält`, anrop };
   }
 
+  return medPostnummer(t.uppgifter, samling, anrop, nycklar, b);
+}
+
+/** Adds Booli's own postcode (`areas?lat&lng`) when the object has none. */
+async function medPostnummer(
+  uppgifter: AnnonsUppgifter,
+  samling: BooliApiSamling,
+  anrop: number,
+  nycklar: BooliApiNycklar,
+  b: BooliApiBeroenden,
+): Promise<BooliApiUtfall> {
   let postnummerOrsak: string | undefined;
   if (uppgifter.postnummer === undefined) {
     if (uppgifter.koordinater === undefined) {
@@ -279,6 +303,113 @@ export async function hamtaFranBooliApi(
 }
 
 // ---------------------------------------------------------------------------
+// One residence (/bostad/<id>)
+// ---------------------------------------------------------------------------
+
+type BostadSok =
+  | { typ: "ok"; objekt: Record<string, unknown>[] }
+  | { typ: "fel"; kod: BooliApiFelkod; orsak: string };
+
+/** One `residenceId` search; refuses an answer that does not prove the filter. */
+async function sokBostad(
+  samling: BooliApiSamling,
+  id: string,
+  extra: Record<string, string>,
+  nycklar: BooliApiNycklar,
+  b: BooliApiBeroenden,
+): Promise<BostadSok> {
+  const svar = await anropaBooliApi(
+    samling,
+    { residenceId: id, ...extra, limit: String(BOSTAD_MAX_TRAFFAR) },
+    nycklar,
+    b,
+  );
+  if (svar.typ === "fel") return svar;
+  const d = svar.data;
+  const data =
+    typeof d === "object" && d !== null && !Array.isArray(d) ? (d as Record<string, unknown>) : {};
+  const lista = data[samling];
+  const eko = (data["searchParams"] as Record<string, unknown> | undefined)?.["residenceId"];
+  const total = data["totalCount"];
+  if (!Array.isArray(lista) || String(eko) !== id) {
+    return { typ: "fel", kod: "tolkning", orsak: `${samling}?residenceId: filtret bekräftas inte` };
+  }
+  if (typeof total === "number" && total > BOSTAD_MAX_TRAFFAR) {
+    return { typ: "fel", kod: "tolkning", orsak: `${samling}?residenceId: ${total} träffar` };
+  }
+  return {
+    typ: "ok",
+    objekt: lista.filter(
+      (o): o is Record<string, unknown> => typeof o === "object" && o !== null && !Array.isArray(o),
+    ),
+  };
+}
+
+/** The object whose `falt` (a "YYYY-MM-DD…" text) is latest. */
+function senaste(objekt: Record<string, unknown>[], falt: string): Record<string, unknown> | null {
+  let basta: Record<string, unknown> | null = null;
+  for (const o of objekt) {
+    const v = o[falt];
+    const b = basta?.[falt];
+    if (basta === null || (typeof v === "string" && (typeof b !== "string" || v > b))) basta = o;
+  }
+  return basta;
+}
+
+/**
+ * Fetches one `/bostad/<id>` (residence id): its active or upcoming listing,
+ * else its latest sale. Never throws for an expected failure.
+ */
+export async function hamtaBostadFranBooliApi(
+  id: string,
+  nycklar: BooliApiNycklar,
+  b: BooliApiBeroenden = {},
+): Promise<BooliApiUtfall> {
+  if (!/^\d{1,12}$/.test(id)) {
+    return { typ: "fel", kod: "hittades_inte", orsak: "ogiltigt id", anrop: 0 };
+  }
+  let anrop = 0;
+  for (const extra of [{}, { upcomingSale: "1" }]) {
+    anrop += 1;
+    const sok = await sokBostad("listings", id, extra, nycklar, b);
+    if (sok.typ === "fel") return { ...sok, anrop };
+    const objekt = senaste(sok.objekt, "published");
+    if (objekt !== null) {
+      const t = tolkaBooliApiObjekt(objekt);
+      if (!harFormfalt(t.uppgifter)) {
+        return {
+          typ: "fel",
+          kod: "tolkning",
+          orsak: "listings?residenceId: inga formulärfält",
+          anrop,
+        };
+      }
+      return medPostnummer(t.uppgifter, "listings", anrop, nycklar, b);
+    }
+  }
+
+  anrop += 1;
+  const sok = await sokBostad("sold", id, { sort: "soldDate", direction: "desc" }, nycklar, b);
+  if (sok.typ === "fel") return { ...sok, anrop };
+  const objekt = senaste(sok.objekt, "soldDate");
+  if (objekt === null) {
+    return { typ: "fel", kod: "hittades_inte", orsak: "ingen annons eller försäljning", anrop };
+  }
+  const uppgifter = { ...tolkaBooliApiObjekt(objekt).uppgifter };
+  const sald = typeof objekt["soldDate"] === "string" ? Date.parse(objekt["soldDate"]) : NaN;
+  const nu = (b.nu ?? (() => new Date()))().getTime();
+  if (!Number.isFinite(sald) || nu - sald > BOOLI_BOSTAD_SALD_MAX_DAGAR * 86_400_000) {
+    // An old sale: the flat's facts still hold, its price and fee do not.
+    delete uppgifter.utgangspris;
+    delete uppgifter.manadsavgift;
+  }
+  if (!harFormfalt(uppgifter)) {
+    return { typ: "fel", kod: "tolkning", orsak: "sold?residenceId: inga formulärfält", anrop };
+  }
+  return medPostnummer(uppgifter, "sold", anrop, nycklar, b);
+}
+
+// ---------------------------------------------------------------------------
 // The listing source
 // ---------------------------------------------------------------------------
 
@@ -299,16 +430,20 @@ export const booliApiLeverantor: AnnonsLeverantor = {
   async hamta(lank, b): Promise<LeverantorUtfall> {
     const kalla = "booli_api";
     const nycklar = booliApiNycklar(b.env);
-    // Never a /bostad/ id (another number space: the wrong flat).
-    if (lank.typ !== "annons" || nycklar === null) {
-      return { typ: "fel", kod: "ej_tillganglig", orsak: "api avstängt eller inte en annonslänk" };
+    if (nycklar === null) {
+      return { typ: "fel", kod: "ej_tillganglig", orsak: "api avstängt" };
     }
-    const utfall = await hamtaFranBooliApi(lank.id, nycklar, {
+    const beroenden: BooliApiBeroenden = {
       ...(b.fetch ? { fetch: b.fetch } : {}),
       ...(b.nu ? { nu: b.nu } : {}),
       ...(b.unik ? { unik: b.unik } : {}),
       ...(b.apiTidsgransMs !== undefined ? { tidsgransMs: b.apiTidsgransMs } : {}),
-    });
+    };
+    // A /bostad/ id only ever goes to the residenceId filter (another number space).
+    const utfall =
+      lank.typ === "bostad"
+        ? await hamtaBostadFranBooliApi(lank.id, nycklar, beroenden)
+        : await hamtaFranBooliApi(lank.id, nycklar, beroenden);
 
     if (utfall.typ === "fel") {
       const handelse =

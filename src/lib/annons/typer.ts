@@ -66,10 +66,7 @@ export type AnnonsFelkod =
   | "natverk"
   | "kvot"
   | "avstangd"
-  | "behorighet"
-  /** A `/bostad/<id>` link (residence id) while only the API can fetch: the API
-   *  takes `/annons/<id>` numbers only. */
-  | "bostadslank";
+  | "behorighet";
 
 export type AnnonsSvar =
   | {
@@ -96,10 +93,8 @@ export const ANNONS_MEDDELANDE = {
   fel_doman: "Endast Booli-länkar stöds just nu.",
   allmant: "Vi kunde inte hämta uppgifterna, fyll i manuellt.",
   ogiltig_url:
-    "Länken går inte till en bostadsannons på Booli. Kopiera adressen från annonsens sida, t.ex. https://www.booli.se/annons/1234567.",
+    "Länken går inte till en bostadsannons på Booli. Kopiera adressen från bostadens eller annonsens sida, t.ex. https://www.booli.se/bostad/798609.",
   avstangd: "Hämtning från Booli är tillfälligt avstängd, fyll i manuellt.",
-  bostadslank:
-    "Länken går till bostadens sida på Booli. Öppna annonsen och kopiera dess länk (booli.se/annons/…), eller fyll i uppgifterna själv.",
   kvot: "Du har hämtat många annonser på kort tid. Vänta en stund eller fyll i manuellt.",
 } as const;
 

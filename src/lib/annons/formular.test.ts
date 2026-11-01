@@ -155,7 +155,7 @@ describe("hamtaAnnonsUppgifter", () => {
     if (utfall.typ === "ok") expect(utfall.svar.uppgifter).toEqual(FULLA);
   });
 
-  it.each(["kvot", "avstangd", "ogiltig_url", "fel_doman", "bostadslank"] as const)(
+  it.each(["kvot", "avstangd", "ogiltig_url", "fel_doman"] as const)(
     "visar serverns text för %s",
     async (errorCode) => {
       const b = beroenden({

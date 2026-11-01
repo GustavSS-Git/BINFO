@@ -1,0 +1,60 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 1,
+    "count": 1,
+    "listings": [
+      {
+        "source": {
+          "id": 1573,
+          "url": "https://www.fastighetsbyran.com/",
+          "type": "Broker",
+          "name": "Fastighetsbyrån"
+        },
+        "rooms": 2.5,
+        "constructionYear": 1924,
+        "hasPatio": 0,
+        "location": {
+          "region": {
+            "countyName": "Stockholms län",
+            "municipalityName": "Stockholm"
+          },
+          "position": {
+            "longitude": 18.0707295,
+            "latitude": 59.3432745,
+            "isApproximate": true
+          },
+          "address": {
+            "streetAddress": "Östermalmsgatan 30"
+          },
+          "namedAreas": [
+            "Östermalm"
+          ]
+        },
+        "hasFireplace": 0,
+        "rent": 5861,
+        "livingArea": 89,
+        "listPrice": 13495000,
+        "booliId": 6325164,
+        "buildingHasElevator": 1,
+        "objectType": "Lägenhet",
+        "hasBalcony": 1,
+        "enableStreetView": 1,
+        "biddingOpen": 0,
+        "hasSolarPanels": 0,
+        "sourcesOfficeId": "243",
+        "enableEnergyDataInfo": 1,
+        "floor": 3,
+        "published": "2026-10-30 18:17:05",
+        "firstPrice": 13495000,
+        "url": "https://www.booli.se/annons/6325164"
+      }
+    ],
+    "limit": 50,
+    "offset": 0,
+    "searchParams": {
+      "residenceId": "798609",
+      "upcomingSale": 0
+    }
+  }
+}

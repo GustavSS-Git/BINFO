@@ -292,21 +292,25 @@ per-apartment cost in kronor, and what to do before bidding.
   `hamtaAnnons` (`src/server/annons/hamta.ts`): kill switch `ANNONS_HAMTNING` →
   `kontrolleraAnnonsUrl` (`src/lib/annons/url.ts`, `/annons/<id>` and
   `/bostad/<id>`, canonical URL = cache key) → `annons_cache` (24 h, purged after
-  2 days) → no source for the link? (`avstangd` / `bostadslank`, no quota taken)
+  2 days) → no source on? (`avstangd`, no quota taken)
   → entitlement `hamta_annons` → quota → the source(s) → cache.
 - **Sources** (`AnnonsLeverantor` in `kallor.ts`; answer `metod: "api" | "sida"`):
   1. **Booli REST API** (default; `booliApi.ts` + pure mapping
-     `booliApiTolkning.ts`): `listings/{id}` → on 404 `sold/{id}` → `areas?lat&lng`
+     `booliApiTolkning.ts`): `/annons/<id>` → `listings/{id}` → on 404 `sold/{id}`;
+     `/bostad/<id>` (the link buyers actually paste, owner 2026-11-01; a residence
+     id, another number space, never sent as `listings/{id}`) → `listings?residenceId`
+     → `listings?residenceId&upcomingSale=1` (kommande) → `sold?residenceId` (latest
+     sale; older than 365 days → no utgångspris/avgift); the answer must echo
+     `searchParams.residenceId` (`hamtaBostadFranBooliApi`). Then `areas?lat&lng`
      for the postcode (listings carry none). Signed per call, Web Crypto only.
-     Only `/annons/<id>` numbers are sent: a `/bostad/<id>` is a residence id from
-     another number space (could hit another flat). Needs `BOOLI_CALLER_ID` +
+     Needs `BOOLI_CALLER_ID` +
      `BOOLI_PRIVATE_KEY`; `BOOLI_API=off` disables it. Student key, ~3 months from
      2026-10-31 (use OK'd by Booli's representative, owner). An expired key logs
      `[annons] booli-api nyckel avvisad` and the buyer fills in by hand.
   2. **Listing page** (`booliSida.ts`: page fetch + `tolkaBooli` + optional Haiku
      fallback + Nominatim): only with `ANNONS_SIDHAMTNING=on` (default off; the
-     production Worker is Cloudflare-challenged there, `blockerad`). Used for
-     `/bostad/` links and after an API key/network/parse failure.
+     production Worker is Cloudflare-challenged there, `blockerad`). Used after an
+     API key/network/parse failure or with the API off.
      Details, live findings and caveats: `docs/booli.md`; plan + field map:
      `docs/plans/booli-api.md`.
 - **The answer only fills the form** (`src/lib/annons/formular.ts`): it never

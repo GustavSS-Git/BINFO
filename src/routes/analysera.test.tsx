@@ -104,7 +104,7 @@ describe("/analysera: priskoll och BRF-analys på en sida", () => {
     expect(kort).toBeGreaterThan(-1);
     expect(html).toContain("Länk från Booli");
     expect(html).toContain("Hämta uppgifter");
-    expect(html).toContain('placeholder="https://www.booli.se/annons/…"');
+    expect(html).toContain('placeholder="https://www.booli.se/bostad/…"');
     expect(html).toContain("Klistra in länken till annonsen så fyller vi i uppgifterna åt dig.");
     expect(kort).toBeLessThan(html.indexOf("Om bostaden"));
     // Ingen hämtning har gjorts: inga märken eller markeringar på fälten.

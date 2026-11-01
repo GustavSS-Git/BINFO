@@ -1,0 +1,223 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 14,
+    "count": 14,
+    "areas": [
+      {
+        "booliId": 1,
+        "name": "Stockholm",
+        "types": [
+          "Kommun"
+        ],
+        "parentBooliId": 2,
+        "parentName": "Stockholms län",
+        "parentTypes": [
+          "Län"
+        ],
+        "fullName": "Stockholm, Stockholms län",
+        "urlFriendlyName": "stockholm",
+        "size": 215073905
+      },
+      {
+        "booliId": 2,
+        "name": "Stockholms län",
+        "types": [
+          "Län"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "Stockholms län",
+        "urlFriendlyName": "stockholms+lan",
+        "size": 16575083798
+      },
+      {
+        "booliId": 143,
+        "name": "Stockholms innerstad",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Stockholms innerstad, Stockholm",
+        "urlFriendlyName": "stockholms+innerstad",
+        "size": 46257216
+      },
+      {
+        "booliId": 77104,
+        "name": "Sverige",
+        "types": [
+          "Land"
+        ],
+        "parentBooliId": 77103,
+        "parentName": "top",
+        "parentTypes": [
+          "Top"
+        ],
+        "fullName": "Sverige, top",
+        "urlFriendlyName": "sverige",
+        "size": 579539445956
+      },
+      {
+        "booliId": 115348,
+        "name": "Östermalm",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Östermalm, Stockholm",
+        "urlFriendlyName": "ostermalm",
+        "size": 2285235
+      },
+      {
+        "booliId": 115365,
+        "name": "Östermalm/Djurgården",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Östermalm/Djurgården, Stockholm",
+        "urlFriendlyName": "ostermalm/djurgarden",
+        "size": 23005296
+      },
+      {
+        "booliId": 857150,
+        "name": "11426",
+        "types": [
+          "Postnummer"
+        ],
+        "parentBooliId": 851502,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Postort"
+        ],
+        "fullName": "11426, Stockholm",
+        "urlFriendlyName": "11426",
+        "size": 57474
+      },
+      {
+        "booliId": 874696,
+        "name": "Lärkstaden",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Lärkstaden, Stockholm",
+        "urlFriendlyName": "larkstaden",
+        "size": 327241
+      },
+      {
+        "booliId": 883816,
+        "name": "Innanför tullarna",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Innanför tullarna, Stockholm",
+        "urlFriendlyName": "innanfor+tullarna",
+        "size": 24525300
+      },
+      {
+        "booliId": 893879,
+        "name": "Engelbrekt",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Engelbrekt, Stockholm",
+        "urlFriendlyName": "engelbrekt",
+        "size": 1042864
+      },
+      {
+        "booliId": 904817,
+        "name": "Humlegården",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Humlegården, Stockholm",
+        "urlFriendlyName": "humlegarden",
+        "size": 422468
+      },
+      {
+        "booliId": 973576,
+        "name": "Storstockholm",
+        "types": [
+          "Indexområde"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "Storstockholm, Sverige",
+        "urlFriendlyName": "storstockholm",
+        "size": 16575083798
+      },
+      {
+        "booliId": 1002244,
+        "name": "SE3",
+        "types": [
+          "Elområde"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "SE3, Sverige",
+        "urlFriendlyName": "se3",
+        "size": 163877782281
+      },
+      {
+        "booliId": 1016489,
+        "name": "0180C4870",
+        "types": [
+          "deso"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "0180C4870, Sverige",
+        "urlFriendlyName": "0180c4870",
+        "size": 92000
+      }
+    ],
+    "searchParams": {
+      "lat": "59.3432745",
+      "lng": "18.0707295"
+    }
+  }
+}
