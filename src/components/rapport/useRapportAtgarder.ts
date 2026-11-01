@@ -6,6 +6,7 @@ import {
   veljRantekanslighetForSok,
   type BolanekalkylSearch,
 } from "@/lib/bolanekalkyl";
+import type { ForsaljningarSvar } from "@/lib/annons/forsaljningar";
 import type { AnalysisResult } from "@/types/analysis";
 
 /**
@@ -14,7 +15,10 @@ import type { AnalysisResult } from "@/types/analysis";
  */
 export function useRapportAtgarder(
   analys: AnalysisResult,
-  { lankaTillbaka = false }: { lankaTillbaka?: boolean } = {},
+  {
+    lankaTillbaka = false,
+    forsaljningar = null,
+  }: { lankaTillbaka?: boolean; forsaljningar?: ForsaljningarSvar | null } = {},
 ) {
   const navigate = useNavigate();
   const [pdfStatus, setPdfStatus] = useState<"vilande" | "skapar" | "fel">("vilande");
@@ -34,7 +38,7 @@ export function useRapportAtgarder(
     setPdfStatus("skapar");
     try {
       const { downloadAnalysPdf } = await import("@/components/pdf/download");
-      await downloadAnalysPdf(analys);
+      await downloadAnalysPdf(analys, forsaljningar);
       setPdfStatus("vilande");
     } catch (error) {
       console.error("PDF-export misslyckades", error);

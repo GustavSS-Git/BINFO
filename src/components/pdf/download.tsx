@@ -2,6 +2,7 @@ import { pdf } from "@react-pdf/renderer";
 import { AnalysPdfDocument } from "@/components/pdf/AnalysPdfDocument";
 import { buildPdfFilename } from "@/components/pdf/filename";
 import { registerPdfFonts } from "@/components/pdf/fonts";
+import type { ForsaljningarSvar } from "@/lib/annons/forsaljningar";
 import type { AnalysisResult } from "@/types/analysis";
 
 /**
@@ -13,9 +14,12 @@ import type { AnalysisResult } from "@/types/analysis";
  * into its own chunk that loads on click instead of bloating the main
  * bundle or running during SSR.
  */
-export async function downloadAnalysPdf(analys: AnalysisResult): Promise<void> {
+export async function downloadAnalysPdf(
+  analys: AnalysisResult,
+  forsaljningar: ForsaljningarSvar | null = null,
+): Promise<void> {
   registerPdfFonts();
-  const instance = pdf(<AnalysPdfDocument analys={analys} />);
+  const instance = pdf(<AnalysPdfDocument analys={analys} forsaljningar={forsaljningar} />);
   const blob = await instance.toBlob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

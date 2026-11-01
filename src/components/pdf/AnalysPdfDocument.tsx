@@ -1,5 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
+import type { ForsaljningarSvar } from "@/lib/annons/forsaljningar";
+import type { ForsaljningarVy } from "@/lib/annons/forsaljningarVy";
 import { FONT_SANS, FONT_SERIF, WEIGHT_SEMIBOLD } from "@/components/pdf/fonts";
 import { layoutSpanBar, SPAN_LABEL_BREDD, type SpanMarkorTon } from "@/components/pdf/spanLayout";
 import {
@@ -871,6 +873,50 @@ function Priset({ p }: { p: PdfPriset }) {
   );
 }
 
+const FORS_KOLUMNER = [
+  { rubrik: "Såld", bredd: "14%" },
+  { rubrik: "Pris", bredd: "21%" },
+  { rubrik: "kr/m²", bredd: "14%" },
+  { rubrik: "Storlek", bredd: "22%" },
+  { rubrik: "Våning", bredd: "12%" },
+  { rubrik: "Avgift", bredd: "17%" },
+] as const;
+
+function Forsaljningar({ f }: { f: ForsaljningarVy }) {
+  return (
+    <View style={{ marginTop: 14 }} wrap={false}>
+      <Text style={styles.h3}>{f.rubrik}</Text>
+      <View style={{ flexDirection: "row", marginTop: 4 }}>
+        {FORS_KOLUMNER.map((k) => (
+          <Text key={k.rubrik} style={[styles.small, { width: k.bredd }]}>
+            {k.rubrik}
+          </Text>
+        ))}
+      </View>
+      {f.rader.map((r, i) => (
+        <View
+          key={i}
+          style={{
+            flexDirection: "row",
+            borderTopWidth: 0.5,
+            borderTopColor: PDF_COLORS.border,
+            paddingVertical: 3,
+          }}
+        >
+          {[r.sald, r.pris, r.krPerM2, r.storlek, r.vaning, r.avgift].map((v, j) => (
+            <Text key={j} style={[styles.body, { width: FORS_KOLUMNER[j]?.bredd ?? "20%" }]}>
+              {v}
+            </Text>
+          ))}
+        </View>
+      ))}
+      <Text style={[styles.small, { marginTop: 4 }]}>
+        {f.fotnot} {f.attributionText}.
+      </Text>
+    </View>
+  );
+}
+
 // ------------------------------------------------------------------ 3 Avgiften framåt
 
 function RantaBoxar({ a }: { a: PdfAvgiften }) {
@@ -1174,8 +1220,14 @@ function Slut({ vm }: { vm: PdfViewModel }) {
  * (header, three summary cards, four numbered sections, sources, disclaimer). See
  * download.tsx for how it becomes a downloaded file.
  */
-export function AnalysPdfDocument({ analys }: { analys: AnalysisResult }) {
-  const vm = buildPdfViewModel(analys);
+export function AnalysPdfDocument({
+  analys,
+  forsaljningar = null,
+}: {
+  analys: AnalysisResult;
+  forsaljningar?: ForsaljningarSvar | null;
+}) {
+  const vm = buildPdfViewModel(analys, forsaljningar);
   return (
     <Document
       title={`Binfo-rapport — ${vm.foreningNamn}`}
@@ -1189,6 +1241,7 @@ export function AnalysPdfDocument({ analys }: { analys: AnalysisResult }) {
         <Sammanfattningskort kort={vm.kort} />
         <Foreningen f={vm.foreningen} />
         <Priset p={vm.priset} />
+        {vm.forsaljningar ? <Forsaljningar f={vm.forsaljningar} /> : null}
         <Avgiften a={vm.avgiften} />
         {vm.fragor ? <Fragor f={vm.fragor} /> : null}
         <Slut vm={vm} />

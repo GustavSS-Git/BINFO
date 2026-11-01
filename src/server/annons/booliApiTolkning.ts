@@ -28,6 +28,7 @@
  */
 
 import { z } from "zod";
+import { MAX_FORSALJNINGAR, type TidigareForsaljning } from "@/lib/annons/forsaljningar";
 import { ANNONS_FALT, type AnnonsFalt, type AnnonsUppgifter } from "@/lib/annons/typer";
 import { rimligtByggar } from "./kallor";
 
@@ -218,4 +219,81 @@ export function tolkaBooliApiObjekt(ratt: unknown, iAr?: number): BooliApiTolkni
   };
   if (typeof o.booliId === "number") ut.booliId = o.booliId;
   return ut;
+}
+
+// ---------------------------------------------------------------------------
+// Earlier sales of one residence (docs/plans/salt-i-huset.md)
+// ---------------------------------------------------------------------------
+
+/** One row of `sold?residenceId`. Only these fields are read: never
+ *  `apartmentNumber`, `estimate` or `soldPriceSource`. */
+const SaldRadSchema = z.object({
+  soldDate: strang,
+  soldPrice: tal,
+  livingArea: tal,
+  rooms: tal,
+  floor: tal,
+  rent: tal,
+  location: z
+    .object({
+      address: z.object({ streetAddress: strang }).nullable().optional().catch(undefined),
+    })
+    .nullable()
+    .optional()
+    .catch(undefined),
+});
+
+export interface TolkadeForsaljningar {
+  /** Street address of the newest kept sale; null when missing. */
+  adress: string | null;
+  /** Newest first, identical (date + price) rows once, at most `MAX_FORSALJNINGAR`. */
+  forsaljningar: TidigareForsaljning[];
+}
+
+/**
+ * The `sold` list of a `sold?residenceId` answer → the flat's earlier sales.
+ * A row without a valid `soldDate` (YYYY-MM-DD) or a positive integer
+ * `soldPrice` is dropped; `rent` 0 means "not stated" (null). Pure.
+ */
+export function tolkaTidigareForsaljningar(lista: readonly unknown[]): TolkadeForsaljningar {
+  const rader: { rad: TidigareForsaljning; adress: string | null }[] = [];
+  for (const ratt of lista) {
+    if (!arObjekt(ratt)) continue;
+    const t = SaldRadSchema.safeParse(ratt);
+    if (!t.success) continue;
+    const o = t.data;
+    const datum = typeof o.soldDate === "string" ? o.soldDate.trim() : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum) || !Number.isFinite(Date.parse(datum))) continue;
+    const pris = positivt(o.soldPrice);
+    if (pris === undefined || !Number.isInteger(pris)) continue;
+    const boarea = positivt(o.livingArea);
+    const rum = positivt(o.rooms);
+    const avgift = positivt(o.rent);
+    rader.push({
+      rad: {
+        saldDatum: datum,
+        pris,
+        boarea: boarea !== undefined && hogstEnDecimal(boarea) > 0 ? hogstEnDecimal(boarea) : null,
+        antalRum: rum !== undefined && hogstEnDecimal(rum) > 0 ? hogstEnDecimal(rum) : null,
+        vaning: typeof o.floor === "number" && o.floor >= 0 ? hogstEnDecimal(o.floor) : null,
+        avgift: avgift !== undefined && Math.round(avgift) > 0 ? Math.round(avgift) : null,
+      },
+      adress: text(o.location?.address?.streetAddress) ?? null,
+    });
+  }
+  // Newest first (stable for equal dates).
+  rader.sort((a, b) =>
+    a.rad.saldDatum < b.rad.saldDatum ? 1 : a.rad.saldDatum > b.rad.saldDatum ? -1 : 0,
+  );
+  const sedda = new Set<string>();
+  const unika = rader.filter(({ rad }) => {
+    const nyckel = `${rad.saldDatum}|${rad.pris}`;
+    if (sedda.has(nyckel)) return false;
+    sedda.add(nyckel);
+    return true;
+  });
+  return {
+    adress: unika[0]?.adress ?? null,
+    forsaljningar: unika.slice(0, MAX_FORSALJNINGAR).map(({ rad }) => rad),
+  };
 }

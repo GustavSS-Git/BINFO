@@ -8,6 +8,7 @@ import { PrisSektion } from "@/components/rapport/RapportPris";
 import { Prisrimlighet } from "@/components/rapport/Prisrimlighet";
 import { Ansvarsfriskrivning, KallorOchMetod, SlutRuta } from "@/components/rapport/RapportSlut";
 import { Sammanfattningskort } from "@/components/rapport/Sammanfattningskort";
+import { useTidigareForsaljningar } from "@/components/rapport/useTidigareForsaljningar";
 import { useRapportAtgarder } from "@/components/rapport/useRapportAtgarder";
 import { andelAvSkuldRad, rapportOmrade } from "@/lib/analysisView";
 import type { AnalysisResult } from "@/types/analysis";
@@ -37,8 +38,12 @@ export function AnalysRapport({
   /** Den större "Spara analysen i din profil"-rutan före friskrivningen. */
   sparaKort?: ReactNode;
 }) {
+  const forsaljningar = useTidigareForsaljningar(
+    analys.input.kalla?.typ === "booli" ? analys.input.kalla.url : undefined,
+  );
   const { pdfStatus, hamtaPdf, tillKalkyl } = useRapportAtgarder(analys, {
     lankaTillbaka: lankaFranKalkyl,
+    forsaljningar,
   });
   const byggarJamforelse = analys.uppgiftsjamforelse?.find((r) => r.falt === "byggar");
   const omrade = rapportOmrade(analys.prisanalys.varderingsunderlag);
@@ -84,6 +89,7 @@ export function AnalysRapport({
         avgiftsprognos={analys.avgiftsprognos}
         skuldrad={andelAvSkuldRad(analys)}
         byggarJamforelse={byggarJamforelse}
+        forsaljningar={forsaljningar}
       />
       <AvgiftSektion analys={analys} />
       <Fragor analys={analys} medPrognos={analys.avgiftsprognos !== undefined} />

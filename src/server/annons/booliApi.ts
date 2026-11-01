@@ -306,12 +306,14 @@ async function medPostnummer(
 // One residence (/bostad/<id>)
 // ---------------------------------------------------------------------------
 
-type BostadSok =
+export type BostadSok =
   | { typ: "ok"; objekt: Record<string, unknown>[] }
   | { typ: "fel"; kod: BooliApiFelkod; orsak: string };
 
-/** One `residenceId` search; refuses an answer that does not prove the filter. */
-async function sokBostad(
+/** One `residenceId` search (`limit` 50); refuses an answer that does not echo
+ *  `searchParams.residenceId` or has more than 50 hits (the filter was not
+ *  applied). Also used by forsaljningar.ts. */
+export async function sokBostad(
   samling: BooliApiSamling,
   id: string,
   extra: Record<string, string>,

@@ -1,3 +1,5 @@
+import { byggForsaljningarVy, type ForsaljningarVy } from "@/lib/annons/forsaljningarVy";
+import type { ForsaljningarSvar } from "@/lib/annons/forsaljningar";
 /**
  * Pure data mapping from AnalysisResult to the PDF's content (redesign v4) — no
  * react-pdf import here on purpose, so this stays trivially unit-testable. It
@@ -913,6 +915,8 @@ export interface PdfViewModel {
   kort: PdfKort;
   foreningen: PdfForening;
   priset: PdfPriset;
+  /** "Tidigare försäljningar" (Booli), null when none were loaded. */
+  forsaljningar: ForsaljningarVy | null;
   avgiften: PdfAvgiften;
   fragor: PdfFragor | undefined;
   kallor: { intro: string; rader: string[] };
@@ -921,7 +925,10 @@ export interface PdfViewModel {
   kontakt: string | null;
 }
 
-export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
+export function buildPdfViewModel(
+  analys: AnalysisResult,
+  forsaljningar: ForsaljningarSvar | null = null,
+): PdfViewModel {
   return {
     foreningNamn: analys.forening.namn,
     skapadLabel: formatSkapadDatum(analys.skapad),
@@ -929,6 +936,7 @@ export function buildPdfViewModel(analys: AnalysisResult): PdfViewModel {
     kort: buildKort(analys),
     foreningen: buildForening(analys),
     priset: buildPriset(analys),
+    forsaljningar: byggForsaljningarVy(forsaljningar),
     avgiften: buildAvgiften(analys),
     fragor: buildFragor(analys),
     kallor: buildKallor(analys),

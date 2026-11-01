@@ -25,7 +25,7 @@ describe("/integritet", () => {
       "Booli",
       "Nominatim",
       "envägskodad kontrollsumma av din e-postadress",
-      "Senast ändrad 28 oktober 2026",
+      "Senast ändrad 1 november 2026",
     ]) {
       expect(html).toContain(t);
     }

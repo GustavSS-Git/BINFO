@@ -26,7 +26,7 @@ export const Route = createFileRoute("/integritet")({
   component: Integritet,
 });
 
-const SENAST_ANDRAD = "28 oktober 2026";
+const SENAST_ANDRAD = "1 november 2026";
 
 function Avsnitt({ rubrik, children }: { rubrik: string; children: ReactNode }) {
   return (
@@ -188,6 +188,12 @@ function Integritet() {
               med annonsens koordinater. Läser vi i stället annonssidan slår vi upp det hos
               OpenStreetMap (Nominatim) med annonsens koordinater eller gatuadress, och postnumret
               markeras då som hämtat från OpenStreetMap.
+            </li>
+            <li>
+              <strong>Tidigare försäljningar.</strong> Är länken en bostadslänk (/bostad/) visar vi
+              också lägenhetens tidigare försäljningar från Booli: datum, pris, storlek och avgift.
+              Binfos server hämtar dem när sidan öppnas, mellanlagrar dem i högst två dygn och
+              sparar dem inte med analysen.
             </li>
           </ul>
         </Avsnitt>
