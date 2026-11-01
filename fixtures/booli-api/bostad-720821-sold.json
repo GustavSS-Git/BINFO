@@ -1,0 +1,107 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 2,
+    "count": 2,
+    "sold": [
+      {
+        "source": {
+          "id": 907540248,
+          "url": "https://www.bergetsro.se/",
+          "type": "Broker",
+          "name": "Bergets Ro"
+        },
+        "rooms": 2,
+        "constructionYear": 1937,
+        "soldDate": "2026-10-30",
+        "hasPatio": 0,
+        "location": {
+          "position": {
+            "latitude": 59.33263196,
+            "longitude": 18.03107231
+          },
+          "region": {
+            "municipalityName": "Stockholm",
+            "countyName": "Stockholms län"
+          },
+          "address": {
+            "streetAddress": "Sankt Eriksgatan 31A",
+            "postCode": 11239
+          },
+          "distance": {
+            "ocean": 2268
+          },
+          "namedAreas": [
+            "Kungsholmen"
+          ]
+        },
+        "hasFireplace": 0,
+        "rent": 0,
+        "livingArea": 54,
+        "soldPriceSource": "bobot",
+        "listPrice": 5995000,
+        "soldPrice": 6025000,
+        "booliId": 5546552,
+        "heating": "district",
+        "floor": 3,
+        "buildingHasElevator": 1,
+        "objectType": "Lägenhet",
+        "hasBalcony": 1,
+        "published": "2026-10-17 12:08:10",
+        "firstPrice": 5995000,
+        "apartmentNumber": "1301",
+        "url": "https://www.booli.se/annons/5546552"
+      },
+      {
+        "source": {
+          "id": 1619,
+          "url": "https://karlssonuddare.se/",
+          "type": "Broker",
+          "name": "Karlsson & Uddare"
+        },
+        "rooms": 2,
+        "constructionYear": 1937,
+        "soldDate": "2020-01-29",
+        "location": {
+          "position": {
+            "latitude": 59.33263196,
+            "longitude": 18.03107231
+          },
+          "region": {
+            "municipalityName": "Stockholm",
+            "countyName": "Stockholms län"
+          },
+          "address": {
+            "streetAddress": "Sankt Eriksgatan 31A",
+            "postCode": 11239
+          },
+          "distance": {
+            "ocean": 2268
+          },
+          "namedAreas": [
+            "Kungsholmen"
+          ]
+        },
+        "rent": 0,
+        "livingArea": 54,
+        "soldPriceSource": "maklare",
+        "listPrice": 4995000,
+        "soldPrice": 5220000,
+        "booliId": 3681974,
+        "floor": 3,
+        "objectType": "Lägenhet",
+        "published": "2019-12-07 18:23:22",
+        "firstPrice": 4995000,
+        "apartmentNumber": "1301",
+        "url": "https://www.booli.se/annons/3681974"
+      }
+    ],
+    "limit": 50,
+    "offset": 0,
+    "searchParams": {
+      "residenceId": "720821",
+      "sort": "soldDate",
+      "direction": "desc"
+    }
+  }
+}

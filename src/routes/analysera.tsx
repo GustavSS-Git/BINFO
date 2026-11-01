@@ -616,7 +616,7 @@ function Analysera() {
                     id="booli-lank"
                     label="Länk från Booli"
                     type="text"
-                    placeholder="https://www.booli.se/annons/…"
+                    placeholder="https://www.booli.se/bostad/…"
                     value={annonsLank}
                     onChange={(v) => {
                       setAnnonsLank(v);

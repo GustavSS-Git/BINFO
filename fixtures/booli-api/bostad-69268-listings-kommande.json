@@ -1,0 +1,59 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 1,
+    "count": 1,
+    "listings": [
+      {
+        "source": {
+          "id": 1130,
+          "url": "https://www.innerstadsspecialisten.se/",
+          "type": "Broker",
+          "name": "Innerstadsspecialisten AB"
+        },
+        "rooms": 2,
+        "constructionYear": 1962,
+        "hasPatio": 0,
+        "location": {
+          "region": {
+            "countyName": "Stockholms län",
+            "municipalityName": "Stockholm"
+          },
+          "position": {
+            "longitude": 18.0897764,
+            "latitude": 59.3449332,
+            "isApproximate": true
+          },
+          "address": {
+            "streetAddress": "Sandelsgatan 12"
+          },
+          "namedAreas": [
+            "Gärdet"
+          ]
+        },
+        "hasFireplace": 0,
+        "rent": 2111,
+        "livingArea": 41.5,
+        "booliId": 6284101,
+        "heating": "district,heating-pump-ground",
+        "buildingHasElevator": 1,
+        "objectType": "Lägenhet",
+        "hasBalcony": 1,
+        "enableStreetView": 1,
+        "biddingOpen": 0,
+        "hasSolarPanels": 0,
+        "sourcesOfficeId": "M14499",
+        "enableEnergyDataInfo": 1,
+        "floor": 6,
+        "published": "2026-09-25 14:13:04",
+        "url": "https://www.booli.se/annons/6284101"
+      }
+    ],
+    "limit": 50,
+    "offset": 0,
+    "searchParams": {
+      "residenceId": "69268",
+      "upcomingSale": "1"
+    }
+  }
+}

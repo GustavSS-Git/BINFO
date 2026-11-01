@@ -254,25 +254,154 @@ describe("API-vägen för /annons/<id>", () => {
   });
 });
 
-describe("/bostad/<id>-länkar går aldrig till API:t", () => {
-  it("API på, sidhämtning av: bostadslank, NOLL anrop, ingen kvot", async () => {
-    const h = fakeFetch();
-    const r = await kor("https://www.booli.se/bostad/720821", h.f);
-    expect(r).toEqual({
-      ok: false,
-      errorCode: "bostadslank",
-      errorMessage: ANNONS_MEDDELANDE.bostadslank,
+describe("/bostad/<id>-länkar: residenceId-filtret, aldrig listings/{id}", () => {
+  const sok = (u: URL) => Object.fromEntries(u.searchParams);
+
+  it("aktiv annons: listings?residenceId → areas för postnumret", async () => {
+    const h = fakeFetch(
+      apiFixtur("bostad-798609-listings.json"),
+      apiFixtur("bostad-798609-areas.json"),
+    );
+    const r = await kor("https://www.booli.se/bostad/798609", h.f);
+    expect(r).toMatchObject({
+      ok: true,
+      metod: "api",
+      postnummerKalla: "annons",
+      uppgifter: {
+        adress: "Östermalmsgatan 30",
+        boarea: 89,
+        antalRum: 2.5,
+        vaning: 3,
+        byggar: 1924,
+        manadsavgift: 5861,
+        utgangspris: 13_495_000,
+        hiss: "ja",
+        balkong: "ja",
+      },
     });
-    expect(h.anrop).toHaveLength(0);
-    expect(kvotTotalt()).toBe(0);
+    expect(r.ok && r.uppgifter.postnummer).toMatch(/^\d{3} \d{2}$/);
+    expect(h.api()).toEqual(["/listings", "/areas"]);
+    expect(sok(h.anrop[0]!)).toMatchObject({ residenceId: "798609" });
   });
 
-  it("sidhämtning på: sidan hämtas, fortfarande noll API-anrop", async () => {
+  it("kommande annons: andra sökningen med upcomingSale=1, inget utgångspris", async () => {
+    const h = fakeFetch(
+      apiFixtur("bostad-69268-listings.json"),
+      apiFixtur("bostad-69268-listings-kommande.json"),
+      apiFixtur("bostad-69268-areas.json"),
+    );
+    const r = await kor("https://www.booli.se/bostad/69268", h.f);
+    // The same values as the saved residence page (fixtures/booli/bostad-69268.html).
+    expect(r).toMatchObject({
+      ok: true,
+      uppgifter: {
+        adress: "Sandelsgatan 12",
+        postnummer: "115 34",
+        boarea: 41.5,
+        antalRum: 2,
+        vaning: 6,
+        byggar: 1962,
+        manadsavgift: 2111,
+      },
+    });
+    expect(r.ok && "utgangspris" in r.uppgifter).toBe(false);
+    expect(h.api()).toEqual(["/listings", "/listings", "/areas"]);
+    expect(sok(h.anrop[1]!)).toMatchObject({ residenceId: "69268", upcomingSale: "1" });
+  });
+
+  it("bara sålda: senaste försäljningen, postnummer från raden (inget areas-anrop)", async () => {
+    const h = fakeFetch(
+      apiFixtur("bostad-719044-listings.json"),
+      apiFixtur("bostad-719044-listings-kommande.json"),
+      apiFixtur("bostad-719044-sold.json"),
+    );
+    const r = await kor("https://www.booli.se/bostad/719044", h.f);
+    expect(r).toMatchObject({
+      ok: true,
+      uppgifter: {
+        adress: "Sandelsgatan 35",
+        postnummer: "115 33",
+        boarea: 36,
+        manadsavgift: 2618,
+        utgangspris: 4_500_000,
+        byggar: 1935,
+      },
+    });
+    expect(h.api()).toEqual(["/listings", "/listings", "/sold"]);
+  });
+
+  it("flera försäljningar: den senaste vinner", async () => {
+    const h = fakeFetch(
+      apiFixtur("bostad-720821-listings.json"),
+      apiFixtur("bostad-720821-listings-kommande.json"),
+      apiFixtur("bostad-720821-sold.json"),
+    );
+    const r = await kor("https://www.booli.se/bostad/720821", h.f);
+    expect(r).toMatchObject({
+      ok: true,
+      uppgifter: { adress: "Sankt Eriksgatan 31A", boarea: 54 },
+    });
+    expect(r.ok && r.uppgifter.utgangspris).toBe(5_995_000);
+  });
+
+  it("en försäljning äldre än ett år: lägenhetens fakta, men varken pris eller avgift", async () => {
+    const h = fakeFetch(
+      apiFixtur("bostad-719044-listings.json"),
+      apiFixtur("bostad-719044-listings-kommande.json"),
+      apiFixtur("bostad-719044-sold.json"),
+    );
+    const r = await kor("https://www.booli.se/bostad/719044", h.f, env(), {
+      nu: () => new Date("2027-11-01T12:00:00Z"),
+    });
+    expect(r).toMatchObject({ ok: true, uppgifter: { adress: "Sandelsgatan 35", boarea: 36 } });
+    expect(r.ok && "utgangspris" in r.uppgifter).toBe(false);
+    expect(r.ok && "manadsavgift" in r.uppgifter).toBe(false);
+  });
+
+  it("varken annons eller försäljning: hittades_inte (allmän text)", async () => {
+    const tom = (samling: string) =>
+      new Response(
+        JSON.stringify({ totalCount: 0, [samling]: [], searchParams: { residenceId: "5" } }),
+        { status: 200 },
+      );
+    const h = fakeFetch(tom("listings"), tom("listings"), tom("sold"));
+    expect(await kor("https://www.booli.se/bostad/5", h.f)).toEqual({
+      ok: false,
+      errorCode: "hittades_inte",
+      errorMessage: ANNONS_MEDDELANDE.allmant,
+    });
+  });
+
+  it("ett svar som inte ekar residenceId används aldrig (fel lägenhet)", async () => {
+    const ignorerat = new Response(
+      JSON.stringify({
+        totalCount: 1,
+        listings: [{ booliId: 1, livingArea: 50, location: { address: { streetAddress: "X 1" } } }],
+        searchParams: {},
+      }),
+      { status: 200 },
+    );
+    const h = fakeFetch(ignorerat);
+    const r = await kor("https://www.booli.se/bostad/798609", h.f);
+    expect(r).toMatchObject({ ok: false, errorCode: "tolkning" });
+    expect(h.api()).toEqual(["/listings"]);
+  });
+
+  it("aldrig listings/{id} eller sold/{id} med ett bostads-id", async () => {
+    const h = fakeFetch(
+      apiFixtur("bostad-798609-listings.json"),
+      apiFixtur("bostad-798609-areas.json"),
+    );
+    await kor("https://www.booli.se/bostad/798609", h.f);
+    expect(h.api().some((p) => p.includes("798609"))).toBe(false);
+  });
+
+  it("API:t av, sidhämtning på: sidan hämtas, noll API-anrop", async () => {
     const h = fakeFetch(sidFixtur("bostad-720821.html"));
     const r = await kor(
       "https://www.booli.se/bostad/720821",
       h.f,
-      env({ annonsSidhamtning: true }),
+      env({ booliApiAvstangd: true, annonsSidhamtning: true }),
     );
     expect(r).toMatchObject({ ok: true, metod: "sida" });
     expect(h.api()).toEqual([]);

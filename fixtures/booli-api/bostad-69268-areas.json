@@ -1,0 +1,193 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 12,
+    "count": 12,
+    "areas": [
+      {
+        "booliId": 1,
+        "name": "Stockholm",
+        "types": [
+          "Kommun"
+        ],
+        "parentBooliId": 2,
+        "parentName": "Stockholms län",
+        "parentTypes": [
+          "Län"
+        ],
+        "fullName": "Stockholm, Stockholms län",
+        "urlFriendlyName": "stockholm",
+        "size": 215073905
+      },
+      {
+        "booliId": 2,
+        "name": "Stockholms län",
+        "types": [
+          "Län"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "Stockholms län",
+        "urlFriendlyName": "stockholms+lan",
+        "size": 16575083798
+      },
+      {
+        "booliId": 143,
+        "name": "Stockholms innerstad",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Stockholms innerstad, Stockholm",
+        "urlFriendlyName": "stockholms+innerstad",
+        "size": 46257216
+      },
+      {
+        "booliId": 77104,
+        "name": "Sverige",
+        "types": [
+          "Land"
+        ],
+        "parentBooliId": 77103,
+        "parentName": "top",
+        "parentTypes": [
+          "Top"
+        ],
+        "fullName": "Sverige, top",
+        "urlFriendlyName": "sverige",
+        "size": 579539445956
+      },
+      {
+        "booliId": 115347,
+        "name": "Gärdet",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Gärdet, Stockholm",
+        "urlFriendlyName": "gardet",
+        "size": 7839242
+      },
+      {
+        "booliId": 115365,
+        "name": "Östermalm/Djurgården",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Östermalm/Djurgården, Stockholm",
+        "urlFriendlyName": "ostermalm/djurgarden",
+        "size": 23005296
+      },
+      {
+        "booliId": 859671,
+        "name": "11534",
+        "types": [
+          "Postnummer"
+        ],
+        "parentBooliId": 851502,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Postort"
+        ],
+        "fullName": "11534, Stockholm",
+        "urlFriendlyName": "11534",
+        "size": 71824
+      },
+      {
+        "booliId": 874679,
+        "name": "Nedre Gärdet",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Nedre Gärdet, Stockholm",
+        "urlFriendlyName": "nedre+gardet",
+        "size": 701222
+      },
+      {
+        "booliId": 883816,
+        "name": "Innanför tullarna",
+        "types": [
+          "undefined"
+        ],
+        "parentBooliId": 1,
+        "parentName": "Stockholm",
+        "parentTypes": [
+          "Kommun"
+        ],
+        "fullName": "Innanför tullarna, Stockholm",
+        "urlFriendlyName": "innanfor+tullarna",
+        "size": 24525300
+      },
+      {
+        "booliId": 973576,
+        "name": "Storstockholm",
+        "types": [
+          "Indexområde"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "Storstockholm, Sverige",
+        "urlFriendlyName": "storstockholm",
+        "size": 16575083798
+      },
+      {
+        "booliId": 1002244,
+        "name": "SE3",
+        "types": [
+          "Elområde"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "SE3, Sverige",
+        "urlFriendlyName": "se3",
+        "size": 163877782281
+      },
+      {
+        "booliId": 1016522,
+        "name": "0180C5200",
+        "types": [
+          "deso"
+        ],
+        "parentBooliId": 77104,
+        "parentName": "Sverige",
+        "parentTypes": [
+          "Land"
+        ],
+        "fullName": "0180C5200, Sverige",
+        "urlFriendlyName": "0180c5200",
+        "size": 63322
+      }
+    ],
+    "searchParams": {
+      "lat": "59.3449332",
+      "lng": "18.0897764"
+    }
+  }
+}

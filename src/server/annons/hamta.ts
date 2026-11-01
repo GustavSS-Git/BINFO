@@ -11,17 +11,16 @@
  *   5. entitlement `hamta_annons`
  *   6. quota `annonshamtning` (20/device, 60/IP per hour)
  *   7. the source (kallor.ts):
- *      - an `/annons/<id>` link with the API on (`BOOLI_API` ≠ off and both
- *        keys set) → the Booli API (booliApi.ts, 1–3 calls);
- *      - the API failed with `nyckel`/`natverk`/`tolkning`, the API is off,
- *        or the link is `/bostad/<id>` → the listing page (booliSida.ts),
- *        ONLY when `ANNONS_SIDHAMTNING=on` (default off);
- *      - otherwise a buyer-safe message: `/bostad/` → `bostadslank`, the API's
- *        `hittades_inte` → `hittades_inte`, no source at all → `avstangd`,
- *        else the general "fyll i manuellt".
- *      A `/bostad/<id>` is NEVER sent to the API (residence ids collide with
- *      listing ids: the wrong flat). When no source can serve the link at all,
- *      that is decided before steps 5–6 (no quota taken for nothing).
+ *      - the API on (`BOOLI_API` ≠ off and both keys set) → the Booli API
+ *        (booliApi.ts): `/annons/<id>` 1–3 calls, `/bostad/<id>` (residence
+ *        id, via the `residenceId` filter, never `listings/{id}`) 1–4 calls;
+ *      - the API failed with `nyckel`/`natverk`/`tolkning` or is off → the
+ *        listing page (booliSida.ts), ONLY when `ANNONS_SIDHAMTNING=on`
+ *        (default off);
+ *      - otherwise a buyer-safe message: the API's `hittades_inte` →
+ *        `hittades_inte`, no source at all → `avstangd`, else the general
+ *        "fyll i manuellt". When no source is on, that is decided before
+ *        steps 5–6 (no quota taken for nothing).
  *   8. cache the success (`metod: "api" | "sida"`)
  *
  * Every expected failure is RETURNED as `{ ok: false, errorCode, errorMessage }`
@@ -133,7 +132,6 @@ function felSvar(errorCode: AnnonsFelkod, errorMessage?: string): AnnonsSvar {
     avstangd: ANNONS_MEDDELANDE.avstangd,
     behorighet: SAKNAR_BEHORIGHET_MEDDELANDE,
     kvot: ANNONS_MEDDELANDE.kvot,
-    bostadslank: ANNONS_MEDDELANDE.bostadslank,
     blockerad: ANNONS_MEDDELANDE.allmant,
     hittades_inte: ANNONS_MEDDELANDE.allmant,
     tolkning: ANNONS_MEDDELANDE.allmant,
@@ -192,9 +190,8 @@ interface Kallval {
 }
 
 function valjKallor(lank: KontrolleradLank, b: HamtaAnnonsBeroenden): Kallval {
-  const apiPa = lank.typ === "annons" && booliApiNycklar(b.env) !== null;
   return {
-    api: apiPa ? booliApiLeverantor : null,
+    api: booliApiNycklar(b.env) !== null ? booliApiLeverantor : null,
     sida: b.env.annonsSidhamtning === true ? booliSidaLeverantor : null,
   };
 }
@@ -255,7 +252,7 @@ async function kor(data: unknown, b: HamtaAnnonsBeroenden): Promise<AnnonsSvar> 
       api: booliApiNycklar(b.env) !== null,
       sida: false,
     });
-    return felSvar(lank.typ === "bostad" ? "bostadslank" : "avstangd");
+    return felSvar("avstangd");
   }
 
   // 5. Entitlement.

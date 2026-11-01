@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 0,
+    "count": 0,
+    "listings": [],
+    "limit": 50,
+    "offset": 0,
+    "searchParams": {
+      "residenceId": "69268",
+      "upcomingSale": 0
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "status": 200,
+  "body": {
+    "totalCount": 1,
+    "count": 1,
+    "sold": [
+      {
+        "source": {
+          "id": 982195286,
+          "url": "https://www.innerstadmakleri.se/",
+          "type": "Broker",
+          "name": "Innerstad Mäkleri"
+        },
+        "rooms": 2,
+        "constructionYear": 1935,
+        "soldDate": "2026-10-27",
+        "hasPatio": 0,
+        "location": {
+          "position": {
+            "latitude": 59.343907,
+            "longitude": 18.0937966,
+            "isApproximate": true
+          },
+          "region": {
+            "municipalityName": "Stockholm",
+            "countyName": "Stockholms län"
+          },
+          "address": {
+            "streetAddress": "Sandelsgatan 35",
+            "postCode": 11533
+          },
+          "namedAreas": [
+            "Östermalm"
+          ]
+        },
+        "hasFireplace": 0,
+        "rent": 2618,
+        "livingArea": 36,
+        "soldPriceSource": "maklare",
+        "listPrice": 4500000,
+        "soldPrice": 4900000,
+        "booliId": 6315554,
+        "floor": 6,
+        "buildingHasElevator": 1,
+        "objectType": "Lägenhet",
+        "hasBalcony": 1,
+        "published": "2026-10-18 17:17:02",
+        "firstPrice": 4500000,
+        "apartmentNumber": "1603",
+        "url": "https://www.booli.se/annons/6315554"
+      }
+    ],
+    "limit": 50,
+    "offset": 0,
+    "searchParams": {
+      "residenceId": "719044",
+      "sort": "soldDate",
+      "direction": "desc"
+    }
+  }
+}

@@ -34,14 +34,7 @@ export interface AnnonsBeroenden {
 export const TOM_LANK_MEDDELANDE = "Klistra in en länk från Booli först.";
 
 /** Server error codes whose own (buyer-safe) message is shown verbatim. */
-const VISA_SERVERNS_TEXT = new Set([
-  "kvot",
-  "avstangd",
-  "behorighet",
-  "ogiltig_url",
-  "fel_doman",
-  "bostadslank",
-]);
+const VISA_SERVERNS_TEXT = new Set(["kvot", "avstangd", "behorighet", "ogiltig_url", "fel_doman"]);
 
 /**
  * Checks the pasted text, fetches once, and returns either the listing answer

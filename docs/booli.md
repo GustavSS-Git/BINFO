@@ -4,7 +4,7 @@ Investigated 2026-10-24 (round "Booli prefill", see `PLAN.md`). Fixtures: `fixtu
 (raw HTML as served to a server, not a browser save). Re-fetch and re-check them with
 `node --import tsx scripts/hamtaBooliFixtures.ts` (`--spara` overwrites the fixtures).
 
-## The Booli REST API (default source since 2026-10-31, branch `booli-api`)
+## The Booli REST API (default source since 2026-10-31)
 
 Plan, field map and owner decisions: `docs/plans/booli-api.md`. Earlier sales: `docs/research/booli-sold.md`.
 
@@ -20,9 +20,15 @@ Plan, field map and owner decisions: `docs/plans/booli-api.md`. Earlier sales: `
 - One `/annons/<id>` fetch = `listings/{id}` (active) → on 404 `sold/{id}` → `areas?lat&lng` for the
   postcode (listings carry none; the `Postnummer` area matched the sold rows' own `postCode` in 3/3).
   1–3 calls; cached 24 h per canonical URL in `annons_cache` as before.
-- `/bostad/<id>` is a residence id from another number space: never sent to the API (it could hit
-  another flat's listing). Buyers paste `/annons/` links (owner); a `/bostad/` link gets
-  `bostadslank` unless the page source is on.
+- `/bostad/<id>` is a residence id from another number space: never sent as `listings/{id}` (it
+  could hit another flat's listing). It is what buyers paste (owner 2026-11-01), resolved with the
+  `residenceId` filter (verified 2026-11-01: the four saved residence pages in `fixtures/booli/` match
+  the API field by field; a made-up id gives 0 hits): `listings?residenceId` → with
+  `upcomingSale=1` (kommande listings are hidden by default; Sandelsgatan 12) →
+  `sold?residenceId&sort=soldDate&direction=desc` (the flat's own sales: Sankt Eriksgatan 31A lgh
+  1301 has 2020 and 2026). The latest listing/sale wins; a sale older than 365 days fills no
+  utgångspris or avgift. An answer that does not echo `searchParams.residenceId`, or has > 50 hits,
+  is refused (`tolkning`). 1–4 calls. Fixtures `fixtures/booli-api/bostad-*.json`.
 - Hiss/balkong: `buildingHasElevator`/`hasBalcony` 1 → "ja", 0 → "nej" (owner 2026-10-31; a balcony
   0 with `hasPatio: 1` stays unknown). Exception: on a sparse listing (at least two of rent, floor,
   construction year and asking price missing) a `0` stays unknown, because a fresh listing had every
