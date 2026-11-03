@@ -333,7 +333,7 @@ export function PrisSektion({
         ) : null}
 
         {skuldrad ? (
-          <p className="flex flex-wrap items-center gap-2 text-[15px] text-text-2">
+          <p className="hidden flex-wrap items-center gap-2 text-[15px] text-text-2">
             {skuldrad.text}
             {skuldrad.ref ? (
               <span title={skuldrad.ref.excerpt}>
