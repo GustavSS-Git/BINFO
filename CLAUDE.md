@@ -177,6 +177,8 @@ list --linked`), Edge Function `PIPELINE_VERSION` `p16.i1.s1`; the web app goes
     skuldkvot stay "Binfos uppskattning"/"antagande" (no published source).
     Värme and vatten exist ONLY in the kalkyl: the analysis/report never asks
     about, counts or shows them (owner 2026-10-26).
+- `/om-oss`: about page (2026-11-07, from the owner's "Om oss" artboard, kept locally in `about_us/` (not in git);
+  team photo `public/bilder/om-oss.jpg`). Linked from the footer only, never the main nav (owner).
 - `/kopguide`: Köpguide, the buying guide (checked steps in `useState` only).
   `/guide` is a 301 redirect to it (renamed 2026-10-23); nav label "Köpguide",
   running text "köpguiden".

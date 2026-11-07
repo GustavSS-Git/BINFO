@@ -16,6 +16,7 @@ import { Route as ExempelRouteImport } from './routes/exempel'
 import { Route as GuideRouteImport } from './routes/guide'
 import { Route as IntegritetRouteImport } from './routes/integritet'
 import { Route as KopguideRouteImport } from './routes/kopguide'
+import { Route as OmOssRouteImport } from './routes/om-oss'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VarderingRouteImport } from './routes/vardering'
 import { Route as AnalysAnalysisIdRouteImport } from './routes/analys_.$analysisId'
@@ -64,6 +65,11 @@ const IntegritetRoute = IntegritetRouteImport.update({
 const KopguideRoute = KopguideRouteImport.update({
   id: '/kopguide',
   path: '/kopguide',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OmOssRoute = OmOssRouteImport.update({
+  id: '/om-oss',
+  path: '/om-oss',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/guide': typeof GuideRoute
   '/integritet': typeof IntegritetRoute
   '/kopguide': typeof KopguideRoute
+  '/om-oss': typeof OmOssRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/guide': typeof GuideRoute
   '/integritet': typeof IntegritetRoute
   '/kopguide': typeof KopguideRoute
+  '/om-oss': typeof OmOssRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys/$analysisId': typeof AnalysAnalysisIdRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/guide': typeof GuideRoute
   '/integritet': typeof IntegritetRoute
   '/kopguide': typeof KopguideRoute
+  '/om-oss': typeof OmOssRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vardering': typeof VarderingRoute
   '/analys_/$analysisId': typeof AnalysAnalysisIdRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/guide'
     | '/integritet'
     | '/kopguide'
+    | '/om-oss'
     | '/sitemap.xml'
     | '/vardering'
     | '/analys/$analysisId'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/guide'
     | '/integritet'
     | '/kopguide'
+    | '/om-oss'
     | '/sitemap.xml'
     | '/vardering'
     | '/analys/$analysisId'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/guide'
     | '/integritet'
     | '/kopguide'
+    | '/om-oss'
     | '/sitemap.xml'
     | '/vardering'
     | '/analys_/$analysisId'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   GuideRoute: typeof GuideRoute
   IntegritetRoute: typeof IntegritetRoute
   KopguideRoute: typeof KopguideRoute
+  OmOssRoute: typeof OmOssRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VarderingRoute: typeof VarderingRoute
   AnalysAnalysisIdRoute: typeof AnalysAnalysisIdRoute
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/kopguide'
       fullPath: '/kopguide'
       preLoaderRoute: typeof KopguideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/om-oss': {
+      id: '/om-oss'
+      path: '/om-oss'
+      fullPath: '/om-oss'
+      preLoaderRoute: typeof OmOssRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -464,6 +484,7 @@ const rootRouteChildren: RootRouteChildren = {
   GuideRoute: GuideRoute,
   IntegritetRoute: IntegritetRoute,
   KopguideRoute: KopguideRoute,
+  OmOssRoute: OmOssRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VarderingRoute: VarderingRoute,
   AnalysAnalysisIdRoute: AnalysAnalysisIdRoute,

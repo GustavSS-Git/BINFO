@@ -15,6 +15,7 @@ export const STATISKA_SIDOR: readonly string[] = [
   "/bolanekalkyl",
   "/kopguide",
   "/exempel",
+  "/om-oss",
 ];
 
 function xmlEscape(s: string): string {

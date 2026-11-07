@@ -96,6 +96,12 @@ export function SiteFooter() {
         </div>
         <nav aria-label="Sidfot" className="flex flex-col gap-2.5 text-[15px]">
           <Link
+            to="/om-oss"
+            className="text-text-2 no-underline hover:text-primary hover:underline data-[status=active]:font-semibold data-[status=active]:text-primary"
+          >
+            Om oss
+          </Link>
+          <Link
             to="/integritet"
             className="text-text-2 no-underline hover:text-primary hover:underline"
           >
