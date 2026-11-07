@@ -51,9 +51,10 @@ describe("AnalysRapport — avgiftsprognos och priskedja", () => {
     expect(koll).not.toContain("Värderingen räknar med byggår");
   });
 
-  it("behåller exakt ett dolt element (värderingsleverantören), i rapporten och på Priskollen", () => {
+  it("döljer bara värderingsleverantören och (i rapporten) skuldraden", () => {
     const rapport = renderToStaticMarkup(<AnalysRapport analys={analysMedPrognos()} />);
-    expect((rapport.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(1);
+    // Report: provider line + the owner-hidden debt-share row (2026-11-03).
+    expect((rapport.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(2);
     const html = renderToStaticMarkup(
       <Prisrimlighet
         prisanalys={analysMedPrognos().prisanalys}

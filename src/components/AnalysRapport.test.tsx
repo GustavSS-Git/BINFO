@@ -349,12 +349,14 @@ describe("AnalysRapport — avsnitt 2: Priset", () => {
     expect(html).not.toContain("Rimligt prisspann");
   });
 
-  it("behåller byggårsnotisen, skuldraden och exakt ett dolt element", () => {
+  it("behåller byggårsnotisen, döljer skuldraden och har exakt två dolda element", () => {
     const html = rita(analysMedPrognos());
     expect(html).toContain('data-slot="pris-byggar"');
     expect(html).toContain("Värderingen räknar med byggår 1958 enligt årsredovisningen, inte 1962");
-    expect(html).toContain("Lägenhetens ungefärliga andel av föreningens lån");
-    expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(1);
+    // The debt-share row stays in the DOM but is owner-hidden (Lovable, 2026-11-03).
+    expect(html).toMatch(/<p class="hidden[^"]*">Lägenhetens ungefärliga andel av föreningens lån/);
+    // Valuation provider line + debt-share row; nothing else may be hidden.
+    expect((html.match(/<(p|div) class="hidden[^"]*">/g) ?? []).length).toBe(2);
   });
 
   it("'Så har vi räknat' är hopfälld och innehåller bara värderingsmodellen och spannet", () => {

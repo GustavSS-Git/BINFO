@@ -967,7 +967,8 @@ and consistent with the site.
 
 Owner-hidden elements are kept in the DOM with `hidden`: the valuation
 provider line (`AnalysRapport.tsx`, web only; the PDF still prints it), the
-Hus/Bostadsrätt toggle on `/kopguide`, and the "Dina senaste analyser" box
+apartment's debt-share row in the price section (`RapportPris.tsx`, web only,
+owner via Lovable 2026-11-03; the PDF still prints it), the Hus/Bostadsrätt toggle on `/kopguide`, and the "Dina senaste analyser" box
 (`VISA_SENASTE_ANALYSER = false`, not rendered at all). The old 90 % valuation
 range row is gone, replaced by the visible "Ungefärligt spann (±10 %)" line
 (consistency round). The drivers caveat went with the driver rows (2026-10-24).
