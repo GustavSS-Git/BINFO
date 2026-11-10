@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GILTIGA_EFFORT, STANDARD_EFFORT, valideraEffort } from "./effort";
+import { GILTIGA_EFFORT, STANDARD_EFFORT, valideraEffort } from "./effort.ts";
 
 /**
  * Real tests for the Edge Function's effort-reading logic (see effort.ts's
@@ -13,7 +13,7 @@ describe("valideraEffort", () => {
     expect(STANDARD_EFFORT).toBe("medium");
   });
 
-  it.each(GILTIGA_EFFORT)("accepterar det giltiga värdet %s och returnerar det oförändrat", (varde) => {
+  it.each(GILTIGA_EFFORT.map((varde) => [varde] as const))("accepterar det giltiga värdet %s och returnerar det oförändrat", (varde) => {
     expect(valideraEffort("ANTHROPIC_EFFORT_EXTRACTION", varde)).toBe(varde);
   });
 
