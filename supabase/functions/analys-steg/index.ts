@@ -278,6 +278,7 @@ interface RapportRad {
   startedAt: string | null;
   finishedAt: string | null;
   ersattAv: string | null;
+  proveniens: "api" | "batch" | "offline-session";
 }
 
 interface RapportKolumner {
