@@ -132,7 +132,7 @@ and re-invokes itself until the job is done (`src/server/steg.ts`):
    every number in the explanation.
 
 Each run has a per-analysis and a daily cost cap. A typical text report costs
-about 3 SEK and takes 1–3 minutes.
+about 6 SEK and takes 2–3 minutes.
 
 The result is stored per förening and year, independent of the buyer. On every
 read it is combined with the buyer's own flat to produce the final report
